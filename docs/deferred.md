@@ -1442,7 +1442,7 @@ decisions, not deferred work.
 | **R9** — JPEG 2000 decode/encode | SVS | Trigger-driven | parked at [#1](https://github.com/cornish/opentile-go/issues/1) | Same as R4 |
 | **R6** — 3DHistech TIFF support | (new) | Trigger-driven | parked at [#2](https://github.com/cornish/opentile-go/issues/2) | First 3DHistech TIFF in the wild |
 | **R15** — Sakura SVSlide support | (new) | Trigger-driven | parked at [#3](https://github.com/cornish/opentile-go/issues/3) | First SVSlide in the wild |
-| **R16** — Leica SCN support | (new) | Trigger-driven | mentioned as v0.8 candidate, not picked up | First SCN in the wild or owner request |
+| **R16** — Leica SCN support | (new) | **Fixtures available**; v0.11 candidate | mentioned as v0.8 candidate, fixtures landed 2026-05-01 | Owner sign-off to schedule v0.11 |
 | **`Level.TilePrefix() []byte`** | A.3 follow-on | YAGNI | v0.9 | First §B consumer asks for it |
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit |
 | **Fix `striped` → `stripped` terminology** | NDPI / shared internal | Process | called out 2026-05-01 | Owner sign-off on the breaking-API question (or merge with a future v1.0) |
@@ -1451,6 +1451,36 @@ decisions, not deferred work.
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
 fires sooner than expected.
+
+### Note on R16 — Leica SCN status as of v0.10 design
+
+Three openslide-testdata SCN samples landed in
+`sample_files/scn/` on 2026-05-01:
+
+- `Leica-1.scn` (278 MB) — single ROI brightfield; 2D smoke
+  fixture
+- `Leica-2.scn` (2.1 GB) — multi-ROI brightfield (mouse kidney
+  H&E); exercises `Tiler.Images()` like multi-image OME
+- `Leica-Fluorescence-1.scn` (21 MB) — **3-channel separated
+  fluorescence**, single ROI; 4-level pyramid per channel
+
+Probe of the fluorescence file (commit context: 2026-05-01) confirms
+**genuine separated multi-channel data**: IFDs 6-17 carry 3 channels
+× 4 pyramid levels each as `spp=1, photo=grayscale` planes. SCN
+XML in IFD 0's ImageDescription maps `(r, c) → ifd_index`. Not
+pre-merged RGB.
+
+**Updated R16 valuation:** the multi-channel fluorescence sample is
+the first real-fixture exercise of `Image.SizeC() > 1` — every
+existing fixture (cervix, Leica OME, Ventana BIF) reports `SizeC=1`.
+SCN-as-format-support gains value as **fixture coverage for v0.7's
+multi-dim C-axis API**, independent of whether the Leica SCN scanner
+line is still in active production (it isn't — last new SCN
+hardware was ~2015). v0.11 candidate.
+
+Implementation lift: similar pattern to OME — BigTIFF with vendor
+XML in ImageDescription, SubIFD pyramids. Reuses v0.6 SubIFD
+machinery and v0.7 multi-dim API. Estimated ~1 week.
 
 ### Note on the terminology fix
 
