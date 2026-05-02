@@ -38,14 +38,13 @@ var slideCandidates = []string{
 	"cervix_2x_jpeg.iris",
 }
 
-// resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/phillips-tiff,
-// dir/ome-tiff and returns the first existing absolute path. Used so
-// OPENTILE_TESTDIR can be set to the repo sample_files root and cover
-// every supported format in one run. The Philips subdir is
-// "phillips-tiff" (typo preserved from the original sample_files
-// layout).
+// resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
+// dir/ome-tiff, dir/bif, dir/ife, and dir/generic-tiff. Returns the
+// first existing absolute path. Used so OPENTILE_TESTDIR can be set
+// to the repo sample_files root and cover every supported format in
+// one run.
 func resolveSlide(dir, name string) (string, bool) {
-	for _, sub := range []string{"", "svs", "ndpi", "phillips-tiff", "ome-tiff", "ventana-bif", "ife"} {
+	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff"} {
 		p := filepath.Join(dir, sub, name)
 		if _, err := os.Stat(p); err == nil {
 			return p, true

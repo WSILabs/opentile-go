@@ -49,9 +49,9 @@ var benchFixtures = []struct {
 }{
 	{"svs", "CMU-1.svs"},
 	{"ndpi", "CMU-1.ndpi"},
-	{"phillips-tiff", "Philips-1.tiff"},
+	{"philips-tiff", "Philips-1.tiff"},
 	{"ome-tiff", "Leica-1.ome.tiff"},
-	{"ventana-bif", "Ventana-1.bif"},
+	{"bif", "Ventana-1.bif"},
 	{"ife", "cervix_2x_jpeg.iris"},
 }
 

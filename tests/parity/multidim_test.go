@@ -28,14 +28,14 @@ var slideCandidates2D = []struct {
 	{"ndpi", "CMU-1.ndpi"},
 	{"ndpi", "OS-2.ndpi"},
 	{"ndpi", "Hamamatsu-1.ndpi"},
-	{"phillips-tiff", "Philips-1.tiff"},
-	{"phillips-tiff", "Philips-2.tiff"},
-	{"phillips-tiff", "Philips-3.tiff"},
-	{"phillips-tiff", "Philips-4.tiff"},
+	{"philips-tiff", "Philips-1.tiff"},
+	{"philips-tiff", "Philips-2.tiff"},
+	{"philips-tiff", "Philips-3.tiff"},
+	{"philips-tiff", "Philips-4.tiff"},
 	{"ome-tiff", "Leica-1.ome.tiff"},
 	{"ome-tiff", "Leica-2.ome.tiff"},
-	{"ventana-bif", "Ventana-1.bif"},
-	{"ventana-bif", "OS-1.bif"},
+	{"bif", "Ventana-1.bif"},
+	{"bif", "OS-1.bif"},
 }
 
 // TestMultiDimCompat2D pins the v0.7 multi-dim API's backward-

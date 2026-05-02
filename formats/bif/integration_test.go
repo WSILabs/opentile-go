@@ -57,9 +57,9 @@ func TestBIFAccessors(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			slide := filepath.Join(dir, "ventana-bif", tc.filename)
+			slide := filepath.Join(dir, "bif", tc.filename)
 			if _, err := os.Stat(slide); err != nil {
-				t.Skipf("%s not present under OPENTILE_TESTDIR/ventana-bif/", tc.filename)
+				t.Skipf("%s not present under OPENTILE_TESTDIR/bif/", tc.filename)
 			}
 			tiler, err := opentile.OpenFile(slide)
 			if err != nil {

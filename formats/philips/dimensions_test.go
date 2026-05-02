@@ -100,7 +100,7 @@ func TestComputeCorrectedSizesMalformedXML(t *testing.T) {
 }
 
 // TestComputeCorrectedSizesPhilips1Real cross-checks against tifffile's
-// output for sample_files/phillips-tiff/Philips-1.tiff. Encoded inputs
+// output for sample_files/philips-tiff/Philips-1.tiff. Encoded inputs
 // are extracted from the real fixture so this test does not need the
 // fixture present at runtime — it validates the algorithm matches
 // upstream byte-for-byte on real DICOM-XML and real raw page-0 dims.

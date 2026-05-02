@@ -1446,6 +1446,7 @@ decisions, not deferred work.
 | **`Level.TilePrefix() []byte`** | A.3 follow-on | YAGNI | v0.9 | First §B consumer asks for it |
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit |
 | **Fix `striped` → `stripped` terminology** | NDPI / shared internal | Process | called out 2026-05-01 | Owner sign-off on the breaking-API question (or merge with a future v1.0) |
+| **Naming corrections** — `Format` constants + format-package naming | Public API | Process | called out 2026-05-01 | Same owner sign-off as the striped→stripped item; bundle as one v1.0 cleanup |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
@@ -1470,3 +1471,40 @@ inconsistently since v0.2 NDPI work. Two scoping options:
 
 Pick when: bundling with v1.0 if/when one is cut; or as a standalone
 v0.x.y if the owner wants the cleanup without a major bump.
+
+### Note on the naming corrections
+
+opentile-go's format identifiers and package paths use shorter forms
+than is ideal for distinguishing TIFF-dialect formats from non-TIFF
+descendants of the same vendor / project. Three corrections, called
+out 2026-05-01 (sample-dir renames already done; code-side
+corrections done in the same session for sample-dir paths;
+public-API name corrections deferred):
+
+- **`opentile.FormatPhilips = "philips"` → `"philips-tiff"`** — to
+  differentiate from any future Philips non-TIFF formats and align
+  with the (now corrected) sample-dir name `philips-tiff/` and our
+  docs/deferred.md format conventions. Breaking change to the
+  Format constant value; existing callers comparing against
+  `"philips"` would break.
+- **`opentile.FormatOME = "ome"` → `"ome-tiff"`** — OME has multiple
+  on-disk formats (OME-TIFF, OME-Zarr, OME-NGFF). The bare `"ome"`
+  identifier ambiguously claims the family. Breaking value change.
+- **Sample-directory naming finalized** (sample-dir renames done
+  2026-05-01; code-side updates done in the same commit as this
+  backlog entry): `phillips-tiff/` → `philips-tiff/` (typo fix);
+  `ventana-bif/` → `bif/` (drop the vendor prefix since BIF is
+  unambiguous). No public API impact (the dirs are gitignored
+  fixture paths, not exported strings).
+
+The first two items are public-API breaking and bundle with the
+striped → stripped cleanup at v1.0 (or earlier if owner sign-off
+green-lights an early breaking change before v1.0). The package
+directory paths (`formats/philips/`, `formats/ome/`) could also be
+renamed to `formats/philipstiff/` / `formats/ometiff/` for full
+consistency, but that's a deeper rename touching every importer of
+those packages. Defer the directory rename to whenever the
+constant rename happens.
+
+Pick when: same as the striped → stripped item — bundle as one
+v1.0 naming-cleanup batch.
