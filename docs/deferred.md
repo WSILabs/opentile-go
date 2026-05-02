@@ -1445,7 +1445,28 @@ decisions, not deferred work.
 | **R16** — Leica SCN support | (new) | Trigger-driven | mentioned as v0.8 candidate, not picked up | First SCN in the wild or owner request |
 | **`Level.TilePrefix() []byte`** | A.3 follow-on | YAGNI | v0.9 | First §B consumer asks for it |
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit |
+| **Fix `striped` → `stripped` terminology** | NDPI / shared internal | Process | called out 2026-05-01 | Owner sign-off on the breaking-API question (or merge with a future v1.0) |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
 fires sooner than expected.
+
+### Note on the terminology fix
+
+The TIFF spec (and libtiff source) uses **"strip"** — `StripOffsets`
+(tag 273), `StripByteCounts` (tag 279), `RowsPerStrip` (tag 278) —
+not "stripe." The opentile-go codebase has used "stripe/striped"
+inconsistently since v0.2 NDPI work. Two scoping options:
+
+- **(a) Full rename, breaking.** Public `formats/ndpi.StripeInfo`
+  → `StripInfo` and its public fields (`StripeW`, `StripeH`,
+  `StripedW`, `StripedH`, `StripeOffsets`, `StripeByteCounts`). File
+  names, internal types, comments, ~20 files. Cleanest. Breaks the
+  v0.3 API-stability invariant — would require a v1.0 bump or
+  explicit owner sign-off (we have no external users yet).
+- **(b) Internal-only.** File names (`striped.go` → `stripped.go`),
+  internal identifiers, comments. Public NDPI types stay; docstrings
+  flag the legacy spelling. Non-breaking.
+
+Pick when: bundling with v1.0 if/when one is cut; or as a standalone
+v0.x.y if the owner wants the cleanup without a major bump.
