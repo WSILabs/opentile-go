@@ -32,9 +32,9 @@ func (p PyramidLevelInfo) IsTiled() bool {
 	return p.TileWidth != 0 && p.TileLength != 0
 }
 
-// area returns the IFD's pixel area for sort ordering. int64 to
+// Area returns the IFD's pixel area for sort ordering. int64 to
 // avoid overflow on huge WSI baselines (~5 GiB pixels in BIF land).
-func (p PyramidLevelInfo) area() int64 {
+func (p PyramidLevelInfo) Area() int64 {
 	return int64(p.Width) * int64(p.Height)
 }
 
@@ -177,8 +177,8 @@ func ClassifyPyramid(infos []PyramidLevelInfo, cfg ClassifyPyramidConfig) (Class
 	// Sort by area, descending. Ties are unlikely in practice but
 	// stable-sorted by index for determinism.
 	sort.SliceStable(tiledValid, func(i, j int) bool {
-		if tiledValid[i].area() != tiledValid[j].area() {
-			return tiledValid[i].area() > tiledValid[j].area()
+		if tiledValid[i].Area() != tiledValid[j].Area() {
+			return tiledValid[i].Area() > tiledValid[j].Area()
 		}
 		return tiledValid[i].Index < tiledValid[j].Index
 	})
@@ -231,12 +231,12 @@ func ClassifyPyramid(infos []PyramidLevelInfo, cfg ClassifyPyramidConfig) (Class
 		return ClassifyPyramidResult{}, fmt.Errorf("%w: %d leftover tiled IFDs (max %d allowed as associated)",
 			ErrPyramidMultiplePyramid, len(leftoverTiled), cfg.MaxLeftoverTiled)
 	}
-	baselineArea := pyramid[0].area()
+	baselineArea := pyramid[0].Area()
 	for _, l := range leftoverTiled {
-		if float64(l.area())/float64(baselineArea) > cfg.LeftoverTiledMaxAreaRatio {
+		if float64(l.Area())/float64(baselineArea) > cfg.LeftoverTiledMaxAreaRatio {
 			return ClassifyPyramidResult{}, fmt.Errorf("%w: leftover tiled IFD %d is %.2f%% of baseline (max %.2f%%)",
 				ErrPyramidMultiplePyramid, l.Index,
-				100*float64(l.area())/float64(baselineArea),
+				100*float64(l.Area())/float64(baselineArea),
 				100*cfg.LeftoverTiledMaxAreaRatio)
 		}
 	}
