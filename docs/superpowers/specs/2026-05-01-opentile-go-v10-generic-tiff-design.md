@@ -160,12 +160,21 @@ classifier runs heuristics in order; first match wins:
 
 | Heuristic | Maps to `Kind()` |
 |---|---|
-| Striped (no TileWidth) + LZW + width > height + dims < ~2000×2000 | `"label"` |
-| Striped + JPEG + dims < ~5000×5000 | `"macro"` |
-| Single-strip + tiny (any dim < ~500) | `"thumbnail"` |
-| Tiled-but-not-pyramid + much smaller than baseline (area < 1% baseline) + medium dims | `"macro"` |
+| Stripped + **LZW** (compression 5) + dims < ~1500×1500 | `"label"` (LZW is the canonical SVS-style label compression) |
+| Stripped + JPEG + aspect ratio (max(W,H)/min(W,H)) ≥ 2.0 + larger dim ≥ 1000 | `"macro"` (very-wide JPEG = SVS-style overview) |
+| Stripped + JPEG + dims < ~1500×1500 (aspect roughly square) | `"thumbnail"` |
+| Tiled-but-not-pyramid + area < 1% baseline + medium dims | `"macro"` |
 | Tiled + tiny (area < 0.001 baseline) | `"thumbnail"` |
 | Anything else passing the photometric/compression filters from §4 | `"associated"` (Q5 fallback) |
+
+**Heuristic revision history:** initial spec (2026-05-01) had
+`width > height` as part of the "label" rule. T2 fixture probe
+(2026-05-02) found CMU-1.svs's label is 387×463 — **portrait, not
+landscape**. SVS labels are slide-orientation-dependent and aren't
+reliably one or the other; the strongest classification signals
+turn out to be **compression** (LZW = label) and **aspect-ratio
+extreme** (very-wide JPEG = macro). Heuristics rewritten
+accordingly.
 
 **`"associated"` is a new Kind value** added to opentile-go's
 existing taxonomy (`"label"` / `"overview"` / `"thumbnail"` /
