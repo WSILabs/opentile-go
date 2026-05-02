@@ -32,6 +32,7 @@ Run: /private/tmp/opentile-py/bin/python scripts/regen-generic-tiff.py
 import sys
 from pathlib import Path
 
+import numpy as np
 import tifffile
 
 # scripts/ is one level under the repo root; sample_files/ is a sibling.
@@ -87,19 +88,109 @@ def strip_svs(src: Path, dst: Path, label: str) -> None:
             )
 
 
+def synth_pyramid_jpeg() -> None:
+    """T3 smoke fixture: minimal 3-level tiled JPEG/RGB pyramid,
+    no associated images. Validator MUST accept (3 tiled levels at
+    consistent 2× downsample).
+    """
+    dst = ROOT / "synth-pyramid-jpeg.tiff"
+    rng = np.random.default_rng(0)
+    with tifffile.TiffWriter(dst) as tw:
+        for size in (1024, 512, 256):
+            img = rng.integers(0, 256, size=(size, size, 3), dtype=np.uint8)
+            tw.write(img, tile=(256, 256), compression="jpeg", photometric="rgb")
+    _summarize(dst, "synth-pyramid-jpeg (validator-accept smoke)")
+
+
+def synth_pyramid_with_label() -> None:
+    """T3 multi-strip-LZW exerciser: 3-level tiled JPEG pyramid +
+    a small multi-strip LZW label IFD. Validator accepts the
+    pyramid; classifier MUST identify the label IFD as
+    Kind()='label' per the LZW heuristic.
+    """
+    dst = ROOT / "synth-pyramid-with-label.tiff"
+    rng = np.random.default_rng(1)
+    with tifffile.TiffWriter(dst) as tw:
+        # Pyramid (3 tiled JPEG levels, 2× downsample)
+        for size in (512, 256, 128):
+            img = rng.integers(0, 256, size=(size, size, 3), dtype=np.uint8)
+            tw.write(img, tile=(128, 128), compression="jpeg", photometric="rgb")
+        # Multi-strip LZW label: 200×400 RGB at 8-row strips.
+        # 400/8 = 50 strips. Mimics SVS's multi-strip LZW label shape.
+        label = rng.integers(0, 256, size=(400, 200, 3), dtype=np.uint8)
+        tw.write(label, compression="lzw", photometric="rgb", rowsperstrip=8)
+    _summarize(dst, "synth-pyramid-with-label (multi-strip LZW associated)")
+
+
+def synth_bad_pyramid() -> None:
+    """T3 validator-reject path: 3 tiled IFDs whose dimensions
+    DON'T form a coherent pyramid. Validator MUST reject (the
+    middle IFD's scale ratio breaks the inter-level check).
+
+    Layout: 1024×1024, 600×500 (random shape), 256×256.
+      - L0→L1 ratio: 1024/600=1.71, 1024/500=2.05 → inter-axis 17%
+      - That alone fails the ±2% inter-axis check → reject.
+    """
+    dst = ROOT / "synth-bad-pyramid.tiff"
+    rng = np.random.default_rng(2)
+    sizes = [(1024, 1024), (500, 600), (256, 256)]  # (h, w)
+    with tifffile.TiffWriter(dst) as tw:
+        for h, w in sizes:
+            img = rng.integers(0, 256, size=(h, w, 3), dtype=np.uint8)
+            tw.write(img, tile=(128, 128), compression="jpeg", photometric="rgb")
+    _summarize(dst, "synth-bad-pyramid (validator-reject: inter-axis tolerance)")
+
+
+def synth_stripped_only() -> None:
+    """T3 validator-reject path: 2 stripped IFDs, no tiled. Validator
+    MUST reject (zero tiled candidates < 3 minimum).
+    """
+    dst = ROOT / "synth-stripped-only.tiff"
+    rng = np.random.default_rng(3)
+    with tifffile.TiffWriter(dst) as tw:
+        for h, w in ((600, 800), (300, 400)):
+            img = rng.integers(0, 256, size=(h, w, 3), dtype=np.uint8)
+            tw.write(img, compression="jpeg", photometric="rgb")
+    _summarize(dst, "synth-stripped-only (validator-reject: 0 tiled IFDs)")
+
+
+def _summarize(path: Path, label: str) -> None:
+    """Print a compact per-IFD summary so the regen output is readable."""
+    print(f"wrote {path} ({path.stat().st_size:,} bytes)  — {label}")
+    with tifffile.TiffFile(path) as tf:
+        for i, p in enumerate(tf.pages):
+            tw = p.tags.get("TileWidth")
+            shape = "tiled" if tw else "stripped"
+            print(
+                f"  IFD {i}: {p.imagewidth}×{p.imagelength} "
+                f"comp={p.compression!s:>14}  {shape}"
+            )
+
+
 def main() -> int:
-    # Multi-level pyramid + associated (validator accept path):
+    ROOT.mkdir(parents=True, exist_ok=True)
+
+    # T2 — stripped-SVS reference fixtures:
     strip_svs(
         SAMPLE_FILES / "svs" / "CMU-1.svs",
         ROOT / "CMU-1.stripped.tiff",
         "stripped CMU-1.svs",
     )
-    # Single-level (validator reject path — only 1 tiled IFD < 3 minimum):
     strip_svs(
         SAMPLE_FILES / "svs" / "CMU-1-Small-Region.svs",
         ROOT / "CMU-1-Small-Region.stripped.tiff",
         "stripped CMU-1-Small-Region.svs",
     )
+
+    # T3 — synthetic fixtures:
+    print()
+    synth_pyramid_jpeg()
+    print()
+    synth_pyramid_with_label()
+    print()
+    synth_bad_pyramid()
+    print()
+    synth_stripped_only()
     return 0
 
 
