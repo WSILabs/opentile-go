@@ -16,6 +16,7 @@ import (
 
 	opentile "github.com/cornish/opentile-go"
 	"github.com/cornish/opentile-go/formats/bif"
+	"github.com/cornish/opentile-go/formats/generic"
 	"github.com/cornish/opentile-go/formats/ife"
 	"github.com/cornish/opentile-go/formats/ndpi"
 	"github.com/cornish/opentile-go/formats/ome"
@@ -35,6 +36,10 @@ func Register() {
 		opentile.Register(ome.New())
 		opentile.Register(bif.New())
 		opentile.Register(ife.New())
+		// Generic TIFF must register LAST: it's the catch-all
+		// for tiled pyramidal TIFFs that no vendor format claims.
+		// Registering earlier would let it steal vendor-shaped TIFFs.
+		opentile.Register(generic.New())
 	})
 }
 
