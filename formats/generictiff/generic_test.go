@@ -1,4 +1,4 @@
-package generic
+package generictiff
 
 import (
 	"os"
@@ -10,8 +10,8 @@ import (
 )
 
 func TestFactoryFormat(t *testing.T) {
-	if got := New().Format(); got != opentile.FormatGeneric {
-		t.Errorf("Format() = %v, want %v", got, opentile.FormatGeneric)
+	if got := New().Format(); got != opentile.FormatGenericTIFF {
+		t.Errorf("Format() = %v, want %v", got, opentile.FormatGenericTIFF)
 	}
 }
 
@@ -98,8 +98,8 @@ func TestFactoryOpen_CMU1(t *testing.T) {
 	}
 	defer tlr.Close()
 
-	if got := tlr.Format(); got != opentile.FormatGeneric {
-		t.Errorf("Format() = %v, want %v", got, opentile.FormatGeneric)
+	if got := tlr.Format(); got != opentile.FormatGenericTIFF {
+		t.Errorf("Format() = %v, want %v", got, opentile.FormatGenericTIFF)
 	}
 	if got := len(tlr.Levels()); got != 9 {
 		t.Errorf("len(Levels()) = %d, want 9", got)

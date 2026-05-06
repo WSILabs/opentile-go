@@ -1,4 +1,4 @@
-package generic
+package generictiff
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ type Factory struct{ opentile.RawUnsupported }
 func New() *Factory { return &Factory{} }
 
 // Format reports the format identifier.
-func (f *Factory) Format() opentile.Format { return opentile.FormatGeneric }
+func (f *Factory) Format() opentile.Format { return opentile.FormatGenericTIFF }
 
 // Supports reports whether file looks like a generic pyramidal TIFF
 // per the v0.10 spec §4 algorithm: ≥3 tiled IFDs forming a coherent

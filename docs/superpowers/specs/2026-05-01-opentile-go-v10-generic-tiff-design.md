@@ -19,7 +19,7 @@ detectors reject.
 
 ## 1. One-paragraph scope
 
-A new `formats/generic/` package implementing a "**uint8 RGB /
+A new `formats/generictiff/` package implementing a "**uint8 RGB /
 YCbCr / grayscale tiled pyramidal TIFF reader**." Detection runs
 LAST in the dispatch order (catch-all); accepts any classic or
 BigTIFF whose top-level IFDs include ≥3 tiled pages forming a
@@ -29,7 +29,7 @@ stripped** (single-strip and multi-strip handled via existing
 `internal/tifflzw` and `internal/oneframe` reusable code paths).
 Heuristic-based associated-image classification with
 `"associated"` fallback Kind value. Full metadata pattern via
-`generic.MetadataOf(tiler)`. JPEGTables splice reuses v0.9's
+`generictiff.MetadataOf(tiler)`. JPEGTables splice reuses v0.9's
 in-place `internal/jpeg.InsertPrefixInPlace`.
 
 ## 2. Universal task contract: "confirm upstream first"
@@ -194,7 +194,7 @@ classify the image; bytes are still readable."
 
 **Out of scope for v0.10:**
 - Multi-strip JPEG with `PlanarConfiguration=2` (OME-specific
-  quirk — `formats/ome/` handles it; `formats/generic/` rejects)
+  quirk — `formats/ome/` handles it; `formats/generictiff/` rejects)
 - ICC profile decoding for associated images (ICC bytes from the
   pyramid IFD are exposed via `Tiler.ICCProfile()`; per-image ICC
   is rare)
@@ -216,7 +216,7 @@ Per Q8 (full pattern):
   - Magnification: not in standard TIFF; left as 0
 - **`Tiler.ICCProfile()`** reads tag 34675 (ICCProfile) verbatim
   from the level-0 IFD.
-- **`generic.MetadataOf(tiler) (*generic.Metadata, bool)`**
+- **`generictiff.MetadataOf(tiler) (*generic.Metadata, bool)`**
   exposes IFE-style format-specific extras:
   - `MicronsPerPixel` derived from `XResolution` (282) +
     `ResolutionUnit` (296). ResolutionUnit values: 1=none (no
@@ -282,7 +282,7 @@ synthetic set.
 **Hand-rolled byte buffers in Go test code:**
 For tight unit tests where a full TIFF is overkill — e.g.,
 testing the inter-axis ratio check directly with synthetic IFD
-metadata. ~50-100 LoC in `formats/generic/validator_test.go`.
+metadata. ~50-100 LoC in `formats/generictiff/validator_test.go`.
 
 ---
 
@@ -297,7 +297,7 @@ These are scoped out for v0.10. Re-triage with §11 backlog post-ship:
 - **Pluggable associated-image classifier** (Q6) — `WithAssociatedClassifier`
   Option lands when a consumer needs vendor-aware overrides.
 - **Multi-strip JPEG with `PlanarConfiguration=2`** for associated
-  images — OME-specific quirk; `formats/generic/` rejects in v0.10.
+  images — OME-specific quirk; `formats/generictiff/` rejects in v0.10.
 - **Tiled associated images** — covered by the heuristics if
   size/ratio matches, but `Kind()` may default to `"associated"`
   rather than a specific kind.
@@ -311,7 +311,7 @@ during T11, and consolidated into §11 for post-v0.10 re-triage.
 
 | Date | § | Decision | Owner |
 |------|---|----------|-------|
-| 2026-05-01 | 1 | Scope: `formats/generic/`, catch-all, tiled pyramidal TIFF only | Toby |
+| 2026-05-01 | 1 | Scope: `formats/generictiff/`, catch-all, tiled pyramidal TIFF only | Toby |
 | 2026-05-01 | 4 Q1 | Scale tolerance: ±2% inter-axis, ±5% inter-level | Toby |
 | 2026-05-01 | 4 Q2 | Minimum pyramid: ≥3 levels | Toby |
 | 2026-05-01 | 4 Q3 | Tile size consistency: preferred, not required | Toby |
@@ -319,6 +319,6 @@ during T11, and consolidated into §11 for post-v0.10 re-triage.
 | 2026-05-01 | 6 Q5 | New `"associated"` Kind value as fallback | Toby |
 | 2026-05-01 | 6 Q6 | Deterministic heuristics; no override Option | Toby |
 | 2026-05-01 | 4 Q7 | Multi-pyramid generic TIFFs rejected | Toby |
-| 2026-05-01 | 7 Q8 | Full metadata pattern: `generic.Metadata` + `MetadataOf` | Toby |
+| 2026-05-01 | 7 Q8 | Full metadata pattern: `generictiff.Metadata` + `MetadataOf` | Toby |
 | 2026-05-01 | 8 Q9 | Hybrid fixture strategy: tifffile (synth) + vips (real-world) + Go hand-rolled (unit) | Toby |
 | 2026-05-01 | 6 | Multi-strip allowed for associated images (Tier 1+2) | Toby |

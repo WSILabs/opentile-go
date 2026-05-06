@@ -4,7 +4,7 @@
 > v0.7/v0.8/v0.9 closeout precedent. Each task ends with a commit;
 > batch boundaries are controller checkpoints.
 
-**Goal:** Land `formats/generic/` — a catch-all reader for tiled
+**Goal:** Land `formats/generictiff/` — a catch-all reader for tiled
 pyramidal TIFF without vendor metadata. Closes the gap where
 opentile-go would error on a generic tiled WSI TIFF that no vendor
 factory claims.
@@ -72,7 +72,7 @@ assumption against real bytes. Each gate runs against CMU-1.tiff
 (and the stripped-SVS fixture once T2 lands).
 
 - [ ] **T1 — Pyramid validator gate.** Probe under
-  `formats/generic/internal/gates/` (build tag `gates`). For
+  `formats/generictiff/internal/gates/` (build tag `gates`). For
   CMU-1.tiff: parse all IFDs; classify by tiled-or-not; sort
   tiled IFDs by area; compute inter-axis + inter-level scale
   ratios; verify all 9 IFDs satisfy ±2% / ±5% tolerances; record
@@ -106,7 +106,7 @@ heuristic-classifier expectations are reasonable, green-light Batch B.
 ## Batch B — Validator + classifier helpers (2 tasks)
 
 **Goal:** the pyramid validation + associated-image classifier as
-pure helpers in `internal/tiff` (or `formats/generic/`), with
+pure helpers in `internal/tiff` (or `formats/generictiff/`), with
 unit tests against hand-rolled byte buffers. No format-package
 plumbing yet.
 
@@ -121,7 +121,7 @@ plumbing yet.
   scaffolds — exercise reject paths exhaustively, accept path
   against a synthetic 3-level pyramid.
 
-- [ ] **T5 — `formats/generic/classifier.go` heuristic classifier.**
+- [ ] **T5 — `formats/generictiff/classifier.go` heuristic classifier.**
   Takes a leftover IFD + the pyramid baseline IFD; returns one of
   `"label"` / `"macro"` / `"thumbnail"` / `"associated"` per the §6
   heuristic table. Unit tests (`classifier_test.go`) cover each
@@ -132,20 +132,20 @@ End-of-batch checkpoint: `make test` green; both helpers have
 
 ---
 
-## Batch C — `formats/generic/` reader (4 tasks)
+## Batch C — `formats/generictiff/` reader (4 tasks)
 
 **Goal:** the generic format package itself. Mirror SVS / OME tiled
 shape; reuse v0.9's splice machinery and v0.5/v0.6's strip-reading
 machinery for associated images.
 
-- [ ] **T6 — `formats/generic/generic.go` Factory + Detection.**
+- [ ] **T6 — `formats/generictiff/generic.go` Factory + Detection.**
   `Factory.Supports(*tiff.File)` calls T4's `ClassifyPyramid`; if
   the result satisfies all validation, returns true. Else false.
   Detection runs LAST in `formats/all/` registration order.
   Unit-tested against the synthetic-fixture set (accept path on
   good pyramids; reject path on bad-pyramid + stripped-only).
 
-- [ ] **T7 — `formats/generic/tiled.go` Level impl.** Mirror SVS's
+- [ ] **T7 — `formats/generictiff/tiled.go` Level impl.** Mirror SVS's
   `tiledImage`. Cached `offsets`, `counts`, `jpegTables`,
   `splicePrefix`, `maxTileSize`. Tile() does read + splice (no
   APP14 — generic isn't Aperio); TileInto() uses
@@ -155,7 +155,7 @@ machinery for associated images.
   output should be identical across both backings; tile bytes
   should be valid standalone JPEGs).
 
-- [ ] **T8 — `formats/generic/associated.go` AssociatedImage impl.**
+- [ ] **T8 — `formats/generictiff/associated.go` AssociatedImage impl.**
   Per §6 reader-path table: dispatch on shape (single-strip /
   multi-strip uncompressed / multi-strip LZW / multi-strip JPEG /
   tiled). Reuse `internal/tifflzw` for multi-strip LZW
@@ -164,13 +164,13 @@ machinery for associated images.
   tested against the stripped-SVS fixture (validates against
   real-world SVS-derived associated shapes).
 
-- [ ] **T9 — `formats/generic/tiler.go` Tiler.** Wires T7's Level
+- [ ] **T9 — `formats/generictiff/tiler.go` Tiler.** Wires T7's Level
   + T8's AssociatedImage + T5's classifier. Implements `Tiler`
-  interface: `Format() == FormatGeneric`; `Levels()` from the
+  interface: `Format() == FormatGenericTIFF`; `Levels()` from the
   pyramid; `Associated()` from the classified leftovers;
   `Metadata()` populated from standard TIFF tags (§7); `ICCProfile()`
   reads tag 34675 from the level-0 IFD; `WarmLevel(i)` via the
-  v0.9 pattern. New `opentile.FormatGeneric` constant + new
+  v0.9 pattern. New `opentile.FormatGenericTIFF` constant + new
   `"associated"` Kind value (Q5) in `image.go`'s
   `AssociatedImage.Kind()` docstring.
 
@@ -201,7 +201,7 @@ geometry; commit sample-tile SHA fixtures.
   `ife_geometry_test.go`): for CMU-1.tiff, pin the 9 levels'
   dimensions, tile sizes, grids, compression. For the stripped-
   SVS, pin the pyramid levels + the associated-image kinds and
-  byte counts. Also pin `Tiler.Format()` returns `FormatGeneric`.
+  byte counts. Also pin `Tiler.Format()` returns `FormatGenericTIFF`.
   Cross-format `TestOpenFileBackingsByteIdentical` (v0.9) extended
   to cover the new fixtures.
 
@@ -228,8 +228,8 @@ regressions on existing fixtures.
   - §11 consolidated backlog: extend with the L26-L29 entries.
   - §8d (new) v0.10 retirement audit. Mirror v0.9's §8c shape.
 
-- [ ] **T14 — `docs/formats/generic.md` (new) + README updates.**
-  - New `docs/formats/generic.md` per the format-doc template
+- [ ] **T14 — `docs/formats/generictiff.md` (new) + README updates.**
+  - New `docs/formats/generictiff.md` per the format-doc template
     (mirrors `docs/formats/bif.md`, `ife.md` shape).
   - README: update the Supported-formats table with a Generic TIFF
     row; update the Detection paragraph to mention catch-all
@@ -238,8 +238,8 @@ regressions on existing fixtures.
     value entries.
 
 - [ ] **T15 — `CHANGELOG.md [0.10.0]` + `CLAUDE.md` milestone bump.**
-  - CHANGELOG: new `[0.10.0]` heading. Added: `formats/generic/`,
-    `opentile.FormatGeneric` constant, `"associated"` Kind value,
+  - CHANGELOG: new `[0.10.0]` heading. Added: `formats/generictiff/`,
+    `opentile.FormatGenericTIFF` constant, `"associated"` Kind value,
     standard-tag `Tiler.Metadata()` population, ICC profile
     surfacing. Changed: `Tiler.Associated()` callers must handle
     the new `"associated"` Kind value (additive; backward-compat-safe).

@@ -1,13 +1,11 @@
-// Package generic implements opentile-go format support for generic
-// tiled pyramidal TIFF — the catch-all reader for tiled WSI TIFFs
-// without vendor metadata. Registered last in the dispatch order;
-// activates on any TIFF that no vendor factory claims.
+// Package generictiff implements opentile-go format support for
+// generic tiled pyramidal TIFF — the catch-all reader for tiled
+// WSI TIFFs without vendor metadata. Registered last in the
+// dispatch order; activates on any TIFF that no vendor factory
+// claims.
 //
 // Spec: docs/superpowers/specs/2026-05-01-opentile-go-v10-generic-tiff-design.md.
-//
-// v0.10 (current): pyramid validator + associated-image classifier.
-// Tiler / Level wiring (T6+) is in flight on feat/v0.10.
-package generic
+package generictiff
 
 import (
 	"github.com/cornish/opentile-go/internal/tiff"

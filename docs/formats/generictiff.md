@@ -32,11 +32,11 @@ Both fixtures live under `sample_files/generic-tiff/`. The first exercises the p
 
 | Capability | Status | Notes |
 |---|---|---|
-| Pyramid detection + validation | ✅ | `internal/tiff.ClassifyPyramid` with sealed thresholds; covered by `formats/generic/classifier_test.go` against synthetic + real fixtures |
+| Pyramid detection + validation | ✅ | `internal/tiff.ClassifyPyramid` with sealed thresholds; covered by `formats/generictiff/classifier_test.go` against synthetic + real fixtures |
 | Tiled JPEG / JP2K / LZW / Deflate / None pyramid levels | ✅ | `tiledImage` Level passes through verbatim; JPEG with shared `JPEGTables` uses the v0.9 in-place splice template (zero-alloc TileInto) |
 | Multi-strip associated images | ✅ | Single-strip passthrough; multi-strip uncompressed concat; multi-strip JPEG concat (libtiff RST-marker layout); multi-strip LZW decode + re-encode (lifted from `formats/svs/lzwlabel.go` pattern) |
 | Heuristic associated-image classifier | ✅ | LZW = label, wide-aspect JPEG = macro, smaller-square JPEG = thumbnail; fallback `KindAssociated` ("associated") |
-| Format-specific metadata via `generic.MetadataOf` | ✅ | `MicronsPerPixel` (from XResolution + ResolutionUnit), `ImageDescription` verbatim |
+| Format-specific metadata via `generictiff.MetadataOf` | ✅ | `MicronsPerPixel` (from XResolution + ResolutionUnit), `ImageDescription` verbatim |
 | Cross-format Metadata via `Tiler.Metadata()` | ✅ | `Make` (271) → ScannerManufacturer; `Model` (272) → ScannerModel; `Software` (305) → ScannerSoftware (delimiter-split); `DateTime` (306) → AcquisitionDateTime |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` returns level-0 IFD's tag 34675 verbatim (nil if absent) |
 | `WarmLevel(i)` page-cache pre-warm | ✅ | Standard v0.9 pattern via the `tiledImage.warm()` helper |
@@ -65,7 +65,7 @@ Generic TIFF has no upstream Python opentile counterpart, so v0.7's tifffile + o
 
 2. **Geometry pinning + cross-backing byte parity** (`tests/parity/generic_geometry_test.go`) — both fixtures, no build tag, runs in `make test`. Pins per-level Size / TileSize / Grid / Compression, the L0 (0,0) JPEG SOI marker, per-associated-image kind / size / compression / byte count, and confirms tile bytes are byte-identical across mmap (default) and pread backings.
 
-3. **Unit tests** (`formats/generic/*_test.go`) — synthetic + real-fixture coverage on the validator (`classify_pyramid_test.go`), the heuristic classifier (`classifier_test.go`), Factory + Detection (`generic_test.go`), tiledImage Level (`tiled_test.go`), and associatedImage AssociatedImage (`associated_test.go`).
+3. **Unit tests** (`formats/generictiff/*_test.go`) — synthetic + real-fixture coverage on the validator (`classify_pyramid_test.go`), the heuristic classifier (`classifier_test.go`), Factory + Detection (`generic_test.go`), tiledImage Level (`tiled_test.go`), and associatedImage AssociatedImage (`associated_test.go`).
 
 The pinned `ByteCount` on each associated image in the geometry test (143,874 / 368,759 / 87,345) is the regression gate for the multi-strip JPEG concat and multi-strip LZW re-encode reader paths — a drift here indicates the relevant T8 logic changed behavior.
 
@@ -80,18 +80,18 @@ Upstream Python opentile doesn't have a generic-TIFF reader, so every v0.10 beha
 
 ## Implementation references
 
-- Our package: `formats/generic/`
-- Public API: `generic.New() opentile.FormatFactory` + the existing `Tiler` / `Image` / `Level` / `AssociatedImage` interfaces.
-- Our metadata accessor: `generic.MetadataOf(opentile.Tiler) (*Metadata, bool)` — exposes `MicronsPerPixel` and `ImageDescription` plus the embedded cross-format `opentile.Metadata`.
+- Our package: `formats/generictiff/`
+- Public API: `generictiff.New() opentile.FormatFactory` + the existing `Tiler` / `Image` / `Level` / `AssociatedImage` interfaces.
+- Our metadata accessor: `generictiff.MetadataOf(opentile.Tiler) (*Metadata, bool)` — exposes `MicronsPerPixel` and `ImageDescription` plus the embedded cross-format `opentile.Metadata`.
 - Pyramid validator: `internal/tiff/classify_pyramid.go` — `ClassifyPyramid(infos, cfg)` value-in / value-out helper. Reusable by other format readers if needed.
-- Heuristic classifier: `formats/generic/classifier.go` — `ClassifyAssociated(ifd, baseline)`. Already exported so a future v0.10+ Option (L29) can substitute a consumer-supplied classifier.
+- Heuristic classifier: `formats/generictiff/classifier.go` — `ClassifyAssociated(ifd, baseline)`. Already exported so a future v0.10+ Option (L29) can substitute a consumer-supplied classifier.
 - Fixture generator: `scripts/regen-generic-tiff.py` — produces `CMU-1.stripped.tiff` from the SVS + 4 synthetic test fixtures (synth-pyramid-jpeg, synth-pyramid-with-label, synth-bad-pyramid, synth-stripped-only). Re-run when the validator thresholds change.
 - v0.10 generic-TIFF design: [`docs/superpowers/specs/2026-05-01-opentile-go-v10-generic-tiff-design.md`](../superpowers/specs/2026-05-01-opentile-go-v10-generic-tiff-design.md).
 - v0.10 generic-TIFF plan: [`docs/superpowers/plans/2026-05-01-opentile-go-v10-generic-tiff.md`](../superpowers/plans/2026-05-01-opentile-go-v10-generic-tiff.md).
 
 ## Known issues + history
 
-- **Heuristic was originally aspect-ratio-based for label**; revised at T2 after probing CMU-1.stripped.tiff and discovering its label is 387×463 (PORTRAIT, taller than wide). The dominant signal for label is now LZW compression alone, not aspect ratio. See `formats/generic/classifier.go` source comments.
+- **Heuristic was originally aspect-ratio-based for label**; revised at T2 after probing CMU-1.stripped.tiff and discovering its label is 387×463 (PORTRAIT, taller than wide). The dominant signal for label is now LZW compression alone, not aspect ratio. See `formats/generictiff/classifier.go` source comments.
 - **Multi-strip JPEG was originally marked unsupported** (T8 initial draft). Probing CMU-1.stripped.tiff revealed the thumbnail (46 strips) and macro (27 strips) are multi-strip JPEG, and that libtiff's default layout (a single JPEG split at restart-marker boundaries) reproduces the original JPEG via simple concat. Verified empirically against the fixture: 46 strips concatenate to a valid JPEG (SOI...EOI, 143,874 bytes). The PlanarConfiguration=2 case (each strip is its own JPEG) remains excluded by spec — OME-specific quirk.
 - **Two Grundium fixtures rejected** (scan_619 single-level, scan_620 mixed-ratio); both legitimate WSI outputs the v0.10 sealed thresholds reject. Diagnosis + v0.11 resolution paths in [`docs/deferred.md`](../deferred.md) §11 "Note on Grundium TIFFs".
 

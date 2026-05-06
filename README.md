@@ -30,7 +30,7 @@ tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 | **OME-TIFF** | `.ome.tiff` | tiled (SubIFD) + OneFrame | macro, label, thumbnail | JPEG (uint8 RGB only) | byte-parity vs. Python opentile + tifffile | [docs/formats/ome.md](./docs/formats/ome.md) |
 | **Ventana BIF** | `.bif` | tiled, serpentine remap, with overlap metadata\* + ScanWhitePoint blank-tile fill | overview, probability\*, thumbnail | JPEG | tifffile (DP 200) + sampled-tile SHAs (both fixtures) | [docs/formats/bif.md](./docs/formats/bif.md) |
 | **Iris IFE\*** | `.iris` | tiled (256×256, native-first inversion) with sparse-tile sentinel | label, overview, thumbnail, macro, map, probability + free-form titles + ICC profile + free-form attribute map | JPEG, AVIF (passthrough), Iris-proprietary (passthrough) | sampled-tile SHAs + synthetic-writer + per-fixture geometry pin | [docs/formats/ife.md](./docs/formats/ife.md) |
-| **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥3 levels, geometric scale chain) | classifier-assigned: label, macro, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generic.md](./docs/formats/generic.md) |
+| **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥3 levels, geometric scale chain) | classifier-assigned: label, macro, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generictiff.md](./docs/formats/generictiff.md) |
 
 \* Marks Go-side extensions beyond upstream Python opentile; see [Deviations](#deviations-from-upstream-python-opentile) below.
 

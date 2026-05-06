@@ -31,11 +31,11 @@ any structurally valid pyramid TIFF.
 
 ### Added
 
-- **`formats/generic` package** — Factory + Detection + Tiler +
+- **`formats/generictiff` package** — Factory + Detection + Tiler +
   Level + AssociatedImage. Registered LAST in the dispatch order
   so vendor format detectors (SVS, NDPI, Philips, OME, BIF) get
   first crack at any TIFF.
-- **`opentile.FormatGeneric = "generic-tiff"`** — new Format
+- **`opentile.FormatGenericTIFF = "generic-tiff"`** — new Format
   constant returned by the generic Tiler.
 - **`opentile.CompressionDeflate`** — new Compression enum value
   for the Deflate (8) / Adobe Deflate (32946) compression types
@@ -48,10 +48,10 @@ any structurally valid pyramid TIFF.
 - **`internal/tiff.PyramidLevelInfo`** + **`PyramidLevelInfoFromPage`** —
   the small subset of TIFF tags `ClassifyPyramid` needs from each
   IFD, plus a projection helper from `*tiff.Page`.
-- **`generic.ClassifyAssociated`** — heuristic kind classifier for
+- **`generictiff.ClassifyAssociated`** — heuristic kind classifier for
   non-pyramid IFDs. LZW = label, wide-aspect JPEG = macro, smaller-
   square JPEG = thumbnail; fallback `KindAssociated`.
-- **`generic.Metadata`** + **`generic.MetadataOf(opentile.Tiler)`** —
+- **`generictiff.Metadata`** + **`generictiff.MetadataOf(opentile.Tiler)`** —
   format-specific metadata via the established pattern (mirrors
   `svs.MetadataOf` / `bif.MetadataOf`). `MicronsPerPixel` derived
   from `XResolution` (282) + `ResolutionUnit` (296);
@@ -71,7 +71,7 @@ any structurally valid pyramid TIFF.
   `Make` (271) → ScannerManufacturer; `Model` (272) → ScannerModel;
   `Software` (305) → ScannerSoftware (semicolon/newline-split);
   `DateTime` (306) → AcquisitionDateTime ("YYYY:MM:DD HH:MM:SS").
-- **`docs/formats/generic.md`** — new format-doc page mirroring
+- **`docs/formats/generictiff.md`** — new format-doc page mirroring
   the bif.md / ife.md template.
 - **`scripts/regen-generic-tiff.py`** — Python tifffile-based
   generator producing `CMU-1.stripped.tiff` (multi-level stripped-
@@ -109,7 +109,7 @@ Two new v0.10 entries in `docs/deferred.md §1a`:
   pinning + cross-backing byte parity (mmap default vs pread).
   Mirrors the existing `bif_geometry_test.go` / `ife_geometry_
   test.go` pattern.
-- `formats/generic/*_test.go` — unit tests for the validator,
+- `formats/generictiff/*_test.go` — unit tests for the validator,
   classifier, factory, tiledImage Level, associatedImage
   AssociatedImage, and tiler. Real-fixture coverage on
   `CMU-1.tiff` + `CMU-1.stripped.tiff` (T2-generated derivative
@@ -139,7 +139,7 @@ pyramid chains); both fixtures parked under
 - v0.10 retired no §2 L items — the milestone adds reader
   coverage rather than closing deferred work.
 - Public API remains stable from v0.3: three new exported names
-  (`opentile.FormatGeneric`, `opentile.CompressionDeflate`, the
+  (`opentile.FormatGenericTIFF`, `opentile.CompressionDeflate`, the
   `generic` package itself) and one new Kind value
   (`"associated"`). cgo footprint unchanged at
   `internal/jpegturbo/`.

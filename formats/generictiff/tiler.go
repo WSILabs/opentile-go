@@ -1,4 +1,4 @@
-package generic
+package generictiff
 
 import (
 	"strings"
@@ -83,7 +83,7 @@ type tiler struct {
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatGeneric }
+func (t *tiler) Format() opentile.Format { return opentile.FormatGenericTIFF }
 func (t *tiler) Images() []opentile.Image {
 	return []opentile.Image{opentile.NewSingleImage(t.levels)}
 }

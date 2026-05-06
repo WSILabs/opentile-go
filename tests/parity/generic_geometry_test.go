@@ -8,7 +8,7 @@ import (
 
 	opentile "github.com/cornish/opentile-go"
 	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/formats/generic"
+	"github.com/cornish/opentile-go/formats/generictiff"
 )
 
 // genericLevelExpect captures one Level's expected geometry on a
@@ -79,15 +79,15 @@ var genericFixtures = []genericFixture{
 			// byte count is the libtiff-default RST-marker layout's
 			// concatenated length, equal to the original SVS thumbnail
 			// JPEG (143,874 bytes).
-			{Kind: generic.KindThumbnail, W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
+			{Kind: generictiff.KindThumbnail, W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
 			// label: multi-strip LZW → decode-each + re-encode-as-single
 			// LZW (T8). Byte count varies with the LZW writer's coding;
 			// our internal/tifflzw writer produces 368,759 bytes.
 			// A drift here would indicate the LZW writer's behavior
 			// changed and parity needs re-checking.
-			{Kind: generic.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
 			// macro: 27-strip JPEG → concat-strip path.
-			{Kind: generic.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
+			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
 		},
 		tileMagic: []byte{0xFF, 0xD8},
 	},
@@ -117,8 +117,8 @@ func TestGenericGeometry(t *testing.T) {
 			}
 			defer tiler.Close()
 
-			if got := tiler.Format(); got != opentile.FormatGeneric {
-				t.Errorf("Format = %v, want %v", got, opentile.FormatGeneric)
+			if got := tiler.Format(); got != opentile.FormatGenericTIFF {
+				t.Errorf("Format = %v, want %v", got, opentile.FormatGenericTIFF)
 			}
 			levels := tiler.Levels()
 			if len(levels) != len(fx.levels) {

@@ -310,7 +310,7 @@ README.md and per-format docs link here.
   factory list is enumerated vendor formats (Aperio SVS, Hamamatsu
   NDPI, Philips iSyntax, OME-TIFF, 3DHistech). Files outside that
   list raise `NotSupportedTilerError`.
-- **opentile-go:** adds `formats/generic` as a catch-all reader
+- **opentile-go:** adds `formats/generictiff` as a catch-all reader
   registered last in the dispatch order. Activates on any TIFF
   whose IFD layout passes the v0.10 pyramid validator
   (`internal/tiff.ClassifyPyramid`): ≥3 tiled IFDs forming a
@@ -329,7 +329,7 @@ README.md and per-format docs link here.
   `ErrUnsupportedFormat` rather than silently misclassifying a
   vendor-shaped TIFF. Validation thresholds are sealed in the
   v0.10 design spec Q1/Q2/Q7.
-- **Format-specific metadata:** `generic.MetadataOf(tiler)`
+- **Format-specific metadata:** `generictiff.MetadataOf(tiler)`
   surfaces a `MicronsPerPixel` derived from
   `XResolution` (282) + `ResolutionUnit` (296) and the
   level-0 IFD's `ImageDescription` (270) verbatim. Cross-format
@@ -345,7 +345,7 @@ README.md and per-format docs link here.
   format readers: `"label"`, `"overview"`, `"thumbnail"` (SVS
   retains `"overview"` as legacy synonym for macro).
 - **opentile-go:** adds `"associated"` as the v0.10 generic-TIFF
-  fallback when the heuristic classifier (`formats/generic.
+  fallback when the heuristic classifier (`formats/generictiff.
   ClassifyAssociated`) can't confidently match a non-pyramid IFD
   to one of the vendor kinds (label / macro / thumbnail). Other
   format readers continue using the established kinds; this is
@@ -554,7 +554,7 @@ L25 below — fixture-driven; cervix has no annotations.
 
 - **Source:** v0.10 generic-TIFF design spec Q6 (sealed 2026-05-01).
 - **Severity:** YAGNI. The heuristic classifier
-  (`formats/generic.ClassifyAssociated`) covers the patterns we've
+  (`formats/generictiff.ClassifyAssociated`) covers the patterns we've
   seen on real fixtures: LZW = label, wide-JPEG = macro, smaller-
   square JPEG = thumbnail. A pluggable classifier (consumer-
   supplied policy) would add public-API surface (`WithAssociated
@@ -750,7 +750,7 @@ deferred work.
 
 **Items shipped:**
 
-- **`formats/generic` package** — Factory + Detection + Tiler +
+- **`formats/generictiff` package** — Factory + Detection + Tiler +
   Level + AssociatedImage. Registered LAST in the dispatch order
   so vendor format detectors (SVS, NDPI, Philips, OME, BIF) get
   first crack at any TIFF. Activates only when no vendor factory
@@ -760,7 +760,7 @@ deferred work.
   + ±5% inter-level scale tolerance; multi-pyramid rejection via
   leftover count + area threshold. Used by the generic reader at
   detection and at Open time; reusable by other formats if needed.
-- **`formats/generic.ClassifyAssociated`** — heuristic kind
+- **`formats/generictiff.ClassifyAssociated`** — heuristic kind
   classifier for non-pyramid IFDs. LZW = label, wide-aspect JPEG =
   macro, smaller-square JPEG = thumbnail; fallback `KindAssociated`
   (new "associated" Kind value, see §1a).
@@ -770,13 +770,13 @@ deferred work.
   re-encode (lifted from `formats/svs/lzwlabel.go`'s pattern).
   Multi-strip Deflate and tiled associated images are silently
   dropped per spec §6 — IFD recognised but not exposed.
-- **`generic.Metadata` + `generic.MetadataOf`** — format-specific
+- **`generictiff.Metadata` + `generictiff.MetadataOf`** — format-specific
   metadata via the established pattern (mirrors
   `svs.MetadataOf`, `bif.MetadataOf`). `MicronsPerPixel` derived
   from `XResolution` + `ResolutionUnit`; `ImageDescription`
   surfaced verbatim; cross-format Metadata fields populate from
   standard TIFF tags (Make / Model / Software / DateTime).
-- **`opentile.FormatGeneric = "generic-tiff"`** — new Format
+- **`opentile.FormatGenericTIFF = "generic-tiff"`** — new Format
   constant.
 - **`"associated"` Kind value** — new fallback in the
   `AssociatedImage.Kind()` taxonomy, used only by the generic
@@ -792,7 +792,7 @@ deferred work.
   pinning (level dims, tile size, grid, compression) + cross-
   backing byte parity (mmap default vs pread). Mirrors
   `bif_geometry_test.go` / `ife_geometry_test.go`.
-- `formats/generic/*_test.go` — unit tests for the validator,
+- `formats/generictiff/*_test.go` — unit tests for the validator,
   classifier, factory, tiledImage Level, associatedImage
   AssociatedImage, and tiler. Real-fixture coverage on
   CMU-1.tiff + CMU-1.stripped.tiff (T2-generated derivative of
@@ -801,7 +801,7 @@ deferred work.
 **Architecture invariants preserved:**
 
 - Public API stable from v0.3. Three new exported names
-  (`opentile.FormatGeneric`, `opentile.CompressionDeflate`, the
+  (`opentile.FormatGenericTIFF`, `opentile.CompressionDeflate`, the
   `generic` package itself) and one new Kind value
   (`"associated"`).
 - cgo footprint unchanged at `internal/jpegturbo/`.
