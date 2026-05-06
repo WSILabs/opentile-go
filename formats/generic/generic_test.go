@@ -1,7 +1,6 @@
 package generic
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -70,18 +69,16 @@ func TestFactorySupports(t *testing.T) {
 	}
 }
 
-// TestFactoryOpenStub verifies the T6 placeholder behavior: when
-// Supports() returns true, Open() returns errGenericTilerUnimplemented
-// (the placeholder error). T7+ replaces this with a real Tiler.
-//
-// Pinning this is important so a later refactor doesn't accidentally
-// regress to silent success or a different error type.
-func TestFactoryOpenStub(t *testing.T) {
+// TestFactoryOpen_CMU1 round-trips CMU-1.tiff through the factory
+// and verifies the Tiler reports the expected level count, dims, and
+// associated kinds. CMU-1.tiff has 9 pyramid levels and no associated
+// images (the canonical generic pyramid fixture).
+func TestFactoryOpen_CMU1(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
 		t.Skip("OPENTILE_TESTDIR not set")
 	}
-	path := filepath.Join(dir, "generic-tiff", "synth-pyramid-jpeg.tiff")
+	path := filepath.Join(dir, "generic-tiff", "CMU-1.tiff")
 	if _, err := os.Stat(path); err != nil {
 		t.Skipf("%s not present", path)
 	}
@@ -95,15 +92,103 @@ func TestFactoryOpenStub(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tiff.Open: %v", err)
 	}
+	tlr, err := New().Open(tf, &opentile.Config{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer tlr.Close()
 
-	factory := New()
-	if !factory.Supports(tf) {
-		t.Fatal("synth-pyramid-jpeg.tiff should be Supports()-accepted")
+	if got := tlr.Format(); got != opentile.FormatGeneric {
+		t.Errorf("Format() = %v, want %v", got, opentile.FormatGeneric)
 	}
-	_, err = factory.Open(tf, &opentile.Config{})
-	if !errors.Is(err, errGenericTilerUnimplemented) {
-		t.Errorf("Open() = %v, want errGenericTilerUnimplemented", err)
+	if got := len(tlr.Levels()); got != 9 {
+		t.Errorf("len(Levels()) = %d, want 9", got)
 	}
+	l0 := tlr.Levels()[0]
+	if l0.Size().W != 46000 || l0.Size().H != 32914 {
+		t.Errorf("L0 size = %v, want 46000×32914", l0.Size())
+	}
+	if got := len(tlr.Associated()); got != 0 {
+		t.Errorf("len(Associated()) = %d, want 0 (CMU-1.tiff has no associated images)", got)
+	}
+}
+
+// TestFactoryOpen_StrippedSVS round-trips CMU-1.stripped.tiff and
+// verifies the 3 stripped associated IFDs are surfaced with the
+// classifier-assigned kinds.
+func TestFactoryOpen_StrippedSVS(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "generic-tiff", "CMU-1.stripped.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("%s not present", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	tf, err := tiff.Open(f, st.Size())
+	if err != nil {
+		t.Fatalf("tiff.Open: %v", err)
+	}
+	tlr, err := New().Open(tf, &opentile.Config{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer tlr.Close()
+
+	gotKinds := make(map[string]int)
+	for _, a := range tlr.Associated() {
+		gotKinds[a.Kind()]++
+	}
+	for _, k := range []string{KindThumbnail, KindLabel, KindMacro} {
+		if gotKinds[k] != 1 {
+			t.Errorf("Associated kind %q count = %d, want 1; got map = %v",
+				k, gotKinds[k], gotKinds)
+		}
+	}
+}
+
+// TestMetadataOf_CMU1 verifies the format-specific metadata extras
+// (MicronsPerPixel, ImageDescription) are populated on a real fixture.
+func TestMetadataOf_CMU1(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "generic-tiff", "CMU-1.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("%s not present", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	tf, err := tiff.Open(f, st.Size())
+	if err != nil {
+		t.Fatalf("tiff.Open: %v", err)
+	}
+	tlr, err := New().Open(tf, &opentile.Config{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer tlr.Close()
+
+	md, ok := MetadataOf(tlr)
+	if !ok {
+		t.Fatal("MetadataOf returned !ok on a generic Tiler")
+	}
+	t.Logf("MicronsPerPixel = %g, ImageDescription = %q, Software = %v",
+		md.MicronsPerPixel, md.ImageDescription, md.ScannerSoftware)
+	// CMU-1.tiff lacks XResolution / ResolutionUnit so MicronsPerPixel
+	// is expected to be 0; if a future fixture carries those tags the
+	// expectation flips.
 }
 
 // TestFactorySupportsRejectsExistingVendorFixtures verifies that

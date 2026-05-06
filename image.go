@@ -126,7 +126,20 @@ type Level interface {
 }
 
 // AssociatedImage is a non-pyramidal slide-level image (label, overview,
-// thumbnail). v0.1 returns an empty slice from Tiler.Associated().
+// thumbnail).
+//
+// Kind() values used across the format readers:
+//
+//	"label"       — slide label / barcode (typical: small, often LZW)
+//	"macro"       — wide overview of the slide (typical: aspect ≥ 2)
+//	"overview"    — SVS-only synonym for macro (kept for back-compat
+//	                with v0.1 SVS-first conventions)
+//	"thumbnail"   — full-slide downsample (typical: square, JPEG)
+//	"associated"  — generic-TIFF (v0.10+) catch-all when the heuristic
+//	                classifier can't confidently match a kind above
+//
+// Format readers use the string literals directly; the values above
+// are stable and part of the public API contract from v0.10 onward.
 type AssociatedImage interface {
 	Kind() string
 	Size() Size
