@@ -1447,6 +1447,8 @@ decisions, not deferred work.
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit |
 | **Fix `striped` → `stripped` terminology** | NDPI / shared internal | Process | called out 2026-05-01 | Owner sign-off on the breaking-API question (or merge with a future v1.0) |
 | **Naming corrections** — `Format` constants + format-package naming | Public API | Process | called out 2026-05-01 | Same owner sign-off as the striped→stripped item; bundle as one v1.0 cleanup |
+| **Single-level tiled TIFF support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to relax `MinLevels` for single-level files (Grundium fixture in hand) |
+| **Mixed-ratio pyramid support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to handle non-geometric chains (Grundium fixture in hand) |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
@@ -1481,6 +1483,48 @@ hardware was ~2015). v0.11 candidate.
 Implementation lift: similar pattern to OME — BigTIFF with vendor
 XML in ImageDescription, SubIFD pyramids. Reuses v0.6 SubIFD
 machinery and v0.7 multi-dim API. Estimated ~1 week.
+
+### Note on Grundium TIFFs (single-level + mixed-ratio pyramid)
+
+The user's Grundium Ocus scanner emits two TIFF dialects that the
+v0.10 generic reader **rejects** on detection. Both fixtures are
+parked in `sample_files/generic-tiff/`; both are valid tiled BigTIFF
+output, just outside what v0.10's sealed Q2/Q7 thresholds accept.
+Probed 2026-05-05.
+
+- **`scan_619_grundium_pyramid_TIFF.tif`** (281 MB) — single tiled
+  IFD: 43008×27136, 512×512 tiles, JPEG, photo=YCbCr, software=
+  none, ImageDescription=`Grundium Ocus`. **One** IFD, no reduced
+  levels at all. Validator rejects with `ErrPyramidTooFewLevels`
+  ("got 1 tiled+valid IFDs, need ≥3"). **Diagnosis:** this isn't
+  a pyramid — it's a single tiled image — and v0.10's `MinLevels=3`
+  (Q2 sealed) explicitly rejects single-level files. Single-level
+  tiled TIFFs are common ("just-tile-this-image" output); a v0.11
+  expansion could relax `MinLevels` to 1 with a corresponding
+  spec-§4 update, exposing one Level and zero Associated.
+
+- **`scan_620_grundium_TIFF.tif`** (266 MB) — 4-IFD mixed-ratio
+  pyramid: L0 49152×32768, L1 12288×8192 (4× scale), L2 6144×4096
+  (8×, odd-step), L3 3072×2048 (16×). Validator's greedy chain
+  picks L0+L1+L3 (consistent 4× ratio) and leaves L2 over; L2 is
+  1.56% of baseline — just above the 1% `LeftoverTiledMaxAreaRatio`
+  cap — so the file is rejected as `ErrPyramidMultiplePyramid`.
+  **Diagnosis:** this is a real pyramid the validator's greedy
+  chain-search can't represent cleanly. Tifffile splits it the
+  same way (3-level series + 1-level series). v0.11 options:
+  (a) bump `LeftoverTiledMaxAreaRatio` to ~5%, silently dropping
+  the orphan; (b) attempt multiple chain candidates and pick the
+  one that minimises leftovers; (c) surface the orphan as a
+  format-specific Level via a new "supplementary level" surface.
+  Option (a) is the simplest path and may be the right v0.11
+  default given how often Grundium-style mixed-ratio chains
+  appear in real WSI output.
+
+These are **not vendor-specific** — Grundium just happens to be the
+fixture source. Any TIFF authoring path that writes "one tiled
+image" or "4× then 2×/2×/2× downsamples" hits the same gates.
+v0.11 candidates; both fixtures already on disk for the
+investigation.
 
 ### Note on the terminology fix
 
