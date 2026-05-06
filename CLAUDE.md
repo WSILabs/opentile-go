@@ -2,22 +2,26 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.9 (shipped)
+## Current milestone — v0.10 (shipped)
 
-- **Scope:** Sole-focus performance milestone implementing the §A items from `docs/opentile-go-svs-perf.md`. All five shipped: A.1 mmap-backed `OpenFile` (default); A.2 `Level.TileInto(x, y, dst)` + `Level.TileMaxSize()`; A.3 in-place JPEG splice template (internal `BuildSplicePrefix` + `InsertPrefixInPlace`); A.4 `Tiler.WarmLevel(i int) error`; A.5 concurrency-contract docs.
-- **Headline perf:** Cervix IFE pool TileInto: 22µs → 152 ns (145×). SVS pool TileInto: 1583 → 99.7 ns (16×, 0 allocs). Philips: 6473 → 425 ns (15×, 0 allocs). Every TIFF format and IFE at 0 allocs/op on the pool path. NDPI unchanged (CPU-bound libjpeg-turbo transcoding).
-- **API additions:** `WithBacking(BackingMmap | BackingPread)` Option (defaults mmap); `ErrMmapUnavailable` sentinel; `Level.TileInto`, `Level.TileMaxSize`, `Tiler.WarmLevel` interface methods (additive). Single new dep: `golang.org/x/exp/mmap` (Go-team subrepo, cross-platform Linux + macOS + Windows).
-- **Behavior change:** `OpenFile(path)` mmap-backs by default. Auto-fallback to pread on mmap failure (FUSE / unusual fs); explicit `WithBacking(BackingPread)` opt-out. SIGBUS on file truncation under mmap is the documented failure mode; loud crash beats silent corruption.
-- **Active limitations:** Same as post-v0.8 (L4, L5, L14 Permanent; L19, L20 v0.7 deferred; L23, L24, L25 v0.8 deferred). v0.9 retired no L items — sole-focus perf.
-- **Deviations from upstream Python opentile** (canonical list at `docs/deferred.md §1a`): everything from v0.8 plus three v0.9 entries (default mmap, pool-friendly TileInto API, WarmLevel hook).
-- **Correctness bar:** Pre-flight benchmark gate (`tests/parity/perf_baseline_test.go` under `-tags benchgate`) captured baseline-vs-after deltas across the full parity slate. Four committed snapshots (`tests/fixtures/v0.9-{baseline,after-mmap,after-tileinto,after-splice}.txt`) document the optimization journey. Existing byte-equality oracle (`make parity`) + new cross-backing parity test (`TestOpenFileBackingsByteIdentical`) gate correctness.
-- **T7 lesson:** initial profile gate said "skip splice template" at 2.5% CPU. Owner review reversed via bytes/ns analysis (splice path was 6× worse throughput-per-byte). Recorded in `docs/deferred.md §10a`: don't gate solely on cumulative CPU%; check allocs + throughput too.
-- **Deferred forward:** L19, L20, L23, L24, L25, R4/R6/R9, R15, R16, plus v0.9 follow-ons (`Level.TilePrefix()` accessor, zero-copy `TileBorrow`). Consolidated list at `docs/deferred.md §11` for post-v0.9 re-triage.
-- **Design:** `docs/superpowers/specs/2026-05-01-opentile-go-v09-perf-design.md`
-- **Plan:** `docs/superpowers/plans/2026-05-01-opentile-go-v09-perf.md`
-- **Reference doc:** `docs/opentile-go-svs-perf.md`
-- **Perf guide:** `docs/perf.md`
-- **Work branch:** `feat/v0.9`
+- **Scope:** Generic-TIFF milestone — first catch-all reader for tiled pyramidal TIFFs without vendor metadata. Fills the gap upstream Python opentile leaves (its factory list is enumerated vendor formats only). 15 tasks across Batches A–E shipped: structural pyramid validator (`internal/tiff.ClassifyPyramid`), heuristic associated-image classifier (`formats/generic.ClassifyAssociated`), Factory + Detection wired LAST in dispatch order, tiledImage Level (zero-alloc TileInto on JPEG-splice + LZW/JP2K/Deflate/None passthrough), AssociatedImage with multi-strip JPEG concat + multi-strip LZW re-encode paths, Tiler with format-specific Metadata, integration + geometry + cross-backing parity tests.
+- **Headline coverage:** the v0.10 generic reader ships with full-walk SHA fixtures for `CMU-1.tiff` (9-level JPEG pyramid, 195 MB) and `CMU-1.stripped.tiff` (3-level pyramid + thumbnail/label/macro associated, 169 MB). Multi-strip JPEG concat verified empirically against libtiff's RST-marker layout (46 strips → 143,874 bytes valid JPEG). Multi-strip LZW reuses the SVS lzwlabel pattern.
+- **API additions:** `opentile.FormatGeneric` Format constant (`"generic-tiff"`); `opentile.CompressionDeflate` Compression enum value; `formats/generic` package (Factory + Tiler + Level + AssociatedImage + Metadata); `internal/tiff.ClassifyPyramid` + `PyramidLevelInfo` (exported for reuse); new `"associated"` AssociatedImage Kind value as the heuristic-classifier fallback (documented in `image.go`'s interface docstring).
+- **Behavior change:** `opentile.OpenFile` now routes pyramidal TIFFs without vendor metadata to the generic reader. Vendor detection order unchanged; the generic factory activates only when no vendor factory claims the file. Validation thresholds sealed: `MinLevels=3`, ±2% inter-axis, ±5% inter-level, ≥2 leftover tiled IFDs above 1% of baseline → reject as multi-pyramid.
+- **Active limitations:** L4, L5, L14 Permanent (v0.6); L19, L20 v0.7-deferred; L23, L24, L25 v0.8-deferred; **L26, L27, L28, L29 new** (generic-TIFF design Q-decisions: stripped pyramid IFDs, multi-pyramid rejection, multi-strip JPEG `PlanarConfiguration=2`, pluggable associated-image classifier). Two v0.11 candidates surfaced mid-stream from real Grundium fixtures (single-level tiled TIFFs and mixed-ratio pyramid chains).
+- **Deviations from upstream Python opentile** (canonical list at `docs/deferred.md §1a`): everything from v0.9 plus two v0.10 entries (generic-TIFF reader, `"associated"` Kind value).
+- **Correctness bar:** `TestSlideParity` extended to 19 fixtures (5 SVS + 3 NDPI + 4 Philips + 2 OME + 2 BIF + 1 IFE + 2 generic). New `tests/parity/generic_geometry_test.go` pins per-fixture geometry + per-associated-image kind/size/compression/byte count + cross-backing parity (mmap default vs pread). Unit tests in `formats/generic/*_test.go` cover validator, classifier, factory, Level, AssociatedImage, and Tiler against synthetic + real fixtures.
+- **T2 lesson:** initial heuristic classifier required width > height for "label". Probing CMU-1.stripped.tiff revealed its label is 387×463 (PORTRAIT). Revised heuristic: LZW compression alone is the dominant signal for label, not aspect ratio. Recorded as a memory; reinforces the "verify before asserting" feedback rule.
+- **T8 lesson:** initial draft marked multi-strip JPEG as unsupported (Tier-3 deferred). Probing CMU-1.stripped.tiff revealed thumbnail (46 strips) and macro (27 strips) are both multi-strip JPEG. Verified that libtiff's default layout (single JPEG split at restart-marker boundaries) reproduces the original via simple concat — same pattern SVS / Philips / OME use. Path now supported.
+- **Deferred forward:** L19, L20, L23, L24, L25, L26-L29, R4/R6/R9, R15, R16, plus v0.11 candidates (single-level tiled TIFFs + mixed-ratio pyramids — Grundium fixtures in hand). Consolidated list at `docs/deferred.md §11`.
+- **Design:** `docs/superpowers/specs/2026-05-01-opentile-go-v10-generic-tiff-design.md`
+- **Plan:** `docs/superpowers/plans/2026-05-01-opentile-go-v10-generic-tiff.md`
+- **Format doc:** `docs/formats/generic.md`
+- **Work branch:** `feat/v0.10`
+
+## Previous milestone — v0.9 (shipped 2026-05-01)
+
+Sole-focus performance milestone — mmap-backed `OpenFile` default, pool-friendly `TileInto` + `TileMaxSize` API, in-place JPEG splice template, `Tiler.WarmLevel(i)` page-cache pre-warm. 8–145× speedup; 0 allocs on the pool TileInto path across every TIFF format + IFE. Design + plan + perf guide at `docs/superpowers/specs/2026-05-01-opentile-go-v09-perf-design.md`, `docs/superpowers/plans/2026-05-01-opentile-go-v09-perf.md`, `docs/perf.md`.
 
 ## Invariants
 

@@ -11,12 +11,141 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.9: L4, L5, L14 (Permanent — carried over
-from v0.6) plus L19, L20, L23, L24, L25 (carried forward from
-v0.7 / v0.8; see `docs/deferred.md` §11 consolidated backlog).
-v0.9 was a sole-focus performance milestone — no L items retired,
-no new format support; the consolidated backlog gets re-triaged
-post-v0.9 ship. Open work parked in tracked issues:
+Active limitations after v0.10: L4, L5, L14 (Permanent — carried over
+from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
+L26, L27, L28, L29 (new — generic-TIFF design Q-decisions). See
+`docs/deferred.md` §11 consolidated backlog. Open work parked in
+tracked issues:
+
+## [0.10.0] — 2026-05-05
+
+Generic-TIFF milestone — first catch-all reader for tiled pyramidal
+TIFFs without vendor metadata. Fills the gap upstream Python opentile
+leaves (its factory list is enumerated vendor formats only). Activates
+on any TIFF whose IFD layout passes the v0.10 pyramid validator and
+whose IFDs sit on the photometric/sample/compression whitelist. Real-
+world WSI authoring outside Aperio / Hamamatsu / Philips is common
+(Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-
+encoded research outputs); a catch-all reader makes opentile-go consume
+any structurally valid pyramid TIFF.
+
+### Added
+
+- **`formats/generic` package** — Factory + Detection + Tiler +
+  Level + AssociatedImage. Registered LAST in the dispatch order
+  so vendor format detectors (SVS, NDPI, Philips, OME, BIF) get
+  first crack at any TIFF.
+- **`opentile.FormatGeneric = "generic-tiff"`** — new Format
+  constant returned by the generic Tiler.
+- **`opentile.CompressionDeflate`** — new Compression enum value
+  for the Deflate (8) / Adobe Deflate (32946) compression types
+  the generic reader accepts.
+- **`internal/tiff.ClassifyPyramid`** — value-in / value-out
+  pyramid validator. Greedy-chain algorithm with ±2% inter-axis
+  + ±5% inter-level scale tolerance; multi-pyramid rejection via
+  leftover count + area threshold. Exported for reuse by other
+  format readers if needed.
+- **`internal/tiff.PyramidLevelInfo`** + **`PyramidLevelInfoFromPage`** —
+  the small subset of TIFF tags `ClassifyPyramid` needs from each
+  IFD, plus a projection helper from `*tiff.Page`.
+- **`generic.ClassifyAssociated`** — heuristic kind classifier for
+  non-pyramid IFDs. LZW = label, wide-aspect JPEG = macro, smaller-
+  square JPEG = thumbnail; fallback `KindAssociated`.
+- **`generic.Metadata`** + **`generic.MetadataOf(opentile.Tiler)`** —
+  format-specific metadata via the established pattern (mirrors
+  `svs.MetadataOf` / `bif.MetadataOf`). `MicronsPerPixel` derived
+  from `XResolution` (282) + `ResolutionUnit` (296);
+  `ImageDescription` (270) verbatim.
+- **`"associated"` AssociatedImage Kind value** — new fallback in
+  the `AssociatedImage.Kind()` taxonomy used only by the generic
+  reader. Documented in `image.go`'s interface docstring; existing
+  vendor format readers continue using `"label"`, `"overview"`,
+  `"thumbnail"`, `"macro"`, `"map"`, `"probability"`.
+- **Multi-strip associated reader paths** — single-strip
+  passthrough; multi-strip uncompressed concat; multi-strip JPEG
+  concat (libtiff RST-marker layout); multi-strip LZW decode +
+  re-encode (lifted from `formats/svs/lzwlabel.go` pattern).
+  Multi-strip Deflate and tiled associated images silently
+  dropped per spec §6 — IFD recognised but not exposed.
+- **Cross-format `Tiler.Metadata()` via standard TIFF tags** —
+  `Make` (271) → ScannerManufacturer; `Model` (272) → ScannerModel;
+  `Software` (305) → ScannerSoftware (semicolon/newline-split);
+  `DateTime` (306) → AcquisitionDateTime ("YYYY:MM:DD HH:MM:SS").
+- **`docs/formats/generic.md`** — new format-doc page mirroring
+  the bif.md / ife.md template.
+- **`scripts/regen-generic-tiff.py`** — Python tifffile-based
+  generator producing `CMU-1.stripped.tiff` (multi-level stripped-
+  associated derivative of CMU-1.svs) and 4 synthetic test
+  fixtures. Re-run when validator thresholds change.
+
+### Changed
+
+- **`opentile.OpenFile` now routes pyramidal TIFFs without vendor
+  metadata to the generic reader.** Vendor detection order is
+  unchanged (vendor factories run first); the generic factory
+  activates only when no vendor factory claims the file.
+- **`docs/deferred.md`** — new §1a deviation entries for the
+  generic-TIFF reader and the `"associated"` Kind value; new §2
+  L26-L29 active limitations; new §8d v0.10 retirement audit;
+  §11 consolidated backlog extended.
+- **README** — Supported-formats table gains a Generic TIFF row;
+  detection paragraph mentions the catch-all dispatch ordering;
+  Deviations table gets two new v0.10 rows.
+
+### Deviations from upstream (additive)
+
+Two new v0.10 entries in `docs/deferred.md §1a`:
+
+- Generic-TIFF reader for non-vendor tiled pyramidal TIFFs.
+- `"associated"` AssociatedImage Kind value addition.
+
+### Test coverage
+
+- `tests/integration_test.go::TestSlideParity` extended to 19
+  fixtures (5 SVS + 3 NDPI + 4 Philips + 2 OME + 2 BIF + 1 IFE +
+  2 generic). Full-walk SHA fixtures committed for both new
+  generic files.
+- `tests/parity/generic_geometry_test.go` — per-fixture geometry
+  pinning + cross-backing byte parity (mmap default vs pread).
+  Mirrors the existing `bif_geometry_test.go` / `ife_geometry_
+  test.go` pattern.
+- `formats/generic/*_test.go` — unit tests for the validator,
+  classifier, factory, tiledImage Level, associatedImage
+  AssociatedImage, and tiler. Real-fixture coverage on
+  `CMU-1.tiff` + `CMU-1.stripped.tiff` (T2-generated derivative
+  of CMU-1.svs).
+
+### Active limitations
+
+Four new L items, all design-Q-decisions sealed in the v0.10 spec
+(see `docs/deferred.md` §2):
+
+- **L26** — stripped pyramid IFDs deferred (fixture-driven; v0.11
+  candidate).
+- **L27** — multi-pyramid TIFFs reject as out-of-scope (permanent;
+  OME's job).
+- **L28** — multi-strip JPEG with `PlanarConfiguration=2`
+  unsupported (permanent; OME-specific).
+- **L29** — pluggable associated-image classifier deferred
+  (YAGNI; first consumer ask).
+
+Two additional v0.11 candidates surfaced mid-stream from real
+Grundium fixtures (single-level tiled TIFFs and mixed-ratio
+pyramid chains); both fixtures parked under
+`sample_files/generic-tiff/` for the v0.11 investigation.
+
+### Notes
+
+- v0.10 retired no §2 L items — the milestone adds reader
+  coverage rather than closing deferred work.
+- Public API remains stable from v0.3: three new exported names
+  (`opentile.FormatGeneric`, `opentile.CompressionDeflate`, the
+  `generic` package itself) and one new Kind value
+  (`"associated"`). cgo footprint unchanged at
+  `internal/jpegturbo/`.
+- The validator's pyramid-classification logic is value-typed
+  (PyramidLevelInfo in / ClassifyPyramidResult out); future
+  formats can reuse it without coupling to `*tiff.Page`.
 
 ## [0.9.0] — 2026-05-01
 
