@@ -25,6 +25,12 @@ const (
 	// request. JPEG and AVIF tiles in IFE remain decodable by external
 	// codecs.
 	CompressionIRIS
+	// CompressionDeflate identifies the Deflate (zlib) bitstream
+	// commonly used by scientific imaging TIFFs and the
+	// generic-TIFF catch-all reader (v0.10). TIFF tag 259 values
+	// 8 (Deflate) and 32946 (Adobe Deflate) both map here; the
+	// payload is identical zlib-wrapped DEFLATE either way.
+	CompressionDeflate
 )
 
 func (c Compression) String() string {
@@ -43,6 +49,8 @@ func (c Compression) String() string {
 		return "avif"
 	case CompressionIRIS:
 		return "iris"
+	case CompressionDeflate:
+		return "deflate"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(c))
 	}

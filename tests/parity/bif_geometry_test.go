@@ -95,7 +95,7 @@ func TestBIFGeometry(t *testing.T) {
 
 	for _, fx := range bifFixtures {
 		t.Run(fx.filename, func(t *testing.T) {
-			path := filepath.Join(dir, "ventana-bif", fx.filename)
+			path := filepath.Join(dir, "bif", fx.filename)
 			if _, err := os.Stat(path); err != nil {
 				t.Skipf("%s not present", path)
 			}

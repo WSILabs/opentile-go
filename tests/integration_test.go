@@ -14,10 +14,10 @@ import (
 	"github.com/cornish/opentile-go/tests"
 )
 
-// slideCandidates lists SVS, NDPI, Philips, OME, BIF, and IFE slides
-// this integration suite knows about. Each is tested only if both the
-// on-disk slide and the committed fixture JSON are present; otherwise
-// the slide is skipped.
+// slideCandidates lists SVS, NDPI, Philips, OME, BIF, IFE, and
+// generic-TIFF slides this integration suite knows about. Each is
+// tested only if both the on-disk slide and the committed fixture
+// JSON are present; otherwise the slide is skipped.
 var slideCandidates = []string{
 	"CMU-1-Small-Region.svs",
 	"CMU-1.svs",
@@ -36,16 +36,23 @@ var slideCandidates = []string{
 	"Ventana-1.bif",
 	"OS-1.bif",
 	"cervix_2x_jpeg.iris",
+	// Generic TIFF (v0.10): catch-all reader for tiled pyramidal
+	// TIFFs without vendor metadata. CMU-1.tiff is the
+	// tifffile-stripped derivative of CMU-1.svs (Aperio metadata
+	// removed); CMU-1.stripped.tiff additionally re-encodes the
+	// associated images as stripped TIFFs to exercise the multi-
+	// strip JPEG / LZW reader paths.
+	"CMU-1.tiff",
+	"CMU-1.stripped.tiff",
 }
 
-// resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/phillips-tiff,
-// dir/ome-tiff and returns the first existing absolute path. Used so
-// OPENTILE_TESTDIR can be set to the repo sample_files root and cover
-// every supported format in one run. The Philips subdir is
-// "phillips-tiff" (typo preserved from the original sample_files
-// layout).
+// resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
+// dir/ome-tiff, dir/bif, dir/ife, and dir/generic-tiff. Returns the
+// first existing absolute path. Used so OPENTILE_TESTDIR can be set
+// to the repo sample_files root and cover every supported format in
+// one run.
 func resolveSlide(dir, name string) (string, bool) {
-	for _, sub := range []string{"", "svs", "ndpi", "phillips-tiff", "ome-tiff", "ventana-bif", "ife"} {
+	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff"} {
 		p := filepath.Join(dir, sub, name)
 		if _, err := os.Stat(p); err == nil {
 			return p, true

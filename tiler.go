@@ -10,6 +10,11 @@ const (
 	FormatOME     Format = "ome"
 	FormatBIF     Format = "bif"
 	FormatIFE     Format = "ife"
+	// FormatGenericTIFF is the catch-all reader for tiled pyramidal TIFF
+	// without vendor metadata (added in v0.10). Activates when no
+	// vendor format factory claims the file. Reports as "generic-tiff"
+	// to differentiate from possible future generic-non-TIFF readers.
+	FormatGenericTIFF Format = "generic-tiff"
 )
 
 // Tiler is the top-level handle returned by [Open] / [OpenFile].

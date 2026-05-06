@@ -30,9 +30,25 @@ jobs:
 
       - name: Install libjpeg-turbo (Linux)
         if: runner.os == 'Linux'
+        # Wrap apt in a 3-attempt retry loop. The Azure-hosted Ubuntu
+        # mirror that GitHub Actions runners use occasionally has
+        # transient DNS resolution failures (observed 2026-05-02 on
+        # the v0.9 merge — 'Temporary failure resolving
+        # azure.archive.ubuntu.com'). The CI rerun succeeded
+        # without code changes, so the right fix is making the
+        # install resilient rather than treating these as code-side
+        # failures.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libturbojpeg0-dev pkg-config
+          for i in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y libturbojpeg0-dev pkg-config; then
+              echo "apt install succeeded on attempt $i"
+              exit 0
+            fi
+            echo "apt install attempt $i failed; sleeping 10s before retry..."
+            sleep 10
+          done
+          echo "apt install failed after 3 attempts" >&2
+          exit 1
 
       - name: go vet
         run: go vet ./...

@@ -1,0 +1,287 @@
+package parity
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	opentile "github.com/cornish/opentile-go"
+	_ "github.com/cornish/opentile-go/formats/all"
+	"github.com/cornish/opentile-go/formats/generictiff"
+)
+
+// genericLevelExpect captures one Level's expected geometry on a
+// generic-TIFF fixture. Mirrors ifeLevelExpect / bifLevelExpect but
+// adds Compression because the v0.10 generic reader supports a
+// mixed-compression whitelist (JPEG / JP2K / LZW / Deflate / None).
+type genericLevelExpect struct {
+	W, H         int
+	TileW, TileH int
+	GridW, GridH int
+	Compression  opentile.Compression
+}
+
+// genericAssocExpect captures one AssociatedImage's expected shape.
+// ByteCount pins Bytes()'s length so a regression in the multi-strip
+// JPEG concat (T8) or multi-strip LZW re-encode (T8) shows up as a
+// hard failure, not a silent drift.
+type genericAssocExpect struct {
+	Kind        string
+	W, H        int
+	Compression opentile.Compression
+	ByteCount   int
+}
+
+type genericFixture struct {
+	filename   string
+	levels     []genericLevelExpect
+	associated []genericAssocExpect
+	// L0 (0,0) tile bytes start with these magic bytes (JPEG SOI =
+	// 0xFF, 0xD8 — every committed generic fixture is JPEG-compressed
+	// at the pyramid level).
+	tileMagic []byte
+}
+
+var genericFixtures = []genericFixture{
+	{
+		// CMU-1.tiff: tifffile-stripped derivative of CMU-1.svs with
+		// Aperio metadata removed but the original 9-level JPEG pyramid
+		// preserved. No associated images in this variant.
+		filename: "CMU-1.tiff",
+		levels: []genericLevelExpect{
+			{W: 46000, H: 32914, TileW: 256, TileH: 256, GridW: 180, GridH: 129, Compression: opentile.CompressionJPEG},
+			{W: 23000, H: 16457, TileW: 256, TileH: 256, GridW: 90, GridH: 65, Compression: opentile.CompressionJPEG},
+			{W: 11500, H: 8228, TileW: 256, TileH: 256, GridW: 45, GridH: 33, Compression: opentile.CompressionJPEG},
+			{W: 5750, H: 4114, TileW: 256, TileH: 256, GridW: 23, GridH: 17, Compression: opentile.CompressionJPEG},
+			{W: 2875, H: 2057, TileW: 256, TileH: 256, GridW: 12, GridH: 9, Compression: opentile.CompressionJPEG},
+			{W: 1437, H: 1028, TileW: 256, TileH: 256, GridW: 6, GridH: 5, Compression: opentile.CompressionJPEG},
+			{W: 718, H: 514, TileW: 256, TileH: 256, GridW: 3, GridH: 3, Compression: opentile.CompressionJPEG},
+			{W: 359, H: 257, TileW: 256, TileH: 256, GridW: 2, GridH: 2, Compression: opentile.CompressionJPEG},
+			{W: 179, H: 128, TileW: 256, TileH: 256, GridW: 1, GridH: 1, Compression: opentile.CompressionJPEG},
+		},
+		tileMagic: []byte{0xFF, 0xD8},
+	},
+	{
+		// CMU-1.stripped.tiff: T2-generated derivative re-encoding the
+		// 3 associated IFDs (thumbnail / label / macro) as STRIPPED
+		// TIFFs to exercise the multi-strip readers (T8). The pyramid
+		// is preserved at 4× scale steps so only 3 levels survive
+		// (matching the source SVS's 3-level chain).
+		filename: "CMU-1.stripped.tiff",
+		levels: []genericLevelExpect{
+			{W: 46000, H: 32914, TileW: 256, TileH: 256, GridW: 180, GridH: 129, Compression: opentile.CompressionJPEG},
+			{W: 11500, H: 8228, TileW: 256, TileH: 256, GridW: 45, GridH: 33, Compression: opentile.CompressionJPEG},
+			{W: 2875, H: 2057, TileW: 256, TileH: 256, GridW: 12, GridH: 9, Compression: opentile.CompressionJPEG},
+		},
+		associated: []genericAssocExpect{
+			// thumbnail: 46-strip JPEG → concat-strip path (T8); pinned
+			// byte count is the libtiff-default RST-marker layout's
+			// concatenated length, equal to the original SVS thumbnail
+			// JPEG (143,874 bytes).
+			{Kind: generictiff.KindThumbnail, W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
+			// label: multi-strip LZW → decode-each + re-encode-as-single
+			// LZW (T8). Byte count varies with the LZW writer's coding;
+			// our internal/tifflzw writer produces 368,759 bytes.
+			// A drift here would indicate the LZW writer's behavior
+			// changed and parity needs re-checking.
+			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			// macro: 27-strip JPEG → concat-strip path.
+			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
+		},
+		tileMagic: []byte{0xFF, 0xD8},
+	},
+}
+
+// TestGenericGeometry pins per-fixture expected geometry for generic-
+// TIFF fixtures. Skipped cleanly when OPENTILE_TESTDIR is unset;
+// otherwise locates the fixture under dir/generic-tiff/ and asserts
+// level count, dimensions, tile size, grid, compression, format
+// identifier, the L0 (0,0) encoding magic, and per-associated-image
+// kind / size / compression / byte count.
+func TestGenericGeometry(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+
+	for _, fx := range genericFixtures {
+		t.Run(fx.filename, func(t *testing.T) {
+			path := filepath.Join(dir, "generic-tiff", fx.filename)
+			if _, err := os.Stat(path); err != nil {
+				t.Skipf("%s not present", path)
+			}
+			tiler, err := opentile.OpenFile(path)
+			if err != nil {
+				t.Fatalf("OpenFile: %v", err)
+			}
+			defer tiler.Close()
+
+			if got := tiler.Format(); got != opentile.FormatGenericTIFF {
+				t.Errorf("Format = %v, want %v", got, opentile.FormatGenericTIFF)
+			}
+			levels := tiler.Levels()
+			if len(levels) != len(fx.levels) {
+				t.Fatalf("level count = %d, want %d", len(levels), len(fx.levels))
+			}
+			for i, exp := range fx.levels {
+				lvl := levels[i]
+				if got := lvl.Size(); got.W != exp.W || got.H != exp.H {
+					t.Errorf("L%d Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)
+				}
+				if got := lvl.TileSize(); got.W != exp.TileW || got.H != exp.TileH {
+					t.Errorf("L%d TileSize = %v, want {W:%d H:%d}", i, got, exp.TileW, exp.TileH)
+				}
+				if got := lvl.Grid(); got.W != exp.GridW || got.H != exp.GridH {
+					t.Errorf("L%d Grid = %v, want {W:%d H:%d}", i, got, exp.GridW, exp.GridH)
+				}
+				if got := lvl.Compression(); got != exp.Compression {
+					t.Errorf("L%d Compression = %v, want %v", i, got, exp.Compression)
+				}
+			}
+
+			// L0 (0,0) — encoding magic check.
+			b, err := levels[0].Tile(0, 0)
+			if err != nil {
+				t.Fatalf("L0 Tile(0,0): %v", err)
+			}
+			if len(b) < len(fx.tileMagic) {
+				t.Fatalf("L0 (0,0): %d bytes returned; want at least %d", len(b), len(fx.tileMagic))
+			}
+			for i, m := range fx.tileMagic {
+				if b[i] != m {
+					t.Errorf("L0 (0,0): byte %d = 0x%02x, want 0x%02x", i, b[i], m)
+				}
+			}
+
+			// 2D dimensions — generic TIFF is single-image, single-Z/C/T.
+			img := tiler.Images()[0]
+			if got := img.SizeZ(); got != 1 {
+				t.Errorf("SizeZ = %d, want 1", got)
+			}
+			if got := img.SizeC(); got != 1 {
+				t.Errorf("SizeC = %d, want 1", got)
+			}
+			if got := img.SizeT(); got != 1 {
+				t.Errorf("SizeT = %d, want 1", got)
+			}
+
+			// Out-of-bounds on level 0 surfaces ErrTileOutOfBounds.
+			grid := levels[0].Grid()
+			_, err = levels[0].Tile(grid.W, 0)
+			if !errors.Is(err, opentile.ErrTileOutOfBounds) {
+				t.Errorf("OOB on L0: got %v, want ErrTileOutOfBounds", err)
+			}
+
+			// Associated images.
+			associated := tiler.Associated()
+			if len(associated) != len(fx.associated) {
+				t.Fatalf("associated count = %d, want %d", len(associated), len(fx.associated))
+			}
+			for i, exp := range fx.associated {
+				a := associated[i]
+				if a.Kind() != exp.Kind {
+					t.Errorf("associated[%d] Kind = %q, want %q", i, a.Kind(), exp.Kind)
+				}
+				if got := a.Size(); got.W != exp.W || got.H != exp.H {
+					t.Errorf("associated[%d] Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)
+				}
+				if got := a.Compression(); got != exp.Compression {
+					t.Errorf("associated[%d] Compression = %v, want %v", i, got, exp.Compression)
+				}
+				bytes, err := a.Bytes()
+				if err != nil {
+					t.Errorf("associated[%d] Bytes(): %v", i, err)
+					continue
+				}
+				if len(bytes) != exp.ByteCount {
+					t.Errorf("associated[%d] Bytes() length = %d, want %d", i, len(bytes), exp.ByteCount)
+				}
+			}
+		})
+	}
+}
+
+// TestGenericOpenFileBackingsByteIdentical confirms tile bytes are
+// byte-identical across the mmap (default) and pread backings for
+// the generic-TIFF reader. Mirrors v0.9's TestOpenFileBackingsByte
+// Identical for the other formats; closes the same loop for the
+// new generic reader.
+func TestGenericOpenFileBackingsByteIdentical(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	for _, name := range []string{"CMU-1.tiff", "CMU-1.stripped.tiff"} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(dir, "generic-tiff", name)
+			if _, err := os.Stat(path); err != nil {
+				t.Skipf("%s not present", path)
+			}
+
+			mmapTiler, err := opentile.OpenFile(path) // mmap default
+			if err != nil {
+				t.Fatalf("OpenFile mmap: %v", err)
+			}
+			defer mmapTiler.Close()
+
+			preadTiler, err := opentile.OpenFile(path, opentile.WithBacking(opentile.BackingPread))
+			if err != nil {
+				t.Fatalf("OpenFile pread: %v", err)
+			}
+			defer preadTiler.Close()
+
+			mmapLevels := mmapTiler.Levels()
+			preadLevels := preadTiler.Levels()
+			if len(mmapLevels) != len(preadLevels) {
+				t.Fatalf("level count differs: mmap=%d pread=%d", len(mmapLevels), len(preadLevels))
+			}
+			// Sample 4 deterministic positions per level (corners +
+			// center) — full-walk parity is covered by TestSlideParity.
+			for i, lvl := range mmapLevels {
+				grid := lvl.Grid()
+				if grid.W == 0 || grid.H == 0 {
+					continue
+				}
+				positions := []struct{ x, y int }{
+					{0, 0},
+					{grid.W - 1, 0},
+					{0, grid.H - 1},
+					{grid.W - 1, grid.H - 1},
+				}
+				if grid.W > 2 && grid.H > 2 {
+					positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
+				}
+				for _, p := range positions {
+					a, errA := mmapLevels[i].Tile(p.x, p.y)
+					b, errB := preadLevels[i].Tile(p.x, p.y)
+					if (errA == nil) != (errB == nil) {
+						t.Errorf("L%d (%d,%d): mmap err=%v, pread err=%v", i, p.x, p.y, errA, errB)
+						continue
+					}
+					if errA != nil {
+						continue
+					}
+					if !equalBytes(a, b) {
+						t.Errorf("L%d (%d,%d): mmap %d bytes != pread %d bytes",
+							i, p.x, p.y, len(a), len(b))
+					}
+				}
+			}
+		})
+	}
+}
+
+// equalBytes is a non-allocating bytes.Equal alias to keep the test
+// focused (no extra import).
+func equalBytes(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
