@@ -1,7 +1,6 @@
 package leicascn
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,10 +78,7 @@ func TestFactory_Supports_RejectsVendorTIFFs(t *testing.T) {
 	}
 }
 
-// TestFactory_Open_Placeholder pins the T4 stub behavior: Open()
-// returns errSCNTilerUnimplemented when called on a real fixture.
-// T6 replaces this with a real Tiler.
-func TestFactory_Open_Placeholder(t *testing.T) {
+func TestFactory_Open_Leica1(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
 		t.Skip("OPENTILE_TESTDIR unset")
@@ -101,8 +97,110 @@ func TestFactory_Open_Placeholder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = New().Open(tf, &opentile.Config{})
-	if !errors.Is(err, errSCNTilerUnimplemented) {
-		t.Errorf("Open() = %v, want errSCNTilerUnimplemented (T4 stub)", err)
+	tlr, err := New().Open(tf, &opentile.Config{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer tlr.Close()
+
+	if got := tlr.Format(); got != opentile.FormatLeicaSCN {
+		t.Errorf("Format() = %v, want %v", got, opentile.FormatLeicaSCN)
+	}
+	// Levels are empty in T6 (T7+ populates).
+	if got := len(tlr.Levels()); got != 0 {
+		t.Errorf("len(Levels()) = %d, want 0 (T6 placeholder)", got)
+	}
+	if got := len(tlr.Associated()); got != 1 {
+		t.Errorf("len(Associated()) = %d, want 1", got)
+	}
+	if got := tlr.Associated()[0].Kind(); got != "macro" {
+		t.Errorf("Associated[0].Kind() = %q, want %q", got, "macro")
+	}
+	// Multi-image API: SizeC == 1 for brightfield Leica-1.
+	if got := tlr.Images()[0].SizeC(); got != 1 {
+		t.Errorf("SizeC() = %d, want 1", got)
+	}
+}
+
+func TestFactory_Open_Fluorescence_SizeC(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR unset")
+	}
+	path := filepath.Join(dir, "scn", "Leica-Fluorescence-1.scn")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("%s not present", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	tf, err := tiff.Open(f, st.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tlr, err := New().Open(tf, &opentile.Config{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer tlr.Close()
+
+	if got := tlr.Images()[0].SizeC(); got != 3 {
+		t.Errorf("SizeC() = %d, want 3", got)
+	}
+	for i, want := range []string{"405|Empty", "L5|Empty", "TX2|Empty"} {
+		if got := tlr.Images()[0].ChannelName(i); got != want {
+			t.Errorf("ChannelName(%d) = %q, want %q", i, got, want)
+		}
+	}
+	// 2 auxiliaries (brightfield + fluorescence overview).
+	if got := len(tlr.Associated()); got != 2 {
+		t.Errorf("len(Associated()) = %d, want 2", got)
+	}
+}
+
+func TestMetadataOf_Leica1(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR unset")
+	}
+	path := filepath.Join(dir, "scn", "Leica-1.scn")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("%s not present", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	tf, err := tiff.Open(f, st.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tlr, _ := New().Open(tf, &opentile.Config{})
+	md, ok := MetadataOf(tlr)
+	if !ok {
+		t.Fatal("MetadataOf returned !ok on a SCN Tiler")
+	}
+	if md.Barcode != "MDQwNTA2MjlD" {
+		t.Errorf("Barcode = %q, want %q", md.Barcode, "MDQwNTA2MjlD")
+	}
+	if got := len(md.Auxiliaries); got != 1 {
+		t.Errorf("Auxiliaries = %d, want 1", got)
+	}
+	if got := len(md.Regions); got != 1 {
+		t.Errorf("Regions = %d, want 1", got)
+	}
+	if got := md.ScannerManufacturer; got != "Leica" {
+		t.Errorf("ScannerManufacturer = %q, want %q", got, "Leica")
+	}
+	if got := md.ScannerModel; got != "Leica SCN400" {
+		t.Errorf("ScannerModel = %q, want %q", got, "Leica SCN400")
+	}
+	if md.AcquisitionDateTime.IsZero() {
+		t.Error("AcquisitionDateTime should be parsed (Leica-1 carries 2011-05-31T09:33:14.31Z)")
 	}
 }
