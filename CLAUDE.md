@@ -2,30 +2,76 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.11 (shipped)
+## Current milestone — v0.12 (shipped)
 
-- **Scope:** Leica SCN milestone — first format reader exercising `Image.SizeC() > 1` on a real fixture (Leica-Fluorescence-1.scn's 3-channel separated fluorescence) and first multi-region "discontinuous scanning" reader (Leica-2.scn's 4 disjoint tissue rectangles composited into one slide canvas). 15 tasks across Batches A–E shipped: SCN XML parser, auxiliary-vs-main classifier + multi-main composer, Factory + Detection registered before generictiff, tiledRegion + compositeLevel multi-region dispatch, multi-channel TileAt, blank-tile fill, format-specific Metadata + MetadataOf, bio-formats CLI parity oracle, integration + geometry + cross-backing parity tests. Folded in: two `formats/generictiff` validator-cap relaxations (`MinLevels: 3 → 1` + `LeftoverTiledMaxAreaRatio: 0.01 → 0.05`) covering Grundium scanner output (single-level + mixed-ratio chains).
-- **Headline coverage:** all 3 openslide-testdata SCN fixtures end-to-end (Leica-1, Leica-2, Leica-Fluorescence-1) plus 2 Grundium fixtures (scan_619 single-level, scan_620 mixed-ratio). `TestSlideParity` total now 24 fixtures (5 SVS + 3 NDPI + 4 Philips + 2 OME + 2 BIF + 1 IFE + 4 generic + 3 SCN). Composite L0 union extent on Leica-2 pinned at 44956×139277 px (4 vertically-stacked tissue regions).
-- **API additions:** `opentile.FormatLeicaSCN` Format constant (`"leica-scn"`); `formats/leicascn` package (Factory + Tiler + Level + AssociatedImage + Metadata + MetadataOf); v0.7 multi-dim API (`Image.SizeC` / `ChannelName` / `Level.TileAt(TileCoord{C, X, Y})`) reused without additions.
-- **Behavior change:** `opentile.OpenFile` now routes Leica SCN files to the new reader (registered after vendor formats, before generictiff). The two generictiff cap relaxations don't affect existing v0.10 fixtures (CMU-1.tiff and CMU-1.stripped.tiff classify identically); the new Grundium files now load.
-- **Active limitations:** L4, L5, L14 Permanent (v0.6); L19, L20 v0.7-deferred; L23, L24, L25 v0.8-deferred; L26-L29 v0.10-deferred (generic-TIFF design Q-decisions); **L30, L31, L32, L33, L34 new** (Leica SCN design Q-decisions: multi-Z stack, AOI-cropped Tile variant, mismatched-objective regions, byte-equality oracle, 3-fixture coverage limit).
-- **Deviations from upstream Python opentile** (canonical list at `docs/deferred.md §1a`): everything from v0.10 plus one v0.11 entry (Leica SCN reader for legacy SCN400 / SCN400F output).
-- **Correctness bar:** `TestSlideParity` extended to 24 fixtures with sample-tile SHA fixtures committed for all 5 new files. New `tests/parity/leicascn_geometry_test.go` pins per-fixture geometry + per-channel TileAt distinct-bytes (3 distinct hashes on Fluorescence) + cross-backing parity (mmap vs pread). New `tests/oracle/leicascn_bf_test.go` (build tag `bfparity`) confirms structural equivalence vs bio-formats CLI for all 3 SCN fixtures. Generic geometry test extended with rows for both Grundium fixtures.
-- **T8 lesson (multi-region tile alignment):** SCN's `<view offsetX/Y>` values in nm don't generally tile-align in composite-pixel-space (Leica-2's region 0 lands 71% of a tile off-grid). Resolution: tile-snap region offsets DOWN to nearest tile boundary at `compositeLevel` construction. Cost: composite position error ≤ one tile (~128 µm at 250 nm/px) — pathology-rendering-acceptable. Surfaced during T8 implementation; not anticipated in the design spec. Documented in `docs/formats/leicascn.md` "Position imprecision" + inline in `formats/leicascn/tiled.go`.
-- **T12 spec divergence (generictiff scan_620 orphan):** v0.11 spec said the Grundium scan_620 orphan IFD "surfaces as an AssociatedImage". In practice the orphan is a tiled IFD, and `formats/generictiff`'s associated reader doesn't handle tiled associated images (errors with `errUnsupportedAssociatedShape`, silently dropped per the v0.10 §6 pattern). Documented in CHANGELOG and `docs/deferred.md §8e`. Multi-tile-associated remains out-of-scope.
-- **Deferred forward:** L19, L20, L23, L24, L25, L26-L29, L30-L34, R4/R6/R9, R15. Consolidated list at `docs/deferred.md §11`.
-- **Design:** `docs/superpowers/specs/2026-05-06-opentile-go-v11-leica-scn-design.md`
-- **Plan:** `docs/superpowers/plans/2026-05-06-opentile-go-v11-leica-scn.md`
-- **Format doc:** `docs/formats/leicascn.md`
-- **Work branch:** `feat/v0.11`
+- **Scope:** Naming-cleanup milestone — breaking-API rename pass
+  consolidating four deferred items from `docs/deferred.md §11`. No
+  new format support; no new features; no API additions. 9 tasks
+  across Batches A–B shipped: NDPI strip rename (R1: StripeInfo →
+  StripInfo + 6 fields including StripedW/H → GridW/H per Q5);
+  FormatPhilips → FormatPhilipsTIFF + value (R2); FormatOME →
+  FormatOMETIFF + value (R3); package directory renames
+  formats/philips/ → formats/philipstiff/ and formats/ome/ →
+  formats/ometiff/ (R4); test fixture updates (6 JSONs); docs
+  refresh.
+- **Headline coverage:** every Format constant for vendor-disambiguated
+  formats now follows `Format<Vendor><Tag>` (FormatGenericTIFF,
+  FormatLeicaSCN, FormatPhilipsTIFF, FormatOMETIFF) plus
+  unambiguous-vendor short forms (FormatSVS, FormatNDPI, FormatBIF,
+  FormatIFE). NDPI's StripInfo public API matches TIFF spec
+  terminology (bare "Strip"; matches tag names 273 / 279) and our
+  internal Level.Grid() convention.
+- **API additions:** none. v0.12 is purely a rename milestone.
+- **Behavior change:** every renamed identifier breaks consumers
+  that compared against the old name. v0.3 invariant says no
+  external users yet; rename safe.
+- **Active limitations:** unchanged from v0.11 (L4, L5, L14
+  Permanent; L19, L20 v0.7-deferred; L23-L25 v0.8-deferred; L26-L29
+  v0.10-deferred; L30-L34 v0.11-deferred). No new L items.
+- **Deviations from upstream Python opentile** (canonical list at
+  `docs/deferred.md §1a`): unchanged from v0.11 (Format constant
+  names + values updated to reflect the new identifiers but no
+  new deviations introduced).
+- **Correctness bar:** `make test` green; `make parity` green.
+  TestSlideParity total still 24 fixtures (no new fixtures); 6
+  fixture JSONs (4 Philips + 2 OME) updated to record the new
+  format strings.
+- **Sealed Q-decisions:** Q1 v0.12 (NOT v1.0 — pre-1.0 territory
+  preserved); Q2 full-public striped→stripped rename
+  ("clowns with striped"); Q3 both value + identifier; Q4 yes both
+  packages; Q5 GridW/GridH (TIFF-spec-grounded analysis).
+- **Deferred forward:** L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
+  R15. v1.0 cut still pending (sealed Q1); future cleanup batches
+  may consolidate before cutting.
+- **Design:** `docs/superpowers/specs/2026-05-07-opentile-go-v12-naming-cleanup-design.md`
+- **Plan:** `docs/superpowers/plans/2026-05-07-opentile-go-v12-naming-cleanup.md`
+- **Work branch:** `feat/v0.12`
 
-## Previous milestone — v0.10 (shipped 2026-05-06)
+## Previous milestone — v0.11 (shipped 2026-05-06)
 
-Generic-TIFF catch-all reader for tiled pyramidal TIFFs without vendor metadata. New package `formats/generictiff`; `opentile.FormatGenericTIFF` constant; pyramid validator + heuristic associated-image classifier in `internal/tiff.ClassifyPyramid` and `formats/generictiff.ClassifyAssociated`. New `"associated"` AssociatedImage Kind value as classifier fallback. Design + plan: `docs/superpowers/specs/2026-05-01-opentile-go-v10-generic-tiff-design.md`, `docs/superpowers/plans/2026-05-01-opentile-go-v10-generic-tiff.md`. Format doc: `docs/formats/generictiff.md`.
+Leica SCN reader (`formats/leicascn/`) covering all 3 openslide-
+testdata fixtures + folded-in generictiff validator-cap relaxations
+covering Grundium scanner output. First real-fixture exercise of
+`Image.SizeC() > 1` (Leica-Fluorescence-1) and first multi-region
+"discontinuous scanning" reader (Leica-2). Design + plan + format
+doc at
+`docs/superpowers/specs/2026-05-06-opentile-go-v11-leica-scn-design.md`,
+`docs/superpowers/plans/2026-05-06-opentile-go-v11-leica-scn.md`,
+`docs/formats/leicascn.md`.
 
-## Earlier milestone — v0.9 (shipped 2026-05-01)
+## Earlier milestones
 
-Sole-focus performance milestone — mmap-backed `OpenFile` default, pool-friendly `TileInto` + `TileMaxSize` API, in-place JPEG splice template, `Tiler.WarmLevel(i)` page-cache pre-warm. 8–145× speedup; 0 allocs on the pool TileInto path across every TIFF format + IFE. Design + plan + perf guide at `docs/superpowers/specs/2026-05-01-opentile-go-v09-perf-design.md`, `docs/superpowers/plans/2026-05-01-opentile-go-v09-perf.md`, `docs/perf.md`.
+- v0.10 (2026-05-06): generic-TIFF catch-all reader.
+- v0.9 (2026-05-01): perf milestone — mmap default + TileInto +
+  WarmLevel + splice template.
+- v0.8: Iris IFE — first non-TIFF format.
+- v0.7: Ventana BIF — first format beyond upstream coverage.
+- v0.6: OME-TIFF — closes upstream Python opentile's format set.
+- v0.5: Philips TIFF (third format).
+- v0.4: NDPI completeness (L12 OOB-fill + L17 label crop).
+- v0.3: polish, settled API, public-API frozen from this point.
+- v0.2: NDPI + BigTIFF + associated images + Python parity oracle.
+- v0.1: Aperio SVS tiled-level passthrough.
 
 ## Invariants
 

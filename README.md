@@ -66,7 +66,7 @@ t, err := opentile.OpenFile("slide.tiff")
 if err != nil { /* ErrUnsupportedFormat or open error */ }
 defer t.Close()
 
-fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips", "ome", "bif", "ife", "generic-tiff", "leica-scn"
+fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "leica-scn"
 fmt.Println("levels:", len(t.Levels()))
 ```
 
