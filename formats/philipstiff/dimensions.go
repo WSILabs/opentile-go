@@ -1,6 +1,8 @@
 // Package philipstiff reads tiles from Philips IntelliSite Pathology Solution
 // TIFF whole-slide images. It is a direct port of Python opentile's
-// formats/philips/ subtree (Apache 2.0, Sectra AB).
+// formats/philips/ subtree (Apache 2.0, Sectra AB) — note: the upstream
+// Python package directory is still called "philips"; opentile-go renamed
+// to "philipstiff" in v0.12 (see docs/deferred.md §8f).
 package philipstiff
 
 import (

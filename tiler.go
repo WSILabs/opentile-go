@@ -4,17 +4,17 @@ package opentile
 type Format string
 
 const (
-	FormatSVS     Format = "svs"
-	FormatNDPI    Format = "ndpi"
+	FormatSVS  Format = "svs"
+	FormatNDPI Format = "ndpi"
 	// FormatPhilipsTIFF is the Philips IntelliSite Pathology Solution TIFF
 	// reader. Renamed in v0.12 from FormatPhilips to FormatPhilipsTIFF to
 	// align with v0.10's FormatGenericTIFF and v0.11's FormatLeicaSCN naming
 	// convention; Philips has multiple WSI file formats (TIFF; iSyntax), so
 	// the bare "philips" identifier was ambiguous. Reports as "philips-tiff".
 	FormatPhilipsTIFF Format = "philips-tiff"
-	FormatOME     Format = "ome"
-	FormatBIF     Format = "bif"
-	FormatIFE     Format = "ife"
+	FormatOME         Format = "ome"
+	FormatBIF         Format = "bif"
+	FormatIFE         Format = "ife"
 	// FormatGenericTIFF is the catch-all reader for tiled pyramidal TIFF
 	// without vendor metadata (added in v0.10). Activates when no
 	// vendor format factory claims the file. Reports as "generic-tiff"
