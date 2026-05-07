@@ -23,7 +23,7 @@ import (
 // cols 896..1023 of the decoded 1024×1024 tile.
 //
 // Pre-fix: OOB strip decodes to RGB(128, 128, 128) — Crop's default
-// fill (DC=0) — because striped.go::Tile tried Crop first and Crop
+// fill (DC=0) — because stripped.go::Tile tried Crop first and Crop
 // happened to succeed.
 // Post-fix: OOB strip decodes to RGB(~255, ~255, ~255), matching
 // Python's CUSTOMFILTER white fill (DC=170 for luminance=1.0).

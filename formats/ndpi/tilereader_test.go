@@ -15,7 +15,7 @@ import (
 
 // TestNDPITileReaderMatchesTile locks in that Level.TileReader returns the
 // same bytes as Level.Tile for every level of a real NDPI slide. NDPI's
-// striped path assembles tiles from JPEG restart markers; this confirms the
+// stripped path assembles tiles from JPEG restart markers; this confirms the
 // streamed and one-shot paths produce byte-identical output even on the
 // non-trivial tile-assembly code path.
 func TestNDPITileReaderMatchesTile(t *testing.T) {

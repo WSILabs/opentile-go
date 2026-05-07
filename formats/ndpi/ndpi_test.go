@@ -13,9 +13,9 @@ import (
 //   - FileFormat (65420, SHORT=1) — detection marker
 //   - Magnification (65421, FLOAT=20.0) — page classification via tag 65421
 //   - Make (271, ASCII="Hamamatsu") — required by Supports (per tifffile line 10608)
-//   - TileOffsets / TileByteCounts so Open's newStripedImage can parse the page
+//   - TileOffsets / TileByteCounts so Open's newStrippedImage can parse the page (strips path)
 //
-// Image: 1024×768, TileWidth=640, TileLength=8 → 1×96 stripes.
+// Image: 1024×768, TileWidth=640, TileLength=8 → 1×96 strips.
 func buildNDPIStub(t *testing.T) []byte {
 	t.Helper()
 	// NDPI IFD layout at offset 12:
@@ -35,7 +35,7 @@ func buildNDPIStub(t *testing.T) []byte {
 		ifdBase        = 12
 		makeStrOff     = 166 // "Hamamatsu\0" lives here
 		makeStrLen     = 10
-		offsetsDataOff = makeStrOff + makeStrLen // 176
+		offsetsDataOff = makeStrOff + makeStrLen   // 176
 		countsDataOff  = offsetsDataOff + nTiles*4 // 560
 	)
 	buf := new(bytes.Buffer)
@@ -59,15 +59,42 @@ func buildNDPIStub(t *testing.T) []byte {
 	// IFD
 	w16(nTags)
 	// Entries (sorted by tag, 12 bytes each: tag u16, type u16, count u32, value/offset u32)
-	w16(256); w16(3); w32(1); w32(1024)                    // ImageWidth SHORT
-	w16(257); w16(3); w32(1); w32(768)                     // ImageLength SHORT
-	w16(271); w16(2); w32(makeStrLen); w32(makeStrOff)     // Make ASCII -> "Hamamatsu\0"
-	w16(322); w16(3); w32(1); w32(640)                     // TileWidth SHORT
-	w16(323); w16(3); w32(1); w32(8)                       // TileLength SHORT (8-pixel stripes)
-	w16(324); w16(4); w32(nTiles); w32(offsetsDataOff)     // TileOffsets LONG[96]
-	w16(325); w16(4); w32(nTiles); w32(countsDataOff)      // TileByteCounts LONG[96]
-	w16(65420); w16(3); w32(1); w32(1)                     // FileFormat SHORT = 1 (sentinel)
-	w16(65421); w16(11); w32(1); w32(0x41A00000)           // Magnification FLOAT = 20.0
+	w16(256)
+	w16(3)
+	w32(1)
+	w32(1024) // ImageWidth SHORT
+	w16(257)
+	w16(3)
+	w32(1)
+	w32(768) // ImageLength SHORT
+	w16(271)
+	w16(2)
+	w32(makeStrLen)
+	w32(makeStrOff) // Make ASCII -> "Hamamatsu\0"
+	w16(322)
+	w16(3)
+	w32(1)
+	w32(640) // TileWidth SHORT
+	w16(323)
+	w16(3)
+	w32(1)
+	w32(8) // TileLength SHORT (8-pixel strips)
+	w16(324)
+	w16(4)
+	w32(nTiles)
+	w32(offsetsDataOff) // TileOffsets LONG[96]
+	w16(325)
+	w16(4)
+	w32(nTiles)
+	w32(countsDataOff) // TileByteCounts LONG[96]
+	w16(65420)
+	w16(3)
+	w32(1)
+	w32(1) // FileFormat SHORT = 1 (sentinel)
+	w16(65421)
+	w16(11)
+	w32(1)
+	w32(0x41A00000) // Magnification FLOAT = 20.0
 	// Next-IFD (8 bytes uint64) = 0
 	w64(0)
 	// Hi-bits extension (4 bytes × nTags) = all zeros
@@ -126,11 +153,23 @@ func buildNonNDPIStub(t *testing.T) []byte {
 		buf.WriteByte(byte(v >> 24))
 	}
 	buf.Write([]byte{'I', 'I', 42, 0, 0x08, 0, 0, 0}) // classic 4-byte firstIFD = 8
-	w16(4) // 4 tags
-	w16(256); w16(3); w32(1); w32(1024)
-	w16(257); w16(3); w32(1); w32(768)
-	w16(322); w16(3); w32(1); w32(640)
-	w16(323); w16(3); w32(1); w32(8)
+	w16(4)                                            // 4 tags
+	w16(256)
+	w16(3)
+	w32(1)
+	w32(1024)
+	w16(257)
+	w16(3)
+	w32(1)
+	w32(768)
+	w16(322)
+	w16(3)
+	w32(1)
+	w32(640)
+	w16(323)
+	w16(3)
+	w32(1)
+	w32(8)
 	w32(0) // next-IFD = 0
 	return buf.Bytes()
 }

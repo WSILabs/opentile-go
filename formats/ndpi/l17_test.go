@@ -31,9 +31,9 @@ func TestL17NDPILabelFullHeight(t *testing.T) {
 		t.Skip("OPENTILE_TESTDIR not set")
 	}
 	cases := []struct {
-		slide  string
-		wantW  int
-		wantH  int
+		slide string
+		wantW int
+		wantH int
 	}{
 		{"OS-2.ndpi", 344, 396},
 		{"Hamamatsu-1.ndpi", 640, 732},

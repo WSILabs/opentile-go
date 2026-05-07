@@ -1,13 +1,13 @@
 // Package ndpi implements opentile-go format support for Hamamatsu NDPI
 // files. NDPI is a TIFF variant with vendor-private tags (FileFormat,
 // Magnification, ZOffsetFromSlideCenter, etc.) and pyramid levels stored as
-// horizontal stripes — typically 8 pixels tall — that must be reshaped into
+// horizontal strips — typically 8 pixels tall — that must be reshaped into
 // square output tiles at the JPEG marker level.
 //
 // This package detects NDPI files via the FileFormat (65420) vendor tag AND
 // the Make (271) tag, ports tifffile's _series_ndpi page classification via
 // tag 65421 (Magnification, FLOAT), and exposes pyramid levels as
-// opentile.Level values. Striped levels use pure-Go marker concatenation
+// opentile.Level values. Stripped levels use pure-Go marker concatenation
 // (internal/jpeg); one-frame levels and the label image require cgo
 // (internal/jpegturbo).
 package ndpi
@@ -60,10 +60,10 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 		return nil, err
 	}
 
-	// Resolve the requested tile size and snap to native stripe width.
-	// Native stripe dimensions are only discoverable by parsing the embedded
+	// Resolve the requested tile size and snap to native strip width.
+	// Native strip dimensions are only discoverable by parsing the embedded
 	// JPEG header (via readStripes), so we do a lightweight first pass to
-	// find the smallest stripe width across all pyramid-level pages.
+	// find the smallest strip width across all pyramid-level pages.
 	reqSize := opentile.Size{W: 512, H: 512}
 	if sz, set := cfg.TileSize(); set {
 		if sz.W != sz.H {
@@ -75,25 +75,25 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	// Pre-read each pyramid-level page's StripInfo so we can (a) compute the
 	// smallest-strip-width needed for AdjustTileSize and (b) reuse the
 	// parsed header when constructing the level.
-	stripeInfos := make(map[*tiff.Page]*StripInfo, len(pages))
-	smallestStripe := 0
+	stripInfos := make(map[*tiff.Page]*StripInfo, len(pages))
+	smallestStrip := 0
 	for _, p := range pages {
 		if classifyPage(p) != pageLevel {
 			continue
 		}
 		si, err := readStripes(p, file.ReaderAt())
 		if err != nil {
-			return nil, fmt.Errorf("ndpi: read stripes for page: %w", err)
+			return nil, fmt.Errorf("ndpi: read strips for page: %w", err)
 		}
 		if si == nil {
-			continue // non-striped level (one-frame); doesn't constrain tile size
+			continue // non-stripped level (one-frame); doesn't constrain tile size
 		}
-		stripeInfos[p] = si
-		if smallestStripe == 0 || si.StripW < smallestStripe {
-			smallestStripe = si.StripW
+		stripInfos[p] = si
+		if smallestStrip == 0 || si.StripW < smallestStrip {
+			smallestStrip = si.StripW
 		}
 	}
-	adjusted := AdjustTileSize(reqSize.W, smallestStripe)
+	adjusted := AdjustTileSize(reqSize.W, smallestStrip)
 
 	var levels []opentile.Level
 	var associated []opentile.AssociatedImage
@@ -103,11 +103,11 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 		kind := classifyPage(p)
 		switch kind {
 		case pageLevel:
-			// Striped vs one-frame: NDPI tag 65426 (McuStarts) is the
+			// Stripped vs one-frame: NDPI tag 65426 (McuStarts) is the
 			// authoritative discriminator — present iff the level stores
-			// per-stripe RSTn offsets inside the page's single JPEG.
-			if si := stripeInfos[p]; si != nil {
-				lvl, err := newStripedImage(levelIdx, p, adjusted, si, file.ReaderAt())
+			// per-strip RSTn offsets inside the page's single JPEG.
+			if si := stripInfos[p]; si != nil {
+				lvl, err := newStrippedImage(levelIdx, p, adjusted, si, file.ReaderAt())
 				if err != nil {
 					return nil, fmt.Errorf("ndpi: level %d: %w", levelIdx, err)
 				}
@@ -162,4 +162,3 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	}
 	return &tiler{md: md, levels: levels, associated: associated}, nil
 }
-

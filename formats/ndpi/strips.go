@@ -10,7 +10,7 @@ import (
 
 // NDPI vendor-private tag IDs for per-strip restart-marker offsets.
 // These are added to `dataoffsets` + `databytecounts` by tifffile at IFD
-// parse time so the page behaves as if it had N stripes rather than 1 —
+// parse time so the page behaves as if it had N strips rather than 1 —
 // see tifffile.py:8239 (_gettags near `mcustarts = tags.valueof(65426)`).
 const (
 	tagMcuStarts          uint16 = 65426 // LONG[] byte offsets within strip
@@ -46,7 +46,7 @@ type StripInfo struct {
 //  3. Reads mcuStarts[0] bytes of JPEG-header prefix from the file and
 //     parses it via jpeg.NDPIStripeJPEGHeader to derive strip pixel
 //     dimensions and a patched header with SOF dims set to strip size.
-//  4. Returns a StripInfo the caller can embed in a stripedImage.
+//  4. Returns a StripInfo the caller can embed in a strippedImage.
 //
 // Direct port of tifffile.TiffPage._gettags (tifffile.py:8239-8268) — the
 // NDPI-specific block that rewrites `dataoffsets`/`databytecounts`.
@@ -56,11 +56,11 @@ func readStripes(p *tiff.Page, r io.ReaderAt) (*StripInfo, error) {
 	}
 	iw, ok := p.ImageWidth()
 	if !ok {
-		return nil, fmt.Errorf("ndpi: striped page missing ImageWidth")
+		return nil, fmt.Errorf("ndpi: stripped page missing ImageWidth")
 	}
 	il, ok := p.ImageLength()
 	if !ok {
-		return nil, fmt.Errorf("ndpi: striped page missing ImageLength")
+		return nil, fmt.Errorf("ndpi: stripped page missing ImageLength")
 	}
 	stripOff, err := p.ScalarArrayU64(tiff.TagStripOffsets)
 	if err != nil {
@@ -71,7 +71,7 @@ func readStripes(p *tiff.Page, r io.ReaderAt) (*StripInfo, error) {
 		return nil, fmt.Errorf("ndpi: StripByteCounts: %w", err)
 	}
 	if len(stripOff) != 1 || len(stripLen) != 1 {
-		return nil, fmt.Errorf("ndpi: striped page expected 1 StripOffset/Count, got %d/%d", len(stripOff), len(stripLen))
+		return nil, fmt.Errorf("ndpi: stripped page expected 1 StripOffset/Count, got %d/%d", len(stripOff), len(stripLen))
 	}
 
 	mcuStartsLo, err := p.ScalarArrayU32(tagMcuStarts)
@@ -107,15 +107,15 @@ func readStripes(p *tiff.Page, r io.ReaderAt) (*StripInfo, error) {
 	if err := tiff.ReadAtFull(r, prefix, int64(stripOff[0])); err != nil {
 		return nil, fmt.Errorf("ndpi: read JPEG header prefix: %w", err)
 	}
-	stripeW, stripeH, patched, err := jpeg.NDPIStripeJPEGHeader(prefix)
+	stripW, stripH, patched, err := jpeg.NDPIStripeJPEGHeader(prefix)
 	if err != nil {
 		return nil, fmt.Errorf("ndpi: parse JPEG header prefix: %w", err)
 	}
-	if stripeW <= 0 || stripeH <= 0 {
-		return nil, fmt.Errorf("ndpi: non-positive stripe size %dx%d", stripeW, stripeH)
+	if stripW <= 0 || stripH <= 0 {
+		return nil, fmt.Errorf("ndpi: non-positive strip size %dx%d", stripW, stripH)
 	}
 
-	// Compute per-stripe absolute offsets and byte counts.
+	// Compute per-strip absolute offsets and byte counts.
 	n := len(mcuStarts)
 	offsets := make([]uint64, n)
 	counts := make([]uint64, n)
@@ -124,27 +124,27 @@ func readStripes(p *tiff.Page, r io.ReaderAt) (*StripInfo, error) {
 		if i+1 < n {
 			counts[i] = mcuStarts[i+1] - mcuStarts[i]
 		} else {
-			// Last stripe: from mcuStarts[i] to end of strip payload.
+			// Last strip: from mcuStarts[i] to end of strip payload.
 			counts[i] = stripLen[0] - mcuStarts[i]
 		}
 	}
 
-	stripedW := (int(iw) + stripeW - 1) / stripeW
-	stripedH := (int(il) + stripeH - 1) / stripeH
-	if stripedW*stripedH != n {
-		// Don't hard-fail — NDPI levels with irregular stripe counts exist,
+	gridW := (int(iw) + stripW - 1) / stripW
+	gridH := (int(il) + stripH - 1) / stripH
+	if gridW*gridH != n {
+		// Don't hard-fail — NDPI levels with irregular strip counts exist,
 		// but warn via error so callers can decide. All CMU-1 levels match
 		// exactly, so a mismatch here points at a format quirk we haven't
 		// seen yet.
-		return nil, fmt.Errorf("ndpi: stripe count %d != stripedW*stripedH %d (W=%d H=%d stripe=%dx%d image=%dx%d)",
-			n, stripedW*stripedH, stripedW, stripedH, stripeW, stripeH, iw, il)
+		return nil, fmt.Errorf("ndpi: strip count %d != gridW*gridH %d (W=%d H=%d strip=%dx%d image=%dx%d)",
+			n, gridW*gridH, gridW, gridH, stripW, stripH, iw, il)
 	}
 
 	return &StripInfo{
-		StripW:          stripeW,
-		StripH:          stripeH,
-		GridW:           stripedW,
-		GridH:           stripedH,
+		StripW:          stripW,
+		StripH:          stripH,
+		GridW:           gridW,
+		GridH:           gridH,
 		StripOffsets:    offsets,
 		StripByteCounts: counts,
 		JPEGHeader:      patched,
