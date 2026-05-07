@@ -1,4 +1,4 @@
-package philips
+package philipstiff
 
 import (
 	"strconv"
@@ -16,7 +16,7 @@ const philipsTimeLayout = "20060102150405.000000"
 // Metadata is the Philips-specific slide metadata. Embeds opentile.Metadata
 // so the common cross-format fields are populated via the embedded struct;
 // Philips-specific fields (PixelSpacing, BitsAllocated, etc.) live on the
-// outer struct and are accessed via philips.MetadataOf(tiler).
+// outer struct and are accessed via philipstiff.MetadataOf(tiler).
 type Metadata struct {
 	opentile.Metadata
 	// PixelSpacing is the baseline pixel pitch in millimeters,
@@ -125,7 +125,7 @@ func parseMetadata(xmlStr string) (Metadata, error) {
 
 // splitMultiValue strips literal quote characters from s, splits on
 // whitespace, and returns the resulting tokens. Mirrors upstream's
-// `string.replace('"', '').split()`.
+// `string.replace('"', ”).split()`.
 func splitMultiValue(s string) []string {
 	return strings.Fields(strings.ReplaceAll(s, `"`, ""))
 }

@@ -1,4 +1,4 @@
-package philips
+package philipstiff
 
 import (
 	"bytes"

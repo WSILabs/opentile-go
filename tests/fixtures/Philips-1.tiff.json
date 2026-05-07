@@ -1,6 +1,6 @@
 {
   "slide": "Philips-1.tiff",
-  "format": "philips",
+  "format": "philips-tiff",
   "levels": [
     {
       "index": 0,

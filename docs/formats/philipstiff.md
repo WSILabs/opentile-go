@@ -17,10 +17,10 @@ Philips IntelliSite Pathology Solution scanner output. File extension `.tiff` (o
 | Tiled pyramid levels | ✅ | JPEGTables spliced before SOS (no APP14 — Philips encodes standard YCbCr) |
 | Sparse-tile blank-tile filling | ✅ | When `TileByteCounts[idx] == 0` (scanner-skipped background), Tile() returns a cached "blank tile" derived from the first valid frame via `internal/jpegturbo.FillFrame` (DCT-domain all-blocks luminance fill). Lazily computed once per level via `sync.Once` |
 | BigTIFF | ✅ (`Philips-3.tiff` exercises this) |
-| Per-level dimension correction | ✅ | `formats/philips/dimensions.go` ports `tifffile._philips_load_pages` |
+| Per-level dimension correction | ✅ | `formats/philipstiff/dimensions.go` ports `tifffile._philips_load_pages` |
 | Tile grid math | ✅ | Uses corrected dims (matches Python's `image_size.ceil_div(tile_size)`); on-disk pages may carry more tile entries than `gx*gy`, with trailing entries unused but preserved for index parity with NativeTiledTiffImage |
 | Associated label / overview / thumbnail | ✅ | Single-strip JPEG passthrough with optional JPEGTables splice |
-| Format-specific metadata | ✅ via `philips.MetadataOf(t)` — exposes PixelSpacing, BitsAllocated, BitsStored, HighBit, PixelRepresentation, LossyImageCompressionMethod/Ratio |
+| Format-specific metadata | ✅ via `philipstiff.MetadataOf(t)` — exposes PixelSpacing, BitsAllocated, BitsStored, HighBit, PixelRepresentation, LossyImageCompressionMethod/Ratio |
 
 ## What's not supported
 
@@ -39,9 +39,9 @@ None. Behaviour matches Python opentile 0.20.0 exactly.
 
 ## Implementation references
 
-- Our package: `formats/philips/`
-- Our metadata accessor: `philips.MetadataOf(opentile.Tiler) (*Metadata, bool)`.
-- Upstream Python: [`opentile/formats/philips/`](https://github.com/imi-bigpicture/opentile/tree/main/opentile/formats/philips).
+- Our package: `formats/philipstiff/`
+- Our metadata accessor: `philipstiff.MetadataOf(opentile.Tiler) (*Metadata, bool)`.
+- Upstream Python: [`opentile/formats/philipstiff/`](https://github.com/imi-bigpicture/opentile/tree/main/opentile/formats/philips).
 - The DICOM_PIXEL_SPACING dimension correction: `tifffile._philips_load_pages` (`tifffile.py:6477-6540`).
 - `FillFrame` ports `Jpeg.fill_frame` from `opentile/jpeg/jpeg_filler.py:JpegFiller`; byte-deterministic per the v0.5 T2 gate.
 

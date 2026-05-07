@@ -1,4 +1,4 @@
-package ome
+package ometiff
 
 import (
 	"fmt"
@@ -108,4 +108,3 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedIm
 		reader:       r,
 	}, nil
 }
-

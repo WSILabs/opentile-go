@@ -122,7 +122,7 @@ README.md and per-format docs link here.
   decoding + merging (changes our tile-passthrough contract) or
   per-plane bytes (no obvious API). Both Leica fixtures hit this on
   tiled levels.
-- **Tracking:** see [`docs/formats/ome.md`](formats/ome.md).
+- **Tracking:** see [`docs/formats/ometiff.md`](formats/ometiff.md).
 
 ### OME first-strip-only on multi-strip OneFrame (since v0.6)
 
@@ -135,7 +135,7 @@ README.md and per-format docs link here.
   output is populated.
 - **Reason:** byte parity for OneFrame levels of OME files (Leica-1
   L2-L4, Leica-2 L2-L5).
-- **Tracking:** see [`docs/formats/ome.md`](formats/ome.md).
+- **Tracking:** see [`docs/formats/ometiff.md`](formats/ometiff.md).
 
 ### BIF: probability map exposure (since v0.7)
 
@@ -572,7 +572,7 @@ L25 below — fixture-driven; cervix has no annotations.
   spec; OME's own reader handles it.
 - **Resolution path:** none expected for the generic reader. If a
   non-OME fixture emerges, the assembly logic from
-  `formats/ome/oneframe.go` can be lifted into the generic path.
+  `formats/ometiff/oneframe.go` can be lifted into the generic path.
 
 ### L29 — Generic-TIFF: pluggable associated-image classifier deferred (since v0.10)
 
@@ -832,6 +832,69 @@ that locks the change in.
   duplicate DQT/DHT segments in the sparse-tile output — JPEG
   decoders accept this. Cross-check against Python at Philips-4 L0
   (0,0) caught our initial single-splice version.
+
+---
+
+## 8f. Retired in v0.12
+
+v0.12 is a focused naming-cleanup milestone. No new format support;
+no new features; no API additions — entirely a breaking-API rename
+pass consolidating four `docs/deferred.md §11` items.
+
+**Items shipped:**
+
+- **R1 — `striped` → `stripped` terminology rename.** Public NDPI
+  API renamed: `formats/ndpi.StripeInfo` → `StripInfo`; 6 field
+  renames. File renames: `striped.go` → `stripped.go`,
+  `stripes.go` → `strips.go`, `striped_test.go` →
+  `stripped_test.go`. Internal `stripedImage` → `strippedImage`
+  (and the `newStripedImage` constructor → `newStrippedImage`,
+  same root). The `readStripes` function name preserved (sealed
+  out of T2 scope per the plan; minor naming legacy that v1.0 may
+  revisit).
+- **R2 — `FormatPhilips` rename.** Identifier
+  `opentile.FormatPhilips` → `FormatPhilipsTIFF`; string value
+  `"philips"` → `"philips-tiff"`.
+- **R3 — `FormatOME` rename.** Identifier `opentile.FormatOME` →
+  `FormatOMETIFF`; string value `"ome"` → `"ome-tiff"`.
+- **R4 — Package directory renames.** `formats/philips/` →
+  `formats/philipstiff/`; `formats/ome/` → `formats/ometiff/`.
+  Package names follow: `package philips` → `package philipstiff`;
+  `package ome` → `package ometiff`. Format-doc renames
+  (docs/formats/philipstiff.md → philipstiff.md, ome.md → ometiff.md)
+  land in T7.
+
+**Test impact:** 6 fixture JSONs (4 Philips + 2 OME) updated to
+record the new format strings; all 24-fixture `TestSlideParity`
+green post-rename.
+
+**Architecture invariants preserved:**
+
+- Public API is more consistent post-rename: every Format constant
+  for vendor-disambiguated formats now follows
+  `Format<Vendor><Tag>` (FormatGenericTIFF, FormatLeicaSCN,
+  FormatPhilipsTIFF, FormatOMETIFF) plus the unambiguous-vendor
+  short forms (FormatSVS, FormatNDPI, FormatBIF, FormatIFE).
+- v1.0 cut not committed (per Q1). v0.12 stays in pre-1.0
+  territory; subsequent breaking changes remain possible without
+  major-version ceremony.
+- cgo footprint unchanged.
+- No new active limitations.
+
+**Items deferred:** none introduced.
+
+**v0.12 lessons:**
+
+- **BSD sed `\b` reliability**: T1, T3, T4 all surfaced cases where
+  `sed -E 's/\bIDENT\b/REPLACEMENT/g'` silently missed identifiers
+  on macOS BSD sed. Mitigation: pair every sed pass with a `grep`
+  audit and use the Edit tool for surgical fixes when sed misses.
+
+**Migration guide:** see `CHANGELOG.md [0.12.0]` Breaking changes
+section for the per-symbol old → new table (T8 commits this).
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-07-opentile-go-v12-naming-cleanup.md`](superpowers/plans/2026-05-07-opentile-go-v12-naming-cleanup.md)
+(9 tasks across Batches A–B).
 
 ---
 
@@ -1322,7 +1385,7 @@ plan tasks across 5 batches, executed sequentially.
   until the per-IFD reader lands. The dimensions are surfaced
   honestly so consumers can detect multi-Z OMEs and gracefully
   fall back. Implementation strategy documented in
-  `docs/formats/ome.md`'s "Future implementation strategy"
+  `docs/formats/ometiff.md`'s "Future implementation strategy"
   subsection.
 
 **Test fixtures:**
@@ -1855,8 +1918,6 @@ decisions, not deferred work.
 | **R16** — Leica SCN support | (new) | **Fixtures available**; v0.11 candidate | mentioned as v0.8 candidate, fixtures landed 2026-05-01 | Owner sign-off to schedule v0.11 |
 | **`Level.TilePrefix() []byte`** | A.3 follow-on | YAGNI | v0.9 | First §B consumer asks for it |
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit |
-| **Fix `striped` → `stripped` terminology** | NDPI / shared internal | Process | called out 2026-05-01 | Owner sign-off on the breaking-API question (or merge with a future v1.0) |
-| **Naming corrections** — `Format` constants + format-package naming | Public API | Process | called out 2026-05-01 | Same owner sign-off as the striped→stripped item; bundle as one v1.0 cleanup |
 | **Single-level tiled TIFF support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to relax `MinLevels` for single-level files (Grundium fixture in hand) |
 | **Mixed-ratio pyramid support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to handle non-geometric chains (Grundium fixture in hand) |
 | **L26** — generic-TIFF stripped pyramid IFDs | generic | Fixture-driven | v0.10 | First stripped-pyramid generic TIFF in the slate |
@@ -1947,6 +2008,10 @@ investigation.
 
 ### Note on the terminology fix
 
+> **Update (v0.12):** This rename shipped on 2026-05-07. The
+> rationale below documents the pre-v0.12 state for historical
+> reference. See `§8f` for the retirement audit.
+
 The TIFF spec (and libtiff source) uses **"strip"** — `StripOffsets`
 (tag 273), `StripByteCounts` (tag 279), `RowsPerStrip` (tag 278) —
 not "stripe." The opentile-go codebase has used "stripe/striped"
@@ -1966,6 +2031,10 @@ Pick when: bundling with v1.0 if/when one is cut; or as a standalone
 v0.x.y if the owner wants the cleanup without a major bump.
 
 ### Note on the naming corrections
+
+> **Update (v0.12):** This rename shipped on 2026-05-07. The
+> rationale below documents the pre-v0.12 state for historical
+> reference. See `§8f` for the retirement audit.
 
 opentile-go's format identifiers and package paths use shorter forms
 than is ideal for distinguishing TIFF-dialect formats from non-TIFF

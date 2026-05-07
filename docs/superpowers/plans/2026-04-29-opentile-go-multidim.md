@@ -92,7 +92,7 @@ Files modified:
 | `tests/parity/bif_geometry_test.go` | Add multi-dim assertions (SizeZ/C/T = 1 on existing fixtures) |
 | `docs/deferred.md` | Register multi-dim API addition as v0.7 deviation; close L21; add multi-dim milestone retirement note |
 | `docs/formats/bif.md` | Multi-Z surfacing in "What's supported" table; loses L21 from limitations |
-| `docs/formats/ome.md` | Note honest SizeZ/C/T reporting + deferred multi-Z TileAt |
+| `docs/formats/ometiff.md` | Note honest SizeZ/C/T reporting + deferred multi-Z TileAt |
 | `README.md` | Deviations table gets a multi-dim API row |
 | `CHANGELOG.md` | `[0.7.0]` Added section gains multi-dim API + BIF Z-stack rows |
 | `CLAUDE.md` | Active-limitations list loses L21 |
@@ -889,16 +889,16 @@ Image.SizeZ/SizeC/SizeT from <Pixels>`.
 
 ## Task 13: Document OME multi-Z TileAt implementation strategy (deferred)
 
-**Goal:** Write the deferral plan into `docs/formats/ome.md` so the
+**Goal:** Write the deferral plan into `docs/formats/ometiff.md` so the
 future implementer has it.
 
 **Files:**
-- Modify: `docs/formats/ome.md` ("Active limitations" section).
+- Modify: `docs/formats/ometiff.md` ("Active limitations" section).
 
 - [ ] **Step 0: Confirm upstream.**
 
 ```sh
-grep -nE 'Active limitations|Multi-Z|SizeZ' docs/formats/ome.md
+grep -nE 'Active limitations|Multi-Z|SizeZ' docs/formats/ometiff.md
 ```
 
 - [ ] **Step 1: Add a paragraph** describing the per-IFD
@@ -1055,14 +1055,14 @@ listing the multi-dim spec doc.
 
 - [ ] **Step 4: Commit.** `docs(bif): document multi-Z support`.
 
-## Task 17: docs/formats/ome.md — honest dimension reporting
+## Task 17: docs/formats/ometiff.md — honest dimension reporting
 
 **Goal:** Document the half-supported state — SizeZ/C/T honestly
 surfaced, but `TileAt(z != 0)` errors with `ErrDimensionUnavailable`
 until OME multi-Z reader lands.
 
 **Files:**
-- Modify: `docs/formats/ome.md`.
+- Modify: `docs/formats/ometiff.md`.
 
 - [ ] **Step 1: Add a "Multi-dimensional reading" subsection** under
 "What's supported" / "What's not supported." Note the `<Pixels>`

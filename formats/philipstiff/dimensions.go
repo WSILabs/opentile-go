@@ -1,7 +1,9 @@
-// Package philips reads tiles from Philips IntelliSite Pathology Solution
+// Package philipstiff reads tiles from Philips IntelliSite Pathology Solution
 // TIFF whole-slide images. It is a direct port of Python opentile's
-// formats/philips/ subtree (Apache 2.0, Sectra AB).
-package philips
+// formats/philips/ subtree (Apache 2.0, Sectra AB) — note: the upstream
+// Python package directory is still called "philips"; opentile-go renamed
+// to "philipstiff" in v0.12 (see docs/deferred.md §8f).
+package philipstiff
 
 import (
 	"encoding/xml"
@@ -110,7 +112,7 @@ func parsePixelSpacingPairs(xmlStr string) ([][2]float64, error) {
 
 // parseTwoFloats strips literal quote characters from s and splits on
 // whitespace, returning the first two parsed floats. Mirrors
-// upstream's `text.replace('"', '').split()`.
+// upstream's `text.replace('"', ”).split()`.
 func parseTwoFloats(s string) (float64, float64, bool) {
 	s = strings.ReplaceAll(s, `"`, "")
 	parts := strings.Fields(s)

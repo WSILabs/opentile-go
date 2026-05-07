@@ -491,7 +491,7 @@ infrastructure. Phases:
   (their pixels are 2D RGB). No actual multi-Z OME fixture; this is
   pure contract verification.
 - Document the implementation strategy for OME multi-Z (per-IFD
-  addressing based on `DimensionOrder`) in `docs/formats/ome.md` —
+  addressing based on `DimensionOrder`) in `docs/formats/ometiff.md` —
   for the future implementer to pick up.
 
 ### Phase δ (tests + docs)

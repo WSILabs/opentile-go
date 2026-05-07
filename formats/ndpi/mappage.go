@@ -64,7 +64,7 @@ func newMapPage(p *tiff.Page, r io.ReaderAt) (*mapPage, error) {
 	// pages uncompressed (tag 1) but the format doesn't strictly
 	// require it. Read the tag and map; unknown codes fall through
 	// to CompressionUnknown rather than asserting JPEG like overview /
-	// striped / oneframe do.
+	// stripped / oneframe do.
 	compTag, _ := p.Compression()
 	return &mapPage{
 		size:        opentile.Size{W: int(iw), H: int(il)},

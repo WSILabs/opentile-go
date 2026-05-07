@@ -1,4 +1,4 @@
-package philips
+package philipstiff
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ import (
 // The reported Size() is the post-correction dimension from
 // computeCorrectedSizes, NOT the on-disk page.imagewidth/imagelength.
 // Philips's on-disk dimensions for non-baseline levels are placeholders
-// (see formats/philips/dimensions.go for the algorithm).
+// (see formats/philipstiff/dimensions.go for the algorithm).
 type tiledImage struct {
 	index       int
 	size        opentile.Size
@@ -155,15 +155,15 @@ func newTiledImage(
 	// max above already covers them.
 
 	return &tiledImage{
-		index:       index,
-		size:        correctedSize,
-		tileSize:    opentile.Size{W: int(tw), H: int(tl)},
-		grid:        opentile.Size{W: gx, H: gy},
-		compression: ocomp,
-		mpp:         mpp,
-		pyrIndex:    pyr,
-		offsets:     offsets,
-		counts:      counts,
+		index:        index,
+		size:         correctedSize,
+		tileSize:     opentile.Size{W: int(tw), H: int(tl)},
+		grid:         opentile.Size{W: gx, H: gy},
+		compression:  ocomp,
+		mpp:          mpp,
+		pyrIndex:     pyr,
+		offsets:      offsets,
+		counts:       counts,
 		jpegTables:   jpegTables,
 		reader:       r,
 		cfg:          cfg,

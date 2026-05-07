@@ -1007,7 +1007,7 @@ grep -n '^| R14\|^### \|^## 1a\|^## 8\|Retired in v0' docs/deferred.md | head -3
 
 ## Task 25: `docs/formats/bif.md` — per-format reader notes
 
-**Goal:** Match the `docs/formats/ome.md` template — fixture inventory, IFD layout, classification rules, oracle coverage, known limitations.
+**Goal:** Match the `docs/formats/ometiff.md` template — fixture inventory, IFD layout, classification rules, oracle coverage, known limitations.
 
 **Files:**
 - New: `docs/formats/bif.md`.
@@ -1016,7 +1016,7 @@ grep -n '^| R14\|^### \|^## 1a\|^## 8\|Retired in v0' docs/deferred.md | head -3
 
 ```sh
 ls docs/formats/ 2>&1
-wc -l docs/formats/ome.md
+wc -l docs/formats/ometiff.md
 ```
 
 - [ ] **Step 1: Mirror the ome.md structure.** Sections: 1. Overview; 2. Fixture inventory; 3. IFD classification table; 4. Generation classification; 5. Oracle coverage matrix; 6. Active limitations (link §10 of spec); 7. References.

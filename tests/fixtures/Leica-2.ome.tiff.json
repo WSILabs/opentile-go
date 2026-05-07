@@ -1,6 +1,6 @@
 {
   "slide": "Leica-2.ome.tiff",
-  "format": "ome",
+  "format": "ome-tiff",
   "levels": null,
   "metadata": {
     "magnification": 0

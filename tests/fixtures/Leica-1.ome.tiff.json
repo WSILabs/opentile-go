@@ -1,6 +1,6 @@
 {
   "slide": "Leica-1.ome.tiff",
-  "format": "ome",
+  "format": "ome-tiff",
   "levels": [
     {
       "index": 0,
