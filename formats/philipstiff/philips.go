@@ -1,4 +1,4 @@
-package philips
+package philipstiff
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ type Factory struct{ opentile.RawUnsupported }
 func New() *Factory { return &Factory{} }
 
 // Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatPhilips }
+func (f *Factory) Format() opentile.Format { return opentile.FormatPhilipsTIFF }
 
 // Supports reports whether file looks like a Philips TIFF: its first
 // page's Software tag starts with "Philips DP" AND its ImageDescription
@@ -174,7 +174,7 @@ type tiler struct {
 	baseMPP    opentile.SizeMm
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatPhilips }
+func (t *tiler) Format() opentile.Format { return opentile.FormatPhilipsTIFF }
 func (t *tiler) Images() []opentile.Image {
 	return []opentile.Image{opentile.NewSingleImage(t.levels)}
 }
@@ -205,7 +205,7 @@ func (t *tiler) WarmLevel(i int) error {
 
 // tilerUnwrapper is the same coordination interface SVS / NDPI use to
 // peel off opentile's *fileCloser wrapper before MetadataOf can type-
-// assert on the concrete philips.tiler.
+// assert on the concrete philipstiff.tiler.
 type tilerUnwrapper interface {
 	UnwrapTiler() opentile.Tiler
 }
@@ -216,7 +216,7 @@ const maxTilerUnwrapHops = 16
 // Tiler, otherwise (nil, false). Walks any number of wrappers before
 // asserting on the concrete type.
 //
-//	if md, ok := philips.MetadataOf(tiler); ok {
+//	if md, ok := philipstiff.MetadataOf(tiler); ok {
 //	    fmt.Println(md.PixelSpacing, md.BitsAllocated)
 //	}
 func MetadataOf(t opentile.Tiler) (*Metadata, bool) {

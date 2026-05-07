@@ -6,7 +6,12 @@ type Format string
 const (
 	FormatSVS     Format = "svs"
 	FormatNDPI    Format = "ndpi"
-	FormatPhilips Format = "philips"
+	// FormatPhilipsTIFF is the Philips IntelliSite Pathology Solution TIFF
+	// reader. Renamed in v0.12 from FormatPhilips to FormatPhilipsTIFF to
+	// align with v0.10's FormatGenericTIFF and v0.11's FormatLeicaSCN naming
+	// convention; Philips has multiple WSI file formats (TIFF; iSyntax), so
+	// the bare "philips" identifier was ambiguous. Reports as "philips-tiff".
+	FormatPhilipsTIFF Format = "philips-tiff"
 	FormatOME     Format = "ome"
 	FormatBIF     Format = "bif"
 	FormatIFE     Format = "ife"

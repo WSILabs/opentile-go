@@ -1,4 +1,4 @@
-package philips
+package philipstiff
 
 import (
 	"bytes"
@@ -56,10 +56,10 @@ func TestSupportsTrailingWhitespace(t *testing.T) {
 	}
 }
 
-// TestFormatIdentity: Format() returns FormatPhilips.
+// TestFormatIdentity: Format() returns FormatPhilipsTIFF.
 func TestFormatIdentity(t *testing.T) {
-	if got := New().Format(); string(got) != "philips" {
-		t.Errorf("Format(): got %q, want %q", got, "philips")
+	if got := New().Format(); string(got) != "philips-tiff" {
+		t.Errorf("Format(): got %q, want %q", got, "philips-tiff")
 	}
 }
 
@@ -89,17 +89,35 @@ func buildPhilipsLikeTIFF(t *testing.T, software, description string) []byte {
 	}
 	writeU16(6)
 	// ImageWidth (256) SHORT 1
-	writeU16(256); writeU16(3); writeU32(1); writeU32(1024)
+	writeU16(256)
+	writeU16(3)
+	writeU32(1)
+	writeU32(1024)
 	// ImageLength (257) SHORT 1
-	writeU16(257); writeU16(3); writeU32(1); writeU32(768)
+	writeU16(257)
+	writeU16(3)
+	writeU32(1)
+	writeU32(768)
 	// ImageDescription (270) ASCII
-	writeU16(270); writeU16(2); writeU32(uint32(len(descBytes))); writeU32(descOff)
+	writeU16(270)
+	writeU16(2)
+	writeU32(uint32(len(descBytes)))
+	writeU32(descOff)
 	// Software (305) ASCII
-	writeU16(305); writeU16(2); writeU32(uint32(len(swBytes))); writeU32(swOff)
+	writeU16(305)
+	writeU16(2)
+	writeU32(uint32(len(swBytes)))
+	writeU32(swOff)
 	// TileWidth (322) SHORT 1
-	writeU16(322); writeU16(3); writeU32(1); writeU32(256)
+	writeU16(322)
+	writeU16(3)
+	writeU32(1)
+	writeU32(256)
 	// TileLength (323) SHORT 1
-	writeU16(323); writeU16(3); writeU32(1); writeU32(256)
+	writeU16(323)
+	writeU16(3)
+	writeU32(1)
+	writeU32(256)
 	writeU32(0)
 
 	buf.Write(swBytes)
