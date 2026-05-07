@@ -24,14 +24,14 @@ const (
 //
 // Constructed once at Open() time; safe for concurrent read.
 type StripInfo struct {
-	StripW, StripH int      // pixel dimensions of a native strip
-	GridW, GridH   int      // grid dimensions (ceil(imageW/StripW), ceil(imageH/StripH))
-	StripOffsets   []uint64 // per-strip absolute file offset
+	StripW, StripH  int      // pixel dimensions of a native strip
+	GridW, GridH    int      // grid dimensions (ceil(imageW/StripW), ceil(imageH/StripH))
+	StripOffsets    []uint64 // per-strip absolute file offset
 	StripByteCounts []uint64 // per-strip length
-	JPEGHeader     []byte   // patched JPEG header (SOF rewritten to strip size)
+	JPEGHeader      []byte   // patched JPEG header (SOF rewritten to strip size)
 }
 
-// readStripes parses NDPI pyramid-level stripe metadata from page p.
+// readStripes parses NDPI pyramid-level strip metadata from page p.
 //
 // If the page does NOT carry tag 65426 (McuStarts), readStripes returns
 // (nil, nil) — signalling that the level is a true one-frame image and
@@ -41,11 +41,11 @@ type StripInfo struct {
 //
 //  1. Reads McuStarts (and optionally McuStartsHighBytes for >4 GiB levels)
 //     into a []uint64.
-//  2. Computes per-stripe absolute offsets and byte counts from the strip's
+//  2. Computes per-strip absolute offsets and byte counts from the strip's
 //     single (StripOffset, StripByteCount).
 //  3. Reads mcuStarts[0] bytes of JPEG-header prefix from the file and
-//     parses it via jpeg.NDPIStripeJPEGHeader to derive stripe pixel
-//     dimensions AND a patched header with SOF dims set to stripe size.
+//     parses it via jpeg.NDPIStripeJPEGHeader to derive strip pixel
+//     dimensions and a patched header with SOF dims set to strip size.
 //  4. Returns a StripInfo the caller can embed in a stripedImage.
 //
 // Direct port of tifffile.TiffPage._gettags (tifffile.py:8239-8268) — the
