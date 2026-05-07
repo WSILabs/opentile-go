@@ -699,8 +699,8 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### T7 — Format-doc renames (`philips.md` → `philipstiff.md`, `ome.md` → `ometiff.md`)
 
 **Files:**
-- Rename: `docs/formats/philipstiff.md` → `docs/formats/philipstiff.md`
-- Rename: `docs/formats/ometiff.md` → `docs/formats/ometiff.md`
+- Rename: `docs/formats/philips.md` → `docs/formats/philipstiff.md`
+- Rename: `docs/formats/ome.md` → `docs/formats/ometiff.md`
 - Modify (renamed): both files for content updates (header H1 + references to old constant/package names)
 - Modify: any other `docs/**/*.md` referencing the renamed format-doc paths
 
@@ -708,8 +708,8 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 ```bash
 cd /Users/cornish/GitHub/opentile-go
-git mv docs/formats/philipstiff.md docs/formats/philipstiff.md
-git mv docs/formats/ometiff.md docs/formats/ometiff.md
+git mv docs/formats/philips.md docs/formats/philipstiff.md
+git mv docs/formats/ome.md docs/formats/ometiff.md
 ```
 
 - [ ] **Step 2: Update H1 + content of each renamed file**
@@ -778,13 +778,13 @@ git commit -m "docs(v0.12): T7 — rename format docs (philips.md → philipstif
 Mirrors v0.10's docs/formats/generictiff.md and v0.11's
 docs/formats/leicascn.md naming convention. File contents updated:
 
-  docs/formats/philipstiff.md → docs/formats/philipstiff.md
+  docs/formats/philips.md → docs/formats/philipstiff.md
     FormatPhilips → FormatPhilipsTIFF
     formats/philips/ → formats/philipstiff/
     philips.MetadataOf → philipstiff.MetadataOf
     package philips → package philipstiff
 
-  docs/formats/ometiff.md → docs/formats/ometiff.md
+  docs/formats/ome.md → docs/formats/ometiff.md
     (symmetric updates for OME)
 
 Cross-references in docs/deferred.md, README.md, CLAUDE.md, and

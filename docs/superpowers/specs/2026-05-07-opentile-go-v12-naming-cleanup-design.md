@@ -88,7 +88,7 @@ The package name follows the directory: `package philips` → `package philipsti
 - `formats/all/all.go` — registration imports.
 - Cross-format helpers / tests that import the renamed packages.
 - Test fixture files that reference the old Format string in JSON (`tests/fixtures/*.json` carry `"format": "philips"` or `"format": "ome"` — these need updates per fixture).
-- Documentation (`docs/formats/philipstiff.md` → `docs/formats/philipstiff.md`; `docs/formats/ometiff.md` → `docs/formats/ometiff.md`).
+- Documentation (`docs/formats/philips.md` → `docs/formats/philipstiff.md`; `docs/formats/ome.md` → `docs/formats/ometiff.md`).
 
 ### External callers (none today; documented for future)
 
@@ -145,7 +145,7 @@ The four §11 backlog items (R1–R4) move from "deferred" to "retired in v0.12"
 Single-batch plan tentatively scoped at ~10 tasks. Can be split into 2 batches if review cadence prefers. Headline path:
 
 - **Batch A — NDPI strip rename (R1):** rename file + internal types + public StripInfo struct + 6 fields. Update all callers (formats/ndpi internal use + tests + parity oracle). Update CHANGELOG migration note.
-- **Batch B — Format constants + packages (R2–R4):** rename `formats/philips` → `formats/philipstiff` directory + `package` decl + `FormatPhilips` → `FormatPhilipsTIFF` + value `"philips"` → `"philips-tiff"`. Then mirror for OME. Update `formats/all/all.go`. Update `docs/formats/philipstiff.md` → `docs/formats/philipstiff.md` (rename file). Update test fixtures.
+- **Batch B — Format constants + packages (R2–R4):** rename `formats/philips` → `formats/philipstiff` directory + `package` decl + `FormatPhilips` → `FormatPhilipsTIFF` + value `"philips"` → `"philips-tiff"`. Then mirror for OME. Update `formats/all/all.go`. Update `docs/formats/philips.md` → `docs/formats/philipstiff.md` (rename file). Update test fixtures.
 - **Batch C — Docs + ship:** new `docs/deferred.md §8f` v0.12 retirement audit. CHANGELOG.md `[0.12.0]` section with full migration guide. CLAUDE.md milestone bump. README touch-ups (Format() example values; deviation table refresh if needed).
 
 Plan written separately at `docs/superpowers/plans/2026-05-07-opentile-go-v12-naming-cleanup.md`.
