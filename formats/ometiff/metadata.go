@@ -1,4 +1,4 @@
-package ome
+package ometiff
 
 import (
 	"encoding/xml"
@@ -58,7 +58,7 @@ type OMEImage struct {
 // OMEMetadata is the top-level parsed view of an OME-XML document.
 // Holds the Image list in document order; further interpretation
 // (classification of macro / label / thumbnail vs main pyramid) is
-// done in formats/ome/series.go.
+// done in formats/ometiff/series.go.
 type OMEMetadata struct {
 	Images []OMEImage
 }

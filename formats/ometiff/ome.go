@@ -1,17 +1,19 @@
-// Package ome implements opentile-go format support for OME TIFF
+// Package ometiff implements opentile-go format support for OME TIFF
 // files — a TIFF dialect carrying OME-XML metadata in the first
 // page's ImageDescription, with reduced-resolution pyramid levels
 // stored as TIFF SubIFDs of the base page.
 //
 // Direct port of Python opentile 0.20.0's formats/ome/ subtree
-// (Apache 2.0, Sectra AB), with one deliberate deviation: multi-image
+// (Apache 2.0, Sectra AB) — note: the upstream Python package directory
+// is still called "ome"; opentile-go renamed to "ometiff" in v0.12
+// (see docs/deferred.md §8f). One deliberate deviation: multi-image
 // OME files (where several main pyramids share a single TIFF
 // container — Leica-2.ome.tiff is one) expose every pyramid via the
 // new opentile.Tiler.Images() API. Upstream's base Tiler loop
 // silently overwrites _level_series_index on each match and surfaces
 // only the last main pyramid; we treat that as an upstream oversight
 // rather than intentional behaviour.
-package ome
+package ometiff
 
 import (
 	"errors"
@@ -37,7 +39,7 @@ type Factory struct{ opentile.RawUnsupported }
 func New() *Factory { return &Factory{} }
 
 // Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatOME }
+func (f *Factory) Format() opentile.Format { return opentile.FormatOMETIFF }
 
 // Supports reports whether file looks like an OME TIFF: its first
 // page's ImageDescription's last 10 characters, after stripping
@@ -143,8 +145,8 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	// label, overview) for parity with SVS/NDPI/Philips.
 	var associated []opentile.AssociatedImage
 	for _, spec := range []struct {
-		kind    string
-		omeIdx  int
+		kind   string
+		omeIdx int
 	}{
 		{"thumbnail", cls.Thumbnail},
 		{"label", cls.Label},
@@ -185,7 +187,7 @@ const maxTilerUnwrapHops = 16
 // otherwise (nil, false). Walks any number of wrappers before
 // asserting on the concrete type.
 //
-//	if md, ok := ome.MetadataOf(tiler); ok {
+//	if md, ok := ometiff.MetadataOf(tiler); ok {
 //	    fmt.Println("OME images:", len(md.Images))
 //	}
 func MetadataOf(t opentile.Tiler) (*OMEMetadata, bool) {
@@ -352,7 +354,7 @@ type tiler struct {
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatOME }
+func (t *tiler) Format() opentile.Format { return opentile.FormatOMETIFF }
 func (t *tiler) Images() []opentile.Image {
 	out := make([]opentile.Image, len(t.images))
 	copy(out, t.images)

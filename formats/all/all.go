@@ -20,7 +20,7 @@ import (
 	"github.com/cornish/opentile-go/formats/ife"
 	"github.com/cornish/opentile-go/formats/leicascn"
 	"github.com/cornish/opentile-go/formats/ndpi"
-	"github.com/cornish/opentile-go/formats/ome"
+	"github.com/cornish/opentile-go/formats/ometiff"
 	"github.com/cornish/opentile-go/formats/philipstiff"
 	"github.com/cornish/opentile-go/formats/svs"
 )
@@ -34,7 +34,7 @@ func Register() {
 		opentile.Register(svs.New())
 		opentile.Register(ndpi.New())
 		opentile.Register(philipstiff.New())
-		opentile.Register(ome.New())
+		opentile.Register(ometiff.New())
 		opentile.Register(bif.New())
 		opentile.Register(ife.New())
 		opentile.Register(leicascn.New())

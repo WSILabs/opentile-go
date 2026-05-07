@@ -1,4 +1,4 @@
-package ome
+package ometiff
 
 import (
 	"reflect"

@@ -1,4 +1,4 @@
-package ome_test
+package ometiff_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	opentile "github.com/cornish/opentile-go"
 	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/formats/ome"
+	"github.com/cornish/opentile-go/formats/ometiff"
 )
 
 // TestOMEAccessors exercises Image / Tiler accessors that the unit
@@ -34,8 +34,8 @@ func TestOMEAccessors(t *testing.T) {
 	defer tiler.Close()
 
 	// Tiler-level shortcuts
-	if got := tiler.Format(); got != opentile.FormatOME {
-		t.Errorf("Format: got %q, want %q", got, opentile.FormatOME)
+	if got := tiler.Format(); got != opentile.FormatOMETIFF {
+		t.Errorf("Format: got %q, want %q", got, opentile.FormatOMETIFF)
 	}
 	if got := tiler.Levels(); len(got) == 0 {
 		t.Error("Levels: empty slice")
@@ -105,9 +105,9 @@ func TestOMEAccessors(t *testing.T) {
 	}
 
 	// Format-specific metadata accessor
-	if md, ok := ome.MetadataOf(tiler); !ok {
-		t.Error("ome.MetadataOf: false on an OME tiler")
+	if md, ok := ometiff.MetadataOf(tiler); !ok {
+		t.Error("ometiff.MetadataOf: false on an OME tiler")
 	} else if len(md.Images) == 0 {
-		t.Error("ome.MetadataOf returned zero images")
+		t.Error("ometiff.MetadataOf returned zero images")
 	}
 }

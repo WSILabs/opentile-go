@@ -1,4 +1,4 @@
-package ome
+package ometiff
 
 import (
 	"bytes"
@@ -127,15 +127,15 @@ func newTiledImage(
 	}
 
 	return &tiledImage{
-		index:       index,
-		size:        size,
-		tileSize:    opentile.Size{W: int(tw), H: int(tl)},
-		grid:        opentile.Size{W: gx, H: gy},
-		compression: ocomp,
-		mpp:         mpp,
-		pyrIndex:    pyr,
-		offsets:     offsets,
-		counts:      counts,
+		index:        index,
+		size:         size,
+		tileSize:     opentile.Size{W: int(tw), H: int(tl)},
+		grid:         opentile.Size{W: gx, H: gy},
+		compression:  ocomp,
+		mpp:          mpp,
+		pyrIndex:     pyr,
+		offsets:      offsets,
+		counts:       counts,
 		jpegTables:   jpegTables,
 		reader:       r,
 		maxTileSize:  maxTileSize,

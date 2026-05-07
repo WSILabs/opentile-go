@@ -1,7 +1,7 @@
 // Package oneframe provides shared infrastructure for reading
 // "single big JPEG, virtualised into tile cells" pyramid pages — used
 // by NDPI's non-tiled levels (formats/ndpi/oneframe.go pre-v0.6) and
-// OME-TIFF's reduced-resolution levels (formats/ome/oneframe.go in
+// OME-TIFF's reduced-resolution levels (formats/ometiff/oneframe.go in
 // v0.6).
 //
 // The shared algorithm (single-strip JPEG → SOF padded to MCU

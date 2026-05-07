@@ -12,9 +12,13 @@ const (
 	// convention; Philips has multiple WSI file formats (TIFF; iSyntax), so
 	// the bare "philips" identifier was ambiguous. Reports as "philips-tiff".
 	FormatPhilipsTIFF Format = "philips-tiff"
-	FormatOME         Format = "ome"
-	FormatBIF         Format = "bif"
-	FormatIFE         Format = "ife"
+	// FormatOMETIFF is the OME-TIFF reader. Renamed in v0.12 to align
+	// with v0.10/v0.11's FormatGenericTIFF / FormatLeicaSCN convention;
+	// OME has multiple file formats (OME-TIFF, OME-Zarr, OME-NGFF), so
+	// the bare "ome" identifier ambiguously claimed the family.
+	FormatOMETIFF Format = "ome-tiff"
+	FormatBIF     Format = "bif"
+	FormatIFE     Format = "ife"
 	// FormatGenericTIFF is the catch-all reader for tiled pyramidal TIFF
 	// without vendor metadata (added in v0.10). Activates when no
 	// vendor format factory claims the file. Reports as "generic-tiff"

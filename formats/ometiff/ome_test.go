@@ -1,4 +1,4 @@
-package ome
+package ometiff
 
 import (
 	"bytes"
@@ -73,10 +73,10 @@ func TestSupportsEmptyDescription(t *testing.T) {
 	}
 }
 
-// TestFormatIdentity confirms the FormatOME constant.
+// TestFormatIdentity confirms the FormatOMETIFF constant.
 func TestFormatIdentity(t *testing.T) {
-	if got := New().Format(); string(got) != "ome" {
-		t.Errorf("Format(): got %q, want %q", got, "ome")
+	if got := New().Format(); string(got) != "ome-tiff" {
+		t.Errorf("Format(): got %q, want %q", got, "ome-tiff")
 	}
 }
 
@@ -102,11 +102,26 @@ func buildOMELikeTIFF(t *testing.T, description string) []byte {
 		buf.WriteByte(byte(v >> 24))
 	}
 	writeU16(5)
-	writeU16(256); writeU16(3); writeU32(1); writeU32(1024) // ImageWidth
-	writeU16(257); writeU16(3); writeU32(1); writeU32(768)  // ImageLength
-	writeU16(270); writeU16(2); writeU32(uint32(len(descBytes))); writeU32(descOff) // ImageDescription
-	writeU16(322); writeU16(3); writeU32(1); writeU32(256)  // TileWidth
-	writeU16(323); writeU16(3); writeU32(1); writeU32(256)  // TileLength
+	writeU16(256)
+	writeU16(3)
+	writeU32(1)
+	writeU32(1024) // ImageWidth
+	writeU16(257)
+	writeU16(3)
+	writeU32(1)
+	writeU32(768) // ImageLength
+	writeU16(270)
+	writeU16(2)
+	writeU32(uint32(len(descBytes)))
+	writeU32(descOff) // ImageDescription
+	writeU16(322)
+	writeU16(3)
+	writeU32(1)
+	writeU32(256) // TileWidth
+	writeU16(323)
+	writeU16(3)
+	writeU32(1)
+	writeU32(256) // TileLength
 	writeU32(0)
 
 	buf.Write(descBytes)
