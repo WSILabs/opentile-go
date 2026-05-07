@@ -11,12 +11,92 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.11: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.12: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (new — Leica SCN design Q-decisions, v0.11). See
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.12 introduced
+no new active limitations — it was a focused naming-cleanup pass. See
 `docs/deferred.md` §11 consolidated backlog. Open work parked in
 tracked issues:
+
+## [0.12.0] — 2026-05-07
+
+Naming-cleanup milestone — breaking-API rename pass consolidating
+four deferred items from `docs/deferred.md §11`. No new format
+support, no new features, no API additions. The renames pre-pay
+the eventual v1.0 naming-cleanliness cost without committing to
+v1.0 (per sealed Q1).
+
+### Breaking changes
+
+#### Format constants
+
+| v0.11 | v0.12 | String value |
+|---|---|---|
+| `opentile.FormatPhilips` | `opentile.FormatPhilipsTIFF` | `"philips"` → `"philips-tiff"` |
+| `opentile.FormatOME` | `opentile.FormatOMETIFF` | `"ome"` → `"ome-tiff"` |
+
+Callers comparing against the old string values or identifiers
+must update. Mirrors v0.10 / v0.11's `FormatGenericTIFF` /
+`FormatLeicaSCN` naming convention. Philips has multiple file
+formats (TIFF; iSyntax); OME has multiple file formats (OME-TIFF,
+OME-Zarr, OME-NGFF). The bare names were ambiguous.
+
+#### Package import paths
+
+| v0.11 | v0.12 |
+|---|---|
+| `github.com/cornish/opentile-go/formats/philips` | `github.com/cornish/opentile-go/formats/philipstiff` |
+| `github.com/cornish/opentile-go/formats/ome` | `github.com/cornish/opentile-go/formats/ometiff` |
+
+The package qualifier follows: `philips.MetadataOf` →
+`philipstiff.MetadataOf`; `ome.MetadataOf` → `ometiff.MetadataOf`.
+
+#### NDPI public API
+
+| v0.11 | v0.12 |
+|---|---|
+| `formats/ndpi.StripeInfo` | `formats/ndpi.StripInfo` |
+| `StripeInfo.StripeOffsets` | `StripInfo.StripOffsets` |
+| `StripeInfo.StripeByteCounts` | `StripInfo.StripByteCounts` |
+| `StripeInfo.StripeW`, `StripeH` | `StripInfo.StripW`, `StripH` |
+| `StripeInfo.StripedW`, `StripedH` | `StripInfo.GridW`, `GridH` |
+
+TIFF spec uses bare singular "Strip" (tags 273 `StripOffsets`,
+279 `StripByteCounts`); the v0.2 NDPI work used "stripe"
+inconsistently. v0.12 renames to the spec-faithful form. The
+strip-grid count fields (formerly `StripedW` / `StripedH`) are
+renamed to `GridW` / `GridH` to mirror our existing `Level.Grid()`
+API and avoid the awkward "Stripped width" reading.
+
+### Changed
+
+- File renames preserving git history:
+  - `formats/ndpi/striped.go` → `stripped.go`
+  - `formats/ndpi/striped_test.go` → `stripped_test.go`
+  - `formats/ndpi/stripes.go` → `strips.go`
+  - `formats/philips/*` → `formats/philipstiff/*`
+  - `formats/ome/*` → `formats/ometiff/*`
+  - `docs/formats/philips.md` → `philipstiff.md`
+  - `docs/formats/ome.md` → `ometiff.md`
+- Test fixture format strings: `Philips-{1..4}.tiff.json` and
+  `Leica-{1,2}.ome.tiff.json` updated to record the new format
+  strings.
+- `docs/deferred.md` §8f new (v0.12 retirement audit); §11
+  backlog rows for "Fix striped → stripped" and "Naming
+  corrections" removed.
+
+### Notes
+
+- Public API is more consistent post-rename: every Format constant
+  for vendor-disambiguated formats now follows
+  `Format<Vendor><Tag>` (FormatGenericTIFF, FormatLeicaSCN,
+  FormatPhilipsTIFF, FormatOMETIFF) plus unambiguous-vendor short
+  forms (FormatSVS, FormatNDPI, FormatBIF, FormatIFE).
+- v1.0 cut not committed (sealed Q1). v0.12 stays in pre-1.0
+  territory.
+- No new active limitations.
+- cgo footprint unchanged.
 
 ## [0.11.0] — 2026-05-06
 
