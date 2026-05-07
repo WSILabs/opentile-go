@@ -17,18 +17,18 @@ const (
 	tagMcuStartsHighBytes uint16 = 65432 // LONG[] high 32 bits of mcustarts (>4GB strips)
 )
 
-// StripeInfo describes the native stripe layout of an NDPI pyramid level.
+// StripInfo describes the native strip layout of an NDPI pyramid level.
 // NDPI stores each level as ONE giant JPEG (tag 273 has one entry); the
-// restart (RSTn) markers inside that JPEG delimit native stripes, and
+// restart (RSTn) markers inside that JPEG delimit native strips, and
 // NDPI private tag 65426 gives their byte offsets within the strip.
 //
 // Constructed once at Open() time; safe for concurrent read.
-type StripeInfo struct {
-	StripeW, StripeH   int      // pixel dimensions of a native stripe
-	StripedW, StripedH int      // grid dimensions (ceil(imageW/StripeW), ceil(imageH/StripeH))
-	StripeOffsets      []uint64 // per-stripe absolute file offset
-	StripeByteCounts   []uint64 // per-stripe length
-	JPEGHeader         []byte   // patched JPEG header (SOF rewritten to stripe size)
+type StripInfo struct {
+	StripW, StripH int      // pixel dimensions of a native strip
+	GridW, GridH   int      // grid dimensions (ceil(imageW/StripW), ceil(imageH/StripH))
+	StripOffsets   []uint64 // per-strip absolute file offset
+	StripByteCounts []uint64 // per-strip length
+	JPEGHeader     []byte   // patched JPEG header (SOF rewritten to strip size)
 }
 
 // readStripes parses NDPI pyramid-level stripe metadata from page p.
@@ -46,11 +46,11 @@ type StripeInfo struct {
 //  3. Reads mcuStarts[0] bytes of JPEG-header prefix from the file and
 //     parses it via jpeg.NDPIStripeJPEGHeader to derive stripe pixel
 //     dimensions AND a patched header with SOF dims set to stripe size.
-//  4. Returns a StripeInfo the caller can embed in a stripedImage.
+//  4. Returns a StripInfo the caller can embed in a stripedImage.
 //
 // Direct port of tifffile.TiffPage._gettags (tifffile.py:8239-8268) — the
 // NDPI-specific block that rewrites `dataoffsets`/`databytecounts`.
-func readStripes(p *tiff.Page, r io.ReaderAt) (*StripeInfo, error) {
+func readStripes(p *tiff.Page, r io.ReaderAt) (*StripInfo, error) {
 	if !p.HasTag(tagMcuStarts) {
 		return nil, nil
 	}
@@ -140,13 +140,13 @@ func readStripes(p *tiff.Page, r io.ReaderAt) (*StripeInfo, error) {
 			n, stripedW*stripedH, stripedW, stripedH, stripeW, stripeH, iw, il)
 	}
 
-	return &StripeInfo{
-		StripeW:          stripeW,
-		StripeH:          stripeH,
-		StripedW:         stripedW,
-		StripedH:         stripedH,
-		StripeOffsets:    offsets,
-		StripeByteCounts: counts,
-		JPEGHeader:       patched,
+	return &StripInfo{
+		StripW:          stripeW,
+		StripH:          stripeH,
+		GridW:           stripedW,
+		GridH:           stripedH,
+		StripOffsets:    offsets,
+		StripByteCounts: counts,
+		JPEGHeader:      patched,
 	}, nil
 }

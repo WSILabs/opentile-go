@@ -33,7 +33,7 @@ type stripedImage struct {
 	size        opentile.Size // image pixel size
 	tileSize    opentile.Size // output tile size
 	grid        opentile.Size // output tile grid
-	stripes     *StripeInfo
+	stripes     *StripInfo
 	compression opentile.Compression
 	mpp         opentile.SizeMm
 	reader      io.ReaderAt
@@ -83,7 +83,7 @@ func newStripedImage(
 	index int,
 	p *tiff.Page,
 	tileSize opentile.Size,
-	stripes *StripeInfo,
+	stripes *StripInfo,
 	r io.ReaderAt,
 ) (*stripedImage, error) {
 	iw, ok := p.ImageWidth()
@@ -113,7 +113,7 @@ func newStripedImage(
 		stripes:            stripes,
 		compression:        opentile.CompressionJPEG,
 		reader:             r,
-		frameSize:          maxSize(tileSize, opentile.Size{W: stripes.StripeW, H: stripes.StripeH}),
+		frameSize:          maxSize(tileSize, opentile.Size{W: stripes.StripW, H: stripes.StripH}),
 		dcBackground:       dc,
 		headersByFrameSize: make(map[opentile.Size][]byte),
 		framesByKey:        make(map[frameKey][]byte),
@@ -141,11 +141,11 @@ func (l *stripedImage) TileAt(coord opentile.TileCoord) ([]byte, error) {
 // warm pre-faults the page-cache pages backing every native stripe
 // on this level. NDPI's striped path packs the level's compressed
 // data into one TIFF strip subdivided by JPEG restart markers; the
-// per-stripe StripeOffsets/StripeByteCounts are the byte ranges that
+// per-strip StripOffsets/StripByteCounts are the byte ranges that
 // matter for warming.
 func (l *stripedImage) warm() error {
-	for i, off := range l.stripes.StripeOffsets {
-		if err := tiff.TouchPages(l.reader, int64(off), int64(l.stripes.StripeByteCounts[i])); err != nil {
+	for i, off := range l.stripes.StripOffsets {
+		if err := tiff.TouchPages(l.reader, int64(off), int64(l.stripes.StripByteCounts[i])); err != nil {
 			return err
 		}
 	}
@@ -270,13 +270,13 @@ func (l *stripedImage) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, op
 func (l *stripedImage) frameSizeForTile(x, y int) opentile.Size {
 	w := l.frameSize.W
 	h := l.frameSize.H
-	sw := l.stripes.StripeW
-	sh := l.stripes.StripeH
+	sw := l.stripes.StripW
+	sh := l.stripes.StripH
 	if x == l.grid.W-1 && sw < l.tileSize.W {
-		w = sw*l.stripes.StripedW - x*l.tileSize.W
+		w = sw*l.stripes.GridW - x*l.tileSize.W
 	}
 	if y == l.grid.H-1 && sh < l.tileSize.H {
-		h = sh*l.stripes.StripedH - y*l.tileSize.H
+		h = sh*l.stripes.GridH - y*l.tileSize.H
 	}
 	return opentile.Size{W: w, H: h}
 }
@@ -334,18 +334,18 @@ func (l *stripedImage) assembleFrame(framePos, frameSize opentile.Size) ([]byte,
 	}
 
 	// Region of native stripes that covers the frame.
-	stripeStartX := (framePos.W * l.tileSize.W) / l.stripes.StripeW
-	stripeStartY := (framePos.H * l.tileSize.H) / l.stripes.StripeH
-	stripeCountX := maxInt(frameSize.W/l.stripes.StripeW, 1)
-	stripeCountY := maxInt(frameSize.H/l.stripes.StripeH, 1)
+	stripeStartX := (framePos.W * l.tileSize.W) / l.stripes.StripW
+	stripeStartY := (framePos.H * l.tileSize.H) / l.stripes.StripH
+	stripeCountX := maxInt(frameSize.W/l.stripes.StripW, 1)
+	stripeCountY := maxInt(frameSize.H/l.stripes.StripH, 1)
 
 	// Clip at the right/bottom edge of the native stripe grid — NDPI
 	// images that are not a multiple of stripe width end at stripedW etc.
-	if stripeStartX+stripeCountX > l.stripes.StripedW {
-		stripeCountX = l.stripes.StripedW - stripeStartX
+	if stripeStartX+stripeCountX > l.stripes.GridW {
+		stripeCountX = l.stripes.GridW - stripeStartX
 	}
-	if stripeStartY+stripeCountY > l.stripes.StripedH {
-		stripeCountY = l.stripes.StripedH - stripeStartY
+	if stripeStartY+stripeCountY > l.stripes.GridH {
+		stripeCountY = l.stripes.GridH - stripeStartY
 	}
 	if stripeCountX <= 0 || stripeCountY <= 0 {
 		return nil, fmt.Errorf("ndpi: empty stripe region for frame pos %v size %v", framePos, frameSize)
@@ -355,8 +355,8 @@ func (l *stripedImage) assembleFrame(framePos, frameSize opentile.Size) ([]byte,
 	estSize := len(header) + 2
 	for sy := stripeStartY; sy < stripeStartY+stripeCountY; sy++ {
 		for sx := stripeStartX; sx < stripeStartX+stripeCountX; sx++ {
-			idx := sy*l.stripes.StripedW + sx
-			estSize += int(l.stripes.StripeByteCounts[idx])
+			idx := sy*l.stripes.GridW + sx
+			estSize += int(l.stripes.StripByteCounts[idx])
 		}
 	}
 	out := make([]byte, 0, estSize)
@@ -365,9 +365,9 @@ func (l *stripedImage) assembleFrame(framePos, frameSize opentile.Size) ([]byte,
 	fragIdx := 0
 	for sy := stripeStartY; sy < stripeStartY+stripeCountY; sy++ {
 		for sx := stripeStartX; sx < stripeStartX+stripeCountX; sx++ {
-			idx := sy*l.stripes.StripedW + sx
-			count := int(l.stripes.StripeByteCounts[idx])
-			off := int64(l.stripes.StripeOffsets[idx])
+			idx := sy*l.stripes.GridW + sx
+			count := int(l.stripes.StripByteCounts[idx])
+			off := int64(l.stripes.StripOffsets[idx])
 			buf := make([]byte, count)
 			if err := tiff.ReadAtFull(l.reader, buf, off); err != nil {
 				return nil, fmt.Errorf("ndpi: read stripe (%d,%d) idx=%d: %w", sx, sy, idx, err)

@@ -72,10 +72,10 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 		reqSize = sz
 	}
 
-	// Pre-read each pyramid-level page's StripeInfo so we can (a) compute the
-	// smallest-stripe-width needed for AdjustTileSize and (b) reuse the
+	// Pre-read each pyramid-level page's StripInfo so we can (a) compute the
+	// smallest-strip-width needed for AdjustTileSize and (b) reuse the
 	// parsed header when constructing the level.
-	stripeInfos := make(map[*tiff.Page]*StripeInfo, len(pages))
+	stripeInfos := make(map[*tiff.Page]*StripInfo, len(pages))
 	smallestStripe := 0
 	for _, p := range pages {
 		if classifyPage(p) != pageLevel {
@@ -89,8 +89,8 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 			continue // non-striped level (one-frame); doesn't constrain tile size
 		}
 		stripeInfos[p] = si
-		if smallestStripe == 0 || si.StripeW < smallestStripe {
-			smallestStripe = si.StripeW
+		if smallestStripe == 0 || si.StripW < smallestStripe {
+			smallestStripe = si.StripW
 		}
 	}
 	adjusted := AdjustTileSize(reqSize.W, smallestStripe)
