@@ -97,14 +97,32 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	if err != nil {
 		return nil, fmt.Errorf("leicascn: %w", err)
 	}
-	_ = composite // T7+ wires Levels; T6 leaves the slice empty.
 
-	// Determine SizeC from first main's dimensions: max(c) + 1.
-	sizeC := 1
-	for _, d := range mains[0].Dimensions {
-		if d.C+1 > sizeC {
-			sizeC = d.C + 1
+	// Build per-level compositeLevels from the composition output.
+	// Each level wraps N tiledRegions (one per main scan) plus the
+	// per-level union pixel extent + tile size.
+	levels := make([]opentile.Level, len(composite))
+	for li, cl := range composite {
+		regions := make([]*tiledRegion, len(cl.Regions))
+		for ri, rl := range cl.Regions {
+			tr, err := newTiledRegion(rl, file, r)
+			if err != nil {
+				return nil, fmt.Errorf("leicascn: L%d region %d: %w", li, ri, err)
+			}
+			regions[ri] = tr
 		}
+		cmpl, err := newCompositeLevel(li, li, cl, regions)
+		if err != nil {
+			return nil, fmt.Errorf("leicascn: L%d composite: %w", li, err)
+		}
+		levels[li] = cmpl
+	}
+
+	// Determine SizeC from the composite (matches first main's max
+	// channel index + 1).
+	sizeC := 1
+	if len(composite) > 0 {
+		sizeC = composite[0].SizeC
 	}
 
 	icc, _ := pages[0].ICCProfile()
@@ -113,7 +131,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 
 	return &tiler{
 		md:         md,
-		levels:     nil, // T7-T10 populates from composite
+		levels:     levels,
 		associated: associated,
 		icc:        icc,
 		sizeC:      sizeC,
