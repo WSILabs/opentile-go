@@ -44,6 +44,13 @@ var slideCandidates = []string{
 	// strip JPEG / LZW reader paths.
 	"CMU-1.tiff",
 	"CMU-1.stripped.tiff",
+	// Grundium TIFF (v0.11): real-world fixtures from a Grundium
+	// Ocus scanner. scan_619 is a single-level tiled BigTIFF (relies
+	// on the v0.11 MinLevels=1 relaxation); scan_620 is a 4-IFD
+	// mixed-ratio chain (relies on the v0.11 LeftoverTiledMaxAreaRatio
+	// =0.05 relaxation that lets the orphan L2 surface as associated).
+	"scan_619_grundium_pyramid_TIFF.tif",
+	"scan_620_grundium_TIFF.tif",
 }
 
 // resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
