@@ -2,7 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF) and the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension). Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output. BIF (v0.7), IFE (v0.8), and a generic-TIFF catch-all reader (v0.10) are opentile-go's own additions beyond upstream's coverage. **Memory-mapped tile reads + pool-friendly `TileInto` API since v0.9** — see [docs/perf.md](./docs/perf.md).
+A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN) and the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension). Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output. BIF (v0.7), IFE (v0.8), generic-TIFF (v0.10), and Leica SCN (v0.11) are opentile-go's own additions beyond upstream's coverage. **Memory-mapped tile reads + pool-friendly `TileInto` API since v0.9** — see [docs/perf.md](./docs/perf.md).
 
 ```go
 import (
@@ -30,13 +30,14 @@ tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 | **OME-TIFF** | `.ome.tiff` | tiled (SubIFD) + OneFrame | macro, label, thumbnail | JPEG (uint8 RGB only) | byte-parity vs. Python opentile + tifffile | [docs/formats/ome.md](./docs/formats/ome.md) |
 | **Ventana BIF** | `.bif` | tiled, serpentine remap, with overlap metadata\* + ScanWhitePoint blank-tile fill | overview, probability\*, thumbnail | JPEG | tifffile (DP 200) + sampled-tile SHAs (both fixtures) | [docs/formats/bif.md](./docs/formats/bif.md) |
 | **Iris IFE\*** | `.iris` | tiled (256×256, native-first inversion) with sparse-tile sentinel | label, overview, thumbnail, macro, map, probability + free-form titles + ICC profile + free-form attribute map | JPEG, AVIF (passthrough), Iris-proprietary (passthrough) | sampled-tile SHAs + synthetic-writer + per-fixture geometry pin | [docs/formats/ife.md](./docs/formats/ife.md) |
-| **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥3 levels, geometric scale chain) | classifier-assigned: label, macro, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generictiff.md](./docs/formats/generictiff.md) |
+| **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥1 level, geometric scale chain) | classifier-assigned: label, macro, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generictiff.md](./docs/formats/generictiff.md) |
+| **Leica SCN\*** | `.scn` | tiled BigTIFF; multi-region "discontinuous scanning"; multi-channel fluorescence | classifier-assigned: macro per auxiliary `<image>` | JPEG | sampled-tile SHAs + per-fixture geometry pin + bio-formats CLI parity oracle | [docs/formats/leicascn.md](./docs/formats/leicascn.md) |
 
 \* Marks Go-side extensions beyond upstream Python opentile; see [Deviations](#deviations-from-upstream-python-opentile) below.
 
 **Detection** is automatic. `opentile.OpenFile` walks the registered factories — first asking each for `SupportsRaw(r, size)` against the raw byte stream, then falling through to TIFF-parsed `Supports(file)` — and dispatches the first match. The two-stage dispatch lets non-TIFF formats (IFE) short-circuit before `tiff.Open`. The generic-TIFF reader registers LAST so vendor format detectors get first crack at any TIFF; it activates as a catch-all only when no vendor factory claims the file. Format packages register at import time via `_ "github.com/cornish/opentile-go/formats/all"`.
 
-**Format coverage**: opentile-go ports the four TIFF formats Python opentile 0.20.0 supports for tile extraction. 3DHistech TIFF (the fifth upstream format) is parked at [#2](https://github.com/cornish/opentile-go/issues/2). Ventana BIF — the first beyond upstream's coverage — landed in v0.7. Iris IFE — the first non-TIFF format — landed in v0.8. Generic TIFF — a catch-all reader for tiled pyramidal TIFFs without vendor metadata — landed in v0.10. Sakura SVSlide is parked at [#3](https://github.com/cornish/opentile-go/issues/3).
+**Format coverage**: opentile-go ports the four TIFF formats Python opentile 0.20.0 supports for tile extraction. 3DHistech TIFF (the fifth upstream format) is parked at [#2](https://github.com/cornish/opentile-go/issues/2). Ventana BIF — the first beyond upstream's coverage — landed in v0.7. Iris IFE — the first non-TIFF format — landed in v0.8. Generic TIFF — a catch-all reader for tiled pyramidal TIFFs without vendor metadata — landed in v0.10. Leica SCN — the legacy SCN400/SCN400F format, including the first multi-channel fluorescence support — landed in v0.11. Sakura SVSlide is parked at [#3](https://github.com/cornish/opentile-go/issues/3).
 
 ## Prerequisites
 
@@ -65,7 +66,7 @@ t, err := opentile.OpenFile("slide.tiff")
 if err != nil { /* ErrUnsupportedFormat or open error */ }
 defer t.Close()
 
-fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips", "ome", "bif", "ife", "generic-tiff"
+fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips", "ome", "bif", "ife", "generic-tiff", "leica-scn"
 fmt.Println("levels:", len(t.Levels()))
 ```
 
@@ -208,6 +209,7 @@ opentile-go aims for byte-parity with Python opentile 0.20.0. A small number of 
 | `Tiler.WarmLevel(i)` interface evolution | All formats | v0.9 | additive — hint operation, callers can ignore | Page-cache pre-warm for predictable warm-cache latency. Useful for slide-server pre-warm at startup. |
 | Generic-TIFF reader for non-vendor tiled pyramidal TIFFs | Generic TIFF | v0.10 | not opt-out-able once registered; any TIFF that no vendor factory claims AND that passes the validator routes here | Real-world WSI authoring outside Aperio / Hamamatsu / Philips is common (Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-encoded research outputs). A catch-all reader makes opentile-go consume any structurally valid pyramid TIFF without per-vendor reverse-engineering. |
 | `"associated"` AssociatedImage Kind value addition | Generic TIFF | v0.10 | iterate `Associated()` and skip the kind | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / macro / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible kind label. |
+| Leica SCN reader for legacy SCN400 / SCN400F output | Leica SCN | v0.11 | not opt-out-able once registered | First real-fixture exercise of `Image.SizeC() > 1` (Leica-Fluorescence-1.scn's separated-channel data); also the first multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage. |
 
 Full reasoning + per-deviation commit references are in [`docs/deferred.md`](./docs/deferred.md).
 

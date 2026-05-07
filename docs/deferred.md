@@ -359,6 +359,30 @@ README.md and per-format docs link here.
 - **Tracking:** v0.10 design Q5 (sealed 2026-05-01); documented
   in `image.go`'s `AssociatedImage` interface docstring.
 
+### Leica SCN reader for legacy SCN400/SCN400F output (since v0.11)
+
+- **Upstream:** Python opentile doesn't read SCN.
+- **opentile-go:** adds `formats/leicascn` covering Leica's BigTIFF
+  dialect for SCN400 / SCN400F scanners. Production discontinued
+  ~2015; we ship structural support for the three openslide-testdata
+  fixtures (Leica-1, Leica-2, Leica-Fluorescence-1) and lean on
+  bio-formats CLI parity for the long tail.
+- **Reason:** Leica-Fluorescence-1.scn is the **first real fixture
+  exercising `Image.SizeC() > 1`** in opentile-go — tests v0.7's
+  multi-channel C-axis API on actual fluorescence data rather than
+  synthetic constructions. Leica-2.scn additionally exercises
+  multi-region "discontinuous scanning" (one slide, multiple disjoint
+  tissue rectangles); the reader composites them into one Image with
+  inter-region blank-tile fill.
+- **Detection:** BigTIFF + IFD 0 ImageDescription contains the SCN
+  schema URN `http://www.leica-microsystems.com/scn/2010/10/01`.
+- **Format-specific metadata:** `leicascn.MetadataOf(tiler)` exposes
+  CollectionUUID, Barcode, per-Auxiliary illumination + objective,
+  per-Region (main scan) slide-physical offset/extent, and per-Channel
+  fluorescence filter + exposure metadata.
+- **Tracking:** [`docs/superpowers/specs/2026-05-06-opentile-go-v11-leica-scn-design.md`](superpowers/specs/2026-05-06-opentile-go-v11-leica-scn-design.md)
+  (sealed 2026-05-06).
+
 ---
 
 ## 2. Active limitations (open after v0.3)
@@ -566,6 +590,76 @@ L25 below — fixture-driven; cervix has no annotations.
   already designed for substitution (`func(ifd, baseline tiff.
   PyramidLevelInfo) string`).
 
+### L30 — Leica SCN: multi-Z stack support deferred (since v0.11)
+
+- **Source:** v0.11 SCN design spec §1 "Not in scope".
+- **Severity:** Fixture-driven. SCN XML carries `spacingZ` on the
+  `<view>` element and supports `<dimension z="N">` attributes
+  alongside `r=` and `c=`. Our 3 fixtures all have z=0 only — no
+  multi-Z SCN file in the slate. Multi-Z support would extend the
+  XML parser to track per-z IFDs and route reads via
+  `TileAt(TileCoord{Z, X, Y})` (the v0.7 multi-dim API supports it).
+- **Resolution path:** when a multi-Z SCN fixture surfaces, port
+  the per-z IFD mapping from the XML's `<dimension z="N" r="K"
+  c="C" ifd="K">` entries; reuse the v0.7 multi-dim BIF pattern.
+
+### L31 — Leica SCN: AOI-cropped Tile variant deferred (since v0.11)
+
+- **Source:** v0.11 SCN design spec §1 "Not in scope".
+- **Severity:** YAGNI. The composite Image presents the union of
+  main-scan rectangles as one slide canvas; consumers wanting a
+  per-region AOI view stitch from `leicascn.MetadataOf(tiler).Regions`
+  for nm-precise rectangles. No consumer has asked for a built-in
+  AOI-crop API.
+- **Resolution path:** if a consumer surfaces a use case, expose a
+  `Region(i int) opentile.Image` accessor returning a per-region
+  Image (one main scan = one Image at its native L0 dimensions).
+
+### L32 — Leica SCN: mismatched-objective regions rejected (since v0.11)
+
+- **Source:** v0.11 SCN design spec §4.2 "Required invariants for
+  multi-main composition" (Q5).
+- **Severity:** Fixture-driven. Composition requires all main scans
+  to share illumination source, objective magnification, and pyramid
+  depth (within ±2% per-level resolution similarity). Files violating
+  any invariant return `ErrUnsupportedSCN` with a descriptive message.
+  None of our 3 fixtures violate; no mismatched-objective SCN file
+  has been observed.
+- **Resolution path:** if a real-world fixture surfaces with mixed
+  objectives, the fix is policy: either (a) accept and pick the
+  highest-resolution main as canonical (others surfaced as
+  AssociatedImages?), or (b) split into multiple Images. Trigger-
+  driven decision when a fixture motivates it.
+
+### L33 — Leica SCN: byte-equality oracle vs bio-formats not feasible (since v0.11)
+
+- **Source:** v0.11 SCN design spec §7 (Q9).
+- **Severity:** Permanent — design choice. Bio-formats decodes JPEG
+  tiles + re-encodes via its `bfconvert` pipeline; output bytes
+  don't match our raw-passthrough output. Structural-equivalence
+  parity (series count, per-series dims, SizeC) is the most we can
+  assert.
+- **Tested via:** `tests/oracle/leicascn_bf_test.go` (build tag
+  `bfparity`); confirms our IFD-to-image-pyramid mapping matches
+  bio-formats's view of each fixture.
+
+### L34 — Leica SCN: 3-fixture coverage limit (since v0.11)
+
+- **Source:** v0.11 SCN design spec §2.
+- **Severity:** Permanent — Leica SCN scanner production stopped
+  ~2015. Our 3 fixtures (Leica-1, Leica-2, Leica-Fluorescence-1
+  from openslide-testdata) are likely our complete coverage forever.
+  Real-world SCN files outside the slate may exhibit edge cases
+  (non-tile-aligned regions beyond what tile-snap handles, mixed
+  illumination, multi-Z, or other quirks the format permits) that
+  surface only when reported.
+- **Mitigation:** bio-formats CLI parity (`tests/oracle/leicascn_bf_test.go`)
+  catches structural divergences against bio-formats's much larger
+  in-the-wild SCN exposure.
+- **Resolution path:** none expected proactively. Trigger-driven
+  debugging when a divergence surfaces; per-incident fixture or
+  policy adjustment.
+
 ---
 
 ## 3. Reviewer suggestions accepted but not applied
@@ -738,6 +832,116 @@ that locks the change in.
   duplicate DQT/DHT segments in the sparse-tile output — JPEG
   decoders accept this. Cross-check against Python at Philips-4 L0
   (0,0) caught our initial single-splice version.
+
+---
+
+## 8e. Retired in v0.11
+
+v0.11 is the Leica SCN milestone — first format reader exercising
+`Image.SizeC() > 1` on a real fixture, plus first multi-region
+"discontinuous scanning" reader. Folded in: two `formats/generictiff`
+validator-cap relaxations to handle real Grundium scanner output.
+
+**Items shipped:**
+
+- **`formats/leicascn` package** — Factory + Detection + Tiler +
+  Level + AssociatedImage covering all 3 openslide-testdata SCN
+  fixtures. Multi-region composite levels with synthesised blank-
+  tile fill for inter-region gaps; multi-channel `TileAt` for
+  fluorescence.
+- **`opentile.FormatLeicaSCN` Format constant** (`"leica-scn"`).
+- **SCN XML parser** (`formats/leicascn/scnxml.go`) — hand-rolled
+  walker over `xml.Decoder` tokens. Parses Collection / Image /
+  Pixels / Dimension / Channel / scanSettings into Go structs.
+  Mirrors `internal/bifxml`'s lenient walker style.
+- **Auxiliary/main classifier + multi-main composer**
+  (`formats/leicascn/classify.go`) — `IsAuxiliary` (view-extent
+  match per Q2), `ComposePyramid` (validates Q5 invariants and
+  produces per-level union extent + per-region IFD-per-channel
+  tables).
+- **Format-specific metadata** (`leicascn.Metadata` + `MetadataOf`)
+  exposing CollectionUUID, Barcode, per-Auxiliary illumination +
+  objective, per-Region (main scan) slide-physical layout, per-
+  Channel fluorescence filter / exposure / CCD-gain metadata.
+- **Generictiff validator relaxations (R1 + R2)** —
+  `MinLevels: 3 → 1` (admits Grundium scan_619 single-level tiled
+  TIFFs); `LeftoverTiledMaxAreaRatio: 0.01 → 0.05` (admits Grundium
+  scan_620 mixed-ratio chains where the orphan IFD is 1.56% of
+  baseline). Both cap-loosenings; v0.10 fixtures classify
+  identically.
+
+**Test coverage:**
+
+- `tests/integration_test.go::TestSlideParity` extended to **24
+  fixtures** (was 19 post-v0.10): +2 Grundium + 3 SCN. Full-walk
+  SHA fixtures committed for all new files (Leica-1.scn / Leica-
+  2.scn are sampled-mode under the >100 MB policy).
+- `tests/parity/leicascn_geometry_test.go` — per-fixture geometry
+  pinning + per-channel TileAt distinct-bytes check + cross-backing
+  parity (mmap default vs pread). Pins all 3 SCN fixtures end-to-
+  end including the Leica-2 multi-region union extent
+  (44956×139277 px composite L0).
+- `tests/parity/generic_geometry_test.go` extended with rows for
+  the two Grundium fixtures.
+- `tests/oracle/leicascn_bf_test.go` (build tag `bfparity`) —
+  bio-formats CLI parity oracle; confirms our IFD-to-image-pyramid
+  mapping aligns with bio-formats's view of each SCN file.
+- `formats/leicascn/*_test.go` — unit tests for the XML parser,
+  classifier, composer, Factory, AssociatedImage, tiledRegion,
+  compositeLevel, blank-tile generator, and Tiler. Real-fixture
+  coverage on all 3 SCN files.
+
+**Architecture invariants preserved:**
+
+- Public API stable from v0.3. Two new exported Format constants
+  (`opentile.FormatLeicaSCN`, the `leicascn` package); the v0.7
+  multi-dim API (`Image.SizeC` / `ChannelName` / `TileAt`) is
+  reused without additions.
+- cgo footprint unchanged at `internal/jpegturbo/`.
+- Lock-free hot path preserved.
+- Vendor format dispatch order: SCN registers BEFORE generictiff
+  (catch-all stays last); existing vendor formats (SVS, NDPI,
+  Philips, OME, BIF, IFE) all register before SCN.
+
+**Items deferred (v0.11 design Q-decisions, see §2):**
+
+- **L30** — Multi-Z stack support deferred (no fixture in slate).
+- **L31** — AOI-cropped Tile variant deferred (YAGNI; consumers
+  composite via `Metadata.Regions`).
+- **L32** — Mismatched-objective regions rejected via `ErrUnsupportedSCN`
+  (fixture-driven; trigger-driven debug if one surfaces).
+- **L33** — Byte-equality oracle vs bio-formats not feasible
+  (permanent; structural-equivalence is the achievable bar).
+- **L34** — 3-fixture coverage limit (permanent; SCN production
+  stopped ~2015).
+
+**v0.11 lessons:**
+
+- **Multi-region tile alignment**: SCN's `<view offsetX/Y>` values
+  in nm don't generally tile-align in composite-pixel-space. Naive
+  per-tile dispatch (compute composite-px / tile-size, look up
+  region, compute region-local tile) breaks when region offsets
+  aren't multiples of tile size — Leica-2's region 0 lands 71% of
+  a tile off-grid. Resolution: tile-snap region offsets DOWN to
+  nearest tile boundary at `compositeLevel` construction. Cost:
+  composite position error ≤ one tile (~128 µm at 250 nm/px) —
+  pathology-rendering-acceptable. Documented in
+  `docs/formats/leicascn.md` "Position imprecision" + inline in
+  `formats/leicascn/tiled.go`. Surfaced during T8 implementation;
+  not anticipated in the design spec.
+
+- **Spec-implementation divergence on Grundium scan_620 orphan**:
+  v0.11 spec §6.2 said the orphan IFD "surfaces as an AssociatedImage
+  with `Kind() == 'associated'`". In practice the orphan is a tiled
+  IFD, and `formats/generictiff`'s associated reader doesn't handle
+  tiled associated images (errors with `errUnsupportedAssociatedShape`,
+  silently dropped per the v0.10 spec §6 pattern). Documented in
+  `docs/formats/generictiff.md`. Multi-tile-associated remains
+  out-of-scope; if a fixture motivates it, lift the SCN auxiliary
+  reader's lowest-res-tile-with-splice pattern.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-06-opentile-go-v11-leica-scn.md`](superpowers/plans/2026-05-06-opentile-go-v11-leica-scn.md)
+(15 tasks across Batches A–E).
 
 ---
 
@@ -1659,6 +1863,11 @@ decisions, not deferred work.
 | **L27** — generic-TIFF multi-pyramid rejection | generic | Permanent (OME's job) | v0.10 | Not revisited; route through OME reader |
 | **L28** — generic-TIFF multi-strip JPEG `PlanarConfig=2` | generic | Permanent (OME-specific) | v0.10 | Not revisited unless non-OME fixture emerges |
 | **L29** — generic-TIFF pluggable associated classifier | generic | YAGNI | v0.10 | First consumer asks for it |
+| **L30** — Leica SCN multi-Z stack | leicascn | Fixture-driven | v0.11 | First multi-Z SCN fixture in the slate |
+| **L31** — Leica SCN AOI-cropped Tile variant | leicascn | YAGNI | v0.11 | First consumer asks for it |
+| **L32** — Leica SCN mismatched-objective regions | leicascn | Fixture-driven | v0.11 | First mismatched-objective SCN fixture surfaces |
+| **L33** — Leica SCN byte-equality vs bio-formats | leicascn | Permanent (decode/re-encode divergence) | v0.11 | Not revisited; structural-equivalence is the bar |
+| **L34** — Leica SCN 3-fixture coverage limit | leicascn | Permanent (production discontinued ~2015) | v0.11 | Not revisited proactively; trigger-driven |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
