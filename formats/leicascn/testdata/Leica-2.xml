@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<scn xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" uuid="urn:uuid:72434827-0e3b-4e93-8571-94b7eed62868" xmlns="http://www.leica-microsystems.com/scn/2010/10/01">
+  <collection name="ImageCollection_0000002583" uuid="urn:uuid:85036cce-a631-4ea1-9da8-c197977aae03" sizeX="26564529" sizeY="76734666">
+    <image name="mrw_0000040301" uuid="urn:uuid:9e28bed4-b366-47c6-b15d-079e3336ffa8">
+      <creationDate>2014-11-26T14:09:07.39Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.5.1.10804 2012/05/10 13:29:07;1.5.1.10864" />
+      <pixels sizeX="1616" sizeY="4668">
+        <dimension sizeX="1616" sizeY="4668" r="0" ifd="0" />
+        <dimension sizeX="404" sizeY="1167" r="1" ifd="1" />
+        <dimension sizeX="101" sizeY="291" r="2" ifd="2" />
+      </pixels>
+      <view sizeX="26564529" sizeY="76734666" offsetX="0" offsetY="0" spacingZ="0" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>0.60833</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.7</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="mrw_0000040302" uuid="urn:uuid:3abcee7c-ed5f-4cd8-b957-6e003738bc1c">
+      <creationDate>2014-11-26T14:12:11.25Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.5.1.10804 2012/05/10 13:29:07;1.5.1.10864" />
+      <pixels sizeX="39168" sizeY="26048">
+        <dimension sizeX="39168" sizeY="26048" r="0" ifd="3" />
+        <dimension sizeX="9792" sizeY="6512" r="1" ifd="4" />
+        <dimension sizeX="2448" sizeY="1628" r="2" ifd="5" />
+        <dimension sizeX="612" sizeY="407" r="3" ifd="6" />
+        <dimension sizeX="153" sizeY="101" r="4" ifd="7" />
+        <dimension sizeX="38" sizeY="25" r="5" ifd="8" />
+      </pixels>
+      <view sizeX="9792000" sizeY="6512000" offsetX="10317168" offsetY="18642978" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>40</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.65</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="mrw_0000040303" uuid="urn:uuid:3b2e0657-61ae-40b8-a106-c467a741921f">
+      <creationDate>2014-11-26T14:13:39.107Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.5.1.10804 2012/05/10 13:29:07;1.5.1.10864" />
+      <pixels sizeX="39360" sizeY="23360">
+        <dimension sizeX="39360" sizeY="23360" r="0" ifd="9" />
+        <dimension sizeX="9840" sizeY="5840" r="1" ifd="10" />
+        <dimension sizeX="2460" sizeY="1460" r="2" ifd="11" />
+        <dimension sizeX="615" sizeY="365" r="3" ifd="12" />
+        <dimension sizeX="154" sizeY="91" r="4" ifd="13" />
+        <dimension sizeX="38" sizeY="22" r="5" ifd="14" />
+      </pixels>
+      <view sizeX="9840000" sizeY="5840000" offsetX="10370790" offsetY="12536174" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>40</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.65</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="mrw_0000040304" uuid="urn:uuid:7463b858-97fb-44d3-be5a-46f3563f354d">
+      <creationDate>2014-11-26T14:15:06.387Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.5.1.10804 2012/05/10 13:29:07;1.5.1.10864" />
+      <pixels sizeX="39360" sizeY="23360">
+        <dimension sizeX="39360" sizeY="23360" r="0" ifd="15" />
+        <dimension sizeX="9840" sizeY="5840" r="1" ifd="16" />
+        <dimension sizeX="2460" sizeY="1460" r="2" ifd="17" />
+        <dimension sizeX="615" sizeY="365" r="3" ifd="18" />
+        <dimension sizeX="154" sizeY="91" r="4" ifd="19" />
+        <dimension sizeX="38" sizeY="22" r="5" ifd="20" />
+      </pixels>
+      <view sizeX="9840000" sizeY="5840000" offsetX="9025305" offsetY="34633180" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>40</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.65</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="mrw_0000040305" uuid="urn:uuid:8c134c4d-50de-43ec-aa55-0dc86b848a85">
+      <creationDate>2014-11-26T14:16:39.753Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.5.1.10804 2012/05/10 13:29:07;1.5.1.10864" />
+      <pixels sizeX="39168" sizeY="26048">
+        <dimension sizeX="39168" sizeY="26048" r="0" ifd="21" />
+        <dimension sizeX="9792" sizeY="6512" r="1" ifd="22" />
+        <dimension sizeX="2448" sizeY="1628" r="2" ifd="23" />
+        <dimension sizeX="612" sizeY="407" r="3" ifd="24" />
+        <dimension sizeX="153" sizeY="101" r="4" ifd="25" />
+        <dimension sizeX="38" sizeY="25" r="5" ifd="26" />
+      </pixels>
+      <view sizeX="9792000" sizeY="6512000" offsetX="8971682" offsetY="40843483" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>40</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.65</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+  </collection>
+</scn>

@@ -15,6 +15,12 @@ const (
 	// vendor format factory claims the file. Reports as "generic-tiff"
 	// to differentiate from possible future generic-non-TIFF readers.
 	FormatGenericTIFF Format = "generic-tiff"
+	// FormatLeicaSCN is the Leica SCN reader (added in v0.11). SCN is a
+	// BigTIFF dialect produced by Leica SCN400 / SCN400F scanners;
+	// scanner production stopped ~2015. Reports as "leica-scn" to
+	// differentiate from other Leica-related formats (LIF, LMS) that
+	// aren't SCN.
+	FormatLeicaSCN Format = "leica-scn"
 )
 
 // Tiler is the top-level handle returned by [Open] / [OpenFile].

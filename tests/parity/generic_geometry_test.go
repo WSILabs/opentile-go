@@ -83,11 +83,43 @@ var genericFixtures = []genericFixture{
 			// label: multi-strip LZW → decode-each + re-encode-as-single
 			// LZW (T8). Byte count varies with the LZW writer's coding;
 			// our internal/tifflzw writer produces 368,759 bytes.
+			//
+			// (continued below — original list left unchanged; new
+			// fixtures added after CMU-1.stripped's macro entry.)
 			// A drift here would indicate the LZW writer's behavior
 			// changed and parity needs re-checking.
 			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
 			// macro: 27-strip JPEG → concat-strip path.
 			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
+		},
+		tileMagic: []byte{0xFF, 0xD8},
+	},
+	{
+		// scan_619 (v0.11): single-IFD tiled BigTIFF from a Grundium
+		// Ocus scanner. Exercises the v0.11 R1 relaxation
+		// (MinLevels=1 — admits single-level pyramids). One pyramid
+		// level, no associated images.
+		filename: "scan_619_grundium_pyramid_TIFF.tif",
+		levels: []genericLevelExpect{
+			{W: 43008, H: 27136, TileW: 512, TileH: 512, GridW: 84, GridH: 53, Compression: opentile.CompressionJPEG},
+		},
+		tileMagic: []byte{0xFF, 0xD8},
+	},
+	{
+		// scan_620 (v0.11): 4-IFD mixed-ratio chain (1×, 4×, 8×, 16×)
+		// from a Grundium Ocus scanner. Exercises the v0.11 R2
+		// relaxation (LeftoverTiledMaxAreaRatio=0.05 — admits the
+		// 8× orphan, which is 1.56% of baseline). The greedy chain
+		// picks the longest geometric chain (L0+L1+L3 at 4×/4×); the
+		// orphan IFD2 is silently dropped from Associated() because
+		// generictiff's associated reader doesn't handle tiled IFDs
+		// in v0.11 (documented divergence from the spec wording —
+		// see docs/formats/generictiff.md).
+		filename: "scan_620_grundium_TIFF.tif",
+		levels: []genericLevelExpect{
+			{W: 49152, H: 32768, TileW: 512, TileH: 512, GridW: 96, GridH: 64, Compression: opentile.CompressionJPEG},
+			{W: 12288, H: 8192, TileW: 512, TileH: 512, GridW: 24, GridH: 16, Compression: opentile.CompressionJPEG},
+			{W: 3072, H: 2048, TileW: 512, TileH: 512, GridW: 6, GridH: 4, Compression: opentile.CompressionJPEG},
 		},
 		tileMagic: []byte{0xFF, 0xD8},
 	},

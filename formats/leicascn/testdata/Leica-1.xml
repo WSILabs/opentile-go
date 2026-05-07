@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<scn xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" uuid="urn:uuid:2b930baa-4b05-4936-a937-ccf5a0b3276d" xmlns="http://www.leica-microsystems.com/scn/2010/10/01">
+  <collection name="ImageCollection_0000000128" uuid="urn:uuid:d0fa25ee-baa8-48cd-944d-5598a36b3f7b" sizeX="26564529" sizeY="76734666">
+    <barcode>MDQwNTA2MjlD</barcode>
+    <image name="image_0000001819" uuid="urn:uuid:4a9c1d8d-1f66-4df6-98e7-9d3efe746932">
+      <creationDate>2011-05-31T09:33:14.31Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.4.0.9691 2011/03/30 10:30:59;1.4.0.9708" />
+      <pixels sizeX="1616" sizeY="4668">
+        <dimension sizeX="1616" sizeY="4668" r="0" ifd="0" />
+        <dimension sizeX="404" sizeY="1167" r="1" ifd="1" />
+        <dimension sizeX="101" sizeY="291" r="2" ifd="2" />
+      </pixels>
+      <view sizeX="26564529" sizeY="76734666" offsetX="0" offsetY="0" spacingZ="0" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>0.60833</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.7</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="image_0000001834" uuid="urn:uuid:5349587f-b351-4049-ad76-67229b3a0bf1">
+      <creationDate>2011-05-31T09:43:06.873Z</creationDate>
+      <device model="Leica SCN400;Leica SCN" version="1.4.0.9691 2011/03/30 10:30:59;1.4.0.9708" />
+      <pixels sizeX="36832" sizeY="38432">
+        <dimension sizeX="36832" sizeY="38432" r="0" ifd="3" />
+        <dimension sizeX="9208" sizeY="9608" r="1" ifd="4" />
+        <dimension sizeX="2302" sizeY="2402" r="2" ifd="5" />
+        <dimension sizeX="576" sizeY="600" r="3" ifd="6" />
+        <dimension sizeX="144" sizeY="150" r="4" ifd="7" />
+      </pixels>
+      <view sizeX="18416000" sizeY="19216000" offsetX="5389341" offsetY="17548313" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>20</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.4</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+  </collection>
+</scn>

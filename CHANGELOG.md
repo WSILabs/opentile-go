@@ -11,11 +11,126 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.10: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.11: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
-L26, L27, L28, L29 (new — generic-TIFF design Q-decisions). See
+L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
+L32, L33, L34 (new — Leica SCN design Q-decisions, v0.11). See
 `docs/deferred.md` §11 consolidated backlog. Open work parked in
 tracked issues:
+
+## [0.11.0] — 2026-05-06
+
+Leica SCN milestone — first format reader exercising `Image.SizeC() > 1`
+on a real fixture (Leica-Fluorescence-1.scn's 3-channel separated
+fluorescence data), and first multi-region "discontinuous scanning"
+reader (Leica-2.scn's 4 disjoint tissue rectangles composited into one
+slide canvas). Folded in: two `formats/generictiff` validator-cap
+relaxations covering real Grundium scanner output (single-level tiled
+TIFFs and mixed-ratio pyramid chains).
+
+### Added
+
+- **`formats/leicascn` package** — Factory + Detection + Tiler +
+  Level + AssociatedImage covering all 3 openslide-testdata SCN
+  fixtures. SCN is a BigTIFF dialect produced by Leica SCN400 /
+  SCN400F scanners; production discontinued ~2015.
+- **`opentile.FormatLeicaSCN = "leica-scn"`** — new Format constant.
+- **SCN XML schema parser** (`formats/leicascn/scnxml.go`). Parses
+  `<scn>/<collection>/<image>` mapping IFD indices to logical
+  (image, level, channel) tuples. Hand-rolled walker over
+  `xml.Decoder` tokens; mirrors `internal/bifxml`'s lenient style.
+- **Multi-region composite Level** (`formats/leicascn/tiled.go`).
+  Composites N main scans into one Image canvas with per-tile
+  dispatch + cached blank-tile fill for inter-region gaps. Sealed
+  Q4 + Q6: consumer never sees the discontinuous-scanning detail.
+- **Multi-channel `TileAt`** support via the v0.7 multi-dim API.
+  `Level.TileAt(TileCoord{C: c, X: x, Y: y})` reads from the per-
+  channel IFD; `Image.SizeC()` + `Image.ChannelName(c)` populated
+  from SCN's `<channelSettings>`.
+- **`leicascn.Metadata` + `leicascn.MetadataOf`** — format-specific
+  metadata: CollectionUUID, Barcode, per-Auxiliary illumination +
+  objective, per-Region (main scan) slide-physical layout, per-
+  Channel fluorescence filter / exposure / CCD-gain.
+- **Bio-formats CLI parity oracle** (`tests/oracle/leicascn_bf_test.go`,
+  build tag `bfparity`). Per sealed Q9: structural-equivalence parity
+  (series count + per-series dims), NOT byte-equality (bio-formats
+  decodes + re-encodes differently from our raw passthrough).
+- **`docs/formats/leicascn.md`** — new format-doc page mirroring the
+  bif.md / generictiff.md template.
+
+### Changed
+
+- **`internal/tiff.DefaultClassifyPyramidConfig`** relaxed (R1 + R2):
+  `MinLevels: 3 → 1` (admits Grundium scan_619 single-level tiled
+  TIFFs); `LeftoverTiledMaxAreaRatio: 0.01 → 0.05` (admits Grundium
+  scan_620 mixed-ratio chains where the orphan IFD is 1.56% of
+  baseline). Both cap-loosenings; v0.10 fixtures classify identically.
+- **`docs/deferred.md`** — new §1a deviation entry for the SCN reader;
+  new §2 L30-L34 active limitations; new §8e v0.11 retirement audit;
+  §11 consolidated backlog extended.
+- **README** — Supported-formats table gains a Leica SCN row;
+  Format() example string lists `"leica-scn"`; Deviations table
+  gets a v0.11 row.
+
+### Deviations from upstream (additive)
+
+One new v0.11 entry in `docs/deferred.md §1a`:
+
+- Leica SCN reader for legacy SCN400 / SCN400F output.
+
+### Test coverage
+
+- `tests/integration_test.go::TestSlideParity` extended to **24
+  fixtures** (was 19 post-v0.10): +2 Grundium + 3 SCN. Sample-tile
+  SHA fixtures committed for all 5.
+- `tests/parity/leicascn_geometry_test.go` — per-fixture geometry
+  pinning + per-channel TileAt distinct-bytes check (3 distinct
+  channel hashes on Fluorescence) + cross-backing parity (mmap
+  default vs pread). Composite L0 union extent for Leica-2 pinned
+  at 44956×139277 px.
+- `tests/parity/generic_geometry_test.go` extended with rows for
+  the two Grundium fixtures.
+- `formats/leicascn/*_test.go` — unit tests for parser, classifier,
+  composer, factory, AssociatedImage, tiledRegion, compositeLevel,
+  blank-tile, Tiler.
+
+### Active limitations
+
+Five new L items, all design-Q-decisions sealed in the v0.11 spec
+(see `docs/deferred.md` §2):
+
+- **L30** — SCN multi-Z stack support deferred (no fixture in slate;
+  XML schema supports it).
+- **L31** — SCN AOI-cropped Tile variant deferred (YAGNI; consumers
+  composite via `Metadata.Regions`).
+- **L32** — SCN regions with mismatched objective / illumination /
+  pyramid depth rejected via `ErrUnsupportedSCN` (fixture-driven).
+- **L33** — SCN byte-equality oracle vs bio-formats not feasible
+  (permanent; decode + re-encode divergence).
+- **L34** — SCN 3-fixture coverage limit (permanent; production
+  discontinued ~2015).
+
+### Notes
+
+- v0.11 retired no §2 L items — the milestone adds reader coverage
+  rather than closing deferred work.
+- Public API remains stable from v0.3: two new exported names
+  (`opentile.FormatLeicaSCN`, the `leicascn` package). The v0.7
+  multi-dim API is reused without additions. cgo footprint
+  unchanged at `internal/jpegturbo/`.
+- **Multi-region tile-alignment lesson**: SCN's `<view offsetX/Y>`
+  values in nm don't generally tile-align in composite-pixel-space.
+  Resolution: tile-snap region offsets DOWN to nearest tile boundary
+  at construction. Cost: composite position error ≤ one tile (~128 µm
+  at 250 nm/px) — pathology-rendering-acceptable. Surfaced during T8
+  implementation; documented in `docs/formats/leicascn.md` and §8e of
+  `docs/deferred.md`.
+- **Generictiff scan_620 spec divergence**: v0.11 spec said the orphan
+  IFD "surfaces as an AssociatedImage". In practice the orphan is
+  tiled, and `formats/generictiff`'s associated reader doesn't handle
+  tiled associated IFDs (silently dropped per the v0.10 §6 pattern).
+  Documented in `docs/formats/generictiff.md`; multi-tile-associated
+  remains out-of-scope until a fixture motivates implementation.
 
 ## [0.10.0] — 2026-05-05
 

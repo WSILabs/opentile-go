@@ -1,0 +1,130 @@
+<?xml version="1.0"?>
+<scn xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" uuid="urn:uuid:44927ac9-4e8e-48f9-baf1-af8fb587fd4b" xmlns="http://www.leica-microsystems.com/scn/2010/10/01">
+  <collection name="04051288B0001S_CD31pERK_part" uuid="urn:uuid:3ff7651f-59bd-4bd4-a6a9-0a24c3000fe5" sizeX="26564529" sizeY="76734666">
+    <image name="image_0000000586" uuid="urn:uuid:cb12513f-69a5-4c43-9993-4b5d75217b79">
+      <creationDate>2012-05-02T13:14:38.877Z</creationDate>
+      <device model="Leica SCN400F;Leica SCN" version="1.5.0.10111 2011/09/07 12:35:23;1.5.0.10132" />
+      <pixels sizeX="1616" sizeY="4668">
+        <dimension sizeX="1616" sizeY="4668" r="0" ifd="0" />
+        <dimension sizeX="404" sizeY="1167" r="1" ifd="1" />
+        <dimension sizeX="101" sizeY="291" r="2" ifd="2" />
+      </pixels>
+      <view sizeX="26564529" sizeY="76734666" offsetX="0" offsetY="0" spacingZ="0" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>0.60833</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.7</numericalAperture>
+          <illuminationSource>brightfield</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="image_0000000590" uuid="urn:uuid:e12fe1df-cdd3-43cf-844e-448138bb3369">
+      <creationDate>2012-05-02T13:40:25.733Z</creationDate>
+      <device model="Leica SCN400F;Leica SCN" version="1.5.0.10111 2011/09/07 12:35:23;1.5.0.10132" />
+      <pixels sizeX="1616" sizeY="4668">
+        <dimension sizeX="1616" sizeY="4668" r="0" ifd="3" />
+        <dimension sizeX="404" sizeY="1167" r="1" ifd="4" />
+        <dimension sizeX="101" sizeY="291" r="2" ifd="5" />
+      </pixels>
+      <view sizeX="26564529" sizeY="76734666" offsetX="0" offsetY="0" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>0.60833</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.25</numericalAperture>
+          <illuminationSource>fluorescence</illuminationSource>
+        </illuminationSettings>
+      </scanSettings>
+    </image>
+    <image name="image_0000000591" uuid="urn:uuid:4cefdba8-d36b-4786-898c-93c891551e52">
+      <creationDate>2012-05-02T14:00:29.07Z</creationDate>
+      <device model="Leica SCN400F;Leica SCN" version="1.5.0.10111 2011/09/07 12:35:23;1.5.0.10132" />
+      <pixels sizeX="4737" sizeY="6338">
+        <dimension sizeX="4737" sizeY="6338" r="0" c="0" ifd="6" />
+        <dimension sizeX="4737" sizeY="6338" r="0" c="1" ifd="7" />
+        <dimension sizeX="4737" sizeY="6338" r="0" c="2" ifd="8" />
+        <dimension sizeX="1184" sizeY="1584" r="1" c="0" ifd="9" />
+        <dimension sizeX="1184" sizeY="1584" r="1" c="1" ifd="10" />
+        <dimension sizeX="1184" sizeY="1584" r="1" c="2" ifd="11" />
+        <dimension sizeX="296" sizeY="396" r="2" c="0" ifd="12" />
+        <dimension sizeX="296" sizeY="396" r="2" c="1" ifd="13" />
+        <dimension sizeX="296" sizeY="396" r="2" c="2" ifd="14" />
+        <dimension sizeX="74" sizeY="99" r="3" c="0" ifd="15" />
+        <dimension sizeX="74" sizeY="99" r="3" c="1" ifd="16" />
+        <dimension sizeX="74" sizeY="99" r="3" c="2" ifd="17" />
+      </pixels>
+      <view sizeX="2368500" sizeY="3169000" offsetX="8153037" offsetY="20180503" spacingZ="400" />
+      <scanSettings>
+        <objectiveSettings>
+          <objective>20</objective>
+        </objectiveSettings>
+        <illuminationSettings>
+          <numericalAperture>0.4</numericalAperture>
+          <illuminationSource>fluorescence</illuminationSource>
+        </illuminationSettings>
+        <channelSettings>
+          <channel index="0" name="405|Empty" rgb="#0000ff">
+            <fluorescenceCube>
+              <name>LED 405</name>
+              <shortName>405</shortName>
+              <excitationFilter>BP 405/60</excitationFilter>
+              <dichromaticMirror>455</dichromaticMirror>
+              <suppressionFilter>470/50</suppressionFilter>
+              <materialNumber />
+              <comment />
+            </fluorescenceCube>
+            <fluorescenceFilter>
+              <name>Empty</name>
+              <excitationFilter>Empty</excitationFilter>
+              <materialNumber>1</materialNumber>
+              <comment>Comment</comment>
+            </fluorescenceFilter>
+            <exposureTime>105000</exposureTime>
+            <ccdGain>15</ccdGain>
+          </channel>
+          <channel index="1" name="L5|Empty" rgb="#00ff00">
+            <fluorescenceCube>
+              <name>L5 ET</name>
+              <shortName>L5</shortName>
+              <excitationFilter>BP 480/40</excitationFilter>
+              <dichromaticMirror>505</dichromaticMirror>
+              <suppressionFilter>527/30</suppressionFilter>
+              <materialNumber />
+              <comment />
+            </fluorescenceCube>
+            <fluorescenceFilter>
+              <name>Empty</name>
+              <excitationFilter>Empty</excitationFilter>
+              <materialNumber>1</materialNumber>
+              <comment>Comment</comment>
+            </fluorescenceFilter>
+            <exposureTime>105000</exposureTime>
+            <ccdGain>15</ccdGain>
+          </channel>
+          <channel index="2" name="TX2|Empty" rgb="#ff0000">
+            <fluorescenceCube>
+              <name>TX2 ET</name>
+              <shortName>TX2</shortName>
+              <excitationFilter>BP 560/40</excitationFilter>
+              <dichromaticMirror>595</dichromaticMirror>
+              <suppressionFilter>BP 645/75</suppressionFilter>
+              <materialNumber />
+              <comment />
+            </fluorescenceCube>
+            <fluorescenceFilter>
+              <name>Empty</name>
+              <excitationFilter>Empty</excitationFilter>
+              <materialNumber>1</materialNumber>
+              <comment>Comment</comment>
+            </fluorescenceFilter>
+            <exposureTime>146000</exposureTime>
+            <ccdGain>20</ccdGain>
+          </channel>
+        </channelSettings>
+      </scanSettings>
+    </image>
+  </collection>
+</scn>

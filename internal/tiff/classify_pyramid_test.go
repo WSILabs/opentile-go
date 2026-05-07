@@ -127,19 +127,25 @@ func TestClassifyPyramid_AcceptPyramidWithStrippedAssociated(t *testing.T) {
 }
 
 func TestClassifyPyramid_RejectFewerThanMinLevels(t *testing.T) {
-	// Only 2 tiled IFDs. Should reject.
+	// Only 2 tiled IFDs. With MinLevels=3 (v0.10 strictness; explicit
+	// here to express the test intent — v0.11 default is MinLevels=1
+	// to admit Grundium-style single-level tiled TIFFs), should
+	// reject.
 	infos := []PyramidLevelInfo{
 		tiledRGB(0, 1024, 1024),
 		tiledRGB(1, 512, 512),
 	}
-	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
+	cfg := DefaultClassifyPyramidConfig()
+	cfg.MinLevels = 3
+	_, err := ClassifyPyramid(infos, cfg)
 	if !errors.Is(err, ErrPyramidTooFewLevels) {
 		t.Errorf("got %v, want ErrPyramidTooFewLevels", err)
 	}
 }
 
 func TestClassifyPyramid_RejectAllStripped(t *testing.T) {
-	// 0 tiled IFDs (only stripped). Should reject as too few levels.
+	// 0 tiled IFDs (only stripped). v0.11 MinLevels=1 still rejects
+	// because there are zero TILED IFDs (the count-tiled gate).
 	infos := []PyramidLevelInfo{
 		strippedJPEG(0, 800, 600),
 		strippedJPEG(1, 400, 300),
@@ -152,14 +158,18 @@ func TestClassifyPyramid_RejectAllStripped(t *testing.T) {
 
 func TestClassifyPyramid_RejectInterAxisFailure(t *testing.T) {
 	// L0→L1 has anisotropic downsampling (W ratio 1.71, H ratio 2.05).
-	// Inter-axis 20% > ±2% → leftover. With only 2 IFDs surviving,
-	// chain falls below MinLevels → ErrPyramidScaleMismatch.
+	// Inter-axis 20% > ±2% → leftover. With MinLevels=3 (v0.10
+	// strictness; explicit here for test-intent clarity) the surviving
+	// 2-IFD chain falls below the floor → ErrPyramidScaleMismatch.
 	infos := []PyramidLevelInfo{
 		tiledRGB(0, 1024, 1024),
 		tiledRGB(1, 600, 500),
 		tiledRGB(2, 256, 256),
 	}
-	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
+	cfg := DefaultClassifyPyramidConfig()
+	cfg.MinLevels = 3
+	cfg.LeftoverTiledMaxAreaRatio = 0.01
+	_, err := ClassifyPyramid(infos, cfg)
 	if !errors.Is(err, ErrPyramidScaleMismatch) {
 		t.Errorf("got %v, want ErrPyramidScaleMismatch", err)
 	}
@@ -168,13 +178,17 @@ func TestClassifyPyramid_RejectInterAxisFailure(t *testing.T) {
 func TestClassifyPyramid_RejectInterLevelDriftBeyondTolerance(t *testing.T) {
 	// L0→L1 ratio = 2.0; L1→L2 ratio = 4.0. Inter-level drift =
 	// |2-4|/2 = 100%, way over ±5%. The 4×-step IFD is dropped to
-	// leftover; resulting chain has 2 levels < min 3 → reject.
+	// leftover; with MinLevels=3 (v0.10 strictness; explicit here)
+	// the surviving 2-level chain falls below the floor → reject.
 	infos := []PyramidLevelInfo{
 		tiledRGB(0, 1024, 1024),
 		tiledRGB(1, 512, 512),
 		tiledRGB(2, 128, 128), // 4× step from L1
 	}
-	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
+	cfg := DefaultClassifyPyramidConfig()
+	cfg.MinLevels = 3
+	cfg.LeftoverTiledMaxAreaRatio = 0.01
+	_, err := ClassifyPyramid(infos, cfg)
 	if !errors.Is(err, ErrPyramidScaleMismatch) {
 		t.Errorf("got %v, want ErrPyramidScaleMismatch", err)
 	}
@@ -197,14 +211,15 @@ func TestClassifyPyramid_RejectMultiPyramidByLeftoverCount(t *testing.T) {
 }
 
 func TestClassifyPyramid_RejectMultiPyramidByLeftoverArea(t *testing.T) {
-	// 3-level pyramid + 1 large leftover tiled (≥1% baseline area).
-	// Baseline area = 1024×1024 = ~1M; 1% = ~10500.
-	// Leftover at 200×200 = 40000 → 4% → exceeds 1% threshold → reject.
+	// 3-level pyramid + 1 large leftover tiled (>5% baseline area
+	// per v0.11 LeftoverTiledMaxAreaRatio=0.05). Baseline area =
+	// 1024×1024 = ~1M; 5% = ~52500. Leftover at 300×300 = 90000 →
+	// 8.6% → exceeds 5% threshold → reject.
 	infos := []PyramidLevelInfo{
 		tiledRGB(0, 1024, 1024),
 		tiledRGB(1, 512, 512),
 		tiledRGB(2, 256, 256),
-		tiledRGB(3, 200, 200), // 4% of baseline area
+		tiledRGB(3, 300, 300), // 8.6% of baseline area
 	}
 	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
 	if !errors.Is(err, ErrPyramidMultiplePyramid) {
@@ -214,8 +229,9 @@ func TestClassifyPyramid_RejectMultiPyramidByLeftoverArea(t *testing.T) {
 
 func TestClassifyPyramid_TiledWithBadPhotometricGoesToOthers(t *testing.T) {
 	// CMYK photometric (5) on what would otherwise be a pyramid IFD:
-	// reject from pyramid candidates → falls to Others. Combined with
-	// only 2 valid tiled IFDs, ErrPyramidTooFewLevels.
+	// reject from pyramid candidates → falls to Others. With
+	// MinLevels=3 (v0.10 strictness; explicit) the surviving 2 valid
+	// tiled IFDs (1024 + 256, 4× ratio) fall below the floor.
 	cmyk := tiledRGB(1, 512, 512)
 	cmyk.Photometric = 5 // CMYK
 	infos := []PyramidLevelInfo{
@@ -223,16 +239,18 @@ func TestClassifyPyramid_TiledWithBadPhotometricGoesToOthers(t *testing.T) {
 		cmyk,
 		tiledRGB(2, 256, 256),
 	}
-	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
-	// Two tiled+valid (1024 and 256) — not enough to form a pyramid
-	// (would have 4× ratio, still legal, but only 2 levels < 3).
+	cfg := DefaultClassifyPyramidConfig()
+	cfg.MinLevels = 3
+	_, err := ClassifyPyramid(infos, cfg)
 	if !errors.Is(err, ErrPyramidTooFewLevels) {
 		t.Errorf("got %v, want ErrPyramidTooFewLevels", err)
 	}
 }
 
 func TestClassifyPyramid_TiledWithBadCompressionGoesToOthers(t *testing.T) {
-	// PackBits compression (32773) — not in our whitelist.
+	// PackBits compression (32773) — not in our whitelist. With
+	// MinLevels=3 (v0.10 strictness; explicit) the surviving 2 valid
+	// tiled IFDs fall below the floor.
 	pb := tiledRGB(1, 512, 512)
 	pb.Compression = 32773
 	infos := []PyramidLevelInfo{
@@ -240,7 +258,9 @@ func TestClassifyPyramid_TiledWithBadCompressionGoesToOthers(t *testing.T) {
 		pb,
 		tiledRGB(2, 256, 256),
 	}
-	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
+	cfg := DefaultClassifyPyramidConfig()
+	cfg.MinLevels = 3
+	_, err := ClassifyPyramid(infos, cfg)
 	if !errors.Is(err, ErrPyramidTooFewLevels) {
 		t.Errorf("got %v, want ErrPyramidTooFewLevels", err)
 	}
@@ -248,6 +268,8 @@ func TestClassifyPyramid_TiledWithBadCompressionGoesToOthers(t *testing.T) {
 
 func TestClassifyPyramid_TiledWith16BitGoesToOthers(t *testing.T) {
 	// 16-bit per sample (scientific imaging) — out of v0.10 scope.
+	// With MinLevels=3 (v0.10 strictness; explicit) the surviving
+	// 2 valid tiled IFDs fall below the floor.
 	hi := tiledRGB(1, 512, 512)
 	hi.BitsPerSample = 16
 	infos := []PyramidLevelInfo{
@@ -255,7 +277,9 @@ func TestClassifyPyramid_TiledWith16BitGoesToOthers(t *testing.T) {
 		hi,
 		tiledRGB(2, 256, 256),
 	}
-	_, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
+	cfg := DefaultClassifyPyramidConfig()
+	cfg.MinLevels = 3
+	_, err := ClassifyPyramid(infos, cfg)
 	if !errors.Is(err, ErrPyramidTooFewLevels) {
 		t.Errorf("got %v, want ErrPyramidTooFewLevels", err)
 	}
@@ -263,8 +287,14 @@ func TestClassifyPyramid_TiledWith16BitGoesToOthers(t *testing.T) {
 
 func TestClassifyPyramid_DefaultConfig(t *testing.T) {
 	c := DefaultClassifyPyramidConfig()
-	if c.MinLevels != 3 {
-		t.Errorf("MinLevels = %d, want 3", c.MinLevels)
+	// v0.11 sealed thresholds (R1 + R2 in v0.11 design):
+	//   MinLevels:                 1   (was 3 in v0.10)
+	//   InterAxisTolerance:        0.02
+	//   InterLevelTolerance:       0.05
+	//   MaxLeftoverTiled:          2
+	//   LeftoverTiledMaxAreaRatio: 0.05 (was 0.01 in v0.10)
+	if c.MinLevels != 1 {
+		t.Errorf("MinLevels = %d, want 1", c.MinLevels)
 	}
 	if c.InterAxisTolerance != 0.02 {
 		t.Errorf("InterAxisTolerance = %v, want 0.02", c.InterAxisTolerance)
@@ -275,8 +305,8 @@ func TestClassifyPyramid_DefaultConfig(t *testing.T) {
 	if c.MaxLeftoverTiled != 2 {
 		t.Errorf("MaxLeftoverTiled = %d, want 2", c.MaxLeftoverTiled)
 	}
-	if c.LeftoverTiledMaxAreaRatio != 0.01 {
-		t.Errorf("LeftoverTiledMaxAreaRatio = %v, want 0.01", c.LeftoverTiledMaxAreaRatio)
+	if c.LeftoverTiledMaxAreaRatio != 0.05 {
+		t.Errorf("LeftoverTiledMaxAreaRatio = %v, want 0.05", c.LeftoverTiledMaxAreaRatio)
 	}
 }
 
