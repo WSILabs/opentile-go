@@ -597,7 +597,7 @@ path + **committed sample-tile SHA256 hashes** for both fixtures via
   `Level.TileAt(TileCoord{Z != 0})` returns
   `ErrDimensionUnavailable` until the per-IFD reader lands as a
   separate format-package milestone (sketched in
-  `docs/formats/ome.md`).
+  `docs/formats/ometiff.md`).
 
 ### Changed
 

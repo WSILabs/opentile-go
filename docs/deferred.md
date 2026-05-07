@@ -122,7 +122,7 @@ README.md and per-format docs link here.
   decoding + merging (changes our tile-passthrough contract) or
   per-plane bytes (no obvious API). Both Leica fixtures hit this on
   tiled levels.
-- **Tracking:** see [`docs/formats/ome.md`](formats/ome.md).
+- **Tracking:** see [`docs/formats/ometiff.md`](formats/ometiff.md).
 
 ### OME first-strip-only on multi-strip OneFrame (since v0.6)
 
@@ -135,7 +135,7 @@ README.md and per-format docs link here.
   output is populated.
 - **Reason:** byte parity for OneFrame levels of OME files (Leica-1
   L2-L4, Leica-2 L2-L5).
-- **Tracking:** see [`docs/formats/ome.md`](formats/ome.md).
+- **Tracking:** see [`docs/formats/ometiff.md`](formats/ometiff.md).
 
 ### BIF: probability map exposure (since v0.7)
 
@@ -861,7 +861,7 @@ pass consolidating four `docs/deferred.md §11` items.
   `formats/philipstiff/`; `formats/ome/` → `formats/ometiff/`.
   Package names follow: `package philips` → `package philipstiff`;
   `package ome` → `package ometiff`. Format-doc renames
-  (docs/formats/philips.md → philipstiff.md, ome.md → ometiff.md)
+  (docs/formats/philipstiff.md → philipstiff.md, ome.md → ometiff.md)
   land in T7.
 
 **Test impact:** 6 fixture JSONs (4 Philips + 2 OME) updated to
@@ -1385,7 +1385,7 @@ plan tasks across 5 batches, executed sequentially.
   until the per-IFD reader lands. The dimensions are surfaced
   honestly so consumers can detect multi-Z OMEs and gracefully
   fall back. Implementation strategy documented in
-  `docs/formats/ome.md`'s "Future implementation strategy"
+  `docs/formats/ometiff.md`'s "Future implementation strategy"
   subsection.
 
 **Test fixtures:**

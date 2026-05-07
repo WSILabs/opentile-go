@@ -21,7 +21,7 @@ The Open Microscopy Environment's TIFF dialect, written by Bio-Formats and most 
 | Multi-image files | ✅ | All main pyramids exposed via `Tiler.Images()`. Single-image files (Leica-1) return a one-element slice; multi-image files (Leica-2) return N |
 | Associated macro / label / thumbnail | ✅ | Single-strip raw bytes (no splice on our fixtures); multi-strip planar pages take strip 0 only matching upstream |
 | BigTIFF | ✅ (both fixtures are BigTIFF) |
-| OME-XML metadata | ✅ via `ome.MetadataOf(t)` — exposes PhysicalSize per Image |
+| OME-XML metadata | ✅ via `ometiff.MetadataOf(t)` — exposes PhysicalSize per Image |
 
 ## What's not supported
 
@@ -110,11 +110,11 @@ OneFrame levels of the dropped Leica-2 pyramids have no straight-byte Python ref
 
 ## Implementation references
 
-- Our package: `formats/ome/`
+- Our package: `formats/ometiff/`
 - Public API: `Tiler.Images() []Image` + the `Image` interface (added in v0.6); the legacy `Tiler.Levels()` / `Level(i)` shortcut to `Images()[0]`.
-- Our metadata accessor: `ome.MetadataOf(opentile.Tiler) (*OMEMetadata, bool)`.
+- Our metadata accessor: `ometiff.MetadataOf(opentile.Tiler) (*OMEMetadata, bool)`.
 - Shared OneFrame machinery: `internal/oneframe/`.
-- Upstream Python: [`opentile/formats/ome/`](https://github.com/imi-bigpicture/opentile/tree/main/opentile/formats/ome).
+- Upstream Python: [`opentile/formats/ometiff/`](https://github.com/imi-bigpicture/opentile/tree/main/opentile/formats/ome).
 - OME-XML schema reference: [openmicroscopy.org/Schemas/OME/2016-06](https://www.openmicroscopy.org/Schemas/OME/2016-06/).
 - Bio-Formats (Java reference reader): [glencoesoftware/bioformats](https://github.com/ome/bioformats) — out of scope for direct comparison since it operates at decoded-pixel level.
 

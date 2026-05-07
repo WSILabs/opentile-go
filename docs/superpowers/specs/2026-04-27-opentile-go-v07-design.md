@@ -305,7 +305,7 @@ sketch only**; the actual plan doc gets written after §4 / §6 /
     - DP 200 ScannerModel non-strict acceptance (we accept legacy
       iScan; spec says don't)
 18. New `docs/formats/bif.md` — per-format reader notes (matches
-    `docs/formats/ome.md` template).
+    `docs/formats/ometiff.md` template).
 19. CHANGELOG, README format-set update, milestone bump in
     CLAUDE.md.
 
