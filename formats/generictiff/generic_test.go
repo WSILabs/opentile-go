@@ -38,7 +38,7 @@ func TestFactorySupports(t *testing.T) {
 		// Real fixtures.
 		{"CMU-1.tiff", true},
 		{"CMU-1.stripped.tiff", true},
-		{"CMU-1-Small-Region.stripped.tiff", false}, // single-level, validator rejects
+		{"CMU-1-Small-Region.stripped.tiff", true}, // v0.11: single-level tiled TIFFs accepted (MinLevels=1)
 		// Synthetic fixtures (T3-generated).
 		{"synth-pyramid-jpeg.tiff", true},
 		{"synth-pyramid-with-label.tiff", true},
@@ -221,7 +221,7 @@ func TestFactorySupportsRejectsExistingVendorFixtures(t *testing.T) {
 	}{
 		{"svs", "CMU-1.svs", true},          // valid pyramid; vendor still matches first
 		{"ndpi", "CMU-1.ndpi", false},       // NDPI's special tile layout fails generic
-		{"ome-tiff", "Leica-1.ome.tiff", false}, // OME uses SubIFDs, not top-level pyramid IFDs
+		{"ome-tiff", "Leica-1.ome.tiff", true}, // v0.11: relaxed leftover threshold accepts; OME wins via dispatch order
 		{"ife", "cervix_2x_jpeg.iris", false},   // IFE is non-TIFF; tiff.Open errors
 	} {
 		t.Run(tc.name, func(t *testing.T) {

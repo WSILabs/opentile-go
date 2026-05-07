@@ -68,19 +68,25 @@ type ClassifyPyramidConfig struct {
 	LeftoverTiledMaxAreaRatio float64
 }
 
-// DefaultClassifyPyramidConfig returns the v0.10-sealed thresholds:
-//   - MinLevels: 3 (Q2)
-//   - InterAxisTolerance: 0.02 / ±2% (Q1)
-//   - InterLevelTolerance: 0.05 / ±5% (Q1)
-//   - MaxLeftoverTiled: 2 (Q7 multi-pyramid rejection)
-//   - LeftoverTiledMaxAreaRatio: 0.01 / 1% (Q7)
+// DefaultClassifyPyramidConfig returns the v0.11-sealed thresholds.
+// v0.11 relaxed two caps from the v0.10 originals (R1 + R2 in the
+// v0.11 design spec) to handle real-world Grundium output:
+//
+//   - MinLevels: 1 (was 3 in v0.10) — single-level tiled TIFFs are
+//     a valid encoder pattern (Grundium scan_619 has only one IFD).
+//   - InterAxisTolerance: 0.02 / ±2% (Q1; unchanged)
+//   - InterLevelTolerance: 0.05 / ±5% (Q1; unchanged)
+//   - MaxLeftoverTiled: 2 (Q7; unchanged)
+//   - LeftoverTiledMaxAreaRatio: 0.05 (was 0.01 in v0.10) — bumped to
+//     accept mixed-ratio chains (Grundium scan_620's 4× then 2×/2×/2×
+//     pyramid layout where the orphan level is 1.56% of baseline).
 func DefaultClassifyPyramidConfig() ClassifyPyramidConfig {
 	return ClassifyPyramidConfig{
-		MinLevels:                 3,
+		MinLevels:                 1,
 		InterAxisTolerance:        0.02,
 		InterLevelTolerance:       0.05,
 		MaxLeftoverTiled:          2,
-		LeftoverTiledMaxAreaRatio: 0.01,
+		LeftoverTiledMaxAreaRatio: 0.05,
 	}
 }
 
