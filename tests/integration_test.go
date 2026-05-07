@@ -51,15 +51,23 @@ var slideCandidates = []string{
 	// =0.05 relaxation that lets the orphan L2 surface as associated).
 	"scan_619_grundium_pyramid_TIFF.tif",
 	"scan_620_grundium_TIFF.tif",
+	// Leica SCN (v0.11): BigTIFF dialect from Leica SCN400 scanners
+	// (production discontinued ~2015). Leica-1 is the simple single-
+	// region case; Leica-2 has 4 disjoint main-scan rectangles
+	// (multi-region composite); Leica-Fluorescence-1 is the only
+	// real fixture exercising Image.SizeC() > 1 (3-channel).
+	"Leica-1.scn",
+	"Leica-2.scn",
+	"Leica-Fluorescence-1.scn",
 }
 
 // resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
-// dir/ome-tiff, dir/bif, dir/ife, and dir/generic-tiff. Returns the
-// first existing absolute path. Used so OPENTILE_TESTDIR can be set
-// to the repo sample_files root and cover every supported format in
-// one run.
+// dir/ome-tiff, dir/bif, dir/ife, dir/generic-tiff, and dir/scn.
+// Returns the first existing absolute path. Used so OPENTILE_TESTDIR
+// can be set to the repo sample_files root and cover every supported
+// format in one run.
 func resolveSlide(dir, name string) (string, bool) {
-	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff"} {
+	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn"} {
 		p := filepath.Join(dir, sub, name)
 		if _, err := os.Stat(p); err == nil {
 			return p, true
@@ -293,6 +301,8 @@ func fixtureJSONFor(slideFilename string) string {
 		return stem + ".bif.json"
 	case ".iris":
 		return stem + ".ife.json"
+	case ".scn":
+		return stem + ".scn.json"
 	}
 	return stem + ".json"
 }

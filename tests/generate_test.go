@@ -39,6 +39,11 @@ func sampledByDefault(slide string) bool {
 	// IFE: cervix_2x_jpeg is 2.1 GB; sample-only.
 	case "cervix_2x_jpeg.iris":
 		return true
+	// SCN: Leica-1 is 278 MB, Leica-2 is 2.1 GB — both qualify under
+	// the >100 MB sampled-by-default policy. Leica-Fluorescence-1 is
+	// 21 MB so it stays full-walk.
+	case "Leica-1.scn", "Leica-2.scn":
+		return true
 	}
 	return false
 }
