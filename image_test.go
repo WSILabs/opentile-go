@@ -69,18 +69,21 @@ type fakeLevel struct {
 	mpp SizeMm
 }
 
-func (f *fakeLevel) Index() int                                                 { return 0 }
-func (f *fakeLevel) PyramidIndex() int                                          { return 0 }
-func (f *fakeLevel) Size() Size                                                 { return Size{} }
-func (f *fakeLevel) TileSize() Size                                             { return Size{} }
-func (f *fakeLevel) Grid() Size                                                 { return Size{} }
-func (f *fakeLevel) Compression() Compression                                   { return CompressionUnknown }
-func (f *fakeLevel) MPP() SizeMm                                                { return f.mpp }
-func (f *fakeLevel) FocalPlane() float64                                        { return 0 }
-func (f *fakeLevel) TileOverlap() image.Point                                   { return image.Point{} }
+func (f *fakeLevel) Index() int                                               { return 0 }
+func (f *fakeLevel) PyramidIndex() int                                        { return 0 }
+func (f *fakeLevel) Size() Size                                               { return Size{} }
+func (f *fakeLevel) TileSize() Size                                           { return Size{} }
+func (f *fakeLevel) Grid() Size                                               { return Size{} }
+func (f *fakeLevel) Compression() Compression                                 { return CompressionUnknown }
+func (f *fakeLevel) MPP() SizeMm                                              { return f.mpp }
+func (f *fakeLevel) FocalPlane() float64                                      { return 0 }
+func (f *fakeLevel) TileOverlap() image.Point                                 { return image.Point{} }
 func (f *fakeLevel) Tile(x, y int) ([]byte, error)                            { return nil, nil }
 func (f *fakeLevel) TileInto(x, y int, dst []byte) (int, error)               { return 0, nil }
 func (f *fakeLevel) TileMaxSize() int                                         { return 0 }
+func (f *fakeLevel) TilePrefix() []byte                                       { return nil }
+func (f *fakeLevel) TileBodyInto(x, y int, dst []byte) (int, error)           { return 0, nil }
+func (f *fakeLevel) TileBodyMaxSize() int                                     { return 0 }
 func (f *fakeLevel) TileAt(coord TileCoord) ([]byte, error)                   { return nil, nil }
 func (f *fakeLevel) TileReader(x, y int) (io.ReadCloser, error)               { return nil, nil }
 func (f *fakeLevel) Tiles(ctx context.Context) iter.Seq2[TilePos, TileResult] { return nil }

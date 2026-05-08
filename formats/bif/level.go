@@ -31,11 +31,11 @@ func bytesReader(b []byte) io.Reader { return bytes.NewReader(b) }
 // the entry in TileOffsets/TileByteCounts. The remap is cheap (a
 // few ops) — no per-tile XMP lookup required.
 type levelImpl struct {
-	index       int                 // 0-based level index in the Image's Levels slice
-	pyrIndex    int                 // parsed `level=N` value from ImageDescription
-	size        opentile.Size       // base ImageWidth × ImageLength of this pyramid level
-	tileSize    opentile.Size       // TileWidth × TileLength
-	grid        opentile.Size       // tile grid dimensions (cols × rows)
+	index       int           // 0-based level index in the Image's Levels slice
+	pyrIndex    int           // parsed `level=N` value from ImageDescription
+	size        opentile.Size // base ImageWidth × ImageLength of this pyramid level
+	tileSize    opentile.Size // TileWidth × TileLength
+	grid        opentile.Size // tile grid dimensions (cols × rows)
 	compression opentile.Compression
 	mpp         opentile.SizeMm
 	tileOverlap image.Point // non-zero only on level 0 of overlapping spec-compliant slides
@@ -318,6 +318,28 @@ func (l *levelImpl) TileAt(coord opentile.TileCoord) ([]byte, error) {
 // TileMaxSize is the cached upper bound for Tile / TileInto / TileAt
 // output bytes on this level (since v0.9).
 func (l *levelImpl) TileMaxSize() int { return l.maxTileSize }
+
+// TilePrefix returns nil — this Level type doesn't expose a separable
+// per-level splice prefix in v0.13. T2-T4 specializations override
+// for the splice-format levels.
+//
+// Added in v0.13.
+func (l *levelImpl) TilePrefix() []byte { return nil }
+
+// TileBodyInto delegates to TileInto (no separation between body
+// bytes and full tile output for non-splice levels). T2-T4
+// specializations override for the splice-format levels.
+//
+// Added in v0.13.
+func (l *levelImpl) TileBodyInto(x, y int, dst []byte) (int, error) {
+	return l.TileInto(x, y, dst)
+}
+
+// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
+// IS the full tile output). T2-T4 specializations override.
+//
+// Added in v0.13.
+func (l *levelImpl) TileBodyMaxSize() int { return l.TileMaxSize() }
 
 // warm pre-faults the page-cache pages backing every tile on this
 // level. For volumetric IFDs (imageDepth > 1) the offsets array

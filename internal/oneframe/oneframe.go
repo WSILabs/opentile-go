@@ -152,6 +152,28 @@ func (l *Image) TileAt(coord opentile.TileCoord) ([]byte, error) {
 // approach.
 func (l *Image) TileMaxSize() int { return l.tileSize.W * l.tileSize.H }
 
+// TilePrefix returns nil — this Level type doesn't expose a separable
+// per-level splice prefix in v0.13. T2-T4 specializations override
+// for the splice-format levels.
+//
+// Added in v0.13.
+func (l *Image) TilePrefix() []byte { return nil }
+
+// TileBodyInto delegates to TileInto (no separation between body
+// bytes and full tile output for non-splice levels). T2-T4
+// specializations override for the splice-format levels.
+//
+// Added in v0.13.
+func (l *Image) TileBodyInto(x, y int, dst []byte) (int, error) {
+	return l.TileInto(x, y, dst)
+}
+
+// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
+// IS the full tile output). T2-T4 specializations override.
+//
+// Added in v0.13.
+func (l *Image) TileBodyMaxSize() int { return l.TileMaxSize() }
+
 // warm pre-faults the page-cache pages backing the page's strips.
 // OneFrame stores the level as a single (or per-channel) TIFF strip;
 // touching all bytes of every strip is what warmup means here.

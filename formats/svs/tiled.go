@@ -143,15 +143,15 @@ func newTiledImage(
 	}
 
 	return &tiledImage{
-		index:       index,
-		size:        opentile.Size{W: int(iw), H: int(il)},
-		tileSize:    opentile.Size{W: int(tw), H: int(tl)},
-		grid:        opentile.Size{W: gx, H: gy},
-		compression: ocomp,
-		mpp:         mpp,
-		pyrIndex:    pyr,
-		offsets:     offsets,
-		counts:      counts,
+		index:        index,
+		size:         opentile.Size{W: int(iw), H: int(il)},
+		tileSize:     opentile.Size{W: int(tw), H: int(tl)},
+		grid:         opentile.Size{W: gx, H: gy},
+		compression:  ocomp,
+		mpp:          mpp,
+		pyrIndex:     pyr,
+		offsets:      offsets,
+		counts:       counts,
 		jpegTables:   jpegTables,
 		reader:       r,
 		maxTileSize:  maxTileSize,
@@ -206,6 +206,28 @@ func (l *tiledImage) TileAt(coord opentile.TileCoord) ([]byte, error) {
 }
 
 func (l *tiledImage) TileMaxSize() int { return l.maxTileSize }
+
+// TilePrefix returns nil — this Level type doesn't expose a separable
+// per-level splice prefix in v0.13. T2-T4 specializations override
+// for the splice-format levels.
+//
+// Added in v0.13.
+func (l *tiledImage) TilePrefix() []byte { return nil }
+
+// TileBodyInto delegates to TileInto (no separation between body
+// bytes and full tile output for non-splice levels). T2-T4
+// specializations override for the splice-format levels.
+//
+// Added in v0.13.
+func (l *tiledImage) TileBodyInto(x, y int, dst []byte) (int, error) {
+	return l.TileInto(x, y, dst)
+}
+
+// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
+// IS the full tile output). T2-T4 specializations override.
+//
+// Added in v0.13.
+func (l *tiledImage) TileBodyMaxSize() int { return l.TileMaxSize() }
 
 // warm pre-faults the page-cache pages backing every tile on this
 // level. Called via Tiler.WarmLevel.

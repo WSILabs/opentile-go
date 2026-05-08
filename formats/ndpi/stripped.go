@@ -162,6 +162,28 @@ func (l *strippedImage) warm() error {
 // this bound.
 func (l *strippedImage) TileMaxSize() int { return l.tileSize.W * l.tileSize.H }
 
+// TilePrefix returns nil — this Level type doesn't expose a separable
+// per-level splice prefix in v0.13. T2-T4 specializations override
+// for the splice-format levels.
+//
+// Added in v0.13.
+func (l *strippedImage) TilePrefix() []byte { return nil }
+
+// TileBodyInto delegates to TileInto (no separation between body
+// bytes and full tile output for non-splice levels). T2-T4
+// specializations override for the splice-format levels.
+//
+// Added in v0.13.
+func (l *strippedImage) TileBodyInto(x, y int, dst []byte) (int, error) {
+	return l.TileInto(x, y, dst)
+}
+
+// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
+// IS the full tile output). T2-T4 specializations override.
+//
+// Added in v0.13.
+func (l *strippedImage) TileBodyMaxSize() int { return l.TileMaxSize() }
+
 // TileInto writes the tile bytes into dst. NDPI's stripped path
 // internally allocates (frame assembly + libjpeg-turbo crop output);
 // dst receives the final copy. Pool savings at the boundary still

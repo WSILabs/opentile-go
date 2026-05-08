@@ -24,9 +24,9 @@ import (
 type compositeLevel struct {
 	index       int
 	pyrIndex    int
-	size        opentile.Size  // composite/union pixel extent
-	tileSize    opentile.Size  // uniform across all regions per Q5
-	grid        opentile.Size  // composite tile grid (ceil(size / tileSize))
+	size        opentile.Size // composite/union pixel extent
+	tileSize    opentile.Size // uniform across all regions per Q5
+	grid        opentile.Size // composite tile grid (ceil(size / tileSize))
 	compression opentile.Compression
 	sizeC       int
 	maxTile     int
@@ -129,6 +129,28 @@ func (l *compositeLevel) MPP() opentile.SizeMm              { return opentile.Si
 func (l *compositeLevel) FocalPlane() float64               { return 0 }
 func (l *compositeLevel) TileOverlap() image.Point          { return image.Point{} }
 func (l *compositeLevel) TileMaxSize() int                  { return l.maxTile }
+
+// TilePrefix returns nil — this Level type doesn't expose a separable
+// per-level splice prefix in v0.13. T2-T4 specializations override
+// for the splice-format levels.
+//
+// Added in v0.13.
+func (l *compositeLevel) TilePrefix() []byte { return nil }
+
+// TileBodyInto delegates to TileInto (no separation between body
+// bytes and full tile output for non-splice levels). T2-T4
+// specializations override for the splice-format levels.
+//
+// Added in v0.13.
+func (l *compositeLevel) TileBodyInto(x, y int, dst []byte) (int, error) {
+	return l.TileInto(x, y, dst)
+}
+
+// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
+// IS the full tile output). T2-T4 specializations override.
+//
+// Added in v0.13.
+func (l *compositeLevel) TileBodyMaxSize() int { return l.TileMaxSize() }
 
 // regionBound is the per-region positioning info inside the
 // composite level, kept alongside the tiledRegion slice for
