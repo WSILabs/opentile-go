@@ -70,7 +70,10 @@ func buildSVSTIFF(t *testing.T, tileW, tileH, tilesX, tilesY int, extraDesc stri
 	buf.Write([]byte{'I', 'I', 42, 0, 0x08, 0, 0, 0})
 	w16(9)
 	entry := func(tag, typ uint16, count, voc uint32) {
-		w16(tag); w16(typ); w32(count); w32(voc)
+		w16(tag)
+		w16(typ)
+		w32(count)
+		w32(voc)
 	}
 	entry(256, 3, 1, uint32(tileW*tilesX)) // ImageWidth
 	entry(257, 3, 1, uint32(tileH*tilesY)) // ImageLength
@@ -291,10 +294,14 @@ func TestMetadataOfRejectsNonSVSTiler(t *testing.T) {
 
 type fakeNonSVSTiler struct{}
 
-func (f *fakeNonSVSTiler) Format() opentile.Format                { return opentile.Format("fake") }
-func (f *fakeNonSVSTiler) Images() []opentile.Image               { return []opentile.Image{opentile.NewSingleImage(nil)} }
-func (f *fakeNonSVSTiler) Levels() []opentile.Level               { return nil }
-func (f *fakeNonSVSTiler) Level(i int) (opentile.Level, error)    { return nil, opentile.ErrLevelOutOfRange }
+func (f *fakeNonSVSTiler) Format() opentile.Format { return opentile.Format("fake") }
+func (f *fakeNonSVSTiler) Images() []opentile.Image {
+	return []opentile.Image{opentile.NewSingleImage(nil)}
+}
+func (f *fakeNonSVSTiler) Levels() []opentile.Level { return nil }
+func (f *fakeNonSVSTiler) Level(i int) (opentile.Level, error) {
+	return nil, opentile.ErrLevelOutOfRange
+}
 func (f *fakeNonSVSTiler) Associated() []opentile.AssociatedImage { return nil }
 func (f *fakeNonSVSTiler) Metadata() opentile.Metadata            { return opentile.Metadata{} }
 func (f *fakeNonSVSTiler) ICCProfile() []byte                     { return nil }
@@ -359,7 +366,10 @@ func buildSVSTIFFWithStrippedPage(t *testing.T) (data []byte, tiles [][]byte) {
 		buf.WriteByte(byte(v >> 24))
 	}
 	entry := func(tag, typ uint16, count, voc uint32) {
-		w16(tag); w16(typ); w32(count); w32(voc)
+		w16(tag)
+		w16(typ)
+		w32(count)
+		w32(voc)
 	}
 
 	// TIFF Header
@@ -368,27 +378,27 @@ func buildSVSTIFFWithStrippedPage(t *testing.T) (data []byte, tiles [][]byte) {
 
 	// Page 0 IFD (tiled)
 	w16(9)
-	entry(256, 3, 1, 16)                         // ImageWidth = 16
-	entry(257, 3, 1, 16)                         // ImageLength = 16
-	entry(259, 3, 1, 7)                          // Compression = JPEG
-	entry(262, 3, 1, 6)                          // Photometric = YCbCr
-	entry(270, 2, uint32(len(desc)), descOff)    // ImageDescription
-	entry(322, 3, 1, 16)                         // TileWidth = 16
-	entry(323, 3, 1, 16)                         // TileLength = 16
+	entry(256, 3, 1, 16)                      // ImageWidth = 16
+	entry(257, 3, 1, 16)                      // ImageLength = 16
+	entry(259, 3, 1, 7)                       // Compression = JPEG
+	entry(262, 3, 1, 6)                       // Photometric = YCbCr
+	entry(270, 2, uint32(len(desc)), descOff) // ImageDescription
+	entry(322, 3, 1, 16)                      // TileWidth = 16
+	entry(323, 3, 1, 16)                      // TileLength = 16
 	// For nTiles=1: TileOffsets and TileByteCounts values fit inline (4 bytes each)
-	entry(324, 4, 1, tileOffsets[0])             // TileOffsets: single value inline
-	entry(325, 4, 1, uint32(len(tiles[0])))      // TileByteCounts: single value inline
-	w32(page1IFDOff)                             // offset to page 1 IFD
+	entry(324, 4, 1, tileOffsets[0])        // TileOffsets: single value inline
+	entry(325, 4, 1, uint32(len(tiles[0]))) // TileByteCounts: single value inline
+	w32(page1IFDOff)                        // offset to page 1 IFD
 
 	// Page 1 IFD (stripped—no TileWidth/TileLength)
 	w16(6)
-	entry(256, 3, 1, 32)                         // ImageWidth = 32
-	entry(257, 3, 1, 16)                         // ImageLength = 16
-	entry(259, 3, 1, 7)                          // Compression = JPEG
-	entry(262, 3, 1, 6)                          // Photometric = YCbCr
-	entry(273, 4, 1, stripOff)                   // StripOffsets
-	entry(279, 4, 1, uint32(len(stripBytes)))    // StripByteCounts
-	w32(0)                                       // next IFD = 0
+	entry(256, 3, 1, 32)                      // ImageWidth = 32
+	entry(257, 3, 1, 16)                      // ImageLength = 16
+	entry(259, 3, 1, 7)                       // Compression = JPEG
+	entry(262, 3, 1, 6)                       // Photometric = YCbCr
+	entry(273, 4, 1, stripOff)                // StripOffsets
+	entry(279, 4, 1, uint32(len(stripBytes))) // StripByteCounts
+	w32(0)                                    // next IFD = 0
 
 	// External data region
 	buf.Write(desc)

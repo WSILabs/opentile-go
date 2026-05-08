@@ -14,7 +14,6 @@ import (
 	"github.com/cornish/opentile-go/internal/tiff"
 )
 
-
 // aperioPrefix is the literal prefix on the ImageDescription tag of Aperio SVS
 // files. Upstream opentile and openslide both key their detection off this.
 const aperioPrefix = "Aperio"
@@ -133,7 +132,7 @@ type tiler struct {
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format                { return opentile.FormatSVS }
+func (t *tiler) Format() opentile.Format { return opentile.FormatSVS }
 func (t *tiler) Images() []opentile.Image {
 	return []opentile.Image{opentile.NewSingleImage(t.levels)}
 }

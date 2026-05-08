@@ -113,3 +113,64 @@ func firstN(s []opentile.TilePos, n int) []opentile.TilePos {
 	}
 	return s[:n]
 }
+
+// TestSpliceReconstitutionInvariant verifies the v0.13 invariant:
+// SpliceJPEGTile(TilePrefix(), TileBodyInto(p)) ==byte== Tile(p)
+// for sampled positions on every pyramid level of CMU-1-Small-Region.svs.
+func TestSpliceReconstitutionInvariant(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR unset")
+	}
+	path := filepath.Join(dir, "svs", "CMU-1-Small-Region.svs")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("%s not present", path)
+	}
+	tiler, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tiler.Close()
+
+	for li, lvl := range tiler.Levels() {
+		prefix := lvl.TilePrefix()
+		if len(prefix) == 0 {
+			t.Errorf("L%d: TilePrefix is empty (SVS pyramid levels always have shared JPEGTables)", li)
+			continue
+		}
+		bodyBuf := make([]byte, lvl.TileBodyMaxSize())
+		grid := lvl.Grid()
+		if grid.W == 0 || grid.H == 0 {
+			continue
+		}
+		positions := []struct{ x, y int }{
+			{0, 0},
+			{grid.W - 1, 0},
+			{0, grid.H - 1},
+			{grid.W - 1, grid.H - 1},
+		}
+		if grid.W > 2 && grid.H > 2 {
+			positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
+		}
+		for _, p := range positions {
+			full, errFull := lvl.Tile(p.x, p.y)
+			if errFull != nil {
+				continue
+			}
+			n, errBody := lvl.TileBodyInto(p.x, p.y, bodyBuf)
+			if errBody != nil {
+				t.Errorf("L%d (%d,%d) TileBodyInto: %v", li, p.x, p.y, errBody)
+				continue
+			}
+			reconstituted, err := opentile.SpliceJPEGTile(prefix, bodyBuf[:n])
+			if err != nil {
+				t.Errorf("L%d (%d,%d) SpliceJPEGTile: %v", li, p.x, p.y, err)
+				continue
+			}
+			if !bytes.Equal(full, reconstituted) {
+				t.Errorf("L%d (%d,%d): reconstituted (%d bytes) != Tile() (%d bytes)",
+					li, p.x, p.y, len(reconstituted), len(full))
+			}
+		}
+	}
+}
