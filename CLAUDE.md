@@ -2,65 +2,65 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.12 (shipped)
+## Current milestone — v0.13 (shipped)
 
-- **Scope:** Naming-cleanup milestone — breaking-API rename pass
-  consolidating four deferred items from `docs/deferred.md §11`. No
-  new format support; no new features; no API additions. 9 tasks
-  across Batches A–B shipped: NDPI strip rename (R1: StripeInfo →
-  StripInfo + 6 fields including StripedW/H → GridW/H per Q5);
-  FormatPhilips → FormatPhilipsTIFF + value (R2); FormatOME →
-  FormatOMETIFF + value (R3); package directory renames
-  formats/philips/ → formats/philipstiff/ and formats/ome/ →
-  formats/ometiff/ (R4); test fixture updates (6 JSONs); docs
-  refresh.
-- **Headline coverage:** every Format constant for vendor-disambiguated
-  formats now follows `Format<Vendor><Tag>` (FormatGenericTIFF,
-  FormatLeicaSCN, FormatPhilipsTIFF, FormatOMETIFF) plus
-  unambiguous-vendor short forms (FormatSVS, FormatNDPI, FormatBIF,
-  FormatIFE). NDPI's StripInfo public API matches TIFF spec
-  terminology (bare "Strip"; matches tag names 273 / 279) and our
-  internal Level.Grid() convention.
-- **API additions:** none. v0.12 is purely a rename milestone.
-- **Behavior change:** every renamed identifier breaks consumers
-  that compared against the old name. v0.3 invariant says no
-  external users yet; rename safe.
-- **Active limitations:** unchanged from v0.11 (L4, L5, L14
-  Permanent; L19, L20 v0.7-deferred; L23-L25 v0.8-deferred; L26-L29
-  v0.10-deferred; L30-L34 v0.11-deferred). No new L items.
+- **Scope:** Bandwidth-deduplication milestone — exposes the JPEG
+  splice prefix and on-disk tile body bytes separately so client-
+  server consumers can ship the prefix once per level instead of
+  redundantly on every tile. Additive interface evolution, no
+  breaking changes. 7 tasks shipped across one batch.
+- **Headline coverage:** Three new Level interface methods
+  (TilePrefix, TileBodyInto, TileBodyMaxSize) + the
+  opentile.SpliceJPEGTile top-level helper for client-side
+  reconstitution. Cross-format reconstitution invariant
+  (SpliceJPEGTile(TilePrefix, TileBodyInto) == Tile) verified
+  byte-identical on every fixture in the slate.
+- **API additions:** 3 Level interface methods + opentile.
+  SpliceJPEGTile + opentile.ErrBadJPEGSplice sentinel.
+- **Behavior change:** none. Existing consumers using Tile /
+  TileInto see no behavior change.
+- **Active limitations:** unchanged from v0.12 (L4, L5, L14
+  Permanent; L19, L20 v0.7-deferred; L23-L25 v0.8-deferred;
+  L26-L29 v0.10-deferred; L30-L34 v0.11-deferred). No new L
+  items.
 - **Deviations from upstream Python opentile** (canonical list at
-  `docs/deferred.md §1a`): unchanged from v0.11 (Format constant
-  names + values updated to reflect the new identifiers but no
-  new deviations introduced).
-- **Correctness bar:** `make test` green; `make parity` green.
-  TestSlideParity total still 24 fixtures (no new fixtures); 6
-  fixture JSONs (4 Philips + 2 OME) updated to record the new
-  format strings.
-- **Sealed Q-decisions:** Q1 v0.12 (NOT v1.0 — pre-1.0 territory
-  preserved); Q2 full-public striped→stripped rename
-  ("clowns with striped"); Q3 both value + identifier; Q4 yes both
-  packages; Q5 GridW/GridH (TIFF-spec-grounded analysis).
+  `docs/deferred.md §1a`): unchanged from v0.12 (additive-only
+  v0.13 API doesn't introduce new deviations).
+- **Correctness bar:** `make test` green; cross-format
+  reconstitution invariant on 10 fixtures (SVS, NDPI, Philips, OME,
+  BIF Ventana-1 + OS-1, IFE, generictiff, SCN Leica-1 + Leica-2)
+  byte-identical to existing Tile() output. Bench harness
+  (build tag `benchgate`) measures Pattern A vs B bandwidth on
+  representative fixtures.
+- **Bench reality:** Pattern B savings depend on fixture-author's
+  choice to use shared JPEGTables (tag 347). CMU-1.svs shows 4.3%
+  L0 savings, Philips-1.tiff 1.5%, BIF OS-1 ~similar to Philips.
+  Per-tile-embedded fixtures (Ventana-1 BIF, this OME / SCN
+  fixture) show 0% — Pattern A remains correct for those.
+- **Sealed Q-decisions (4):** Q1 zero-alloc only (no alloc-form
+  TileBody); Q2 public SpliceJPEGTile helper; Q3 bundle bench
+  harness in milestone; Q4 leicascn blank-fill tiles produce
+  wasteful-but-valid splice output.
 - **Deferred forward:** L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
-  R15. v1.0 cut still pending (sealed Q1); future cleanup batches
-  may consolidate before cutting.
-- **Design:** `docs/superpowers/specs/2026-05-07-opentile-go-v12-naming-cleanup-design.md`
-- **Plan:** `docs/superpowers/plans/2026-05-07-opentile-go-v12-naming-cleanup.md`
-- **Work branch:** `feat/v0.12`
+  R15. v1.0 cut still pending. TileBorrow zero-copy mmap aliasing
+  remains parked (different axis from bandwidth deduplication).
+- **Design:** `docs/superpowers/specs/2026-05-07-opentile-go-v13-tile-prefix-design.md`
+- **Plan:** `docs/superpowers/plans/2026-05-07-opentile-go-v13-tile-prefix.md`
+- **Work branch:** `feat/v0.13`
 
-## Previous milestone — v0.11 (shipped 2026-05-06)
+## Previous milestone — v0.12 (shipped 2026-05-07)
 
-Leica SCN reader (`formats/leicascn/`) covering all 3 openslide-
-testdata fixtures + folded-in generictiff validator-cap relaxations
-covering Grundium scanner output. First real-fixture exercise of
-`Image.SizeC() > 1` (Leica-Fluorescence-1) and first multi-region
-"discontinuous scanning" reader (Leica-2). Design + plan + format
-doc at
-`docs/superpowers/specs/2026-05-06-opentile-go-v11-leica-scn-design.md`,
-`docs/superpowers/plans/2026-05-06-opentile-go-v11-leica-scn.md`,
-`docs/formats/leicascn.md`.
+Naming-cleanup milestone — striped→stripped (NDPI public API + 6
+fields including StripedW/H → GridW/H per Q5); FormatPhilips →
+FormatPhilipsTIFF + value; FormatOME → FormatOMETIFF + value;
+formats/philips/ → formats/philipstiff/; formats/ome/ → formats/
+ometiff/. v1.0 NOT cut (Q1 sealed — pre-1.0 territory preserved).
+First milestone using subagent-driven-development skill.
 
 ## Earlier milestones
 
+- v0.11 (2026-05-06): Leica SCN reader; first real-fixture multi-
+  channel; first multi-region "discontinuous scanning" reader.
 - v0.10 (2026-05-06): generic-TIFF catch-all reader.
 - v0.9 (2026-05-01): perf milestone — mmap default + TileInto +
   WarmLevel + splice template.

@@ -11,13 +11,70 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.12: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.13: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.12 introduced
-no new active limitations — it was a focused naming-cleanup pass. See
-`docs/deferred.md` §11 consolidated backlog. Open work parked in
-tracked issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.13 introduced
+no new active limitations — it was a focused bandwidth-deduplication
+additive-API pass. See `docs/deferred.md` §11 consolidated backlog.
+Open work parked in tracked issues:
+
+## [0.13.0] — 2026-05-08
+
+Bandwidth-deduplication milestone — exposes the JPEG splice prefix
+and on-disk tile body bytes separately so client-server consumers
+can ship the prefix once per level instead of redundantly on every
+tile. Motivated by personal-viewer profiling work; v0.13 implements
+the public API + bench harness.
+
+### Added (additive — no breaking changes)
+
+- **`opentile.Level.TilePrefix() []byte`** — returns the constant
+  per-level JPEG splice prefix bytes; nil when no shared JPEGTables
+  apply.
+- **`opentile.Level.TileBodyInto(x, y int, dst []byte) (int, error)`**
+  — reads on-disk tile bytes WITHOUT applying the splice. For
+  non-splice levels, equivalent to TileInto.
+- **`opentile.Level.TileBodyMaxSize() int`** — upper bound on
+  TileBodyInto output size (strictly less than TileMaxSize() when
+  splice prefix is non-nil; equal otherwise).
+- **`opentile.SpliceJPEGTile(prefix, body []byte) ([]byte, error)`**
+  — top-level helper that reconstitutes a complete JPEG from a
+  level's TilePrefix + one tile's TileBodyInto output. Inserts the
+  prefix at the on-disk tile's SOS boundary. Algorithm documented
+  for non-Go consumers (web viewer JS reimplementation).
+- **`opentile.ErrBadJPEGSplice`** — sentinel error for malformed
+  SpliceJPEGTile inputs (empty body, missing SOS marker).
+- **`tests/parity/tilebody_bench_test.go`** (build tag `benchgate`)
+  — Pattern A vs Pattern B bandwidth comparison harness.
+
+### Changed
+
+- Per-format Level implementations specialized to expose the
+  splice prefix where applicable: SVS (T2 — with APP14), Philips
+  / OME tiled / leicascn / generictiff (T3 — no APP14), BIF (T4
+  — mixed shared / per-tile-embedded). NDPI / IFE / OneFrame
+  levels stay at the v0.13 T1 no-op defaults (TilePrefix nil,
+  TileBodyInto delegates to TileInto).
+
+### Notes
+
+- **Savings depend on fixture-author choice.** Slides with shared
+  JPEGTables (tag 347) get bandwidth deduplication via Pattern B;
+  slides with per-tile-embedded JPEGTables (e.g., Ventana-1 BIF,
+  this Leica OME/SCN fixture) get 0% Pattern-B savings — Pattern A
+  remains correct for those. Honest documentation in `docs/perf.md`.
+- **Bench results from T6** (L0 full-walk):
+  - CMU-1.svs: 4.3% savings (23,220 tiles, 301B prefix)
+  - Philips-1.tiff: 1.5% savings (6,160 tiles, 570B prefix)
+  - Leica-1.ome.tiff / Leica-1.scn: 0% (this fixture has no shared tables)
+- v0.13 introduced no breaking changes; existing consumers using
+  Tile / TileInto see no behavior change.
+- v1.0 cut remains pending (sealed Q1 in v0.12). The interface
+  evolution adds 3 methods; pre-v1.0 territory still allows
+  additions without ceremony.
+- TileBorrow zero-copy mmap aliasing remains parked (different
+  axis from bandwidth deduplication).
 
 ## [0.12.0] — 2026-05-07
 

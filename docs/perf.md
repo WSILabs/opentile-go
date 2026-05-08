@@ -182,3 +182,95 @@ v0.9 task):
 - `tests/fixtures/v0.9-after-mmap.txt` — after A.1 mmap
 - `tests/fixtures/v0.9-after-tileinto.txt` — after A.2 TileInto + pool
 - `tests/fixtures/v0.9-after-splice.txt` — after A.3 in-place splice
+
+## Pattern A vs Pattern B: bandwidth deduplication (v0.13)
+
+v0.13 exposes a second tile-read pattern aimed at client-server
+consumers that stream tile bytes over a network. In that setting,
+the JPEG splice prefix (DQT + DHT tables, and optionally APP14) is
+identical for every tile on a level. Shipping it once per session
+rather than once per tile saves bandwidth on slides whose encoder
+used shared JPEGTables (TIFF tag 347).
+
+### The two patterns
+
+**Pattern A — full tile, always correct:**
+
+```go
+data, err := lvl.Tile(x, y)
+// or zero-alloc:
+n, err := lvl.TileInto(x, y, dst)
+```
+
+Returns a complete, self-contained JPEG for every tile. This is the
+only correct choice for non-JPEG compressions, for levels whose
+`TilePrefix()` returns nil, and for any consumer that needs a
+stand-alone JPEG without post-processing.
+
+**Pattern B — prefix once, body per tile, splice on client:**
+
+```go
+// Once per level (send over the wire once per session):
+prefix := lvl.TilePrefix() // nil if no shared tables
+
+// Per tile (cheaper wire transfer when prefix != nil):
+n, err := lvl.TileBodyInto(x, y, dst)
+body := dst[:n]
+
+// Client-side reconstitution (Go example; JS reimplementation possible):
+jpeg, err := opentile.SpliceJPEGTile(prefix, body)
+```
+
+`TileBodyMaxSize()` is the pool-buffer size analogue for `TileBodyInto`
+(always ≤ `TileMaxSize()`; strictly less when the prefix is non-nil).
+
+### When Pattern B helps
+
+Pattern B saves bandwidth only when the Level's `TilePrefix()` is
+non-nil — that is, when the slide's encoder stored shared JPEGTables
+in TIFF tag 347 and opentile-go's splice path prepends them to every
+tile. The savings scale with prefix size × tile count:
+
+- SVS (Aperio): 301B prefix × 23,220 tiles on CMU-1.svs L0 → 4.3%
+  wire-size reduction.
+- Philips TIFF: 570B prefix × 6,160 tiles on Philips-1.tiff L0 →
+  1.5% reduction.
+- Ventana BIF (OS-1): 570B prefix, comparable savings to Philips.
+
+Pattern B gives 0% savings on:
+
+- Slides with **per-tile-embedded JPEGTables** (e.g., Ventana-1 BIF
+  in our fixture set — the tile bytes already include tables inside
+  each JPEG stream). `TilePrefix()` returns nil; `TileBodyInto` is
+  equivalent to `TileInto` on those levels.
+- **Non-JPEG compressions** (JP2K, LZW, Deflate, None). The splice
+  concept is JPEG-specific; `TilePrefix()` always returns nil for
+  these levels.
+- **OneFrame-style packed-image levels** (NDPI and OME's packed
+  levels) — the tile bytes are DCT-domain crops from a full-page
+  JPEG; there is no shared prefix to deduplicate.
+- Slides where the encoder embedded tables per-tile despite sharing
+  them at the TIFF layer. Savings are fixture-author-dependent.
+
+### Running the bench harness
+
+The v0.13 bandwidth comparison harness is at
+`tests/parity/tilebody_bench_test.go` under build tag `benchgate`:
+
+```bash
+OPENTILE_TESTDIR=$PWD/sample_files \
+  go test -tags benchgate -run=^$ \
+    -bench=BenchmarkTileBodyBandwidth -benchmem -count=1 \
+    ./tests/parity/
+```
+
+The harness walks L0 of each fixture, accumulates Pattern-A bytes
+(full `Tile()` output) and Pattern-B bytes (`len(prefix) +
+sum(TileBodyInto)`), and reports the per-fixture savings percentage.
+
+### Summary
+
+Pattern B is an optional bandwidth optimization for client-server
+consumers. Savings are real but fixture-author-dependent — don't
+assume them without profiling. Pattern A always works, always
+correct. When in doubt, start with Pattern A.
