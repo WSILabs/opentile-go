@@ -98,11 +98,11 @@ func TestClassifyPyramid_AcceptPyramidWithStrippedAssociated(t *testing.T) {
 	// 1/4/5).
 	infos := []PyramidLevelInfo{
 		tiledRGB(0, 46000, 32914),
-		strippedJPEG(1, 1024, 732),       // thumbnail
+		strippedJPEG(1, 1024, 732), // thumbnail
 		tiledRGB(2, 11500, 8228),
 		tiledRGB(3, 2875, 2057),
 		{Index: 4, Width: 387, Height: 463, Compression: 5, Photometric: 2, SamplesPerPixel: 3, BitsPerSample: 8}, // LZW label
-		strippedJPEG(5, 1280, 431),       // macro
+		strippedJPEG(5, 1280, 431), // macro
 	}
 	res, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
 	if err != nil {
@@ -321,5 +321,39 @@ func TestPyramidLevelInfoIsTiled(t *testing.T) {
 	mixed := PyramidLevelInfo{Index: 0, Width: 100, Height: 100, TileWidth: 256, TileLength: 0}
 	if mixed.IsTiled() {
 		t.Error("partial tile tags should not report IsTiled()")
+	}
+}
+
+func TestValidCompression(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		comp uint32
+		want bool
+	}{
+		// v0.10 originals
+		{"None", 1, true},
+		{"LZW", 5, true},
+		{"JPEG", 7, true},
+		{"Deflate", 8, true},
+		{"JP2K_Aperio", 33003, true},
+
+		// v0.14 additions
+		{"JP2K_registered", 34712, true},
+		{"WebP", 50001, true},
+		{"JPEGXL", 50002, true},
+		{"AVIF", 60001, true},
+		{"HTJ2K", 60003, true},
+
+		// Outside whitelist (sanity)
+		{"PackBits", 32773, false},
+		{"AdobeDeflate", 32946, false}, // accepted via aliasing in tiledImage but not the validator
+		{"unknown_60002", 60002, false},
+		{"unknown_99999", 99999, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validCompression(tc.comp); got != tc.want {
+				t.Errorf("validCompression(%d) = %v, want %v", tc.comp, got, tc.want)
+			}
+		})
 	}
 }

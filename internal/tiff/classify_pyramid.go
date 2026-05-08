@@ -119,11 +119,21 @@ func validPhotometric(photo uint32) bool {
 	return photo == 1 || photo == 2 || photo == 6
 }
 
-// validCompression reports whether comp is one of the v0.10-allowed
-// values: 1 (None), 5 (LZW), 7 (JPEG), 8 (Deflate), 33003 (JPEG 2000).
+// validCompression reports whether comp is one of the allowed
+// TIFF compression tag values:
+//
+//   - v0.10: 1 (None), 5 (LZW), 7 (JPEG), 8 (Deflate), 33003 (JPEG 2000)
+//   - v0.14 additions:
+//   - 34712 — registered JP2K code (libtiff convention; we already
+//     accept Aperio's nonstandard 33003)
+//   - 50001 — WebP (libtiff convention)
+//   - 50002 — JPEG XL (wsi-tools convention)
+//   - 60001 — AVIF (wsi-tools convention; private/experimental range)
+//   - 60003 — HTJ2K (wsi-tools convention; private/experimental range)
 func validCompression(comp uint32) bool {
 	switch comp {
-	case 1, 5, 7, 8, 33003:
+	case 1, 5, 7, 8, 33003,
+		34712, 50001, 50002, 60001, 60003:
 		return true
 	default:
 		return false
