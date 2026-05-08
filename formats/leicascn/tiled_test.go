@@ -82,7 +82,7 @@ func TestCompositeLevel_Leica2_MultiRegion_DispatchesCorrectly(t *testing.T) {
 	// Sample a tile that's inside region[0]'s bounds — should match
 	// the region-local tile bytes.
 	rb := cl.regionBounds[0]
-	cx := rb.OffsetX/cl.tileSize.W + 0       // first tile of region 0
+	cx := rb.OffsetX/cl.tileSize.W + 0 // first tile of region 0
 	cy := rb.OffsetY/cl.tileSize.H + 0
 	composite, err := cl.Tile(cx, cy)
 	if err != nil {

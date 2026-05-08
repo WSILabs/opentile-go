@@ -2,7 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN) and the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension). Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output. BIF (v0.7), IFE (v0.8), generic-TIFF (v0.10), and Leica SCN (v0.11) are opentile-go's own additions beyond upstream's coverage. **Memory-mapped tile reads + pool-friendly `TileInto` API since v0.9** — see [docs/perf.md](./docs/perf.md).
+A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN) and the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension). Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output. BIF (v0.7), IFE (v0.8), generic-TIFF (v0.10), and Leica SCN (v0.11) are opentile-go's own additions beyond upstream's coverage. **Memory-mapped tile reads + pool-friendly `TileInto` API since v0.9; bandwidth-deduplication `TilePrefix` / `TileBodyInto` API since v0.13** — see [docs/perf.md](./docs/perf.md).
 
 ```go
 import (
@@ -188,6 +188,7 @@ opentile-go's tile reads are designed for high-RPS HTTP serving and per-frame de
 - **`OpenFile` is mmap-backed by default** since v0.9. Tile reads become userspace memcpy; no `pread(2)` syscall per call. Opt out via `opentile.WithBacking(opentile.BackingPread)`.
 - **Use `Level.TileInto(x, y, dst) (int, error)`** with a `sync.Pool` of `[]byte` buffers sized to `Level.TileMaxSize()` for zero-allocation tile reads. Cervix serial: 152 ns/op, 0 allocs (vs v0.8's 22µs).
 - **`Tiler.WarmLevel(i) error`** pre-warms the page cache for predictable warm-cache latency.
+- **Bandwidth deduplication (v0.13):** `Level.TilePrefix()` returns the constant JPEG prefix; `Level.TileBodyInto(x, y, dst)` returns on-disk bytes without the prefix. Client-server consumers can send the prefix once per session and body bytes per tile. `opentile.SpliceJPEGTile(prefix, body)` reconstitutes a complete JPEG on the client side. Savings are fixture-author-dependent — see [`docs/perf.md`](./docs/perf.md) for details.
 
 ## Deviations from upstream Python opentile
 
@@ -210,6 +211,7 @@ opentile-go aims for byte-parity with Python opentile 0.20.0. A small number of 
 | Generic-TIFF reader for non-vendor tiled pyramidal TIFFs | Generic TIFF | v0.10 | not opt-out-able once registered; any TIFF that no vendor factory claims AND that passes the validator routes here | Real-world WSI authoring outside Aperio / Hamamatsu / Philips is common (Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-encoded research outputs). A catch-all reader makes opentile-go consume any structurally valid pyramid TIFF without per-vendor reverse-engineering. |
 | `"associated"` AssociatedImage Kind value addition | Generic TIFF | v0.10 | iterate `Associated()` and skip the kind | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / macro / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible kind label. |
 | Leica SCN reader for legacy SCN400 / SCN400F output | Leica SCN | v0.11 | not opt-out-able once registered | First real-fixture exercise of `Image.SizeC() > 1` (Leica-Fluorescence-1.scn's separated-channel data); also the first multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage. |
+| `Level.TilePrefix` / `TileBodyInto` / `TileBodyMaxSize` + `opentile.SpliceJPEGTile` interface evolution | All formats (JPEG splice formats benefit) | v0.13 | additive — existing `Tile()` / `TileInto()` unchanged | Bandwidth-deduplication API for client-server consumers: send the per-level prefix once, send per-tile body bytes per request, reconstitute on client. Savings fixture-author-dependent (only slides with shared JPEGTables benefit). |
 
 Full reasoning + per-deviation commit references are in [`docs/deferred.md`](./docs/deferred.md).
 

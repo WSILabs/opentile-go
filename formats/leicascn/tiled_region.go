@@ -20,9 +20,9 @@ import (
 // region-level slot for the compositeLevel to dispatch into.
 type tiledRegion struct {
 	// Level-wide invariants (all channels share these).
-	tileSize   opentile.Size  // tile pixel dimensions
-	grid       opentile.Size  // region-local tile grid (cols, rows)
-	pixelSize  opentile.Size  // region's pixel extent at this level
+	tileSize  opentile.Size // tile pixel dimensions
+	grid      opentile.Size // region-local tile grid (cols, rows)
+	pixelSize opentile.Size // region's pixel extent at this level
 
 	// Per-channel data; len == compositeLevel.SizeC. For brightfield
 	// SCN files with SizeC=1, perChannel has length 1.
@@ -37,11 +37,14 @@ type tiledRegion struct {
 // one pyramid level: tile offsets/counts plus the cached JPEG splice
 // prefix used by Tile / TileInto.
 type channelData struct {
-	offsets       []uint64
-	counts        []uint64
-	jpegTables    []byte // TIFF tag 347; nil if absent
-	splicePrefix  []byte // BuildSplicePrefix output; nil if no JPEGTables
-	maxTileSize   int    // max(counts) + len(splicePrefix)
+	offsets      []uint64
+	counts       []uint64
+	jpegTables   []byte // TIFF tag 347; nil if absent
+	splicePrefix []byte // BuildSplicePrefix output; nil if no JPEGTables
+	maxTileSize  int    // max(counts) + len(splicePrefix)
+	// bodyMaxSize is max(counts) — strictly less than maxTileSize when
+	// splicePrefix is non-nil. Used by tiledRegion.bodyMaxSize().
+	bodyMaxSize int
 }
 
 // newTiledRegion constructs a tiledRegion from a RegionLevel slot
@@ -123,7 +126,8 @@ func newTiledRegion(rl RegionLevel, file *tiff.File, r io.ReaderAt) (*tiledRegio
 				maxCount = c
 			}
 		}
-		maxTile := int(maxCount)
+		bodyMax := int(maxCount)
+		maxTile := bodyMax
 
 		var splicePrefix []byte
 		if len(jpegTables) > 0 {
@@ -142,6 +146,7 @@ func newTiledRegion(rl RegionLevel, file *tiff.File, r io.ReaderAt) (*tiledRegio
 			jpegTables:   jpegTables,
 			splicePrefix: splicePrefix,
 			maxTileSize:  maxTile,
+			bodyMaxSize:  bodyMax,
 		}
 	}
 	return tr, nil
@@ -157,6 +162,42 @@ func (r *tiledRegion) maxTileSize() int {
 		}
 	}
 	return max
+}
+
+// bodyMaxSize returns the largest on-disk tile byte count across all
+// channels: max(counts). Strictly less than maxTileSize() when channels
+// carry shared JPEGTables (splice path). Used by compositeLevel.TileBodyMaxSize.
+func (r *tiledRegion) bodyMaxSize() int {
+	max := 0
+	for _, c := range r.perChannel {
+		if c.bodyMaxSize > max {
+			max = c.bodyMaxSize
+		}
+	}
+	return max
+}
+
+// tileBodyInto reads on-disk tile bytes at region-local (x, y) channel
+// c into dst WITHOUT applying the splice prefix. This is an internal
+// helper; compositeLevel.TileBodyInto delegates to it for in-region
+// tiles. Returns io.ErrShortBuffer if dst is too small.
+func (r *tiledRegion) tileBodyInto(c, x, y int, dst []byte) (int, error) {
+	if c < 0 || c >= len(r.perChannel) {
+		return 0, opentile.ErrDimensionUnavailable
+	}
+	idx, err := r.indexOf(x, y)
+	if err != nil {
+		return 0, err
+	}
+	cd := &r.perChannel[c]
+	count := int(cd.counts[idx])
+	if len(dst) < count {
+		return 0, io.ErrShortBuffer
+	}
+	if err := tiff.ReadAtFull(r.reader, dst[:count], int64(cd.offsets[idx])); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // indexOf computes the row-major tile index for region-local (x, y)

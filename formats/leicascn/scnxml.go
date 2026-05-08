@@ -40,23 +40,23 @@ type Collection struct {
 // own pyramid (one IFD per resolution × channel) and slide-physical
 // view rectangle.
 type Image struct {
-	Name              string
-	UUID              string
-	CreationDate      string // ISO-8601 string; verbatim
-	DeviceModel       string
-	DeviceVersion     string
-	PixelsSizeX       uint32 // <pixels sizeX>; same as level-0 width
-	PixelsSizeY       uint32
-	Dimensions        []Dimension
-	ViewSizeXNm       uint64 // <view sizeX>; slide-physical extent of this scan
-	ViewSizeYNm       uint64
-	ViewOffsetXNm     uint64
-	ViewOffsetYNm     uint64
-	SpacingZNm        uint64 // <view spacingZ>; 0 for single-Z (our 3 fixtures)
-	Objective         float64
-	NumericalAperture float64
-	IlluminationSource string  // "brightfield" or "fluorescence"
-	Channels          []Channel // populated when SizeC > 1
+	Name               string
+	UUID               string
+	CreationDate       string // ISO-8601 string; verbatim
+	DeviceModel        string
+	DeviceVersion      string
+	PixelsSizeX        uint32 // <pixels sizeX>; same as level-0 width
+	PixelsSizeY        uint32
+	Dimensions         []Dimension
+	ViewSizeXNm        uint64 // <view sizeX>; slide-physical extent of this scan
+	ViewSizeYNm        uint64
+	ViewOffsetXNm      uint64
+	ViewOffsetYNm      uint64
+	SpacingZNm         uint64 // <view spacingZ>; 0 for single-Z (our 3 fixtures)
+	Objective          float64
+	NumericalAperture  float64
+	IlluminationSource string    // "brightfield" or "fluorescence"
+	Channels           []Channel // populated when SizeC > 1
 }
 
 // Dimension is one <dimension> entry under <pixels>. Maps a

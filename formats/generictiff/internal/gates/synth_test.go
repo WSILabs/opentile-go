@@ -21,7 +21,7 @@ import (
 //
 //   - synth-pyramid-jpeg.tiff       — validator ACCEPT
 //   - synth-pyramid-with-label.tiff — validator ACCEPT (+ LZW
-//                                     associated for classifier)
+//     associated for classifier)
 //   - synth-bad-pyramid.tiff        — validator REJECT (inter-axis)
 //   - synth-stripped-only.tiff      — validator REJECT (0 tiled)
 //

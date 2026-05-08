@@ -192,7 +192,7 @@ func (l *levelImpl) Grid() opentile.Size {
 	return opentile.Size{W: int(e.XTiles), H: int(e.YTiles)}
 }
 
-func (l *levelImpl) TileOverlap() image.Point  { return image.Point{} }
+func (l *levelImpl) TileOverlap() image.Point          { return image.Point{} }
 func (l *levelImpl) Compression() opentile.Compression { return l.tiler.compression }
 func (l *levelImpl) MPP() opentile.SizeMm              { return opentile.SizeMm{} }
 func (l *levelImpl) FocalPlane() float64               { return 0 }
@@ -222,6 +222,28 @@ func (l *levelImpl) linearIndex(col, row int) (uint64, error) {
 }
 
 func (l *levelImpl) TileMaxSize() int { return l.maxTileSize }
+
+// TilePrefix returns nil — this Level type doesn't expose a separable
+// per-level splice prefix in v0.13. T2-T4 specializations override
+// for the splice-format levels.
+//
+// Added in v0.13.
+func (l *levelImpl) TilePrefix() []byte { return nil }
+
+// TileBodyInto delegates to TileInto (no separation between body
+// bytes and full tile output for non-splice levels). T2-T4
+// specializations override for the splice-format levels.
+//
+// Added in v0.13.
+func (l *levelImpl) TileBodyInto(x, y int, dst []byte) (int, error) {
+	return l.TileInto(x, y, dst)
+}
+
+// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
+// IS the full tile output). T2-T4 specializations override.
+//
+// Added in v0.13.
+func (l *levelImpl) TileBodyMaxSize() int { return l.TileMaxSize() }
 
 // warm pre-faults the page-cache pages backing every tile entry on
 // this level. Sparse entries (Offset == NullTile) carry no on-disk

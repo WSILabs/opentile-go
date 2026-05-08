@@ -24,9 +24,9 @@ import (
 type compositeLevel struct {
 	index       int
 	pyrIndex    int
-	size        opentile.Size  // composite/union pixel extent
-	tileSize    opentile.Size  // uniform across all regions per Q5
-	grid        opentile.Size  // composite tile grid (ceil(size / tileSize))
+	size        opentile.Size // composite/union pixel extent
+	tileSize    opentile.Size // uniform across all regions per Q5
+	grid        opentile.Size // composite tile grid (ceil(size / tileSize))
 	compression opentile.Compression
 	sizeC       int
 	maxTile     int
@@ -129,6 +129,85 @@ func (l *compositeLevel) MPP() opentile.SizeMm              { return opentile.Si
 func (l *compositeLevel) FocalPlane() float64               { return 0 }
 func (l *compositeLevel) TileOverlap() image.Point          { return image.Point{} }
 func (l *compositeLevel) TileMaxSize() int                  { return l.maxTile }
+
+// TilePrefix returns the per-level splice prefix shared by all regions
+// (verified in v0.11 sealed Q5: all channels/regions at a level share
+// the same JPEGTables). Returns nil if no regions exist or the first
+// region carries no shared tables.
+//
+// Returns a defensive copy — caller may mutate the returned slice.
+//
+// Specialized in v0.13.
+func (l *compositeLevel) TilePrefix() []byte {
+	if len(l.regions) == 0 {
+		return nil
+	}
+	first := l.regions[0]
+	if len(first.perChannel) == 0 {
+		return nil
+	}
+	sp := first.perChannel[0].splicePrefix
+	if len(sp) == 0 {
+		return nil
+	}
+	out := make([]byte, len(sp))
+	copy(out, sp)
+	return out
+}
+
+// TileBodyInto reads the on-disk tile bytes at composite-space (x, y)
+// channel 0 into dst WITHOUT applying the splice prefix. For
+// inter-region gap tiles, the synthesised blank JPEG is returned as
+// the body — it is a complete self-contained JPEG (per v0.13 spec Q4).
+//
+// Specialized in v0.13.
+func (l *compositeLevel) TileBodyInto(x, y int, dst []byte) (int, error) {
+	if x < 0 || y < 0 || x >= l.grid.W || y >= l.grid.H {
+		return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: opentile.ErrTileOutOfBounds}
+	}
+	px := x * l.tileSize.W
+	py := y * l.tileSize.H
+	regionIdx := l.findRegion(px, py)
+	if regionIdx < 0 {
+		// Inter-region gap: blank tile IS the body (complete self-contained JPEG).
+		bt, err := blankTile(l.tileSize.W, l.tileSize.H)
+		if err != nil {
+			return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
+		}
+		if len(dst) < len(bt) {
+			return 0, io.ErrShortBuffer
+		}
+		copy(dst, bt)
+		return len(bt), nil
+	}
+	rb := l.regionBounds[regionIdx]
+	rx := (px - rb.OffsetX) / l.tileSize.W
+	ry := (py - rb.OffsetY) / l.tileSize.H
+	n, err := l.regions[regionIdx].tileBodyInto(0, rx, ry, dst)
+	if err != nil {
+		return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
+	}
+	return n, nil
+}
+
+// TileBodyMaxSize returns the upper bound on body (on-disk tile) bytes:
+// the max across all region body sizes, or the blank tile size —
+// whichever is larger.
+//
+// Specialized in v0.13.
+func (l *compositeLevel) TileBodyMaxSize() int {
+	maxBody := 0
+	for _, r := range l.regions {
+		if bm := r.bodyMaxSize(); bm > maxBody {
+			maxBody = bm
+		}
+	}
+	// Blank tile is a complete self-contained JPEG; include its size.
+	if bt, err := blankTile(l.tileSize.W, l.tileSize.H); err == nil && len(bt) > maxBody {
+		maxBody = len(bt)
+	}
+	return maxBody
+}
 
 // regionBound is the per-region positioning info inside the
 // composite level, kept alongside the tiledRegion slice for

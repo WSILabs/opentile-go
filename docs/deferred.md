@@ -835,6 +835,77 @@ that locks the change in.
 
 ---
 
+## 8g. Retired in v0.13
+
+v0.13 is the bandwidth-deduplication milestone. No format changes;
+no breaking API changes — entirely an additive interface evolution
+exposing the JPEG splice prefix and on-disk tile body bytes
+separately so client-server consumers can ship the prefix once per
+level instead of redundantly on every tile.
+
+**Items shipped:**
+
+- **`opentile.Level.TilePrefix() []byte`** — returns the constant
+  per-level JPEG splice prefix (DQT + DHT + optional APP14); nil
+  when the level has no shared JPEGTables (tag 347) or is non-JPEG.
+  Per-format specializations: SVS (with APP14), Philips / OME tiled
+  / leicascn / generictiff (without APP14), BIF (mixed: OS-1 shared,
+  Ventana-1 per-tile-embedded → nil). NDPI / IFE / OneFrame levels
+  return nil (T1 defaults).
+- **`opentile.Level.TileBodyInto(x, y int, dst []byte) (int, error)`**
+  — reads on-disk tile bytes WITHOUT applying the splice. On non-
+  splice levels, equivalent to `TileInto`. Zero-alloc on the pool
+  path for all TIFF formats and IFE.
+- **`opentile.Level.TileBodyMaxSize() int`** — upper bound on
+  `TileBodyInto` output size. Strictly less than `TileMaxSize()`
+  when `TilePrefix()` is non-nil; equal otherwise.
+- **`opentile.SpliceJPEGTile(prefix, body []byte) ([]byte, error)`**
+  — top-level helper that reconstitutes a complete JPEG from a
+  level's `TilePrefix()` + one tile's `TileBodyInto()` output.
+  Inserts the prefix at the on-disk tile's SOS boundary. Documented
+  for non-Go consumers (web viewer JS reimplementation).
+- **`opentile.ErrBadJPEGSplice`** — sentinel error for malformed
+  `SpliceJPEGTile` inputs (empty body, missing SOS marker).
+- **`tests/parity/tilebody_bench_test.go`** (build tag `benchgate`)
+  — Pattern A vs Pattern B L0 bandwidth comparison harness.
+
+**Test impact:**
+
+- Cross-format reconstitution invariant (T5):
+  `SpliceJPEGTile(TilePrefix, TileBodyInto)` == `Tile()` verified
+  byte-identical on 10 fixtures (SVS, NDPI, Philips, OME, BIF
+  Ventana-1 + OS-1, IFE, generictiff, SCN Leica-1 + Leica-2).
+- Bench harness (T6): L0 full-walk bandwidth comparison on CMU-1.svs,
+  Philips-1.tiff, Leica-1.ome.tiff, Leica-1.scn.
+
+**Architecture invariants preserved:**
+
+- Additive-only API change. Existing consumers using `Tile()` /
+  `TileInto()` see no behavior change.
+- cgo footprint unchanged at `internal/jpegturbo/`.
+- Lock-free hot path preserved; `TileBodyInto` has the same
+  concurrency contract as `TileInto`.
+- v1.0 cut not committed; v0.13 stays in pre-1.0 territory.
+
+**v0.13 lessons:**
+
+- **Savings depend on fixture-author choice.** Bench results
+  confirmed that bandwidth deduplication only applies on slides
+  whose encoder used shared JPEGTables (tag 347). Slides with
+  per-tile-embedded tables (Ventana-1 BIF, our OME / SCN
+  Leica-1 fixture) show 0% Pattern-B savings. Documented honestly
+  in `docs/perf.md` "Pattern A vs Pattern B" section.
+- **TileBorrow zero-copy aliasing remains parked.** `TilePrefix` is
+  the v0.9 §A.3 half-sibling (splice-prefix exposure); the v0.9
+  §A.5 companion idea of a zero-copy `TileBorrow` (mmap-aliased
+  slice, callee-managed lifetime) is on a different axis (allocation
+  vs bandwidth) and is not part of this milestone.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-07-opentile-go-v13-tile-prefix.md`](superpowers/plans/2026-05-07-opentile-go-v13-tile-prefix.md)
+(7 tasks across one batch).
+
+---
+
 ## 8f. Retired in v0.12
 
 v0.12 is a focused naming-cleanup milestone. No new format support;
@@ -1916,8 +1987,7 @@ decisions, not deferred work.
 | **R6** — 3DHistech TIFF support | (new) | Trigger-driven | parked at [#2](https://github.com/cornish/opentile-go/issues/2) | First 3DHistech TIFF in the wild |
 | **R15** — Sakura SVSlide support | (new) | Trigger-driven | parked at [#3](https://github.com/cornish/opentile-go/issues/3) | First SVSlide in the wild |
 | **R16** — Leica SCN support | (new) | **Fixtures available**; v0.11 candidate | mentioned as v0.8 candidate, fixtures landed 2026-05-01 | Owner sign-off to schedule v0.11 |
-| **`Level.TilePrefix() []byte`** | A.3 follow-on | YAGNI | v0.9 | First §B consumer asks for it |
-| **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit |
+| **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit. Its half-sibling `TilePrefix` shipped in v0.13; `TileBorrow` is on a different axis (allocation vs bandwidth) and remains parked. |
 | **Single-level tiled TIFF support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to relax `MinLevels` for single-level files (Grundium fixture in hand) |
 | **Mixed-ratio pyramid support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to handle non-geometric chains (Grundium fixture in hand) |
 | **L26** — generic-TIFF stripped pyramid IFDs | generic | Fixture-driven | v0.10 | First stripped-pyramid generic TIFF in the slate |

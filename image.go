@@ -102,6 +102,41 @@ type Level interface {
 	// Added in v0.9 alongside [Level.TileInto].
 	TileMaxSize() int
 
+	// TilePrefix returns the constant per-level JPEG splice prefix bytes.
+	// When non-nil, callers can ship the prefix once per level + per-tile
+	// TileBodyInto output, then reconstitute the full JPEG on the client
+	// side via opentile.SpliceJPEGTile. When nil, no splice prefix exists
+	// for this level — TileBodyInto returns the same bytes as TileInto.
+	//
+	// Use case: bandwidth-efficient client-server tile transfer. SVS /
+	// Philips / OME / leicascn / generictiff levels with shared JPEGTables
+	// typically have ~1 KB of prefix per level applied to 100k+ tiles per
+	// slide; deduplicating saves ~100 MB bandwidth per slide.
+	//
+	// Added in v0.13.
+	TilePrefix() []byte
+
+	// TileBodyInto writes the on-disk tile bytes (the "body" — what gets
+	// spliced with TilePrefix to form a complete JPEG) into dst. Returns
+	// the number of bytes written.
+	//
+	// For levels where TilePrefix() returns nil (non-splice path),
+	// TileBodyInto is functionally equivalent to TileInto.
+	//
+	// Caller must size dst to at least TileBodyMaxSize().
+	//
+	// Added in v0.13.
+	TileBodyInto(x, y int, dst []byte) (int, error)
+
+	// TileBodyMaxSize returns the upper bound on TileBodyInto output size
+	// across all tiles in this level. For levels with shared JPEGTables
+	// (TilePrefix() != nil), this is strictly less than TileMaxSize() (no
+	// splice prefix added). For levels without shared JPEGTables
+	// (TilePrefix() == nil), equal to TileMaxSize().
+	//
+	// Added in v0.13.
+	TileBodyMaxSize() int
+
 	// TileAt returns the raw compressed tile bytes at the multi-dimensional
 	// coord. Tile(x, y) is shorthand for TileAt(TileCoord{X: x, Y: y}).
 	//
