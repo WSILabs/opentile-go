@@ -125,10 +125,10 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 // the cached buffer or the next call's return.
 func TestAssociated_BytesAreCallerOwned(t *testing.T) {
 	a := &associatedImage{
-		kind: "thumbnail",
-		size: opentile.Size{W: 1, H: 1},
+		kind:        "thumbnail",
+		size:        opentile.Size{W: 1, H: 1},
 		compression: opentile.CompressionNone,
-		bytes: []byte{1, 2, 3, 4, 5},
+		bytes:       []byte{1, 2, 3, 4, 5},
 	}
 	b1, _ := a.Bytes()
 	b1[0] = 0xFF
@@ -160,8 +160,8 @@ func TestAssociated_RejectsTiled(t *testing.T) {
 // TestAssociated_RejectsOversized covers the 32 MB sanity ceiling.
 func TestAssociated_RejectsOversized(t *testing.T) {
 	info := associatedSourceInfo{
-		tiled:        false,
-		width:        100, height: 100, samples: 3,
+		tiled: false,
+		width: 100, height: 100, samples: 3,
 		compression:  1,
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{1 << 30}, // 1 GiB — far above 32 MB ceiling
@@ -186,8 +186,8 @@ func TestAssociated_MultiStripUncompressed(t *testing.T) {
 		0x30, 0x31, 0x32, 0x33,
 	}
 	info := associatedSourceInfo{
-		tiled:        false,
-		width:        2, height: 6, samples: 1,
+		tiled: false,
+		width: 2, height: 6, samples: 1,
 		rowsPerStrip: 2,
 		compression:  1, // None
 		stripOffsets: []uint64{0, 4, 8},

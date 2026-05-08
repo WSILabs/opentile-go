@@ -21,10 +21,10 @@ import (
 // here keeps the generic reader's classifier consistent with the
 // existing convention.
 const (
-	KindLabel       = "label"
-	KindMacro       = "macro"
-	KindThumbnail   = "thumbnail"
-	KindAssociated  = "associated" // v0.10 addition; classifier-fallback (Q5)
+	KindLabel      = "label"
+	KindMacro      = "macro"
+	KindThumbnail  = "thumbnail"
+	KindAssociated = "associated" // v0.10 addition; classifier-fallback (Q5)
 )
 
 // Classifier-tuning thresholds. Sealed at v0.10; not currently
@@ -73,12 +73,12 @@ const (
 // Heuristics summary (spec §6, heuristic-revision history at the
 // bottom of §6 explains the LZW-vs-aspect-ratio reasoning):
 //
-//   1. Stripped + LZW (comp 5) + dims < 1500×1500           → "label"
-//   2. Stripped + JPEG + aspect ≥ 2.0 + larger dim ≥ 1000   → "macro"
-//   3. Stripped + JPEG + dims < 1500×1500                   → "thumbnail"
-//   4. Tiled + tiny (area < 0.1% baseline)                  → "thumbnail"
-//   5. Tiled + small (area < 1% baseline)                   → "macro"
-//   6. Anything else                                        → "associated"
+//  1. Stripped + LZW (comp 5) + dims < 1500×1500           → "label"
+//  2. Stripped + JPEG + aspect ≥ 2.0 + larger dim ≥ 1000   → "macro"
+//  3. Stripped + JPEG + dims < 1500×1500                   → "thumbnail"
+//  4. Tiled + tiny (area < 0.1% baseline)                  → "thumbnail"
+//  5. Tiled + small (area < 1% baseline)                   → "macro"
+//  6. Anything else                                        → "associated"
 func ClassifyAssociated(ifd, baseline tiff.PyramidLevelInfo) string {
 	w, h := ifd.Width, ifd.Height
 	larger, smaller := w, h

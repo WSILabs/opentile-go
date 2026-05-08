@@ -27,23 +27,23 @@ func IsAuxiliary(img Image, c *Collection) bool {
 // pixel space, IFD per channel). Tile dispatch at this level is
 // region-local; tiles outside any Region return blank fill.
 type CompositeLevel struct {
-	Index       int     // 0 = baseline (highest resolution)
-	PixelSizeX  int     // union pixel extent at this level
+	Index       int // 0 = baseline (highest resolution)
+	PixelSizeX  int // union pixel extent at this level
 	PixelSizeY  int
 	NMPerPixelX float64
 	NMPerPixelY float64
-	SizeC       int     // 1 for brightfield, >1 for fluorescence
+	SizeC       int // 1 for brightfield, >1 for fluorescence
 	Regions     []RegionLevel
 }
 
 // RegionLevel is one main scan's level slot, positioned within the
 // composite level's pixel coordinate space.
 type RegionLevel struct {
-	OffsetX       int    // pixel offset within the composite level
+	OffsetX       int // pixel offset within the composite level
 	OffsetY       int
-	PixelSizeX    int    // this region's pixel extent at this level
+	PixelSizeX    int // this region's pixel extent at this level
 	PixelSizeY    int
-	IFDPerChannel []int  // length = SizeC; one IFD index per channel
+	IFDPerChannel []int // length = SizeC; one IFD index per channel
 }
 
 // ErrUnsupportedSCN is returned by ComposePyramid when the main-scan

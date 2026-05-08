@@ -70,7 +70,7 @@ func TestT1PyramidValidatorAgainstCMU1(t *testing.T) {
 		spp, _ := p.SamplesPerPixel()
 		cands = append(cands, candidate{
 			idx: i, w: int(iw), h: int(il), tw: int(tw), th: int(th),
-			area: int64(iw) * int64(il),
+			area:        int64(iw) * int64(il),
 			compression: comp, photometric: photo, samplesPerPix: spp,
 		})
 	}

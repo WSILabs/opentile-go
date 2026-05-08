@@ -219,10 +219,10 @@ func TestFactorySupportsRejectsExistingVendorFixtures(t *testing.T) {
 		// changed; it doesn't enforce a specific outcome.
 		expectGenericAccept bool
 	}{
-		{"svs", "CMU-1.svs", true},          // valid pyramid; vendor still matches first
-		{"ndpi", "CMU-1.ndpi", false},       // NDPI's special tile layout fails generic
+		{"svs", "CMU-1.svs", true},             // valid pyramid; vendor still matches first
+		{"ndpi", "CMU-1.ndpi", false},          // NDPI's special tile layout fails generic
 		{"ome-tiff", "Leica-1.ome.tiff", true}, // v0.11: relaxed leftover threshold accepts; OME wins via dispatch order
-		{"ife", "cervix_2x_jpeg.iris", false},   // IFE is non-TIFF; tiff.Open errors
+		{"ife", "cervix_2x_jpeg.iris", false},  // IFE is non-TIFF; tiff.Open errors
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(dir, tc.subdir, tc.name)

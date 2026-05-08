@@ -42,6 +42,11 @@ type tiledImage struct {
 	// max(counts) elsewhere.
 	maxTileSize int
 
+	// bodyMaxSize is the cached upper bound for on-disk tile bytes:
+	//   max(counts). Strictly less than maxTileSize when the level
+	// carries shared JPEGTables (splice path). Used by TileBodyMaxSize.
+	bodyMaxSize int
+
 	// splicePrefix is the constant per-level payload (DQT/DHT) inserted
 	// between SOI and SOS on JPEG tiles. nil when no splice needed
 	// (no JPEGTables tag, or non-JPEG compression).
@@ -105,7 +110,8 @@ func newTiledImage(index, pyrIndex int, p *tiff.Page, r io.ReaderAt) (*tiledImag
 			maxCount = c
 		}
 	}
-	maxTileSize := int(maxCount)
+	bodyMaxSize := int(maxCount)
+	maxTileSize := bodyMaxSize
 
 	var splicePrefix []byte
 	if ocomp == opentile.CompressionJPEG && len(jpegTables) > 0 {
@@ -129,6 +135,7 @@ func newTiledImage(index, pyrIndex int, p *tiff.Page, r io.ReaderAt) (*tiledImag
 		jpegTables:   jpegTables,
 		reader:       r,
 		maxTileSize:  maxTileSize,
+		bodyMaxSize:  bodyMaxSize,
 		splicePrefix: splicePrefix,
 	}, nil
 }
@@ -150,27 +157,47 @@ func (l *tiledImage) TileOverlap() image.Point { return image.Point{} }
 
 func (l *tiledImage) TileMaxSize() int { return l.maxTileSize }
 
-// TilePrefix returns nil — this Level type doesn't expose a separable
-// per-level splice prefix in v0.13. T2-T4 specializations override
-// for the splice-format levels.
+// TilePrefix returns the cached generic-TIFF splice prefix (DQT + DHT,
+// no APP14) or nil if this level doesn't carry shared JPEGTables.
 //
-// Added in v0.13.
-func (l *tiledImage) TilePrefix() []byte { return nil }
-
-// TileBodyInto delegates to TileInto (no separation between body
-// bytes and full tile output for non-splice levels). T2-T4
-// specializations override for the splice-format levels.
+// Returns a defensive copy — caller may mutate the returned slice.
 //
-// Added in v0.13.
-func (l *tiledImage) TileBodyInto(x, y int, dst []byte) (int, error) {
-	return l.TileInto(x, y, dst)
+// Specialized in v0.13.
+func (l *tiledImage) TilePrefix() []byte {
+	if len(l.splicePrefix) == 0 {
+		return nil
+	}
+	out := make([]byte, len(l.splicePrefix))
+	copy(out, l.splicePrefix)
+	return out
 }
 
-// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
-// IS the full tile output). T2-T4 specializations override.
+// TileBodyInto reads the on-disk tile bytes into dst WITHOUT applying
+// the splice prefix. Caller can call opentile.SpliceJPEGTile with
+// TilePrefix() output to reconstitute the full JPEG.
 //
-// Added in v0.13.
-func (l *tiledImage) TileBodyMaxSize() int { return l.TileMaxSize() }
+// Specialized in v0.13.
+func (l *tiledImage) TileBodyInto(x, y int, dst []byte) (int, error) {
+	idx, err := l.indexOf(x, y)
+	if err != nil {
+		return 0, err
+	}
+	count := int(l.counts[idx])
+	if len(dst) < count {
+		return 0, io.ErrShortBuffer
+	}
+	if err := tiff.ReadAtFull(l.reader, dst[:count], int64(l.offsets[idx])); err != nil {
+		return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
+	}
+	return count, nil
+}
+
+// TileBodyMaxSize returns max(counts) — the upper bound on on-disk tile
+// body bytes. Strictly less than TileMaxSize when the level carries
+// shared JPEGTables.
+//
+// Specialized in v0.13.
+func (l *tiledImage) TileBodyMaxSize() int { return l.bodyMaxSize }
 
 // indexOf computes the row-major tile index for (x, y) and validates
 // the entry. Out-of-grid coords yield ErrTileOutOfBounds; a
