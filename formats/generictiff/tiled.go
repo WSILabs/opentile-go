@@ -332,18 +332,23 @@ func (l *tiledImage) warm() error {
 }
 
 // tiffCompressionToOpentile maps the TIFF tag 259 value to opentile's
-// Compression enum. v0.10 whitelist:
+// Compression enum.
 //
-//	1     None       → CompressionNone
-//	5     LZW        → CompressionLZW
-//	7     JPEG       → CompressionJPEG
-//	8     Deflate    → CompressionDeflate (v0.10 addition)
-//	32946 AdobeDeflate → CompressionDeflate (same payload as 8)
-//	33003 JP2K       → CompressionJP2K
+//	1     None             → CompressionNone
+//	5     LZW              → CompressionLZW
+//	7     JPEG             → CompressionJPEG
+//	8     Deflate          → CompressionDeflate (v0.10 addition)
+//	32946 AdobeDeflate     → CompressionDeflate (same payload as 8)
+//	33003 JP2K (Aperio)    → CompressionJP2K
+//	34712 JP2K (registered) → CompressionJP2K (v0.14 addition)
+//	50001 WebP             → CompressionWebP   (v0.14 addition)
+//	50002 JPEG XL          → CompressionJPEGXL (v0.14 addition)
+//	60001 AVIF             → CompressionAVIF   (v0.14 addition)
+//	60003 HTJ2K            → CompressionHTJ2K  (v0.14 addition)
 //
 // Other values map to CompressionUnknown — those IFDs would fail the
-// validator's compression whitelist (spec §4.6) and not become
-// pyramid candidates in the first place.
+// validator's compression whitelist and not become pyramid candidates
+// in the first place.
 func tiffCompressionToOpentile(comp uint32) opentile.Compression {
 	switch comp {
 	case 1:
@@ -354,8 +359,16 @@ func tiffCompressionToOpentile(comp uint32) opentile.Compression {
 		return opentile.CompressionJPEG
 	case 8, 32946:
 		return opentile.CompressionDeflate
-	case 33003:
+	case 33003, 34712:
 		return opentile.CompressionJP2K
+	case 50001:
+		return opentile.CompressionWebP
+	case 50002:
+		return opentile.CompressionJPEGXL
+	case 60001:
+		return opentile.CompressionAVIF
+	case 60003:
+		return opentile.CompressionHTJ2K
 	default:
 		return opentile.CompressionUnknown
 	}

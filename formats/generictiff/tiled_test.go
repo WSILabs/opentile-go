@@ -297,3 +297,31 @@ func TestTiledImage_CMU1_BothBackings(t *testing.T) {
 		}
 	}
 }
+
+func TestTiffCompressionToOpentile(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		comp uint32
+		want opentile.Compression
+	}{
+		{"None", 1, opentile.CompressionNone},
+		{"LZW", 5, opentile.CompressionLZW},
+		{"JPEG", 7, opentile.CompressionJPEG},
+		{"Deflate", 8, opentile.CompressionDeflate},
+		{"AdobeDeflate", 32946, opentile.CompressionDeflate},
+		{"JP2K_Aperio", 33003, opentile.CompressionJP2K},
+		{"JP2K_registered_v14", 34712, opentile.CompressionJP2K},
+		{"WebP_v14", 50001, opentile.CompressionWebP},
+		{"JPEGXL_v14", 50002, opentile.CompressionJPEGXL},
+		{"AVIF_v14", 60001, opentile.CompressionAVIF},
+		{"HTJ2K_v14", 60003, opentile.CompressionHTJ2K},
+		{"unknown_99999", 99999, opentile.CompressionUnknown},
+		{"unknown_60002", 60002, opentile.CompressionUnknown},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tiffCompressionToOpentile(tc.comp); got != tc.want {
+				t.Errorf("tiffCompressionToOpentile(%d) = %v, want %v", tc.comp, got, tc.want)
+			}
+		})
+	}
+}
