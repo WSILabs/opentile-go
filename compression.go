@@ -31,6 +31,32 @@ const (
 	// 8 (Deflate) and 32946 (Adobe Deflate) both map here; the
 	// payload is identical zlib-wrapped DEFLATE either way.
 	CompressionDeflate
+	// CompressionWebP identifies a WebP-encoded tile (RIFF + WEBP +
+	// VP8/VP8L/VP8X chunks). TIFF tag 259 value 50001 in libtiff
+	// convention; same value is what the user's wsi-tools transcoder
+	// emits. Tile bytes are a complete self-contained WebP file.
+	// Consumer decodes via libwebp or golang.org/x/image/webp.
+	//
+	// Added in v0.14.
+	CompressionWebP
+	// CompressionJPEGXL identifies a JPEG XL codestream tile. TIFF
+	// tag 259 value 50002 (wsi-tools convention; not formally
+	// registered). Tile bytes are a bare JXL codestream beginning
+	// with the 0xFF 0x0A marker. Consumer decodes via libjxl (cgo)
+	// or stdlib image/jxl when available.
+	//
+	// Added in v0.14.
+	CompressionJPEGXL
+	// CompressionHTJ2K identifies an HTJ2K (High-Throughput JPEG
+	// 2000, ISO/IEC 15444-15) codestream tile. TIFF tag 259 value
+	// 60003 (wsi-tools convention). Distinct from CompressionJP2K
+	// because HTJ2K uses a different entropy coder (FBCOT instead
+	// of EBCOT) and a standard JP2K decoder will fail on HTJ2K
+	// bytes. Consumer decodes via OpenJPEG 2.5+, OpenHTJ2K, or
+	// Kakadu.
+	//
+	// Added in v0.14.
+	CompressionHTJ2K
 )
 
 func (c Compression) String() string {
@@ -51,6 +77,12 @@ func (c Compression) String() string {
 		return "iris"
 	case CompressionDeflate:
 		return "deflate"
+	case CompressionWebP:
+		return "webp"
+	case CompressionJPEGXL:
+		return "jpeg-xl"
+	case CompressionHTJ2K:
+		return "htj2k"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(c))
 	}

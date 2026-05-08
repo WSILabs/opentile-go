@@ -835,6 +835,46 @@ that locks the change in.
 
 ---
 
+## 8h. Retired in v0.14
+
+v0.14 is a small additive milestone extending generic-TIFF
+compression support to 4 novel tile codecs (WebP / JPEG XL / AVIF /
+HTJ2K) plus the registered JP2K tag 34712, all produced by the
+user's `wsi-tools` transcoder. No new format support; no breaking
+changes.
+
+**Items shipped:**
+
+- 3 new `opentile.Compression` enum values (`CompressionWebP`,
+  `CompressionJPEGXL`, `CompressionHTJ2K`); existing
+  `CompressionAVIF` reused for tag 60001.
+- Validator whitelist (`internal/tiff.validCompression`) accepts
+  5 new tag values: 34712, 50001, 50002, 60001, 60003.
+- generic-TIFF reader (`tiffCompressionToOpentile`) maps the 5
+  new values to the corresponding enum.
+- wsi-tools ImageDescription parser populates standard Metadata
+  fields (Magnification, ScannerManufacturer, AcquisitionDateTime,
+  MicronsPerPixel) when the prefix `wsi-tools/` is present.
+- 4 new test fixtures (avif/htj2k/jxl/webp wsi-tools transcodes of
+  CMU-1-Small-Region.svs); TestSlideParity total 28 (was 24).
+
+**Architecture invariants preserved:**
+
+- Public API additive only; existing consumers unaffected.
+- Byte-passthrough contract preserved: opentile-go reports the
+  compression via `Level.Compression()`; consumers ship the right
+  decoder. Mirrors v0.8 IFE precedent for AVIF / Iris-proprietary.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
+
+**v0.14 lessons:** none new. The codec-passthrough pattern from
+v0.8 IFE applied cleanly; wsi-tools ImageDescription parsing was
+straightforward once gated by the prefix marker.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-08-opentile-go-v14-novel-codecs.md`](superpowers/plans/2026-05-08-opentile-go-v14-novel-codecs.md).
+
+---
+
 ## 8g. Retired in v0.13
 
 v0.13 is the bandwidth-deduplication milestone. No format changes;

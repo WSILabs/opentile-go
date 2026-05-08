@@ -124,6 +124,11 @@ func (t *tiler) WarmLevel(i int) error {
 //	ImageDescription (270) → ImageDescription verbatim
 //
 // Magnification has no standard TIFF tag → always 0.
+//
+// v0.14 addition: when ImageDescription begins with `wsi-tools/`, the
+// wsi-tools parser populates Magnification / ScannerManufacturer /
+// AcquisitionDateTime / MicronsPerPixel from the parsed fields,
+// overriding any standard-TIFF-tag-derived values.
 func buildMetadata(p *tiff.Page) Metadata {
 	var md Metadata
 	if v, ok := p.ASCII(tagMake); ok {
@@ -144,6 +149,24 @@ func buildMetadata(p *tiff.Page) Metadata {
 		md.ImageDescription = strings.TrimSpace(v)
 	}
 	md.MicronsPerPixel = micronsPerPixel(p)
+
+	// v0.14: wsi-tools ImageDescription override.
+	if md.ImageDescription != "" {
+		if wt, ok := parseWSIToolsDescription(md.ImageDescription); ok {
+			if wt.hasMag {
+				md.Magnification = wt.magnification
+			}
+			if wt.hasScanner {
+				md.ScannerManufacturer = wt.scannerManufacturer
+			}
+			if wt.hasDate {
+				md.AcquisitionDateTime = wt.acquisitionDate
+			}
+			if wt.hasMPP {
+				md.MicronsPerPixel = wt.micronsPerPixel
+			}
+		}
+	}
 	return md
 }
 

@@ -123,6 +123,67 @@ var genericFixtures = []genericFixture{
 		},
 		tileMagic: []byte{0xFF, 0xD8},
 	},
+	{
+		// avif-out.tiff (v0.14): wsi-tools transcode of CMU-1-Small-
+		// Region.svs to AVIF tile codec. Tag 60001 → CompressionAVIF.
+		// Single-level pyramid + 3 stripped associated images
+		// preserved from the source SVS. Tile magic is the AVIF
+		// ftyp box header (`....ftypavif`).
+		filename: "avif-out.tiff",
+		levels: []genericLevelExpect{
+			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionAVIF},
+		},
+		associated: []genericAssocExpect{
+			{Kind: generictiff.KindThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+		},
+		tileMagic: []byte{0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66},
+	},
+	{
+		// htj2k-out.tiff (v0.14): tag 60003 → CompressionHTJ2K.
+		// Tile magic is the JPEG 2000 codestream SOC + SIZ marker
+		// pair (FF 4F FF 51).
+		filename: "htj2k-out.tiff",
+		levels: []genericLevelExpect{
+			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionHTJ2K},
+		},
+		associated: []genericAssocExpect{
+			{Kind: generictiff.KindThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+		},
+		tileMagic: []byte{0xFF, 0x4F, 0xFF, 0x51},
+	},
+	{
+		// jxl-out.tiff (v0.14): tag 50002 → CompressionJPEGXL.
+		// Tile magic is the JPEG XL naked-codestream signature
+		// (FF 0A).
+		filename: "jxl-out.tiff",
+		levels: []genericLevelExpect{
+			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionJPEGXL},
+		},
+		associated: []genericAssocExpect{
+			{Kind: generictiff.KindThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+		},
+		tileMagic: []byte{0xFF, 0x0A},
+	},
+	{
+		// webp-out.tiff (v0.14): tag 50001 → CompressionWebP.
+		// Tile magic is the RIFF container header ("RIFF").
+		filename: "webp-out.tiff",
+		levels: []genericLevelExpect{
+			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionWebP},
+		},
+		associated: []genericAssocExpect{
+			{Kind: generictiff.KindThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Kind: generictiff.KindLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Kind: generictiff.KindMacro, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+		},
+		tileMagic: []byte{0x52, 0x49, 0x46, 0x46},
+	},
 }
 
 // TestGenericGeometry pins per-fixture expected geometry for generic-

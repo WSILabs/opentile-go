@@ -59,6 +59,16 @@ var slideCandidates = []string{
 	"Leica-1.scn",
 	"Leica-2.scn",
 	"Leica-Fluorescence-1.scn",
+	// Generic TIFF v0.14 (wsi-tools novel codecs): each is a single-
+	// level 10×13 grid of 240px tiles transcoded from CMU-1-Small-
+	// Region.svs to a different tile codec. Exercises the v0.14
+	// CompressionAVIF / CompressionHTJ2K / CompressionJPEGXL /
+	// CompressionWebP enums and the generictiff parser's mapping
+	// from TIFF tags 60001 / 60003 / 50002 / 50001.
+	"avif-out.tiff",
+	"htj2k-out.tiff",
+	"jxl-out.tiff",
+	"webp-out.tiff",
 }
 
 // resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,

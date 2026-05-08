@@ -15,6 +15,9 @@ func TestCompressionString(t *testing.T) {
 		{CompressionAVIF, "avif"},
 		{CompressionIRIS, "iris"},
 		{CompressionDeflate, "deflate"},
+		{CompressionWebP, "webp"},
+		{CompressionJPEGXL, "jpeg-xl"},
+		{CompressionHTJ2K, "htj2k"},
 		{Compression(99), "unknown(99)"},
 	}
 	for _, tt := range tests {

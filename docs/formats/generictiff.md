@@ -78,6 +78,49 @@ Upstream Python opentile doesn't have a generic-TIFF reader, so every v0.10 beha
 | Generic-TIFF reader for non-vendor tiled pyramidal TIFFs | v0.10 | not opt-out-able once registered; any TIFF that no vendor factory claims AND that passes the validator routes here | Real-world WSI authoring outside Aperio / Hamamatsu / Philips is common (Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-encoded research outputs); a catch-all reader makes opentile-go consume any structurally valid pyramid TIFF |
 | `"associated"` AssociatedImage Kind value addition | v0.10 | iterate `Associated()` and skip the kind | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / macro / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible kind label |
 
+## v0.14 — novel tile codecs
+
+opentile-go's generic-TIFF reader recognises four additional TIFF
+compression tag values produced by the user's `wsi-tools` transcoder
+plus the registered JP2K code:
+
+| Tag | Codec | opentile.Compression | Magic bytes |
+|---:|---|---|---|
+| 34712 | JP2K (registered) | `CompressionJP2K` | `FF 4F FF 51` |
+| 50001 | WebP | `CompressionWebP` | `52 49 46 46` (RIFF) |
+| 50002 | JPEG XL | `CompressionJPEGXL` | `FF 0A` |
+| 60001 | AVIF | `CompressionAVIF` | `00 00 00 20 66 74 79 70 61 76 69 66` |
+| 60003 | HTJ2K | `CompressionHTJ2K` | `FF 4F FF 51` (J2K SOC + SIZ) |
+
+### Decoder responsibility
+
+opentile-go ships byte-passthrough — we don't decode tiles. Per-codec
+consumer responsibility:
+
+- `CompressionWebP` → libwebp or `golang.org/x/image/webp`
+- `CompressionJPEGXL` → libjxl (cgo) or stdlib `image/jxl` when available
+- `CompressionAVIF` → libavif (cgo) or stdlib `image/avif` when available
+- `CompressionHTJ2K` → OpenJPEG 2.5+, OpenHTJ2K, or Kakadu
+- `CompressionJP2K` → OpenJPEG (any recent version)
+
+Magic-byte validation lets consumers sanity-check their decoder
+dispatch before paying the decode cost.
+
+### wsi-tools ImageDescription parser
+
+When a generic TIFF's level-0 ImageDescription starts with
+`wsi-tools/`, opentile-go parses the structured key=value form to
+populate the standard cross-format Metadata fields:
+
+- `mag=20x` → `Tiler.Metadata().Magnification`
+- `scanner="Aperio"` → `Tiler.Metadata().ScannerManufacturer`
+- `date=YYYY-MM-DD` → `Tiler.Metadata().AcquisitionDateTime` (00:00 UTC)
+- `mpp=0.499` → `generictiff.MetadataOf(t).MicronsPerPixel`
+
+The raw ImageDescription remains stored verbatim for consumers who
+want full provenance (`source=svs`, `codec=avif`, wsi-tools version).
+Non-wsi-tools ImageDescriptions are unaffected.
+
 ## Implementation references
 
 - Our package: `formats/generictiff/`
