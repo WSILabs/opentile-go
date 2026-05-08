@@ -72,6 +72,13 @@ type levelImpl struct {
 	// or len(blank tile) for tile-grid-empty fixtures whichever is larger.
 	maxTileSize int
 
+	// bodyMaxSize is the cached upper bound for on-disk tile bytes
+	// (before any splice prefix is prepended): max(counts). For the
+	// Ventana-1 per-tile-embedded case this equals maxTileSize (no
+	// splice overhead). For the OS-1 shared-tables case this is strictly
+	// less than maxTileSize. Populated at construction regardless of case.
+	bodyMaxSize int
+
 	// splicePrefix is the per-IFD constant payload spliced before SOS
 	// on every tile when JPEGTables is shared (legacy OS-1 path). nil
 	// when tiles are self-contained (Ventana-1 spec-compliant DP 200).
@@ -165,7 +172,8 @@ func newLevelImpl(
 			maxCount = c
 		}
 	}
-	maxTileSize := int(maxCount)
+	bodyMaxSize := int(maxCount) // on-disk bytes only; before splice overhead
+	maxTileSize := bodyMaxSize
 	var splicePrefix []byte
 	if ocomp == opentile.CompressionJPEG && len(jpegTables) > 0 {
 		var err error
@@ -195,6 +203,7 @@ func newLevelImpl(
 		imageDepth:     imageDepth,
 		reader:         reader,
 		maxTileSize:    maxTileSize,
+		bodyMaxSize:    bodyMaxSize,
 		splicePrefix:   splicePrefix,
 	}, nil
 }
@@ -319,27 +328,82 @@ func (l *levelImpl) TileAt(coord opentile.TileCoord) ([]byte, error) {
 // output bytes on this level (since v0.9).
 func (l *levelImpl) TileMaxSize() int { return l.maxTileSize }
 
-// TilePrefix returns nil — this Level type doesn't expose a separable
-// per-level splice prefix in v0.13. T2-T4 specializations override
-// for the splice-format levels.
+// TilePrefix returns the cached splice prefix when this level uses
+// shared JPEGTables (OS-1 case), or nil when JPEGTables are
+// per-tile-embedded (Ventana-1 case).
 //
-// Added in v0.13.
-func (l *levelImpl) TilePrefix() []byte { return nil }
-
-// TileBodyInto delegates to TileInto (no separation between body
-// bytes and full tile output for non-splice levels). T2-T4
-// specializations override for the splice-format levels.
+// Returns a defensive copy — caller may mutate the returned slice.
 //
-// Added in v0.13.
-func (l *levelImpl) TileBodyInto(x, y int, dst []byte) (int, error) {
-	return l.TileInto(x, y, dst)
+// Specialized in v0.13.
+func (l *levelImpl) TilePrefix() []byte {
+	if len(l.splicePrefix) == 0 {
+		return nil // Ventana-1 case: per-tile embedded JPEGTables
+	}
+	out := make([]byte, len(l.splicePrefix))
+	copy(out, l.splicePrefix)
+	return out
 }
 
-// TileBodyMaxSize equals TileMaxSize for non-splice levels (the body
-// IS the full tile output). T2-T4 specializations override.
+// TileBodyInto reads the on-disk tile bytes into dst. For levels with
+// shared JPEGTables (TilePrefix() != nil, OS-1 case), this skips the
+// splice step — caller combines TilePrefix() + TileBodyInto() output
+// via opentile.SpliceJPEGTile to reconstitute the full JPEG. For
+// levels with per-tile-embedded JPEGTables (TilePrefix() == nil,
+// Ventana-1 case), the on-disk bytes ARE the full self-contained
+// JPEG, so this delegates to TileInto.
 //
-// Added in v0.13.
-func (l *levelImpl) TileBodyMaxSize() int { return l.TileMaxSize() }
+// For empty (AOI-absent) tiles in the shared-tables case, the body
+// returned is the synthesised blank-tile JPEG — a complete self-
+// contained tile that consumers can use as-is or splice with
+// TilePrefix() (wasteful but valid).
+//
+// Respects the serpentine index remap and AOI blank-fill handling
+// of TileInto; only the JPEG-splice step is omitted.
+//
+// Specialized in v0.13.
+func (l *levelImpl) TileBodyInto(x, y int, dst []byte) (int, error) {
+	if len(l.splicePrefix) == 0 {
+		// Per-tile embedded case (Ventana-1): body IS the full tile.
+		return l.TileInto(x, y, dst)
+	}
+	// Shared-tables case (OS-1): read on-disk body bytes without splice.
+	idx, err := l.indexOf(0, x, y)
+	if err != nil {
+		return 0, err
+	}
+	if l.isEmpty(idx) {
+		// Synthesised blank tile: a complete self-contained JPEG.
+		b, err := blankTile(l.tileSize.W, l.tileSize.H, l.scanWhitePoint)
+		if err != nil {
+			return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
+		}
+		if len(dst) < len(b) {
+			return 0, io.ErrShortBuffer
+		}
+		return copy(dst, b), nil
+	}
+	length := int(l.counts[idx])
+	off := int64(l.offsets[idx])
+	if len(dst) < length {
+		return 0, io.ErrShortBuffer
+	}
+	if err := tiff.ReadAtFull(l.reader, dst[:length], off); err != nil {
+		return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
+	}
+	return length, nil
+}
+
+// TileBodyMaxSize returns max(counts) for the shared-tables case
+// (body bytes only, strictly less than TileMaxSize) or TileMaxSize()
+// for the per-tile-embedded case (body == full tile).
+//
+// Specialized in v0.13.
+func (l *levelImpl) TileBodyMaxSize() int {
+	if len(l.splicePrefix) == 0 {
+		return l.TileMaxSize()
+	}
+	return l.bodyMaxSize
+}
 
 // warm pre-faults the page-cache pages backing every tile on this
 // level. For volumetric IFDs (imageDepth > 1) the offsets array
