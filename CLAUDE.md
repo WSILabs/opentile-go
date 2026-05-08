@@ -2,63 +2,55 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.13 (shipped)
+## Current milestone — v0.14 (shipped)
 
-- **Scope:** Bandwidth-deduplication milestone — exposes the JPEG
-  splice prefix and on-disk tile body bytes separately so client-
-  server consumers can ship the prefix once per level instead of
-  redundantly on every tile. Additive interface evolution, no
-  breaking changes. 7 tasks shipped across one batch.
-- **Headline coverage:** Three new Level interface methods
-  (TilePrefix, TileBodyInto, TileBodyMaxSize) + the
-  opentile.SpliceJPEGTile top-level helper for client-side
-  reconstitution. Cross-format reconstitution invariant
-  (SpliceJPEGTile(TilePrefix, TileBodyInto) == Tile) verified
-  byte-identical on every fixture in the slate.
-- **API additions:** 3 Level interface methods + opentile.
-  SpliceJPEGTile + opentile.ErrBadJPEGSplice sentinel.
-- **Behavior change:** none. Existing consumers using Tile /
-  TileInto see no behavior change.
-- **Active limitations:** unchanged from v0.12 (L4, L5, L14
-  Permanent; L19, L20 v0.7-deferred; L23-L25 v0.8-deferred;
-  L26-L29 v0.10-deferred; L30-L34 v0.11-deferred). No new L
-  items.
+- **Scope:** Novel-codec milestone — generic-TIFF reader recognises
+  4 new tile compression tag values produced by the user's wsi-tools
+  transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus a wsi-tools
+  ImageDescription parser populating standard Metadata fields.
+  Additive — no breaking changes. 6 plan tasks single batch.
+- **API additions:** 3 new `opentile.Compression` enum values
+  (`CompressionWebP`, `CompressionJPEGXL`, `CompressionHTJ2K`);
+  validator + reader recognise tags 34712 (registered JP2K),
+  50001 (WebP), 50002 (JPEG XL), 60001 (AVIF — existing
+  `CompressionAVIF` enum), 60003 (HTJ2K). wsi-tools
+  ImageDescription parser hidden behind the existing
+  `Tiler.Metadata()` / `generictiff.MetadataOf` accessors.
+- **Behavior change:** none. Existing consumers using v0.13
+  surfaces see no behavior change.
+- **Active limitations:** unchanged from v0.13. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  `docs/deferred.md §1a`): unchanged from v0.12 (additive-only
-  v0.13 API doesn't introduce new deviations).
-- **Correctness bar:** `make test` green; cross-format
-  reconstitution invariant on 10 fixtures (SVS, NDPI, Philips, OME,
-  BIF Ventana-1 + OS-1, IFE, generictiff, SCN Leica-1 + Leica-2)
-  byte-identical to existing Tile() output. Bench harness
-  (build tag `benchgate`) measures Pattern A vs B bandwidth on
-  representative fixtures.
-- **Bench reality:** Pattern B savings depend on fixture-author's
-  choice to use shared JPEGTables (tag 347). CMU-1.svs shows 4.3%
-  L0 savings, Philips-1.tiff 1.5%, BIF OS-1 ~similar to Philips.
-  Per-tile-embedded fixtures (Ventana-1 BIF, this OME / SCN
-  fixture) show 0% — Pattern A remains correct for those.
-- **Sealed Q-decisions (4):** Q1 zero-alloc only (no alloc-form
-  TileBody); Q2 public SpliceJPEGTile helper; Q3 bundle bench
-  harness in milestone; Q4 leicascn blank-fill tiles produce
-  wasteful-but-valid splice output.
+  `docs/deferred.md §1a`): unchanged from v0.13 (additive-only API
+  doesn't introduce new deviations).
+- **Correctness bar:** `make test` green. TestSlideParity total
+  now 28 fixtures (was 24); 4 wsi-tools fixtures + tile magic byte
+  pinning + per-fixture geometry.
+- **Decoder responsibility:** byte-passthrough contract preserved
+  per v0.8 IFE precedent. Consumers bring libwebp / libjxl /
+  libavif / OpenJPEG-HTJ2K decoders.
+- **Sealed Q-decisions (2):** Q1 four enum values total (3 new +
+  existing AVIF; HTJ2K distinct from JP2K); Q2 parse populates
+  standard fields only — no wsi-tools-specific public accessor.
 - **Deferred forward:** L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
-  R15. v1.0 cut still pending. TileBorrow zero-copy mmap aliasing
-  remains parked (different axis from bandwidth deduplication).
-- **Design:** `docs/superpowers/specs/2026-05-07-opentile-go-v13-tile-prefix-design.md`
-- **Plan:** `docs/superpowers/plans/2026-05-07-opentile-go-v13-tile-prefix.md`
-- **Work branch:** `feat/v0.13`
+  R15. v1.0 cut still pending.
+- **Design:** `docs/superpowers/specs/2026-05-08-opentile-go-v14-novel-codecs-design.md`
+- **Plan:** `docs/superpowers/plans/2026-05-08-opentile-go-v14-novel-codecs.md`
+- **Work branch:** `feat/v0.14`
 
-## Previous milestone — v0.12 (shipped 2026-05-07)
+## Previous milestone — v0.13 (shipped 2026-05-08)
 
-Naming-cleanup milestone — striped→stripped (NDPI public API + 6
-fields including StripedW/H → GridW/H per Q5); FormatPhilips →
-FormatPhilipsTIFF + value; FormatOME → FormatOMETIFF + value;
-formats/philips/ → formats/philipstiff/; formats/ome/ → formats/
-ometiff/. v1.0 NOT cut (Q1 sealed — pre-1.0 territory preserved).
-First milestone using subagent-driven-development skill.
+Bandwidth-deduplication API — Level.TilePrefix() + TileBodyInto +
+TileBodyMaxSize + opentile.SpliceJPEGTile helper. Additive (no
+breaking changes). Pattern B savings depend on fixture-author
+choice (shared JPEGTables tag 347 vs per-tile-embedded). Cross-
+format byte-equality invariant verified; bench harness committed.
 
 ## Earlier milestones
 
+- v0.12 (2026-05-07): Naming cleanup — striped→stripped; Format-
+  Philips→FormatPhilipsTIFF; FormatOME→FormatOMETIFF; package
+  renames formats/philips→philipstiff and formats/ome→ometiff.
+  First milestone using subagent-driven-development skill.
 - v0.11 (2026-05-06): Leica SCN reader; first real-fixture multi-
   channel; first multi-region "discontinuous scanning" reader.
 - v0.10 (2026-05-06): generic-TIFF catch-all reader.

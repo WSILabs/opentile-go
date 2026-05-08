@@ -11,13 +11,68 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.13: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.14: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.13 introduced
-no new active limitations — it was a focused bandwidth-deduplication
-additive-API pass. See `docs/deferred.md` §11 consolidated backlog.
-Open work parked in tracked issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.14 introduced
+no new active limitations — it was a small additive milestone
+extending generic-TIFF compression support to 4 novel tile codecs.
+See `docs/deferred.md` §11 consolidated backlog. Open work parked in
+tracked issues:
+
+## [0.14.0] — 2026-05-08
+
+Novel-codec milestone — generic-TIFF reader recognises four new
+tile compression tag values produced by the user's wsi-tools
+transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus opportunistic parsing
+of the wsi-tools ImageDescription format to populate standard
+Metadata fields. Additive — no breaking changes.
+
+### Added
+
+- **3 new `opentile.Compression` enum values:**
+  - `CompressionWebP` (TIFF tag 50001 — libtiff convention)
+  - `CompressionJPEGXL` (TIFF tag 50002 — wsi-tools convention)
+  - `CompressionHTJ2K` (TIFF tag 60003 — wsi-tools convention).
+    Distinct from `CompressionJP2K` because HTJ2K's FBCOT entropy
+    coder is incompatible with standard JP2K decoders.
+- **5 new TIFF compression tag mappings** in
+  `formats/generictiff/tiled.go::tiffCompressionToOpentile`:
+  34712 (registered JP2K), 50001 (WebP), 50002 (JPEG XL),
+  60001 (AVIF — uses existing `CompressionAVIF`), 60003 (HTJ2K).
+- **Validator whitelist** (`internal/tiff.validCompression`)
+  accepts the 5 new tag values.
+- **wsi-tools ImageDescription parser**
+  (`formats/generictiff/wsitools.go`). When the level-0
+  ImageDescription starts with `wsi-tools/`, parses the structured
+  key=value form to populate Magnification / ScannerManufacturer /
+  AcquisitionDateTime / MicronsPerPixel. Lenient on missing /
+  malformed values; forward-compatible with future wsi-tools fields
+  (unknown keys ignored). Non-wsi-tools ImageDescriptions are
+  unaffected.
+
+### Changed
+
+- 4 new test fixtures wired into TestSlideParity:
+  - `avif-out.tiff` (AVIF, 2220×2967)
+  - `htj2k-out.tiff` (HTJ2K, 2220×2967)
+  - `jxl-out.tiff` (JPEG XL, 2220×2967)
+  - `webp-out.tiff` (WebP, 2220×2967)
+  TestSlideParity total: 28 fixtures (was 24).
+
+### Notes
+
+- **Byte-passthrough contract.** Per the v0.8 IFE precedent for
+  AVIF and Iris-proprietary codecs, opentile-go reports each
+  tile's Compression() value but doesn't decode. Consumers bring
+  their own libwebp / libjxl / libavif / OpenJPEG-HTJ2K decoder.
+- **Tag value mappings are wsi-tools-specific** for AVIF (60001)
+  and HTJ2K (60003) — not formally registered TIFF codes. Files
+  produced by other tooling using different tag values for these
+  codecs would not be recognised.
+- v0.14 introduced no new active limitations.
+- v1.0 cut remains pending.
+- cgo footprint unchanged.
 
 ## [0.13.0] — 2026-05-08
 
