@@ -27,7 +27,7 @@ type genericLevelExpect struct {
 // JPEG concat (T8) or multi-strip LZW re-encode (T8) shows up as a
 // hard failure, not a silent drift.
 type genericAssocExpect struct {
-	Kind        string
+	Type        string
 	W, H        int
 	Compression opentile.Compression
 	ByteCount   int
@@ -79,7 +79,7 @@ var genericFixtures = []genericFixture{
 			// byte count is the libtiff-default RST-marker layout's
 			// concatenated length, equal to the original SVS thumbnail
 			// JPEG (143,874 bytes).
-			{Kind: generictiff.TypeThumbnail, W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
+			{Type: generictiff.TypeThumbnail, W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
 			// label: multi-strip LZW → decode-each + re-encode-as-single
 			// LZW (T8). Byte count varies with the LZW writer's coding;
 			// our internal/tifflzw writer produces 368,759 bytes.
@@ -88,9 +88,9 @@ var genericFixtures = []genericFixture{
 			// fixtures added after CMU-1.stripped's macro entry.)
 			// A drift here would indicate the LZW writer's behavior
 			// changed and parity needs re-checking.
-			{Kind: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
 			// macro: 27-strip JPEG → concat-strip path.
-			{Kind: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
+			{Type: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
 		},
 		tileMagic: []byte{0xFF, 0xD8},
 	},
@@ -134,9 +134,9 @@ var genericFixtures = []genericFixture{
 			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionAVIF},
 		},
 		associated: []genericAssocExpect{
-			{Kind: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
-			{Kind: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
-			{Kind: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+			{Type: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Type: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
 		},
 		tileMagic: []byte{0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66},
 	},
@@ -149,9 +149,9 @@ var genericFixtures = []genericFixture{
 			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionHTJ2K},
 		},
 		associated: []genericAssocExpect{
-			{Kind: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
-			{Kind: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
-			{Kind: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+			{Type: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Type: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
 		},
 		tileMagic: []byte{0xFF, 0x4F, 0xFF, 0x51},
 	},
@@ -164,9 +164,9 @@ var genericFixtures = []genericFixture{
 			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionJPEGXL},
 		},
 		associated: []genericAssocExpect{
-			{Kind: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
-			{Kind: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
-			{Kind: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+			{Type: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Type: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
 		},
 		tileMagic: []byte{0xFF, 0x0A},
 	},
@@ -178,9 +178,9 @@ var genericFixtures = []genericFixture{
 			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionWebP},
 		},
 		associated: []genericAssocExpect{
-			{Kind: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
-			{Kind: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
-			{Kind: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+			{Type: generictiff.TypeThumbnail, W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
+			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			{Type: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
 		},
 		tileMagic: []byte{0x52, 0x49, 0x46, 0x46},
 	},
@@ -273,8 +273,8 @@ func TestGenericGeometry(t *testing.T) {
 			}
 			for i, exp := range fx.associated {
 				a := associated[i]
-				if a.Type() != exp.Kind {
-					t.Errorf("associated[%d] Type = %q, want %q", i, a.Type(), exp.Kind)
+				if a.Type() != exp.Type {
+					t.Errorf("associated[%d] Type = %q, want %q", i, a.Type(), exp.Type)
 				}
 				if got := a.Size(); got.W != exp.W || got.H != exp.H {
 					t.Errorf("associated[%d] Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)

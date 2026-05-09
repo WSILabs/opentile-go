@@ -22,7 +22,9 @@ type scnLevelExpect struct {
 }
 
 // scnAssocExpect captures one AssociatedImage's expected shape.
-// All SCN auxiliaries are kind="macro" per sealed Q8.
+// All SCN auxiliaries are Type="overview" per v0.15 (auxiliaries
+// are full-slide low-mag — overview semantics — not chip-level
+// macro per the IFE distinction).
 type scnAssocExpect struct {
 	W, H        int
 	Compression opentile.Compression
@@ -207,8 +209,8 @@ func TestSCNGeometry(t *testing.T) {
 			} else {
 				for i, exp := range fx.associated {
 					a := assocs[i]
-					if a.Type() != "macro" {
-						t.Errorf("associated[%d] Type = %q, want %q", i, a.Type(), "macro")
+					if a.Type() != "overview" {
+						t.Errorf("associated[%d] Type = %q, want %q", i, a.Type(), "overview")
 					}
 					if got := a.Size(); got.W != exp.W || got.H != exp.H {
 						t.Errorf("associated[%d] Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)

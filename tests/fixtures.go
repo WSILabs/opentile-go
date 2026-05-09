@@ -11,7 +11,7 @@ import (
 
 // AssociatedFixture is the per-associated-image portion of a fixture.
 type AssociatedFixture struct {
-	Kind        string `json:"kind"`
+	Type        string `json:"kind"`
 	Size        [2]int `json:"size"`
 	Compression string `json:"compression"`
 	SHA256      string `json:"sha256"`

@@ -228,7 +228,7 @@
   },
   "associated": [
     {
-      "kind": "macro",
+      "kind": "overview",
       "size": [
         101,
         291
@@ -237,7 +237,7 @@
       "sha256": "827d6ee67319df8bcec01e820ce9411edd3c26a2c3a4d775de3b9d7170bc8d8c"
     },
     {
-      "kind": "macro",
+      "kind": "overview",
       "size": [
         101,
         291
