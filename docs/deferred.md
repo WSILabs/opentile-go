@@ -2106,24 +2106,64 @@ fires sooner than expected.
 
 SZI is a ZIP wrapper around DZI plus SZI-specific scan metadata and
 associated images. The two formats share substantial structure
-(DZI manifest XML schema; tile addressing `<level>/<col>_<row>.<ext>`);
-they differ in storage backend (ZIP archive vs. filesystem directory)
-and in whether SZI-specific metadata + associated images are present.
+(DZI manifest XML schema; tile addressing
+`<name>_files/<level>/<col>_<row>.<format>`); they differ in storage
+backend (ZIP archive vs. filesystem directory) and in whether SZI-
+specific metadata + associated images are present.
 
-**Architectural target:** SZI ships first (the user has fixtures + a
-real consumer); DZI follows as an additive companion or in the same
-milestone if scope permits. Design SZI to share its DZI core with a
-future `formats/dzi/` package without compromising either:
+**Authoritative DZI facts** (per Microsoft Silverlight / Deep Zoom
+File Format Overview, archived at MSDN; verified 2026-05-08):
+
+- Tile path is **`<col>_<row>.<format>`** (column-then-row, NOT
+  row-then-column). Quote from the Microsoft spec: *"The tiles are
+  named as column_row.format, where row is the row number of the
+  tile (starting from 0 at top) and column is the column number of
+  the tile (starting from 0 at left). format is the appropriate
+  extension for the image format used – either JPEG or PNG."*
+- Each pyramid level is stored in `<name>_files/<level>/`. Levels
+  are counted **from `1×1` pixel as level 0**; each level is
+  `2^level × 2^level`. Practical max level for an image of size
+  `W×H` is `ceil(log2(max(W, H)))`.
+- Tile size is set by the `TileSize` attribute (typically 256).
+- `Format` attribute is restricted to formats supported by
+  Silverlight's BitmapImage class — practically **JPEG and PNG**.
+- `Overlap` attribute (typical: 0, 1, or 2 pixels) adds buffer
+  pixels around each tile to prevent seam artifacts during tiled
+  rendering. opentile-go's contract is no-overlap; non-zero overlap
+  must either error or pass through with a documented caveat.
+- **Sparse images** (subset of tiles intentionally missing for
+  detail-only zones) are part of the spec — reader must tolerate a
+  missing tile entry the same way Philips's sparse-tile filler does.
+- **Collections (DZC format)** with Morton-laid-out shared tiles
+  are explicitly OUT OF SCOPE — DZC is a multi-image collection
+  format; opentile-go reads single-WSI files only. Bare per-image
+  DZI is what we target.
+- DZI manifest comes in **XML and JSON** variants (OpenSeadragon
+  supports both); SZI uses XML per its spec, so v0.16 implements
+  XML-only. JSON is a v0.16+ follow-on if a fixture demands.
+
+**Architectural target:** SZI ships first (the user has fixtures +
+a real consumer); DZI follows as an additive companion or in the
+same milestone if scope permits. Design SZI to share its DZI core
+with a future `formats/dzi/` package without compromising either:
 
 - **Shared core (`internal/dzi/`):** pure DZI manifest parser
   (`Manifest`: Format / Overlap / TileSize / Size); pyramid-level
-  derivation (DZI's `L = ceil(log2(max(W,H)))` rule); pure-function
-  tile-path string formatter `TilePath(level, col, row int, format string) string`.
+  derivation (max level + per-level dimensions per the rule above);
+  pure-function tile-path formatter
+  `TilePath(level, col, row int, format string) string` — note the
+  parameter order mirrors the on-disk filename convention
+  (`<col>_<row>.<format>`).
 - **Storage abstraction:** a minimal `dzi.TileFetcher` interface
   (`Fetch(path string) ([]byte, error)` or equivalent) lets the
   shared core read tiles without knowing whether they live in a ZIP
   or on disk. The interface stays narrow — no allocation contracts
   beyond what the existing `Tile` / `TileInto` semantics demand.
+- **Sparse-tile policy:** `TileFetcher` returns a sentinel
+  (e.g., `dzi.ErrTileMissing`) when a sparse tile is absent; the
+  format-specific layer maps that to the consumer's expected
+  behavior (Philips-style fill or pass through `ErrTileNotFound`,
+  TBD per Q-decision).
 - **SZI specifics in `formats/szi/`:** ZIP central-directory
   traversal; uncompressed-stored ZIP entry → direct `io.SectionReader`
   on the ZIP file (preserves v0.9's mmap-aliased fast path — no
@@ -2144,22 +2184,38 @@ future `formats/dzi/` package without compromising either:
   must not force RAM allocation or copy-out for the ZIP backend.
 - DZI's filesystem path remains independently mmap-fast (per-tile
   `os.File` opened on demand, or pre-cached `fs.FS` handle map).
-- Don't over-generalize: if a future variant (e.g., HTTP-backed DZI)
-  legitimately can't fit the existing `dzi.TileFetcher` contract,
-  it gets its own shim — not a watered-down shared interface.
+- Don't over-generalize: if a future variant (e.g., HTTP-backed DZI,
+  or DZC collections) legitimately can't fit the existing
+  `dzi.TileFetcher` contract, it gets its own shim — not a watered-
+  down shared interface.
 - Both formats use the v0.15-canonical `Type()` values; SZI's
   filename `macro.jpg` is mapped, not exposed as-is.
+- Tile naming follows the column-row order from the spec verbatim;
+  don't silently swap to row-column even if it "feels more natural"
+  in row-major code paths.
 
-**Spec sources** (offline-available locally, gitignored):
-- `sample_files/szi/SZI format description - 2018-11-24.pdf` —
-  17-page authoritative spec.
-- `sample_files/szi/CMU-1.szi` — 1.5 MB reference fixture from
-  the SZI-Format repo.
-- `sample_files/szi/scan_618_grundium_SZI.szi` — 709 MB Grundium-
-  produced fixture (real-slide-driven).
-- DZI spec: Microsoft's OpenSeadragon documentation +
-  `https://learn.microsoft.com/en-us/previous-versions/windows/silverlight/dotnet-windows-silverlight/cc645077(v=vs.95)`
-  (preserved Microsoft schema reference).
+**Spec sources** (URLs preserved; PDFs gitignored under
+`sample_files/szi/`):
+
+- **SZI:**
+  - `sample_files/szi/SZI format description - 2018-11-24.pdf` —
+    17-page authoritative spec by smartinmedia / pathozoom (LGPL +
+    CC-BY).
+  - SZI-Format repo: `https://github.com/smartinmedia/SZI-Format`
+  - Sample fixture: `sample_files/szi/CMU-1.szi` (from spec repo);
+    `sample_files/szi/scan_618_grundium_SZI.szi` (709 MB
+    Grundium-produced).
+- **DZI** (3 references; agree on substance, complementary in scope):
+  - Microsoft authoritative: `https://learn.microsoft.com/en-us/previous-versions/windows/silverlight/dotnet-windows-silverlight/cc645077(v=vs.95)`
+    — file format overview + tile-naming + level-derivation rules
+    + DZC collections.
+  - OpenSeadragon practical reference: `https://openseadragon.github.io/examples/tilesource-dzi/`
+    — confirms XML and JSON manifest variants; documents typical
+    Format/TileSize/Overlap defaults; client-side conventions.
+  - NIST Deep Zoom paper: `https://isg.nist.gov/deepzoomweb/resources/nist/paper/deepZoom_published004866_10.pdf`
+    — academic reference; tile-pyramid rationale + WSI-context
+    notes (link preserved here for v0.16 design phase; PDF was not
+    text-extracted at note-writing time).
 
 **Trigger:** Owner sign-off + viewer-side need confirmed; estimate
 6-8 tasks for SZI alone, 8-10 for SZI + DZI together.
