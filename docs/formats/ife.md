@@ -39,7 +39,7 @@ Cervix is a **2× downsampled** export from the Iris reference encoder (full-res
 | METADATA block parsing | ✅ since v0.8 metadata closeout | `Tiler.Metadata().Magnification` from the header f32. `ife.MetadataOf(tiler)` exposes `MicronsPerPixel`, `MagnificationFromHeader`, `CodecMajor/Minor/Build`, `AttributesFormat`, `AttributesVersion`, and the free-form `Attributes map[string]string` |
 | ATTRIBUTES (free-form key/value map) | ✅ FREE_TEXT (format=1) only | DICOM attributes (format=2) explicitly rejected — no fixture exercises that path. Cervix carries 24 entries (`aperio.*` / `tiff.*` from a re-encoded GT450 SVS); IFE doesn't reserve attribute keys, so vendors set freely |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` returns the raw bytes. Cervix carries 6064 bytes |
-| Associated images (IMAGE_ARRAY) | ✅ | `Tiler.Associated()` returns label / overview / thumbnail / macro / map / probability with normalised kind names. Unknown titles surface lowercased. Per-image `Compression()` is JPEG (encoding=2) or AVIF (encoding=3); PNG (encoding=1) is reported as `CompressionUnknown` for now (passthrough — consumer can sniff the PNG signature). Cervix has one 1920×1337 JPEG thumbnail |
+| Associated images (IMAGE_ARRAY) | ✅ | `Tiler.Associated()` returns label / overview / thumbnail / macro / map / probability with normalised type names (v0.15+). Unknown titles surface lowercased. Per-image `Compression()` is JPEG (encoding=2) or AVIF (encoding=3); PNG (encoding=1) is reported as `CompressionUnknown` for now (passthrough — consumer can sniff the PNG signature). Cervix has one 1920×1337 JPEG thumbnail |
 | Synthetic-writer test harness | ✅ in `formats/ife/synthetic_test.go` + `formats/ife/metadata_test.go` — covers layer inversion, sparse tiles, IRIS / AVIF encodings, iterator order, error paths, and full METADATA round-trip with attributes / images / ICC |
 
 ## What's not supported
@@ -53,6 +53,12 @@ Cervix is a **2× downsampled** export from the Iris reference encoder (full-res
 | Iris-proprietary codec decode | ❌ — consumer's call (L24) | Same as AVIF: passthrough only. opentile-go reports `CompressionIRIS` so consumers know they need an Iris codec; `Tile()` returns the raw bytes. Consumers that don't ship a codec typically 501 the request |
 | Spec v2.0 fields | ❌ — error | v2.0 isn't out yet; the reader rejects `extension_major != 1` rather than silently misparsing future-format files |
 | Cross-tool parity vs `tile_server_iris` | ❌ deferred — L23 | Would require a runner that shells out to the Iris HTTP server, similar shape to v0.7's openslide oracle but cross-language. Not load-bearing while the v0.8 sample-tile SHA fixtures + synthetic tests pass |
+
+## v0.15 note: `"overview"` and `"macro"` are distinct in IFE
+
+The Iris IFE spec defines `LABEL_OVERVIEW` and `LABEL_MACRO` as separate kind values. opentile-go's IFE reader preserves this distinction: an IFE file may carry both. **This is the only opentile-go format where `"macro"` is a valid Type() value.** Other formats (SVS, NDPI, Philips, OME-TIFF, BIF, generic-TIFF, Leica SCN) all use `"overview"` for the wide-field slide image (per the DICOM PS3.3 convention).
+
+Additionally, the `AssociatedImage.Kind()` method was renamed to `Type()` (DICOM ImageType convention) in v0.15, but the associated-image type values themselves are unchanged.
 
 ## Parity / correctness
 

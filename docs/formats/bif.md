@@ -31,9 +31,9 @@ The two fixtures are deliberately complementary — one tests the spec-compliant
 | Tiled pyramid levels | ✅ | Both raw-passthrough (Ventana-1: no JPEGTables) and `jpeg.InsertTables`-spliced output (OS-1: shared tables) |
 | Serpentine → image-space remap | ✅ | `imageToSerpentine` + inverse, round-trip-tested |
 | Empty tiles (TileOffsets[i]=0 AND TileByteCounts[i]=0) | ✅ | Filled with `ScanWhitePoint`-coloured JPEG via `formats/bif/blanktile.go` (T9). Both real fixtures have zero empty tiles — synthetic-only fixture coverage on this path |
-| Probability map exposure (spec-compliant only) | ✅ | New `AssociatedImage.Kind() == "probability"` (LZW grayscale; multi-strip raw passthrough) |
-| Thumbnail exposure (legacy only) | ✅ | `AssociatedImage.Kind() == "thumbnail"` (single-tile JPEG) |
-| Label / overview exposure (every fixture) | ✅ | `AssociatedImage.Kind() == "overview"`. Ventana-1: multi-strip uncompressed RGB. OS-1: single-tile JPEG |
+| Probability map exposure (spec-compliant only) | ✅ | New `AssociatedImage.Type() == "probability"` (LZW grayscale; multi-strip raw passthrough) |
+| Thumbnail exposure (legacy only) | ✅ | `AssociatedImage.Type() == "thumbnail"` (single-tile JPEG) |
+| Label / overview exposure (every fixture) | ✅ | `AssociatedImage.Type() == "overview"`. Ventana-1: multi-strip uncompressed RGB. OS-1: single-tile JPEG |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` returns level-0 IFD's tag 34675 (Ventana-1 has 1.8 MB; OS-1 has tag-with-zero-bytes → returns nil) |
 | Generation-aware metadata via `bif.MetadataOf` | ✅ | Generation, ScanRes, ScanWhitePoint+Present, ZLayers, ZSpacing, ZPlaneFoci, AOIs, AOIOrigins, EncodeInfoVer |
 | EncodeInfo Ver < 2 rejection | ✅ | spec mandates Ver≥2; `bifxml.ParseEncodeInfo` enforces; `Open` propagates the error |

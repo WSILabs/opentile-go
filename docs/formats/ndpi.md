@@ -19,7 +19,7 @@ Hamamatsu's NanoZoomer scanner output. File extension `.ndpi`. Common in patholo
 | 64-bit offset extension | ✅ | Files >4 GB (`Hamamatsu-1.ndpi` exercises this) |
 | Associated overview | ✅ | The `Magnification == -1.0` page; cropped + pixel-equivalent re-encode |
 | Associated label (synthesised) | ✅ deviation | Cropped from the left 30% of overview — Go-side extension. Disable with `opentile.WithNDPISynthesizedLabel(false)` |
-| Associated Map pages | ✅ deviation | The `Magnification == -2.0` page (single-channel grayscale uncompressed strip) surfaced as `AssociatedImage` with `Kind() == "map"`. Go-side extension; Python opentile filters them out |
+| Associated Map pages | ✅ deviation | The `Magnification == -2.0` page (single-channel grayscale uncompressed strip) surfaced as `AssociatedImage` with `Type() == "map"`. Go-side extension; Python opentile filters them out |
 | Format-specific metadata | ✅ via `ndpi.MetadataOf(t)` — source-lens magnification, focal offset, scanner serial |
 
 ## What's not supported

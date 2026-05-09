@@ -61,7 +61,7 @@ The 4 main scans are 4 vertically-stacked tissue regions on one slide. SCN store
 | Multi-region composite pyramid | ✅ | Leica-2; sealed Q4. Multi-region offsets are tile-snapped (rounded down to nearest tile boundary) for raw-tile-bytes API alignment — see "Position imprecision" below |
 | Inter-region blank fill | ✅ | Sealed Q6. Synthesised white JPEG cached per tile size; consumer never sees the discontinuity |
 | Multi-channel fluorescence | ✅ | Sealed Q7. `Image.SizeC()` + `Level.TileAt(TileCoord{C, X, Y})` via the v0.7 multi-dim API |
-| Auxiliary `<image>` → AssociatedImage | ✅ | Sealed Q8. Each auxiliary surfaces its lowest-resolution IFD as a single AssociatedImage with `Kind() == "macro"`; multiple auxiliaries (Fluorescence has 2) surfaced in XML order |
+| Auxiliary `<image>` → AssociatedImage | ✅ | Sealed Q8. Each auxiliary surfaces its lowest-resolution IFD as a single AssociatedImage with `Type() == "overview"`; multiple auxiliaries (Fluorescence has 2) surfaced in XML order |
 | Format-specific metadata via `leicascn.MetadataOf` | ✅ | CollectionUUID, Barcode, Auxiliaries (per-aux illumination + objective), Regions (per-main offset/size in nm + objective + illumination), Channels (per-channel filter + exposure metadata for fluorescence) |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` reads tag 34675 from level-0 IFD verbatim |
 | JPEG splice via shared JPEGTables | ✅ | v0.9 in-place splice template; zero-alloc TileInto |
@@ -107,6 +107,14 @@ Upstream Python opentile doesn't read SCN, so every v0.11 behaviour in this pack
 |---|---|---|---|
 | Leica SCN reader for legacy SCN400 / SCN400F output | v0.11 | not opt-out-able once registered | First real-fixture exercise of `Image.SizeC() > 1` in opentile-go (Leica-Fluorescence-1's separated-channel data); also the first multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage |
 
+## v0.15 — Type() rename + value alignment
+
+Leica SCN's auxiliary `<image>` elements now emit `Type() == "overview"` (was `"macro"` pre-v0.15), aligning with the v0.15 Q5 seal: every opentile-go format except Iris IFE emits `"overview"` for the wide-field slide image (matching DICOM PS3.3 + upstream Python opentile).
+
+Additionally, the `AssociatedImage.Kind()` method was renamed to `Type()` (DICOM ImageType convention).
+
+**Consumer migration:** where you reference `Type()` for Leica SCN auxiliary images, replace `case "macro":` with `case "overview":`. Update any references to `AssociatedImage.Kind()` → `AssociatedImage.Type()`.
+
 ## Implementation references
 
 - Our package: `formats/leicascn/`
@@ -125,7 +133,7 @@ Upstream Python opentile doesn't read SCN, so every v0.11 behaviour in this pack
 ## Known issues + history
 
 - **Multi-region offsets are tile-snapped** (rounded down to nearest tile boundary) per the position-imprecision trade-off described above. The spec sealed this as Q4 + Q6's "consumer never sees discontinuity" obligation rather than as a separate Q-decision; documented inline in `formats/leicascn/tiled.go`.
-- **Two auxiliary `<image>` elements with `Kind() == "macro"`** are allowed (Leica-Fluorescence-1's brightfield + fluorescence whole-slide pair). Consumers can disambiguate via `leicascn.MetadataOf(tiler).Auxiliaries[i].IlluminationSource`. This differs from openslide which actively rejects files with >1 macro at line 524.
+- **Two auxiliary `<image>` elements with `Type() == "overview"`** are allowed (Leica-Fluorescence-1's brightfield + fluorescence whole-slide pair). Consumers can disambiguate via `leicascn.MetadataOf(tiler).Auxiliaries[i].IlluminationSource`. This differs from openslide which actively rejects files with >1 macro at line 524.
 - **scn_620 orphan IFD silently drops** — this is a generictiff issue not SCN-specific, documented in `docs/formats/generictiff.md`. SCN's classifier doesn't have orphan-IFDs (each `<image>` is fully accounted for via the XML).
 
 See [`docs/deferred.md`](../deferred.md) §8e for the full v0.11 retirement audit.

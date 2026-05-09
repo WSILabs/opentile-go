@@ -35,7 +35,7 @@ Both fixtures live under `sample_files/generic-tiff/`. The first exercises the p
 | Pyramid detection + validation | ✅ | `internal/tiff.ClassifyPyramid` with sealed thresholds; covered by `formats/generictiff/classifier_test.go` against synthetic + real fixtures |
 | Tiled JPEG / JP2K / LZW / Deflate / None pyramid levels | ✅ | `tiledImage` Level passes through verbatim; JPEG with shared `JPEGTables` uses the v0.9 in-place splice template (zero-alloc TileInto) |
 | Multi-strip associated images | ✅ | Single-strip passthrough; multi-strip uncompressed concat; multi-strip JPEG concat (libtiff RST-marker layout); multi-strip LZW decode + re-encode (lifted from `formats/svs/lzwlabel.go` pattern) |
-| Heuristic associated-image classifier | ✅ | LZW = label, wide-aspect JPEG = macro, smaller-square JPEG = thumbnail; fallback `KindAssociated` ("associated") |
+| Heuristic associated-image classifier | ✅ | LZW = label, wide-aspect JPEG = overview, smaller-square JPEG = thumbnail; fallback `TypeAssociated` ("associated") |
 | Format-specific metadata via `generictiff.MetadataOf` | ✅ | `MicronsPerPixel` (from XResolution + ResolutionUnit), `ImageDescription` verbatim |
 | Cross-format Metadata via `Tiler.Metadata()` | ✅ | `Make` (271) → ScannerManufacturer; `Model` (272) → ScannerModel; `Software` (305) → ScannerSoftware (delimiter-split); `DateTime` (306) → AcquisitionDateTime |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` returns level-0 IFD's tag 34675 verbatim (nil if absent) |
@@ -76,7 +76,17 @@ Upstream Python opentile doesn't have a generic-TIFF reader, so every v0.10 beha
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|
 | Generic-TIFF reader for non-vendor tiled pyramidal TIFFs | v0.10 | not opt-out-able once registered; any TIFF that no vendor factory claims AND that passes the validator routes here | Real-world WSI authoring outside Aperio / Hamamatsu / Philips is common (Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-encoded research outputs); a catch-all reader makes opentile-go consume any structurally valid pyramid TIFF |
-| `"associated"` AssociatedImage Kind value addition | v0.10 | iterate `Associated()` and skip the kind | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / macro / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible kind label |
+| `"associated"` AssociatedImage Type value addition | v0.10 | iterate `Associated()` and skip the type | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / overview / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible type label |
+
+## v0.15 — Type() rename + value alignment
+
+`Tiler.Associated()` for generic TIFFs emits one of: `"label"`, `"overview"`, `"thumbnail"`, `"associated"` (heuristic-fallback).
+
+The wide-field slide image (when the heuristic classifier identifies one) is emitted as `"overview"` from v0.15 onward, matching DICOM PS3.3 + upstream Python opentile + opentile-go's other format readers. Pre-v0.15 (v0.10–v0.14) this was emitted as `"macro"`.
+
+Additionally, the `AssociatedImage.Kind()` method was renamed to `Type()` (DICOM ImageType convention), and the `formats/generictiff` constants were renamed from `KindXxx` to `TypeXxx`.
+
+**Consumer migration:** where you switch on `Type()` for generic-TIFF associated images, replace `case "macro":` with `case "overview":`. Update any references to `generictiff.KindLabel` → `generictiff.TypeLabel`, `generictiff.KindMacro` → `generictiff.TypeOverview`, etc.
 
 ## v0.14 — novel tile codecs
 
