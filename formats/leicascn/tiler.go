@@ -30,8 +30,8 @@ type Metadata struct {
 	Barcode string
 
 	// Auxiliaries carries one entry per auxiliary <image>
-	// (one element with kind="macro" in the AssociatedImage list,
-	// per sealed Q8). Order matches AssociatedImage iteration order.
+	// (one element with kind="overview" in the AssociatedImage list,
+	// per sealed Q8, updated in v0.15). Order matches AssociatedImage iteration order.
 	Auxiliaries []AuxiliaryInfo
 
 	// Regions carries one entry per main scan <image> (each main

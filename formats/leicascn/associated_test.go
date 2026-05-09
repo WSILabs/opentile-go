@@ -52,8 +52,8 @@ func TestAssociatedImage_Leica1_Macro(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newAssociatedImage: %v", err)
 	}
-	if got := a.Type(); got != "macro" {
-		t.Errorf("Type() = %q, want %q", got, "macro")
+	if got := a.Type(); got != "overview" {
+		t.Errorf("Type() = %q, want %q", got, "overview")
 	}
 	if a.Size().W != 101 || a.Size().H != 291 {
 		t.Errorf("Size() = %v, want 101×291", a.Size())
@@ -91,8 +91,8 @@ func TestAssociatedImage_Fluorescence_TwoMacros(t *testing.T) {
 		if err != nil {
 			t.Fatalf("newAssociatedImage[%d]: %v", i, err)
 		}
-		if got := a.Type(); got != "macro" {
-			t.Errorf("[%d] Type() = %q, want %q", i, got, "macro")
+		if got := a.Type(); got != "overview" {
+			t.Errorf("[%d] Type() = %q, want %q", i, got, "overview")
 		}
 		if a.Size().W != 101 || a.Size().H != 291 {
 			t.Errorf("[%d] Size() = %v, want 101×291", i, a.Size())
