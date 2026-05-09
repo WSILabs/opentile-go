@@ -36,6 +36,19 @@ FormatSZI Format = "szi"
 
 Added to `tiler.go` alongside existing format values. Matches the established short-slug convention (`svs`, `ndpi`, `bif`, `ife`).
 
+### 1.3a. New `opentile.CompressionPNG` enum value
+
+```go
+CompressionPNG  // String() returns "png"
+```
+
+DZI's `Format` attribute admits both JPEG and PNG. Adding the enum lets `Level.Compression()` accurately report the tile codec on PNG-formatted SZI/DZI files. Tile-byte path is passthrough either way; the enum tells consumers which decoder to dispatch (libjpeg-turbo vs `image/png` stdlib).
+
+Added in v0.16. Mapping in `formats/szi/`:
+- DZI manifest `Format="jpeg"` → `CompressionJPEG`
+- DZI manifest `Format="png"` → `CompressionPNG`
+- Other values → `CompressionUnknown` (DZI/SZI specs allow only jpeg/png).
+
 ### 1.4. Cross-format `Metadata` population
 
 `Tiler.Metadata()` returns the standard cross-format struct, populated from `scan-properties.xml`:
