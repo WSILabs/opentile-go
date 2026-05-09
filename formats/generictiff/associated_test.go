@@ -94,8 +94,8 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 			if err != nil {
 				t.Fatalf("newAssociatedImage: %v", err)
 			}
-			if a.Kind() != tc.kind {
-				t.Errorf("Kind() = %q, want %q", a.Kind(), tc.kind)
+			if a.Type() != tc.kind {
+				t.Errorf("Type() = %q, want %q", a.Type(), tc.kind)
 			}
 			if a.Size().W != tc.wantW || a.Size().H != tc.wantH {
 				t.Errorf("Size() = %v, want %dx%d", a.Size(), tc.wantW, tc.wantH)

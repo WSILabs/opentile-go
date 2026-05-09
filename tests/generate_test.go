@@ -128,11 +128,11 @@ func generateFixture(slide string) error {
 	for _, a := range tiler.Associated() {
 		b, err := a.Bytes()
 		if err != nil {
-			return fmt.Errorf("Associated(%s).Bytes: %w", a.Kind(), err)
+			return fmt.Errorf("Associated(%s).Bytes: %w", a.Type(), err)
 		}
 		sum := sha256.Sum256(b)
 		f.AssociatedImages = append(f.AssociatedImages, tests.AssociatedFixture{
-			Kind:        a.Kind(),
+			Kind:        a.Type(),
 			Size:        [2]int{a.Size().W, a.Size().H},
 			Compression: a.Compression().String(),
 			SHA256:      hex.EncodeToString(sum[:]),

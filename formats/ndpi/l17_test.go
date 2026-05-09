@@ -51,7 +51,7 @@ func TestL17NDPILabelFullHeight(t *testing.T) {
 			defer tiler.Close()
 			var label opentile.AssociatedImage
 			for _, a := range tiler.Associated() {
-				if a.Kind() == "label" {
+				if a.Type() == "label" {
 					label = a
 					break
 				}

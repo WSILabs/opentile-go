@@ -48,7 +48,7 @@ type associatedImage struct {
 	reader     io.ReaderAt
 }
 
-func (a *associatedImage) Kind() string                      { return a.kind }
+func (a *associatedImage) Type() string                      { return a.kind }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
@@ -168,7 +168,7 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedIm
 }
 
 // kindFromIFDRole maps the layout-classified role to the public
-// AssociatedImage.Kind() string. Per spec §5.3 + opentile-go's
+// AssociatedImage.Type() string. Per spec §5.3 + opentile-go's
 // existing kind taxonomy:
 //
 //	ifdRoleLabel       → "overview" (matches SVS / NDPI / Philips

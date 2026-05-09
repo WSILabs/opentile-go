@@ -61,7 +61,7 @@ const (
 	tiledThumbnailMaxAreaRatio = 0.001
 )
 
-// ClassifyAssociated assigns a Kind() value to an IFD that the
+// ClassifyAssociated assigns a Type() value to an IFD that the
 // pyramid validator routed into Others (i.e., a non-pyramid IFD —
 // stripped, or tiled-but-didn't-fit-the-pyramid-scale). Applies the
 // spec §6 heuristics in order; first match wins. Falls through to

@@ -138,9 +138,9 @@ func TestBIFAccessors(t *testing.T) {
 			ai := tiler.Associated()
 			gotKinds := make(map[string]bool)
 			for _, a := range ai {
-				gotKinds[a.Kind()] = true
+				gotKinds[a.Type()] = true
 				if _, err := a.Bytes(); err != nil {
-					t.Errorf("Associated[%q].Bytes: %v", a.Kind(), err)
+					t.Errorf("Associated[%q].Bytes: %v", a.Type(), err)
 				}
 			}
 			for k := range tc.wantKinds {

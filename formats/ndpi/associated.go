@@ -10,7 +10,7 @@ import (
 )
 
 // overviewImage is an NDPI "Macro" page exposed as an AssociatedImage with
-// Kind() == "overview". Its Bytes() passes through the raw JPEG payload
+// Type() == "overview". Its Bytes() passes through the raw JPEG payload
 // without modification (no cgo required).
 type overviewImage struct {
 	size        opentile.Size
@@ -51,7 +51,7 @@ func newOverviewImage(p *tiff.Page, r io.ReaderAt) (*overviewImage, error) {
 	}, nil
 }
 
-func (o *overviewImage) Kind() string                      { return "overview" }
+func (o *overviewImage) Type() string                      { return "overview" }
 func (o *overviewImage) Size() opentile.Size               { return o.size }
 func (o *overviewImage) Compression() opentile.Compression { return o.compression }
 
@@ -64,7 +64,7 @@ func (o *overviewImage) Bytes() ([]byte, error) {
 }
 
 // labelImage is the cropped left portion of the macro image, exposed with
-// Kind() == "label". Upstream default crop is 0.0 → 0.3 of macro width
+// Type() == "label". Upstream default crop is 0.0 → 0.3 of macro width
 // (caller-configurable at construction). Requires cgo for the crop.
 type labelImage struct {
 	overview *overviewImage
@@ -106,7 +106,7 @@ func newLabelImage(overview *overviewImage, crop float64, mcuW int) *labelImage 
 	}
 }
 
-func (l *labelImage) Kind() string                      { return "label" }
+func (l *labelImage) Type() string                      { return "label" }
 func (l *labelImage) Size() opentile.Size               { return opentile.Size{W: l.cropTo - l.cropFrom, H: l.cropH} }
 func (l *labelImage) Compression() opentile.Compression { return l.overview.compression }
 

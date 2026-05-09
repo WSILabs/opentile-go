@@ -165,8 +165,8 @@ func TestCervixEndToEnd(t *testing.T) {
 	if len(assoc) != 1 {
 		t.Fatalf("Associated count = %d, want 1 (thumbnail)", len(assoc))
 	}
-	if assoc[0].Kind() != "thumbnail" {
-		t.Errorf("Associated[0].Kind = %q, want thumbnail", assoc[0].Kind())
+	if assoc[0].Type() != "thumbnail" {
+		t.Errorf("Associated[0].Type = %q, want thumbnail", assoc[0].Type())
 	}
 	if got := assoc[0].Size(); got.W != 1920 || got.H != 1337 {
 		t.Errorf("Associated[0].Size = %v, want 1920×1337", got)

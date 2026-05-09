@@ -207,8 +207,8 @@ func TestSCNGeometry(t *testing.T) {
 			} else {
 				for i, exp := range fx.associated {
 					a := assocs[i]
-					if a.Kind() != "macro" {
-						t.Errorf("associated[%d] Kind = %q, want %q", i, a.Kind(), "macro")
+					if a.Type() != "macro" {
+						t.Errorf("associated[%d] Type = %q, want %q", i, a.Type(), "macro")
 					}
 					if got := a.Size(); got.W != exp.W || got.H != exp.H {
 						t.Errorf("associated[%d] Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)

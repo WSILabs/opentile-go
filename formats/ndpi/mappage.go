@@ -9,7 +9,7 @@ import (
 )
 
 // mapPage is an NDPI "Map" page (Magnification tag 65421 == -2.0)
-// exposed as an AssociatedImage with Kind() == "map". Bytes() passes
+// exposed as an AssociatedImage with Type() == "map". Bytes() passes
 // the raw strip payload through verbatim — same shape as overviewImage
 // but for the Map page kind.
 //
@@ -90,7 +90,7 @@ func ndpiCompressionToOpentile(tiffCode uint32) opentile.Compression {
 	return opentile.CompressionUnknown
 }
 
-func (m *mapPage) Kind() string                      { return "map" }
+func (m *mapPage) Type() string                      { return "map" }
 func (m *mapPage) Size() opentile.Size               { return m.size }
 func (m *mapPage) Compression() opentile.Compression { return m.compression }
 

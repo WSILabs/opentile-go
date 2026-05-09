@@ -273,8 +273,8 @@ func TestGenericGeometry(t *testing.T) {
 			}
 			for i, exp := range fx.associated {
 				a := associated[i]
-				if a.Kind() != exp.Kind {
-					t.Errorf("associated[%d] Kind = %q, want %q", i, a.Kind(), exp.Kind)
+				if a.Type() != exp.Kind {
+					t.Errorf("associated[%d] Type = %q, want %q", i, a.Type(), exp.Kind)
 				}
 				if got := a.Size(); got.W != exp.W || got.H != exp.H {
 					t.Errorf("associated[%d] Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)

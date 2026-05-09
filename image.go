@@ -163,20 +163,36 @@ type Level interface {
 // AssociatedImage is a non-pyramidal slide-level image (label, overview,
 // thumbnail).
 //
-// Kind() values used across the format readers:
+// Standard Type() values used across opentile-go's format readers.
+// The choice of names follows DICOM PS3.3 / Supplement 145
+// (Whole Slide Microscopic Image IOD), where the Image Type
+// attribute (0008,0008) value 3 enumerates: VOLUME / LABEL /
+// OVERVIEW / THUMBNAIL. opentile-go uses the lowercase form,
+// extended with format-specific kinds where the underlying file
+// surfaces them:
 //
-//	"label"       — slide label / barcode (typical: small, often LZW)
-//	"macro"       — wide overview of the slide (typical: aspect ≥ 2)
-//	"overview"    — SVS-only synonym for macro (kept for back-compat
-//	                with v0.1 SVS-first conventions)
-//	"thumbnail"   — full-slide downsample (typical: square, JPEG)
-//	"associated"  — generic-TIFF (v0.10+) catch-all when the heuristic
+//	"label"       — slide label / barcode
+//	"overview"    — wide-field image of the slide. The DICOM-canonical
+//	                term, also used by upstream Python opentile and by
+//	                six of opentile-go's eight format readers. The
+//	                seventh (Iris IFE) intentionally distinguishes
+//	                "overview" from "macro" per the IFE spec.
+//	"thumbnail"   — full-slide downsample (typically square, JPEG)
+//	"map"         — NDPI / IFE: low-magnification map / overview-of-
+//	                pyramid; semantically distinct from a wide-field
+//	                slide image
+//	"probability" — Ventana BIF / IFE: confidence / classification map
+//	"macro"       — Iris IFE only. The IFE spec defines LABEL_MACRO
+//	                as a kind distinct from LABEL_OVERVIEW. Other
+//	                formats' wide-field slide images surface as
+//	                "overview", not "macro".
+//	"associated"  — generic-TIFF heuristic-fallback (v0.10+) when the
 //	                classifier can't confidently match a kind above
 //
 // Format readers use the string literals directly; the values above
-// are stable and part of the public API contract from v0.10 onward.
+// are stable and part of the public API contract from v0.15 onward.
 type AssociatedImage interface {
-	Kind() string
+	Type() string
 	Size() Size
 	Compression() Compression
 	Bytes() ([]byte, error)

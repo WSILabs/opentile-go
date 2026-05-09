@@ -28,7 +28,7 @@ type associatedImage struct {
 	reader       io.ReaderAt
 }
 
-func (a *associatedImage) Kind() string                      { return a.kind }
+func (a *associatedImage) Type() string                      { return a.kind }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
@@ -64,7 +64,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 //
 // One Open quirk: Python opentile names its overview accessor
 // `get_overview()` while OME XML uses Name="macro". We map "macro"
-// → Kind() == "overview" to keep our public AssociatedImage.Kind()
+// → Type() == "overview" to keep our public AssociatedImage.Type()
 // semantics consistent across all formats (SVS / NDPI / Philips
 // already use "overview").
 func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {

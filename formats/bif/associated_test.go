@@ -32,10 +32,10 @@ func TestAssociatedSpecCompliantHasOverviewAndProbability(t *testing.T) {
 	}
 	want := map[string]bool{"overview": true, "probability": true}
 	for _, a := range ai {
-		if !want[a.Kind()] {
-			t.Errorf("unexpected associated kind %q", a.Kind())
+		if !want[a.Type()] {
+			t.Errorf("unexpected associated kind %q", a.Type())
 		}
-		delete(want, a.Kind())
+		delete(want, a.Type())
 	}
 	if len(want) != 0 {
 		t.Errorf("missing associated kinds: %v", want)
@@ -64,10 +64,10 @@ func TestAssociatedLegacyHasOverviewAndThumbnail(t *testing.T) {
 	}
 	wantSet := map[string]bool{"overview": true, "thumbnail": true}
 	for _, a := range ai {
-		if !wantSet[a.Kind()] {
-			t.Errorf("unexpected associated kind %q", a.Kind())
+		if !wantSet[a.Type()] {
+			t.Errorf("unexpected associated kind %q", a.Type())
 		}
-		delete(wantSet, a.Kind())
+		delete(wantSet, a.Type())
 	}
 	if len(wantSet) != 0 {
 		t.Errorf("missing associated kinds: %v", wantSet)

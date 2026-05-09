@@ -25,7 +25,7 @@ var errUnsupportedAuxiliary = errors.New("leicascn: auxiliary image shape unsupp
 // associatedImage is the Leica SCN AssociatedImage. Bytes are read
 // eagerly at construction time (typical < 50 KB for a 101×291 JPEG
 // tile, well under the 5 MB cap). All SCN auxiliaries get
-// Kind() == "macro" per sealed Q8; format-specific metadata
+// Type() == "macro" per sealed Q8; format-specific metadata
 // (illumination source, objective magnification) is exposed via
 // leicascn.MetadataOf when consumers need to disambiguate
 // brightfield-macro vs fluorescence-macro.
@@ -35,7 +35,7 @@ type associatedImage struct {
 	bytes       []byte
 }
 
-func (a *associatedImage) Kind() string                      { return "macro" }
+func (a *associatedImage) Type() string                      { return "macro" }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {
