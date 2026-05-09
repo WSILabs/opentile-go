@@ -198,7 +198,7 @@ func TestBIFGeometry(t *testing.T) {
 			ai := tiler.Associated()
 			gotKinds := map[string]opentile.Size{}
 			for _, a := range ai {
-				gotKinds[a.Kind()] = a.Size()
+				gotKinds[a.Type()] = a.Size()
 			}
 			ovS, ovOK := gotKinds["overview"]
 			if !ovOK {

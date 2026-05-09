@@ -835,6 +835,60 @@ that locks the change in.
 
 ---
 
+## 8i. Retired in v0.15
+
+v0.15 is a small naming-cleanup milestone. Renames the
+`AssociatedImage.Kind()` method to `Type()` (DICOM ImageType
+convention) and aligns every format except Iris IFE on
+`"overview"` as the canonical name for the wide-field slide
+image. Breaking change; pre-1.0; sole-consumer sign-off.
+
+**Items shipped:**
+
+- `AssociatedImage.Kind() string` → `Type() string` interface
+  rename (image.go); 8 format readers + opentile_test.go mock +
+  every test call site updated in lockstep.
+- `formats/generictiff` constants:
+  `KindLabel` / `KindMacro` / `KindThumbnail` / `KindAssociated`
+  →
+  `TypeLabel` / `TypeOverview` / `TypeThumbnail` / `TypeAssociated`.
+  `KindMacro = "macro"` → `TypeOverview = "overview"` flips name
+  AND value in one move.
+- `formats/leicascn`: `Type() == "macro"` → `Type() == "overview"`
+  for the auxiliary `<image>` element. Pre-v0.15 (sealed in v0.11
+  Q8) corrected.
+- `formats/ife`: untouched. IFE spec defines `LABEL_MACRO` and
+  `LABEL_OVERVIEW` as distinct kinds; both preserved.
+
+**Deviations retired:**
+
+- Pre-v0.15 generic-TIFF emitting `"macro"` instead of upstream's
+  `"overview"`. v0.10 introduced this; v0.15 corrects.
+- Pre-v0.15 Leica SCN emitting `"macro"` instead of upstream's
+  `"overview"`. v0.11 introduced this; v0.15 corrects.
+
+**Architecture invariants preserved:**
+
+- Public API broken intentionally (pre-1.0; sole-consumer sign-off);
+  semver-respectful via v0.15.0 tag.
+- DICOM-standard naming honored (Image Type 0008,0008 value 3 =
+  `OVERVIEW`).
+- Upstream Python opentile parity restored on Type() naming.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
+
+**v0.15 lessons:** sweeping renames of method names + constants in
+one milestone benefit from per-task isolation: the method rename
+(T1) lands first as a pure mechanical sweep across the entire
+codebase; the constant + value flip (T2) lands after; the format-
+specific value flip for SCN (T3) lands after that; tests adapt
+last (T4). This minimizes the "build temporarily broken" window
+and makes individual commits cleanly bisectable.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-08-opentile-go-v15-type-rename.md`](superpowers/plans/2026-05-08-opentile-go-v15-type-rename.md).
+
+---
+
 ## 8h. Retired in v0.14
 
 v0.14 is a small additive milestone extending generic-TIFF

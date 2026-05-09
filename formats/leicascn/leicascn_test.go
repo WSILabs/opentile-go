@@ -113,8 +113,8 @@ func TestFactory_Open_Leica1(t *testing.T) {
 	if got := len(tlr.Associated()); got != 1 {
 		t.Errorf("len(Associated()) = %d, want 1", got)
 	}
-	if got := tlr.Associated()[0].Kind(); got != "macro" {
-		t.Errorf("Associated[0].Kind() = %q, want %q", got, "macro")
+	if got := tlr.Associated()[0].Type(); got != "overview" {
+		t.Errorf("Associated[0].Type() = %q, want %q", got, "overview")
 	}
 	// Multi-image API: SizeC == 1 for brightfield Leica-1.
 	if got := tlr.Images()[0].SizeC(); got != 1 {

@@ -17,8 +17,8 @@ func TestAssociatedImageInterface(t *testing.T) {
 		compression: opentile.CompressionJPEG,
 	}
 	var _ opentile.AssociatedImage = a
-	if a.Kind() != "label" {
-		t.Errorf("Kind: got %q, want %q", a.Kind(), "label")
+	if a.Type() != "label" {
+		t.Errorf("Type: got %q, want %q", a.Type(), "label")
 	}
 	if a.Size().W != 387 || a.Size().H != 403 {
 		t.Errorf("Size: got %v, want 387x403", a.Size())

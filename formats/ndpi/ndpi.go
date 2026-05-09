@@ -129,7 +129,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 			associated = append(associated, ov)
 		case pageMap:
 			// L6 / R13 (v0.4): surface Map pages as AssociatedImage with
-			// Kind() == "map". Deliberate Go-side extension — Python
+			// Type() == "map". Deliberate Go-side extension — Python
 			// opentile 0.20.0 does not expose Map pages. See
 			// formats/ndpi/mappage.go for the rationale.
 			mp, err := newMapPage(p, file.ReaderAt())

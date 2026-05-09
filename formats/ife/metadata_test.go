@@ -278,8 +278,8 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	}
 	wantKinds := []string{"thumbnail", "macro", "overview"}
 	for i, a := range assoc {
-		if a.Kind() != wantKinds[i] {
-			t.Errorf("assoc[%d] kind = %q, want %q", i, a.Kind(), wantKinds[i])
+		if a.Type() != wantKinds[i] {
+			t.Errorf("assoc[%d] kind = %q, want %q", i, a.Type(), wantKinds[i])
 		}
 	}
 	// Sizes + compression.

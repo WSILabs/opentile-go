@@ -11,7 +11,7 @@ import (
 
 // TestNDPIMapPagePresentOnOS2 locks in L6/R13 — NDPI Map pages
 // (Magnification tag value -2.0) are now exposed as AssociatedImage
-// entries with Kind() == "map". OS-2.ndpi page 11 is a 580x198
+// entries with Type() == "map". OS-2.ndpi page 11 is a 580x198
 // 8-bit grayscale Map page (verified pre-task in v0.4 Task 2 audit).
 //
 // This is a deliberate Go-side extension. Python opentile 0.20.0
@@ -37,13 +37,13 @@ func TestNDPIMapPagePresentOnOS2(t *testing.T) {
 
 	var got opentile.AssociatedImage
 	for _, a := range tiler.Associated() {
-		if a.Kind() == "map" {
+		if a.Type() == "map" {
 			got = a
 			break
 		}
 	}
 	if got == nil {
-		t.Fatal(`OS-2.ndpi: no AssociatedImage with Kind() == "map"`)
+		t.Fatal(`OS-2.ndpi: no AssociatedImage with Type() == "map"`)
 	}
 	// OS-2.ndpi page 11 is 198 rows tall, 580 cols wide (verified
 	// in v0.4 Task 2 audit via tifffile.TiffFile inspection).
@@ -85,13 +85,13 @@ func TestNDPIMapPagePresentOnHamamatsu1(t *testing.T) {
 
 	var got opentile.AssociatedImage
 	for _, a := range tiler.Associated() {
-		if a.Kind() == "map" {
+		if a.Type() == "map" {
 			got = a
 			break
 		}
 	}
 	if got == nil {
-		t.Fatal(`Hamamatsu-1.ndpi: no AssociatedImage with Kind() == "map"`)
+		t.Fatal(`Hamamatsu-1.ndpi: no AssociatedImage with Type() == "map"`)
 	}
 	if size := got.Size(); size.W != 600 || size.H != 205 {
 		t.Errorf("Hamamatsu-1.ndpi Map size: got %dx%d, want 600x205", size.W, size.H)
@@ -99,7 +99,7 @@ func TestNDPIMapPagePresentOnHamamatsu1(t *testing.T) {
 }
 
 // TestNDPIMapPageAbsentOnCMU1 confirms CMU-1.ndpi (which carries no
-// Map page per v0.4 Task 2 audit) does NOT have a Kind() == "map"
+// Map page per v0.4 Task 2 audit) does NOT have a Type() == "map"
 // associated image. Catches the failure mode where a future
 // regression makes mapPage emit unconditionally.
 func TestNDPIMapPageAbsentOnCMU1(t *testing.T) {
@@ -117,8 +117,8 @@ func TestNDPIMapPageAbsentOnCMU1(t *testing.T) {
 	}
 	defer tiler.Close()
 	for _, a := range tiler.Associated() {
-		if a.Kind() == "map" {
-			t.Errorf(`CMU-1.ndpi: unexpected AssociatedImage with Kind() == "map"`)
+		if a.Type() == "map" {
+			t.Errorf(`CMU-1.ndpi: unexpected AssociatedImage with Type() == "map"`)
 		}
 	}
 }

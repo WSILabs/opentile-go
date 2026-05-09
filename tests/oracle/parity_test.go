@@ -120,29 +120,29 @@ func runParityOnSlide(t *testing.T, slide string) {
 		// upstream PR so this skip can be removed once Python lands the
 		// same fix. Until then, skip uniformly (NDPI labels are also
 		// affected since some are synthesized from cropped overviews).
-		if a.Kind() == "label" {
+		if a.Type() == "label" {
 			t.Logf("slide %s associated %q: skipping parity (Python opentile 0.20.0 returns strip 0 only — see L10)",
-				filepath.Base(slide), a.Kind())
+				filepath.Base(slide), a.Type())
 			continue
 		}
 		ourB, err := a.Bytes()
 		if err != nil {
-			t.Errorf("slide %s associated %q: Go error: %v", filepath.Base(slide), a.Kind(), err)
+			t.Errorf("slide %s associated %q: Go error: %v", filepath.Base(slide), a.Type(), err)
 			continue
 		}
-		theirB, err := sess.Associated(a.Kind())
+		theirB, err := sess.Associated(a.Type())
 		if err != nil {
-			t.Errorf("slide %s associated %q: Python oracle error: %v", filepath.Base(slide), a.Kind(), err)
+			t.Errorf("slide %s associated %q: Python oracle error: %v", filepath.Base(slide), a.Type(), err)
 			continue
 		}
 		if len(theirB) == 0 {
 			t.Logf("slide %s associated %q: not exposed by Python opentile; skipping parity check (Go synthesized %d bytes)",
-				filepath.Base(slide), a.Kind(), len(ourB))
+				filepath.Base(slide), a.Type(), len(ourB))
 			continue
 		}
 		if !bytes.Equal(ourB, theirB) {
 			t.Errorf("slide %s associated %q: byte-level divergence (go=%d bytes, py=%d bytes)",
-				filepath.Base(slide), a.Kind(), len(ourB), len(theirB))
+				filepath.Base(slide), a.Type(), len(ourB), len(theirB))
 		}
 	}
 }

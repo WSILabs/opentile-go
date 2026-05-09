@@ -42,7 +42,7 @@ type stripedJPEGAssociated struct {
 	reader       io.ReaderAt
 }
 
-func (a *stripedJPEGAssociated) Kind() string                      { return a.kind }
+func (a *stripedJPEGAssociated) Type() string                      { return a.kind }
 func (a *stripedJPEGAssociated) Size() opentile.Size               { return a.size }
 func (a *stripedJPEGAssociated) Compression() opentile.Compression { return opentile.CompressionJPEG }
 
@@ -205,7 +205,7 @@ type stripedLabel struct {
 	reader       io.ReaderAt
 }
 
-func (a *stripedLabel) Kind() string                      { return "label" }
+func (a *stripedLabel) Type() string                      { return "label" }
 func (a *stripedLabel) Size() opentile.Size               { return a.size }
 func (a *stripedLabel) Compression() opentile.Compression { return a.compression }
 
