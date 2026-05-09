@@ -57,6 +57,8 @@ real slide motivates the work.
 | R15 | Sakura SVSlide | parked | parked behind GH issue (TBD). Rare format; openslide reads it. Trigger-driven deferral. |
 | R16 | Leica SCN | v0.8 (tentative) | BigTIFF-based; common in research microscopy. Openslide reader as reference. Decide based on real-slide demand. |
 | R17 | Generic Tiled TIFF | v0.8+ (tentative) | catch-all fallback for unknown vendors with standard TIFF tile layout. Decide based on real-slide demand and whether end users are hitting `ErrUnsupportedFormat` on standards-compliant slides. |
+| R18 | Smart Zoom Image (SZI) | post-v0.15 candidate | ZIP container around a Microsoft Deep Zoom Image (DZI) pyramid + `scan-properties.xml` + `associated_images/{label,macro,thumbnail}.jpg`. Open spec by smartinmedia / pathozoom (LGPL + CC-BY); spec PDF at `sample_files/szi/SZI format description - 2018-11-24.pdf` (downloaded 2026-05-08). Two local fixtures: `CMU-1.szi` (1.5 MB, from the spec repo) + `scan_618_grundium_SZI.szi` (709 MB, Grundium-produced). Driven by user's wsi-tools / viewer pipeline targeting Grundium scanner output. Reader would be ZIP central-directory traversal + DZI manifest parser + JPEG passthrough; uncompressed-stored ZIP entries support direct mmap-aliased ReaderAt access (matches v0.9's mmap-default invariant). See **Co-design note (R18 / R19)** below. |
+| R19 | Deep Zoom Image (DZI) | post-v0.15 candidate (paired with R18) | Microsoft DZI format — bare directory layout: `<name>.dzi` XML manifest + `<name>_files/<level>/<col>_<row>.<ext>` tile tree. Used by OpenSeadragon and tile-serving infrastructure. Lower demand than SZI as an opentile-go input (DZI is typically *served* rather than *read* — the viewer side already handles it). Co-designed with R18 since SZI is a ZIP wrapper around DZI. See **Co-design note (R18 / R19)** below. |
 
 ---
 
@@ -2093,10 +2095,74 @@ decisions, not deferred work.
 | **L32** — Leica SCN mismatched-objective regions | leicascn | Fixture-driven | v0.11 | First mismatched-objective SCN fixture surfaces |
 | **L33** — Leica SCN byte-equality vs bio-formats | leicascn | Permanent (decode/re-encode divergence) | v0.11 | Not revisited; structural-equivalence is the bar |
 | **L34** — Leica SCN 3-fixture coverage limit | leicascn | Permanent (production discontinued ~2015) | v0.11 | Not revisited proactively; trigger-driven |
+| **R18** — Smart Zoom Image (SZI) support | (new) | **Fixtures + spec available**; post-v0.15 candidate | spec + fixtures landed 2026-05-08 | Owner sign-off to schedule. See co-design note below. |
+| **R19** — Deep Zoom Image (DZI) support | (new) | Co-designed with R18 | called out 2026-05-08 | Owner sign-off; ships alongside or after R18. See co-design note below. |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
 fires sooner than expected.
+
+### Note on R18 / R19 — SZI + DZI co-design (2026-05-08)
+
+SZI is a ZIP wrapper around DZI plus SZI-specific scan metadata and
+associated images. The two formats share substantial structure
+(DZI manifest XML schema; tile addressing `<level>/<col>_<row>.<ext>`);
+they differ in storage backend (ZIP archive vs. filesystem directory)
+and in whether SZI-specific metadata + associated images are present.
+
+**Architectural target:** SZI ships first (the user has fixtures + a
+real consumer); DZI follows as an additive companion or in the same
+milestone if scope permits. Design SZI to share its DZI core with a
+future `formats/dzi/` package without compromising either:
+
+- **Shared core (`internal/dzi/`):** pure DZI manifest parser
+  (`Manifest`: Format / Overlap / TileSize / Size); pyramid-level
+  derivation (DZI's `L = ceil(log2(max(W,H)))` rule); pure-function
+  tile-path string formatter `TilePath(level, col, row int, format string) string`.
+- **Storage abstraction:** a minimal `dzi.TileFetcher` interface
+  (`Fetch(path string) ([]byte, error)` or equivalent) lets the
+  shared core read tiles without knowing whether they live in a ZIP
+  or on disk. The interface stays narrow — no allocation contracts
+  beyond what the existing `Tile` / `TileInto` semantics demand.
+- **SZI specifics in `formats/szi/`:** ZIP central-directory
+  traversal; uncompressed-stored ZIP entry → direct `io.SectionReader`
+  on the ZIP file (preserves v0.9's mmap-aliased fast path — no
+  decompression, no copy); `scan-properties.xml` (namespace
+  `http://www.pathozoom.com/szi`) → `Tiler.Metadata()`;
+  `associated_images/{label,macro,thumbnail}.jpg` → `Tiler.Associated()`
+  with v0.15-canonical Type() values (`"label"` / `"overview"` /
+  `"thumbnail"` — note SZI's `macro.jpg` filename maps to
+  `Type() == "overview"` per v0.15 alignment).
+- **DZI specifics in `formats/dzi/`** (future): filesystem walker
+  or `fs.FS` backend; no scan-properties.xml; associated images
+  are out-of-spec for bare DZI but could be heuristically detected
+  (e.g., sibling `<name>_files/../*.{jpg,png}`) if a fixture demands.
+
+**No-compromise guardrails:**
+- SZI's tile-fetch path must remain mmap-aliased (uncompressed-stored
+  entries → ReaderAt slice into the file); the storage abstraction
+  must not force RAM allocation or copy-out for the ZIP backend.
+- DZI's filesystem path remains independently mmap-fast (per-tile
+  `os.File` opened on demand, or pre-cached `fs.FS` handle map).
+- Don't over-generalize: if a future variant (e.g., HTTP-backed DZI)
+  legitimately can't fit the existing `dzi.TileFetcher` contract,
+  it gets its own shim — not a watered-down shared interface.
+- Both formats use the v0.15-canonical `Type()` values; SZI's
+  filename `macro.jpg` is mapped, not exposed as-is.
+
+**Spec sources** (offline-available locally, gitignored):
+- `sample_files/szi/SZI format description - 2018-11-24.pdf` —
+  17-page authoritative spec.
+- `sample_files/szi/CMU-1.szi` — 1.5 MB reference fixture from
+  the SZI-Format repo.
+- `sample_files/szi/scan_618_grundium_SZI.szi` — 709 MB Grundium-
+  produced fixture (real-slide-driven).
+- DZI spec: Microsoft's OpenSeadragon documentation +
+  `https://learn.microsoft.com/en-us/previous-versions/windows/silverlight/dotnet-windows-silverlight/cc645077(v=vs.95)`
+  (preserved Microsoft schema reference).
+
+**Trigger:** Owner sign-off + viewer-side need confirmed; estimate
+6-8 tasks for SZI alone, 8-10 for SZI + DZI together.
 
 ### Note on R16 — Leica SCN status as of v0.10 design
 
