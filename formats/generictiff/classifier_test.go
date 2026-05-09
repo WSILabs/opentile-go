@@ -38,9 +38,9 @@ func TestClassifyAssociated_StrippedLZWLabel(t *testing.T) {
 		stripped(4, 800, 800, 5), // hypothetical: square
 	} {
 		t.Run("", func(t *testing.T) {
-			if got := ClassifyAssociated(ifd, baseline); got != KindLabel {
+			if got := ClassifyAssociated(ifd, baseline); got != TypeLabel {
 				t.Errorf("ClassifyAssociated(%dx%d LZW) = %q, want %q",
-					ifd.Width, ifd.Height, got, KindLabel)
+					ifd.Width, ifd.Height, got, TypeLabel)
 			}
 		})
 	}
@@ -54,9 +54,9 @@ func TestClassifyAssociated_StrippedJPEGMacro(t *testing.T) {
 		ifd  tiff.PyramidLevelInfo
 		want string
 	}{
-		{"actual cmu-1 macro", stripped(5, 1280, 431, 7), KindMacro}, // ~3:1
-		{"portrait macro", stripped(5, 431, 1280, 7), KindMacro},     // tall macro
-		{"2.0 ratio borderline", stripped(5, 2000, 1000, 7), KindMacro},
+		{"actual cmu-1 macro", stripped(5, 1280, 431, 7), TypeOverview}, // ~3:1
+		{"portrait macro", stripped(5, 431, 1280, 7), TypeOverview},     // tall macro
+		{"2.0 ratio borderline", stripped(5, 2000, 1000, 7), TypeOverview},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := ClassifyAssociated(tc.ifd, baseline); got != tc.want {
@@ -76,9 +76,9 @@ func TestClassifyAssociated_StrippedJPEGThumbnail(t *testing.T) {
 		ifd  tiff.PyramidLevelInfo
 		want string
 	}{
-		{"cmu-1 thumbnail", stripped(1, 1024, 732, 7), KindThumbnail},
-		{"square small", stripped(1, 500, 500, 7), KindThumbnail},
-		{"tiny", stripped(1, 100, 100, 7), KindThumbnail},
+		{"cmu-1 thumbnail", stripped(1, 1024, 732, 7), TypeThumbnail},
+		{"square small", stripped(1, 500, 500, 7), TypeThumbnail},
+		{"tiny", stripped(1, 100, 100, 7), TypeThumbnail},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := ClassifyAssociated(tc.ifd, baseline); got != tc.want {
@@ -95,8 +95,8 @@ func TestClassifyAssociated_TiledMacroByArea(t *testing.T) {
 	// well under 0.5% but above 0.1% (1000). Try 80x80 = 6400.
 	baseline := tiled(0, 1024, 1024)
 	got := ClassifyAssociated(tiled(3, 80, 80), baseline) // 6400 = 0.6%
-	if got != KindMacro {
-		t.Errorf("tiled small (80×80, 0.6%% baseline) = %q, want %q", got, KindMacro)
+	if got != TypeOverview {
+		t.Errorf("tiled small (80×80, 0.6%% baseline) = %q, want %q", got, TypeOverview)
 	}
 }
 
@@ -104,8 +104,8 @@ func TestClassifyAssociated_TiledThumbnailByArea(t *testing.T) {
 	// Tiled IFD <0.1% baseline → thumbnail.
 	baseline := tiled(0, 1024, 1024)
 	got := ClassifyAssociated(tiled(3, 30, 30), baseline) // 900 = 0.086%
-	if got != KindThumbnail {
-		t.Errorf("tiled tiny (30×30, 0.086%% baseline) = %q, want %q", got, KindThumbnail)
+	if got != TypeThumbnail {
+		t.Errorf("tiled tiny (30×30, 0.086%% baseline) = %q, want %q", got, TypeThumbnail)
 	}
 }
 
@@ -127,9 +127,9 @@ func TestClassifyAssociated_FallbackToAssociated(t *testing.T) {
 		{"stripped LZW oversized", stripped(2, 2000, 2000, 5)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := ClassifyAssociated(tc.ifd, baseline); got != KindAssociated {
+			if got := ClassifyAssociated(tc.ifd, baseline); got != TypeAssociated {
 				t.Errorf("ClassifyAssociated(%s) = %q, want %q",
-					tc.name, got, KindAssociated)
+					tc.name, got, TypeAssociated)
 			}
 		})
 	}
@@ -141,14 +141,14 @@ func TestClassifyAssociated_BoundaryThresholds(t *testing.T) {
 	// "larger dim" big enough — should fall through to thumbnail
 	// because dims are < 1500.
 	got := ClassifyAssociated(stripped(2, 998, 500, 7), baseline) // ratio 1.996
-	if got != KindThumbnail {
-		t.Errorf("aspect 1.996 = %q, want %q (macro threshold not met)", got, KindThumbnail)
+	if got != TypeThumbnail {
+		t.Errorf("aspect 1.996 = %q, want %q (macro threshold not met)", got, TypeThumbnail)
 	}
 	// LZW dim exactly 1500 — outside the < 1500 bound, falls through
 	// to associated.
 	got = ClassifyAssociated(stripped(2, 1500, 500, 5), baseline)
-	if got != KindAssociated {
-		t.Errorf("LZW 1500 dim = %q, want %q (label boundary)", got, KindAssociated)
+	if got != TypeAssociated {
+		t.Errorf("LZW 1500 dim = %q, want %q (label boundary)", got, TypeAssociated)
 	}
 }
 
@@ -166,9 +166,9 @@ func TestClassifyAssociated_AgainstStrippedSVSCMU1(t *testing.T) {
 		wantKind string
 		desc     string
 	}{
-		{stripped(1, 1024, 732, 7), KindThumbnail, "IFD 1: thumbnail JPEG"},
-		{stripped(4, 387, 463, 5), KindLabel, "IFD 4: label LZW"},
-		{stripped(5, 1280, 431, 7), KindMacro, "IFD 5: macro JPEG"},
+		{stripped(1, 1024, 732, 7), TypeThumbnail, "IFD 1: thumbnail JPEG"},
+		{stripped(4, 387, 463, 5), TypeLabel, "IFD 4: label LZW"},
+		{stripped(5, 1280, 431, 7), TypeOverview, "IFD 5: macro JPEG"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			if got := ClassifyAssociated(tc.ifd, baseline); got != tc.wantKind {

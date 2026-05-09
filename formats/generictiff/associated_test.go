@@ -84,9 +84,9 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 		wantCompression opentile.Compression
 		wantSOI         []byte // first 2 bytes if applicable
 	}{
-		{1, KindThumbnail, 1024, 732, opentile.CompressionJPEG, []byte{0xFF, 0xD8}},
-		{4, KindLabel, 387, 463, opentile.CompressionLZW, nil}, // LZW: no SOI marker
-		{5, KindMacro, 1280, 431, opentile.CompressionJPEG, []byte{0xFF, 0xD8}},
+		{1, TypeThumbnail, 1024, 732, opentile.CompressionJPEG, []byte{0xFF, 0xD8}},
+		{4, TypeLabel, 387, 463, opentile.CompressionLZW, nil}, // LZW: no SOI marker
+		{5, TypeOverview, 1280, 431, opentile.CompressionJPEG, []byte{0xFF, 0xD8}},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			info := associatedSourceInfoFromPage(t, pages[tc.ifdIdx])
@@ -151,7 +151,7 @@ func TestAssociated_RejectsTiled(t *testing.T) {
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{100},
 	}
-	_, err := newAssociatedImage("macro", info, bytes.NewReader(make([]byte, 1000)))
+	_, err := newAssociatedImage("overview", info, bytes.NewReader(make([]byte, 1000)))
 	if !errors.Is(err, errUnsupportedAssociatedShape) {
 		t.Errorf("got %v, want errUnsupportedAssociatedShape", err)
 	}

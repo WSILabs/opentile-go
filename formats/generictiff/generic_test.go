@@ -145,7 +145,7 @@ func TestFactoryOpen_StrippedSVS(t *testing.T) {
 	for _, a := range tlr.Associated() {
 		gotKinds[a.Type()]++
 	}
-	for _, k := range []string{KindThumbnail, KindLabel, KindMacro} {
+	for _, k := range []string{TypeThumbnail, TypeLabel, TypeOverview} {
 		if gotKinds[k] != 1 {
 			t.Errorf("Associated kind %q count = %d, want 1; got map = %v",
 				k, gotKinds[k], gotKinds)

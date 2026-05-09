@@ -11,7 +11,7 @@ import (
 	"github.com/cornish/opentile-go/internal/tiff"
 )
 
-// AssociatedKind values returned by [ClassifyAssociated]. Match the
+// AssociatedType values returned by [ClassifyAssociated]. Match the
 // existing taxonomy used by other format readers, plus a new
 // "associated" fallback (sealed in spec §6 / Q5) for IFDs the
 // heuristics can't confidently classify.
@@ -20,11 +20,15 @@ import (
 // they hardcode the string literals matching this set. Centralizing
 // here keeps the generic reader's classifier consistent with the
 // existing convention.
+//
+// v0.15: KindMacro = "macro" was renamed to TypeOverview = "overview"
+// to align Type() values with DICOM PS3.3 / Supplement 145 (which uses
+// "OVERVIEW") and with the upstream Python opentile we directly port.
 const (
-	KindLabel      = "label"
-	KindMacro      = "macro"
-	KindThumbnail  = "thumbnail"
-	KindAssociated = "associated" // v0.10 addition; classifier-fallback (Q5)
+	TypeLabel      = "label"
+	TypeOverview   = "overview" // v0.15: was KindMacro = "macro"; flipped to align with DICOM + upstream Python opentile
+	TypeThumbnail  = "thumbnail"
+	TypeAssociated = "associated" // v0.10 addition; classifier-fallback (Q5)
 )
 
 // Classifier-tuning thresholds. Sealed at v0.10; not currently
@@ -57,7 +61,7 @@ const (
 	tiledAssocMaxAreaRatio = 0.01
 	// tiledThumbnailMaxAreaRatio: tiled IFDs much smaller than the
 	// 1% threshold (0.1%) get classified as "thumbnail" rather than
-	// "macro".
+	// "overview" (was "macro" pre-v0.15).
 	tiledThumbnailMaxAreaRatio = 0.001
 )
 
@@ -65,7 +69,7 @@ const (
 // pyramid validator routed into Others (i.e., a non-pyramid IFD —
 // stripped, or tiled-but-didn't-fit-the-pyramid-scale). Applies the
 // spec §6 heuristics in order; first match wins. Falls through to
-// [KindAssociated] when no heuristic fires.
+// [TypeAssociated] when no heuristic fires.
 //
 // baseline is the pyramid's largest level (used for area-relative
 // checks on tiled associated images).
@@ -74,10 +78,10 @@ const (
 // bottom of §6 explains the LZW-vs-aspect-ratio reasoning):
 //
 //  1. Stripped + LZW (comp 5) + dims < 1500×1500           → "label"
-//  2. Stripped + JPEG + aspect ≥ 2.0 + larger dim ≥ 1000   → "macro"
+//  2. Stripped + JPEG + aspect ≥ 2.0 + larger dim ≥ 1000   → "overview"
 //  3. Stripped + JPEG + dims < 1500×1500                   → "thumbnail"
 //  4. Tiled + tiny (area < 0.1% baseline)                  → "thumbnail"
-//  5. Tiled + small (area < 1% baseline)                   → "macro"
+//  5. Tiled + small (area < 1% baseline)                   → "overview"
 //  6. Anything else                                        → "associated"
 func ClassifyAssociated(ifd, baseline tiff.PyramidLevelInfo) string {
 	w, h := ifd.Width, ifd.Height
@@ -90,15 +94,15 @@ func ClassifyAssociated(ifd, baseline tiff.PyramidLevelInfo) string {
 		// Stripped paths.
 		switch {
 		case ifd.Compression == 5 && w < labelMaxDim && h < labelMaxDim:
-			return KindLabel
+			return TypeLabel
 		case ifd.Compression == 7 &&
 			larger >= macroMinDim && larger <= macroMaxDim &&
 			float64(larger)/float64(smaller) >= macroAspectRatio:
-			return KindMacro
+			return TypeOverview
 		case ifd.Compression == 7 && w < thumbnailMaxDim && h < thumbnailMaxDim:
-			return KindThumbnail
+			return TypeThumbnail
 		}
-		return KindAssociated
+		return TypeAssociated
 	}
 
 	// Tiled-but-not-pyramid paths (area-relative).
@@ -106,10 +110,10 @@ func ClassifyAssociated(ifd, baseline tiff.PyramidLevelInfo) string {
 		ratio := float64(ifd.Area()) / float64(baseline.Area())
 		switch {
 		case ratio < tiledThumbnailMaxAreaRatio:
-			return KindThumbnail
+			return TypeThumbnail
 		case ratio < tiledAssocMaxAreaRatio:
-			return KindMacro
+			return TypeOverview
 		}
 	}
-	return KindAssociated
+	return TypeAssociated
 }
