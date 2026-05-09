@@ -11,14 +11,66 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.15: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.16: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.15 introduced
-no new active limitations — it was a naming-cleanup milestone
-(`Kind()` → `Type()`; `"macro"` → `"overview"` for generic-TIFF +
-Leica SCN). See `docs/deferred.md` §11 consolidated backlog. Open
-work parked in tracked issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.16 introduced
+no new active limitations — it was a Smart Zoom Image (SZI) reader
+milestone closing R18 from §11 backlog, additive only. See
+`docs/deferred.md` §11 consolidated backlog. Open work parked in
+tracked issues:
+
+## [0.16.0] — 2026-05-09
+
+Smart Zoom Image (SZI) support — closes R18. New formats/szi/
+package backed by new shared internal/dzi/ core (DZI manifest
+parser + tile-coordinate math, designed for additive bare-DZI
+support in v0.17+). Driven by user's wsi-tools / viewer pipeline
+targeting Grundium-scanner output.
+
+### Added
+
+- **`opentile.FormatSZI`** new enum value (`"szi"`).
+- **`opentile.CompressionPNG`** new enum value (`"png"`). DZI's
+  Format attribute admits both jpeg and png; opentile-go now
+  accurately reports the codec on PNG-tiled SZI/DZI files.
+- **`internal/dzi/`** new package: pure DZI manifest XML parser
+  (`Manifest`, `ParseManifest`) + tile-coordinate math (`MaxLevel`,
+  `LevelDims`, `GridDims`, `TilePath`). No I/O; designed to underpin
+  multiple storage backends.
+- **`formats/szi/`** new package: SZI Tiler with eager ZIP
+  central-directory parse, mmap-aliased tile fetch via SectionReader
+  on uncompressed-stored entries, full pyramid (Image / Level / Tile
+  / TileInto / TileReader / TilePrefix / TileBodyInto), and
+  associated images (`macro.jpg` → `Type() == "overview"`;
+  `label.jpg`; `thumbnail.jpg`).
+- **`szi.Metadata`** struct + **`szi.MetadataOf(t)`** accessor for
+  format-specific scan-properties.xml fields including
+  `VendorProperties map[string]string` for open-ended `vendor.<key>`
+  custom properties (mirrors v0.6+/Philips/OME/IFE/SCN precedent).
+- 2 new fixtures wired into TestSlideParity:
+  - `CMU-1.szi` (1.5 MB, from smartinmedia/SZI-Format spec repo)
+  - `scan_618_grundium_SZI.szi` (709 MB, Grundium-produced)
+- TestSlideParity total: **30 fixtures** (was 28).
+
+### Notes
+
+- **Sparse SZI files are not supported** per the spec page 4
+  (verbatim: *"sparse images and collections are not supported in
+  the SZI format"*). A missing tile in the addressable grid
+  returns a corrupt-archive error. Breadcrumbs left for a future
+  additive `ErrTileMissing` sentinel + opt-in lenient mode if a
+  sparse-SZI fixture surfaces.
+- **Bare DZI** (filesystem-backed, no ZIP wrapper) is deferred to
+  v0.17+ pending consumer signal. The `internal/dzi/` extraction
+  pre-pares this without compromise to SZI.
+- **DZC collections** (Morton-laid-out shared thumbnails) are
+  permanently out of scope — multi-image; opentile-go reads
+  single-WSI files only.
+- Optional `vendor/` folder content is not surfaced through the
+  public API in v0.16; deferred until consumer signal.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
 
 ## [0.15.0] — 2026-05-08
 

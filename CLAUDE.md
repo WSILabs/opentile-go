@@ -2,45 +2,54 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.15 (shipped)
+## Current milestone — v0.16 (shipped)
 
-- **Scope:** Naming-cleanup milestone — `AssociatedImage.Kind()`
-  renamed to `Type()` (DICOM ImageType convention); generic-TIFF +
-  Leica SCN emitted `"macro"` flipped to `"overview"` (aligning
-  with DICOM + Python opentile + 6 sibling format readers). Iris
-  IFE preserves both as IFE-spec-distinct values. Breaking change;
-  pre-1.0; sole-consumer sign-off granted. 6 plan tasks single batch.
-- **API additions:** none (rename-only milestone).
-- **API breaks:** `AssociatedImage.Kind()` → `Type()`. generictiff
-  `KindXxx` constants → `TypeXxx`. Generic-TIFF + Leica SCN value
-  flip from `"macro"` to `"overview"`.
-- **Active limitations:** unchanged from v0.14. No new L items.
+- **Scope:** Smart Zoom Image (SZI) reader. Closes R18 from
+  deferred backlog. New formats/szi/ package backed by new shared
+  internal/dzi/ core (manifest parser + tile-coordinate math;
+  designed for additive bare-DZI support in v0.17+). Driven by
+  user's wsi-tools / viewer pipeline targeting Grundium-scanner
+  output. 6 plan tasks single batch.
+- **API additions:** opentile.FormatSZI ("szi") + opentile.CompressionPNG
+  enum values; internal/dzi package; formats/szi package with
+  szi.MetadataOf accessor; szi.Metadata struct including
+  VendorProperties map[string]string for open-ended vendor.<key>
+  properties.
+- **API breaks:** none (purely additive).
+- **Active limitations:** unchanged from v0.15. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  `docs/deferred.md §1a`): two pre-v0.15 deviations RETIRED here —
-  generic-TIFF + Leica SCN `"macro"` (now aligned with upstream's
-  `"overview"`).
-- **Correctness bar:** `make test` green; TestSlideParity 28
-  fixtures (unchanged from v0.14).
-- **Sealed Q-decisions (8):** Q1 `Kind()` → `Type()` rename; Q2
-  constants in lockstep; Q3 stays `string` (no typed enum); Q4
-  one-shot value flip (no aliasing); Q5 IFE preserves both kinds;
-  Q6 no migration helper; Q7 v0.15.0 tag; Q8 explicit CHANGELOG
-  migration block.
-- **Deferred forward:** L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
-  R15. v1.0 cut still pending.
-- **Design:** `docs/superpowers/specs/2026-05-08-opentile-go-v15-type-rename-design.md`
-- **Plan:** `docs/superpowers/plans/2026-05-08-opentile-go-v15-type-rename.md`
-- **Work branch:** `feat/v0.15`
+  docs/deferred.md §1a): unchanged from v0.15. SZI is beyond
+  upstream's coverage — no upstream parity to honor.
+- **Correctness bar:** make test green; TestSlideParity 30 fixtures
+  (was 28).
+- **Sealed Q-decisions (8):** Q1 SZI-only in v0.16 (DZI deferred);
+  Q2 strict on missing tiles (ErrCorruptArchive); Q3 typed
+  szi.Metadata + VendorProperties map; Q4 vendor/ folder content
+  deferred; Q5 eager ZIP central-directory parse; Q6 internal/dzi
+  split; Q7 both fixtures into TestSlideParity; Q8 6-task batch.
+- **Deferred forward:** R19 (bare DZI) — internal/dzi pre-pares it.
+  R20 (cross-format Metadata MicronsPerPixel + ImageDescription) —
+  flagged during v0.16 T4. L19, L20, L23-L25, L26-L29, L30-L34,
+  R4/R6/R9, R15. v1.0 cut still pending.
+- **Design:** docs/superpowers/specs/2026-05-08-opentile-go-v16-szi-design.md
+- **Plan:** docs/superpowers/plans/2026-05-08-opentile-go-v16-szi.md
+- **Work branch:** feat/v0.16
 
-## Previous milestone — v0.14 (shipped 2026-05-08)
+## Previous milestone — v0.15 (shipped 2026-05-08)
 
-Novel-codec milestone — generic-TIFF reader recognises 4 new tile
-compression tag values (WebP / JPEG XL / AVIF / HTJ2K) produced by
-the user's wsi-tools transcoder. Plus a wsi-tools ImageDescription
-parser. Additive — no breaking changes.
+Naming-cleanup milestone — AssociatedImage.Kind() renamed to Type()
+(DICOM ImageType convention); generic-TIFF + Leica SCN emitted
+"macro" flipped to "overview" (aligns with DICOM + Python opentile
++ 6 sibling format readers). IFE preserves both as IFE-spec-distinct
+values. Breaking change; pre-1.0; sole-consumer sign-off.
 
 ## Earlier milestones
 
+- v0.14 (2026-05-08): Novel-codec milestone — generic-TIFF reader
+  recognises 4 new tile compression tag values (WebP / JPEG XL /
+  AVIF / HTJ2K) produced by the user's wsi-tools transcoder. Plus
+  a wsi-tools ImageDescription parser. Additive — no breaking
+  changes.
 - v0.13 (2026-05-08): Bandwidth-deduplication API — Level.TilePrefix
   + TileBodyInto + TileBodyMaxSize + opentile.SpliceJPEGTile helper.
   Additive (no breaking changes).
@@ -102,6 +111,8 @@ Local slides live in `/sample_files/` (gitignored). v0.6 fixture set:
 - `sample_files/bif/Ventana-1.bif` (227 MB) — DP 200 spec-compliant; tifffile parity oracle target
 - `sample_files/bif/OS-1.bif` (3.6 GB) — legacy iScan Coreo; sampled fixture
 - `sample_files/ife/cervix_2x_jpeg.iris` (2.16 GB, 9 levels, JPEG) — first non-TIFF fixture; downloaded from Iris's public S3 bucket; SHA256 `b080859913d2…`. Sampled fixture (cervix is too large for full-walk under the 5 MB per-fixture cap)
+- `sample_files/szi/CMU-1.szi` (1.5 MB, 16 levels, JPEG) — canonical CMU-1 re-encoded as SZI by smartinmedia spec authors; first ZIP-backed fixture
+- `sample_files/szi/scan_618_grundium_SZI.szi` (709 MB, 19 levels, JPEG) — Grundium-scanner-produced SZI; sampled fixture
 
 ## Commands
 
