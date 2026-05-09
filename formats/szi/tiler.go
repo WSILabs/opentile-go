@@ -12,6 +12,17 @@ import (
 	"github.com/cornish/opentile-go/internal/dzi"
 )
 
+// ErrCorruptArchive is returned when an SZI archive violates the
+// spec — currently only on missing tiles in the addressable grid
+// (the SZI spec forbids sparse images, so a missing tile is a
+// corruption signal, not a sparse-data convention).
+//
+// Per Q2 of the v0.16 spec: a future additive ErrTileMissing
+// sentinel + opt-in lenient mode could distinguish "spec-
+// noncompliant but recoverable" from "archive structurally bad"
+// once a real sparse-SZI fixture surfaces.
+var ErrCorruptArchive = errors.New("szi: corrupt archive")
+
 // Tiler is the SZI-format implementation of opentile.Tiler.
 type Tiler struct {
 	r    io.ReaderAt
@@ -36,6 +47,11 @@ type Tiler struct {
 	// entries indexes ZIP central-directory entries by full path
 	// for fast tile lookup.
 	entries map[string]*zip.File
+
+	// image is the single-image pyramid built in buildLevels. SZI
+	// spec mandates exactly one image per archive (no DZC
+	// collections); see Q-decisions in the v0.16 spec.
+	image *image
 
 	cfg *opentile.Config
 }
@@ -70,7 +86,48 @@ func openSZI(r io.ReaderAt, size int64, cfg *opentile.Config) (*Tiler, error) {
 	if err := t.checkTileEntriesStored(); err != nil {
 		return nil, err
 	}
+	if err := t.buildLevels(); err != nil {
+		return nil, err
+	}
 	return t, nil
+}
+
+// buildLevels populates t.image with one *level per DZI pyramid
+// level. opentile-go's index 0 = highest resolution; DZI's MaxLevel
+// = highest resolution; so opentile L_i = DZI (MaxLevel - i).
+func (t *Tiler) buildLevels() error {
+	maxLevel := dzi.MaxLevel(t.manifest.Width, t.manifest.Height)
+
+	var comp opentile.Compression
+	switch strings.ToLower(t.manifest.Format) {
+	case "jpeg", "jpg":
+		comp = opentile.CompressionJPEG
+	case "png":
+		comp = opentile.CompressionPNG
+	default:
+		comp = opentile.CompressionUnknown
+	}
+
+	levels := make([]opentile.Level, maxLevel+1)
+	for i := 0; i <= maxLevel; i++ {
+		dziL := maxLevel - i
+		w, h := dzi.LevelDims(t.manifest.Width, t.manifest.Height, dziL)
+		cols, rows := dzi.GridDims(w, h, t.manifest.TileSize)
+		levels[i] = &level{
+			t:           t,
+			dziLevel:    dziL,
+			openTileIdx: i,
+			pyrIndex:    i,
+			width:       w,
+			height:      h,
+			cols:        cols,
+			rows:        rows,
+			tileSize:    t.manifest.TileSize,
+			compression: comp,
+		}
+	}
+	t.image = &image{t: t, levels: levels}
+	return nil
 }
 
 // discoverRoot identifies the single top-level directory inside the
@@ -206,19 +263,30 @@ func (t *Tiler) Close() error {
 
 // Levels is the legacy single-image shortcut accessor; SZI files
 // always carry exactly one image, so this delegates to Images()[0].
-//
-// T3 implementation. v0.16 T2 returns nil placeholder.
-func (t *Tiler) Levels() []opentile.Level { return nil }
-
-// Level returns Levels()[i]. T3 implementation; T2 returns
-// ErrLevelOutOfRange for any i.
-func (t *Tiler) Level(i int) (opentile.Level, error) {
-	return nil, opentile.ErrLevelOutOfRange
+func (t *Tiler) Levels() []opentile.Level {
+	if t.image == nil {
+		return nil
+	}
+	return t.image.Levels()
 }
 
-// Images returns the single Image carried by the SZI file. T3
-// implementation; T2 returns nil placeholder.
-func (t *Tiler) Images() []opentile.Image { return nil }
+// Level returns Levels()[i]. Equivalent to Images()[0].Level(i).
+func (t *Tiler) Level(i int) (opentile.Level, error) {
+	if t.image == nil {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.image.Level(i)
+}
+
+// Images returns the single Image carried by the SZI file. The
+// returned slice has exactly one element per the SZI spec (no
+// DZC collections in SZI).
+func (t *Tiler) Images() []opentile.Image {
+	if t.image == nil {
+		return nil
+	}
+	return []opentile.Image{t.image}
+}
 
 // Associated returns the associated_images/ entries. T4 implementation.
 func (t *Tiler) Associated() []opentile.AssociatedImage { return nil }
@@ -230,9 +298,21 @@ func (t *Tiler) Metadata() opentile.Metadata { return opentile.Metadata{} }
 // ICCProfile returns nil — SZI does not surface ICC profiles in v0.16.
 func (t *Tiler) ICCProfile() []byte { return nil }
 
-// WarmLevel pre-warms the page cache. SZI's tile lookup is via
-// SectionReader on the file; warming would touch each tile's
-// uncompressed-stored bytes. T3 implementation.
+// WarmLevel pre-warms the page cache for level i.
+//
+// T3 implementation: validates i and returns nil. SZI tile lookup
+// is via stored ZIP entries (no inflate); a future optimization
+// could touch each tile entry's data range to populate the OS
+// page cache. Warming is a hint, not a correctness requirement
+// (per Q-decisions in the v0.16 spec); the no-op preserves the
+// interface contract while leaving the actual page-touch work for
+// a follow-up milestone driven by consumer signal.
 func (t *Tiler) WarmLevel(i int) error {
-	return opentile.ErrLevelOutOfRange
+	if t.image == nil {
+		return opentile.ErrLevelOutOfRange
+	}
+	if i < 0 || i >= len(t.image.levels) {
+		return opentile.ErrLevelOutOfRange
+	}
+	return nil
 }
