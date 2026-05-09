@@ -11,14 +11,76 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.14: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.15: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.14 introduced
-no new active limitations — it was a small additive milestone
-extending generic-TIFF compression support to 4 novel tile codecs.
-See `docs/deferred.md` §11 consolidated backlog. Open work parked in
-tracked issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.15 introduced
+no new active limitations — it was a naming-cleanup milestone
+(`Kind()` → `Type()`; `"macro"` → `"overview"` for generic-TIFF +
+Leica SCN). See `docs/deferred.md` §11 consolidated backlog. Open
+work parked in tracked issues:
+
+## [0.15.0] — 2026-05-08
+
+Naming-cleanup milestone — renames the `AssociatedImage.Kind()`
+method to `Type()` (DICOM ImageType convention) and aligns every
+format except Iris IFE on `"overview"` as the canonical name for
+the wide-field slide image. Breaking change; pre-1.0; sole-consumer
+sign-off granted.
+
+### Breaking changes
+
+- **`AssociatedImage.Kind()` renamed → `Type()`.** Every format
+  reader's implementation, every test call site, and the public
+  interface in `image.go` updated in lockstep.
+- **`formats/generictiff` constants renamed:**
+  `KindLabel` → `TypeLabel`, `KindMacro` → `TypeOverview`,
+  `KindThumbnail` → `TypeThumbnail`, `KindAssociated` → `TypeAssociated`.
+- **Generic-TIFF and Leica SCN emitted-value flip.** Pre-v0.15,
+  these two readers emitted `Type() == "macro"` (drift introduced
+  in v0.10 / v0.11). v0.15 flips them to `"overview"`, matching:
+  - DICOM PS3.3 / Supplement 145 (Image Type 0008,0008 value 3 =
+    `OVERVIEW`)
+  - Upstream Python opentile (the project we directly port; uses
+    `"overview"` everywhere, mapping native OME-XML `"macro"` to
+    `"overview"` via the OME tiler)
+  - opentile-go's own SVS / NDPI / Philips / OME-TIFF / BIF readers
+    (which already emitted `"overview"` from v0.1 / v0.5 / v0.6 / v0.7)
+
+  **Iris IFE is intentionally exempt** — the IFE spec defines
+  `LABEL_MACRO` and `LABEL_OVERVIEW` as distinct kinds, and opentile-
+  go's IFE reader preserves both.
+- **README OME-TIFF row corrected.** Pre-v0.15 the row claimed the
+  format emitted `"macro"`; in fact it emitted `"overview"` since
+  v0.6. README was stale, now matches code.
+
+### Consumer migration
+
+```text
+Method:
+  a.Kind()                            → a.Type()
+
+Constants (formats/generictiff):
+  generictiff.KindLabel               → generictiff.TypeLabel
+  generictiff.KindMacro               → generictiff.TypeOverview
+  generictiff.KindThumbnail           → generictiff.TypeThumbnail
+  generictiff.KindAssociated          → generictiff.TypeAssociated
+
+Switch-statement values:
+  case "macro":  // generic-TIFF      → case "overview":
+  case "macro":  // Leica SCN         → case "overview":
+  case "macro":  // Iris IFE          (UNCHANGED — IFE-spec-distinct)
+  case "overview": // every other     (UNCHANGED)
+```
+
+### Notes
+
+- v0.15 is rename-only. No format-support changes, no new fixtures,
+  no perf changes, no behavioral changes for code that already used
+  the right name.
+- `TestSlideParity` 28 fixtures unchanged from v0.14.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
 
 ## [0.14.0] — 2026-05-08
 

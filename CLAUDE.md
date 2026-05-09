@@ -2,51 +2,48 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.14 (shipped)
+## Current milestone — v0.15 (shipped)
 
-- **Scope:** Novel-codec milestone — generic-TIFF reader recognises
-  4 new tile compression tag values produced by the user's wsi-tools
-  transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus a wsi-tools
-  ImageDescription parser populating standard Metadata fields.
-  Additive — no breaking changes. 6 plan tasks single batch.
-- **API additions:** 3 new `opentile.Compression` enum values
-  (`CompressionWebP`, `CompressionJPEGXL`, `CompressionHTJ2K`);
-  validator + reader recognise tags 34712 (registered JP2K),
-  50001 (WebP), 50002 (JPEG XL), 60001 (AVIF — existing
-  `CompressionAVIF` enum), 60003 (HTJ2K). wsi-tools
-  ImageDescription parser hidden behind the existing
-  `Tiler.Metadata()` / `generictiff.MetadataOf` accessors.
-- **Behavior change:** none. Existing consumers using v0.13
-  surfaces see no behavior change.
-- **Active limitations:** unchanged from v0.13. No new L items.
+- **Scope:** Naming-cleanup milestone — `AssociatedImage.Kind()`
+  renamed to `Type()` (DICOM ImageType convention); generic-TIFF +
+  Leica SCN emitted `"macro"` flipped to `"overview"` (aligning
+  with DICOM + Python opentile + 6 sibling format readers). Iris
+  IFE preserves both as IFE-spec-distinct values. Breaking change;
+  pre-1.0; sole-consumer sign-off granted. 6 plan tasks single batch.
+- **API additions:** none (rename-only milestone).
+- **API breaks:** `AssociatedImage.Kind()` → `Type()`. generictiff
+  `KindXxx` constants → `TypeXxx`. Generic-TIFF + Leica SCN value
+  flip from `"macro"` to `"overview"`.
+- **Active limitations:** unchanged from v0.14. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  `docs/deferred.md §1a`): unchanged from v0.13 (additive-only API
-  doesn't introduce new deviations).
-- **Correctness bar:** `make test` green. TestSlideParity total
-  now 28 fixtures (was 24); 4 wsi-tools fixtures + tile magic byte
-  pinning + per-fixture geometry.
-- **Decoder responsibility:** byte-passthrough contract preserved
-  per v0.8 IFE precedent. Consumers bring libwebp / libjxl /
-  libavif / OpenJPEG-HTJ2K decoders.
-- **Sealed Q-decisions (2):** Q1 four enum values total (3 new +
-  existing AVIF; HTJ2K distinct from JP2K); Q2 parse populates
-  standard fields only — no wsi-tools-specific public accessor.
+  `docs/deferred.md §1a`): two pre-v0.15 deviations RETIRED here —
+  generic-TIFF + Leica SCN `"macro"` (now aligned with upstream's
+  `"overview"`).
+- **Correctness bar:** `make test` green; TestSlideParity 28
+  fixtures (unchanged from v0.14).
+- **Sealed Q-decisions (8):** Q1 `Kind()` → `Type()` rename; Q2
+  constants in lockstep; Q3 stays `string` (no typed enum); Q4
+  one-shot value flip (no aliasing); Q5 IFE preserves both kinds;
+  Q6 no migration helper; Q7 v0.15.0 tag; Q8 explicit CHANGELOG
+  migration block.
 - **Deferred forward:** L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
   R15. v1.0 cut still pending.
-- **Design:** `docs/superpowers/specs/2026-05-08-opentile-go-v14-novel-codecs-design.md`
-- **Plan:** `docs/superpowers/plans/2026-05-08-opentile-go-v14-novel-codecs.md`
-- **Work branch:** `feat/v0.14`
+- **Design:** `docs/superpowers/specs/2026-05-08-opentile-go-v15-type-rename-design.md`
+- **Plan:** `docs/superpowers/plans/2026-05-08-opentile-go-v15-type-rename.md`
+- **Work branch:** `feat/v0.15`
 
-## Previous milestone — v0.13 (shipped 2026-05-08)
+## Previous milestone — v0.14 (shipped 2026-05-08)
 
-Bandwidth-deduplication API — Level.TilePrefix() + TileBodyInto +
-TileBodyMaxSize + opentile.SpliceJPEGTile helper. Additive (no
-breaking changes). Pattern B savings depend on fixture-author
-choice (shared JPEGTables tag 347 vs per-tile-embedded). Cross-
-format byte-equality invariant verified; bench harness committed.
+Novel-codec milestone — generic-TIFF reader recognises 4 new tile
+compression tag values (WebP / JPEG XL / AVIF / HTJ2K) produced by
+the user's wsi-tools transcoder. Plus a wsi-tools ImageDescription
+parser. Additive — no breaking changes.
 
 ## Earlier milestones
 
+- v0.13 (2026-05-08): Bandwidth-deduplication API — Level.TilePrefix
+  + TileBodyInto + TileBodyMaxSize + opentile.SpliceJPEGTile helper.
+  Additive (no breaking changes).
 - v0.12 (2026-05-07): Naming cleanup — striped→stripped; Format-
   Philips→FormatPhilipsTIFF; FormatOME→FormatOMETIFF; package
   renames formats/philips→philipstiff and formats/ome→ometiff.
