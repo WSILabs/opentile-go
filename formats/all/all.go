@@ -23,6 +23,7 @@ import (
 	"github.com/cornish/opentile-go/formats/ometiff"
 	"github.com/cornish/opentile-go/formats/philipstiff"
 	"github.com/cornish/opentile-go/formats/svs"
+	"github.com/cornish/opentile-go/formats/szi"
 )
 
 var once sync.Once
@@ -38,6 +39,11 @@ func Register() {
 		opentile.Register(bif.New())
 		opentile.Register(ife.New())
 		opentile.Register(leicascn.New())
+		// SZI is registered before generictiff so its byte-level
+		// SupportsRaw (ZIP magic) runs first. generictiff would
+		// never claim a ZIP-magic file anyway, but keeping non-TIFF
+		// readers ahead of the catch-all matches the IFE precedent.
+		opentile.Register(szi.New())
 		// Generic TIFF must register LAST: it's the catch-all
 		// for tiled pyramidal TIFFs that no vendor format claims.
 		// Registering earlier would let it steal vendor-shaped TIFFs.

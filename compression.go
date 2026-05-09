@@ -57,6 +57,13 @@ const (
 	//
 	// Added in v0.14.
 	CompressionHTJ2K
+	// CompressionPNG identifies a PNG-encoded tile (`\x89PNG` magic).
+	// DZI's Format attribute admits both jpeg and png. Tile bytes
+	// are a complete self-contained PNG file. Consumer decodes via
+	// `image/png` (stdlib).
+	//
+	// Added in v0.16.
+	CompressionPNG
 )
 
 func (c Compression) String() string {
@@ -83,6 +90,8 @@ func (c Compression) String() string {
 		return "jpeg-xl"
 	case CompressionHTJ2K:
 		return "htj2k"
+	case CompressionPNG:
+		return "png"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(c))
 	}

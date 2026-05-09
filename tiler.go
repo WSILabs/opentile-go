@@ -30,6 +30,12 @@ const (
 	// differentiate from other Leica-related formats (LIF, LMS) that
 	// aren't SCN.
 	FormatLeicaSCN Format = "leica-scn"
+	// FormatSZI identifies a Smart Zoom Image file (ZIP-wrapped
+	// Microsoft Deep Zoom pyramid + scan-properties.xml +
+	// associated_images/, per the smartinmedia/SZI-Format spec).
+	//
+	// Added in v0.16.
+	FormatSZI Format = "szi"
 )
 
 // Tiler is the top-level handle returned by [Open] / [OpenFile].

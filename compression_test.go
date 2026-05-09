@@ -18,6 +18,7 @@ func TestCompressionString(t *testing.T) {
 		{CompressionWebP, "webp"},
 		{CompressionJPEGXL, "jpeg-xl"},
 		{CompressionHTJ2K, "htj2k"},
+		{CompressionPNG, "png"},
 		{Compression(99), "unknown(99)"},
 	}
 	for _, tt := range tests {
