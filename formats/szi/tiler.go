@@ -53,6 +53,18 @@ type Tiler struct {
 	// collections); see Q-decisions in the v0.16 spec.
 	image *image
 
+	// associated holds the optional associated_images/ entries
+	// (label / overview / thumbnail) populated by buildAssociated.
+	// nil/empty when no associated_images/ folder is present.
+	associated []opentile.AssociatedImage
+
+	// cross is the parsed cross-format metadata (canonical fields
+	// shared with all other formats). Populated from
+	// scan-properties.xml at Open() time.
+	cross opentile.Metadata
+	// szim is the SZI-specific metadata exposed via szi.MetadataOf.
+	szim Metadata
+
 	cfg *opentile.Config
 }
 
@@ -83,12 +95,19 @@ func openSZI(r io.ReaderAt, size int64, cfg *opentile.Config) (*Tiler, error) {
 	if err := t.loadScanProperties(); err != nil {
 		return nil, err
 	}
+	cross, szim, err := parseScanProperties(t.scanPropertiesXML)
+	if err != nil {
+		return nil, fmt.Errorf("szi: parse scan-properties.xml: %w", err)
+	}
+	t.cross = cross
+	t.szim = szim
 	if err := t.checkTileEntriesStored(); err != nil {
 		return nil, err
 	}
 	if err := t.buildLevels(); err != nil {
 		return nil, err
 	}
+	t.buildAssociated()
 	return t, nil
 }
 
@@ -288,12 +307,20 @@ func (t *Tiler) Images() []opentile.Image {
 	return []opentile.Image{t.image}
 }
 
-// Associated returns the associated_images/ entries. T4 implementation.
-func (t *Tiler) Associated() []opentile.AssociatedImage { return nil }
+// Associated returns the optional associated_images/ entries
+// (macro.jpg → "overview", label.jpg → "label", thumbnail.jpg →
+// "thumbnail" per the v0.15 alignment). Returns a fresh slice;
+// callers may mutate the slice header without affecting the
+// Tiler's internal state.
+func (t *Tiler) Associated() []opentile.AssociatedImage {
+	return append([]opentile.AssociatedImage(nil), t.associated...)
+}
 
 // Metadata returns the cross-format metadata populated from
-// scan-properties.xml. T4 implementation.
-func (t *Tiler) Metadata() opentile.Metadata { return opentile.Metadata{} }
+// scan-properties.xml. SZI-specific fields (per-axis MPP, scan-area
+// dimensions, vendor-prefixed properties, etc.) are accessible via
+// szi.MetadataOf.
+func (t *Tiler) Metadata() opentile.Metadata { return t.cross }
 
 // ICCProfile returns nil — SZI does not surface ICC profiles in v0.16.
 func (t *Tiler) ICCProfile() []byte { return nil }
