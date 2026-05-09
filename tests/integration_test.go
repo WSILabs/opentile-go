@@ -69,15 +69,20 @@ var slideCandidates = []string{
 	"htj2k-out.tiff",
 	"jxl-out.tiff",
 	"webp-out.tiff",
+	// SZI (v0.16): Smart Zoom Image (ZIP-wrapped DZI). CMU-1.szi is
+	// the small full-walk fixture; scan_618_grundium_SZI.szi is the
+	// large sampled fixture from a Grundium Ocus scanner.
+	"CMU-1.szi",
+	"scan_618_grundium_SZI.szi",
 }
 
 // resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
-// dir/ome-tiff, dir/bif, dir/ife, dir/generic-tiff, and dir/scn.
+// dir/ome-tiff, dir/bif, dir/ife, dir/generic-tiff, dir/scn, and dir/szi.
 // Returns the first existing absolute path. Used so OPENTILE_TESTDIR
 // can be set to the repo sample_files root and cover every supported
 // format in one run.
 func resolveSlide(dir, name string) (string, bool) {
-	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn"} {
+	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn", "szi"} {
 		p := filepath.Join(dir, sub, name)
 		if _, err := os.Stat(p); err == nil {
 			return p, true
@@ -313,6 +318,8 @@ func fixtureJSONFor(slideFilename string) string {
 		return stem + ".ife.json"
 	case ".scn":
 		return stem + ".scn.json"
+	case ".szi":
+		return stem + ".szi.json"
 	}
 	return stem + ".json"
 }

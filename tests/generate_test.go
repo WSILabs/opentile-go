@@ -44,6 +44,10 @@ func sampledByDefault(slide string) bool {
 	// 21 MB so it stays full-walk.
 	case "Leica-1.scn", "Leica-2.scn":
 		return true
+	// SZI: scan_618_grundium_SZI.szi is 709 MB; sample-only.
+	// CMU-1.szi (~1 MB) stays full-walk.
+	case "scan_618_grundium_SZI.szi":
+		return true
 	}
 	return false
 }

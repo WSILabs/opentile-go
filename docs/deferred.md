@@ -837,6 +837,81 @@ that locks the change in.
 
 ---
 
+## 8j. Retired in v0.16
+
+v0.16 ships Smart Zoom Image (SZI) support — closes R18 from §11
+backlog. R19 (bare Deep Zoom Image, filesystem-backed) remains
+parked; v0.16 architecture pre-pares it via the new internal/dzi/
+package, but no consumer signal yet motivates shipping bare DZI.
+
+**Items shipped:**
+
+- internal/dzi/ — pure DZI manifest parser + tile-coordinate math
+  (Manifest, ParseManifest, MaxLevel, LevelDims, GridDims, TilePath).
+- formats/szi/ — full Tiler implementation:
+  - SupportsRaw byte-level detection (PK\x03\x04 ZIP magic)
+  - eager ZIP central-directory parse at Open() (v0.9 lock-free
+    invariant honored)
+  - uncompressed-stored ZIP entries → SectionReader on the .szi
+    file (mmap-aliased fast path preserved)
+  - Image / Level with Tile / TileInto / TileReader / TilePrefix /
+    TileBodyInto / TileBodyMaxSize / Compression / Size / TileSize
+    / Grid
+  - Associated images: macro.jpg → "overview" (per v0.15);
+    label.jpg → "label"; thumbnail.jpg → "thumbnail"
+  - scan-properties.xml parser → cross-format opentile.Metadata +
+    SZI-specific szi.Metadata + VendorProperties map
+  - szi.MetadataOf(t opentile.Tiler) accessor
+- New public enum values: opentile.FormatSZI ("szi"),
+  opentile.CompressionPNG.
+- 2 new fixtures (CMU-1.szi from spec repo; scan_618_grundium_SZI.szi
+  from Grundium scanner). TestSlideParity 30 fixtures (was 28).
+
+**Architecture invariants preserved:**
+
+- Public API additive only (new format reader + new enum values);
+  existing consumers unaffected.
+- v0.9 mmap-aliased fast path: SZI's uncompressed-stored ZIP
+  entries resolve to byte slices over the file, no inflate, no
+  copy on the hot path.
+- v0.13 splice-prefix model: SZI tiles are self-contained
+  JPEG/PNG; TilePrefix() returns nil; TileBodyInto delegates to
+  TileInto per the v0.13 non-applicable convention.
+- v0.15 Type() canonical naming: SZI's filename macro.jpg maps to
+  Type() == "overview" (not exposed as "macro").
+- No new active limitations; sparse SZI deferred (spec forbids;
+  breadcrumbs left for a future ErrTileMissing sentinel + opt-in
+  lenient mode if a real sparse-SZI fixture surfaces).
+- v1.0 cut still pending.
+- cgo footprint unchanged.
+
+**Deviations retired:**
+
+- R18 (SZI support) — landed; backlog row retires.
+
+**Still parked:**
+
+- R19 (bare DZI) — deferred to v0.17+; internal/dzi/ pre-pares it.
+
+**v0.16 lessons:** the ZIP central-directory eager parse pattern
+is a clean fit for the v0.9 lock-free hot-path invariant. Future
+ZIP-backed format readers can mirror this shape directly. The
+internal/dzi/ extraction validated the co-design intent — only one
+backend ships in v0.16, but the pure-function shape lets a future
+backend slot in additively.
+
+A v0.16 follow-on item surfaced during T4: the cross-format
+opentile.Metadata struct doesn't carry MicronsPerPixel or
+ImageDescription, even though every format reader (SVS, Philips,
+OME, BIF, IFE, SCN, SZI) has a format-specific equivalent. Tracked
+as R20 in §11 below; touches every format reader's Metadata()
+implementation, so deferred until a future milestone with explicit
+cross-format-API scope.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-08-opentile-go-v16-szi.md`](superpowers/plans/2026-05-08-opentile-go-v16-szi.md).
+
+---
+
 ## 8i. Retired in v0.15
 
 v0.15 is a small naming-cleanup milestone. Renames the
@@ -2095,8 +2170,9 @@ decisions, not deferred work.
 | **L32** — Leica SCN mismatched-objective regions | leicascn | Fixture-driven | v0.11 | First mismatched-objective SCN fixture surfaces |
 | **L33** — Leica SCN byte-equality vs bio-formats | leicascn | Permanent (decode/re-encode divergence) | v0.11 | Not revisited; structural-equivalence is the bar |
 | **L34** — Leica SCN 3-fixture coverage limit | leicascn | Permanent (production discontinued ~2015) | v0.11 | Not revisited proactively; trigger-driven |
-| **R18** — Smart Zoom Image (SZI) support | (new) | **Fixtures + spec available**; post-v0.15 candidate | spec + fixtures landed 2026-05-08 | Owner sign-off to schedule. See co-design note below. |
-| **R19** — Deep Zoom Image (DZI) support | (new) | Co-designed with R18 | called out 2026-05-08 | Owner sign-off; ships alongside or after R18. See co-design note below. |
+| **R18** — Smart Zoom Image (SZI) support | (new) | ✅ **landed in v0.16** (see §8j) | spec + fixtures landed 2026-05-08; reader shipped 2026-05-09 | retired |
+| **R19** — Deep Zoom Image (DZI) support | (new) | Co-designed with R18 | called out 2026-05-08 | Owner sign-off; v0.17+ candidate. internal/dzi/ pre-pares it (shipped in v0.16). See co-design note below. |
+| **R20** — opentile.Metadata: add MicronsPerPixel + ImageDescription | core API | YAGNI/follow-on | flagged 2026-05-09 in v0.16 T4 | Owner sign-off; touches every format reader's Metadata() implementation |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
