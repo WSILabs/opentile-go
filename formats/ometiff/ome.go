@@ -166,8 +166,10 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	}
 
 	icc, _ := pages[0].ICCProfile()
+	cross := crossMetadata(md, cls)
 	return &tiler{
 		md:         md,
+		cross:      cross,
 		images:     images,
 		associated: associated,
 		icc:        icc,
@@ -349,6 +351,7 @@ func max1(n int) int {
 // tiler is the OME implementation of opentile.Tiler.
 type tiler struct {
 	md         OMEMetadata
+	cross      opentile.Metadata // v0.17 cross-format view; populated from md at Open time
 	images     []opentile.Image
 	associated []opentile.AssociatedImage
 	icc        []byte
@@ -383,6 +386,6 @@ func (t *tiler) WarmLevel(i int) error {
 	return nil
 }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
-func (t *tiler) Metadata() opentile.Metadata            { return opentile.Metadata{} } // upstream returns empty; matches.
+func (t *tiler) Metadata() opentile.Metadata            { return t.cross }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
