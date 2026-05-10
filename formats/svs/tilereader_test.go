@@ -174,3 +174,39 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 		}
 	}
 }
+
+// TestParseDescription_GrundiumFixture verifies the v0.18 writer-vendor
+// detection on a real Grundium-written SVS fixture. Pre-v0.18 the parser
+// hardcoded ScannerManufacturer="Aperio" for all SVS regardless of writer,
+// causing Grundium-scanned slides to misattribute. Now detectWriter parses
+// the ImageDescription first line ("Aperio Image, Grundium Ocus") and
+// surfaces the actual writer + namespaces Properties under "grundium.<key>"
+// instead of "aperio.<key>".
+func TestParseDescription_GrundiumFixture(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "svs", "scan_620_.svs")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("scan_620_.svs not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+	md := tlr.Metadata()
+	if md.ScannerManufacturer != "Grundium" {
+		t.Errorf("ScannerManufacturer = %q, want Grundium", md.ScannerManufacturer)
+	}
+	if md.ScannerModel != "Ocus" {
+		t.Errorf("ScannerModel = %q, want Ocus", md.ScannerModel)
+	}
+	if got := md.Properties["grundium.MPP"]; got == "" {
+		t.Errorf("Properties[grundium.MPP] empty; want non-empty (Grundium namespace)")
+	}
+	if got := md.Properties["aperio.MPP"]; got != "" {
+		t.Errorf("Properties[aperio.MPP] = %q, want empty (writer is Grundium not Aperio)", got)
+	}
+}

@@ -1,12 +1,79 @@
 package svs
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	opentile "github.com/cornish/opentile-go"
 )
+
+func TestDetectWriter(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		input            string
+		wantManufacturer string
+		wantModel        string
+		wantSoftwares    []string
+	}{
+		{
+			name:             "Aperio canonical",
+			input:            "Aperio Image Library v11.2.1",
+			wantManufacturer: "Aperio",
+			wantModel:        "",
+			wantSoftwares:    []string{"Aperio Image Library v11.2.1"},
+		},
+		{
+			name:             "Grundium Ocus (observed)",
+			input:            "Aperio Image, Grundium Ocus",
+			wantManufacturer: "Grundium",
+			wantModel:        "Ocus",
+			wantSoftwares:    []string{"Aperio Image", "Grundium Ocus"},
+		},
+		{
+			name:             "Grundium with whitespace",
+			input:            "  Aperio Image,  Grundium Ocus  ",
+			wantManufacturer: "Grundium",
+			wantModel:        "Ocus",
+			wantSoftwares:    []string{"Aperio Image", "Grundium Ocus"},
+		},
+		{
+			name:             "Hypothetical multi-word model",
+			input:            "Aperio Image, MyVendor Pro 5",
+			wantManufacturer: "MyVendor",
+			wantModel:        "Pro 5",
+			wantSoftwares:    []string{"Aperio Image", "MyVendor Pro 5"},
+		},
+		{
+			name:             "Empty input",
+			input:            "",
+			wantManufacturer: "",
+			wantModel:        "",
+			wantSoftwares:    nil,
+		},
+		{
+			name:             "Undetected pattern",
+			input:            "SomethingElse v2.0",
+			wantManufacturer: "",
+			wantModel:        "",
+			wantSoftwares:    []string{"SomethingElse v2.0"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := detectWriter(tc.input)
+			if got.manufacturer != tc.wantManufacturer {
+				t.Errorf("manufacturer = %q, want %q", got.manufacturer, tc.wantManufacturer)
+			}
+			if got.model != tc.wantModel {
+				t.Errorf("model = %q, want %q", got.model, tc.wantModel)
+			}
+			if !slices.Equal(got.softwares, tc.wantSoftwares) {
+				t.Errorf("softwares = %v, want %v", got.softwares, tc.wantSoftwares)
+			}
+		})
+	}
+}
 
 func TestParseDescription(t *testing.T) {
 	desc := "Aperio Image Library v11.2.1\n" +

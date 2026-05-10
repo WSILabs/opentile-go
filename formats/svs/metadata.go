@@ -29,6 +29,72 @@ type Metadata struct {
 	Filename     string  // Aperio "Filename" key if present
 }
 
+// writerVendor describes the SVS writer detected from the
+// ImageDescription first line. SVS is the WSI ad-hoc standard and
+// is written by multiple vendors (Aperio canonical, Grundium,
+// likely 3DHistech via export). The first line of the
+// ImageDescription names the writer:
+//
+//	"Aperio Image Library v11.2.1"     → Aperio canonical
+//	"Aperio Image, Grundium Ocus"      → Grundium-written; "Ocus" model
+//	"Aperio Image, <other>"            → other writer named in suffix
+//	anything else                       → undetected; format-default fallback
+//
+// When undetected, the parser falls back to the "svs" namespace
+// for Properties keys; standardized SVS-format keys (MPP, AppMag,
+// ScanScope ID) still populate cross-format Metadata regardless.
+type writerVendor struct {
+	manufacturer string   // e.g., "Aperio", "Grundium", "" if undetected
+	model        string   // e.g., "Ocus", "" if not declared
+	softwares    []string // sensibly-split software components
+}
+
+// detectWriter parses the SVS ImageDescription's first line to
+// identify the writer-vendor. See writerVendor for pattern map.
+func detectWriter(firstLine string) writerVendor {
+	line := strings.TrimSpace(firstLine)
+	if line == "" {
+		return writerVendor{}
+	}
+	// "Aperio Image Library v..." → canonical Aperio
+	if strings.HasPrefix(line, "Aperio Image Library") {
+		return writerVendor{
+			manufacturer: "Aperio",
+			model:        "",
+			softwares:    []string{line},
+		}
+	}
+	// "Aperio Image, <name>" → writer is in the comma-suffix
+	if after, found := strings.CutPrefix(line, "Aperio Image,"); found {
+		writerID := strings.TrimSpace(after)
+		// First word = manufacturer; rest = model.
+		// e.g., "Grundium Ocus" → manufacturer="Grundium", model="Ocus"
+		// e.g., "Some Vendor Pro 5" → manufacturer="Some", model="Vendor Pro 5"
+		// (Conservative: treat the first whitespace-separated word as
+		// manufacturer; remainder as model. Vendors with multi-word
+		// names will need extension when fixtures surface.)
+		fields := strings.Fields(writerID)
+		var mfr, mod string
+		if len(fields) > 0 {
+			mfr = fields[0]
+		}
+		if len(fields) > 1 {
+			mod = strings.Join(fields[1:], " ")
+		}
+		return writerVendor{
+			manufacturer: mfr,
+			model:        mod,
+			softwares:    []string{"Aperio Image", writerID},
+		}
+	}
+	// Undetected: fall back to "" manufacturer; surface raw line as software.
+	return writerVendor{
+		manufacturer: "",
+		model:        "",
+		softwares:    []string{line},
+	}
+}
+
 // parseDescription decodes the ImageDescription tag stored by Aperio scanners.
 // Format: first line is a free-form software banner; subsequent content is
 // '|'-separated "key = value" pairs embedded in the same string.
@@ -47,13 +113,17 @@ func parseDescription(desc string) (Metadata, error) {
 	newline := strings.IndexByte(desc, '\n')
 	if newline < 0 {
 		md.SoftwareLine = desc
-		md.ScannerManufacturer = "Aperio"
-		md.ScannerSoftware = []string{desc}
+		w := detectWriter(desc)
+		md.ScannerManufacturer = w.manufacturer
+		md.ScannerModel = w.model
+		md.ScannerSoftware = w.softwares
 		return md, nil
 	}
 	md.SoftwareLine = strings.TrimRight(desc[:newline], "\r\n ")
-	md.ScannerManufacturer = "Aperio"
-	md.ScannerSoftware = []string{md.SoftwareLine}
+	w := detectWriter(md.SoftwareLine)
+	md.ScannerManufacturer = w.manufacturer
+	md.ScannerModel = w.model
+	md.ScannerSoftware = w.softwares
 
 	// Parse '|' separated key-value pairs in the remainder.
 	body := desc[newline+1:]
@@ -87,17 +157,23 @@ func parseDescription(desc string) (Metadata, error) {
 		md.SetProperty(opentile.PropertyUserName, v)
 	}
 
-	// Cross-format vendor passthrough: surface every Aperio key under the
-	// "aperio." namespace so consumers can reach format-specific fields
-	// without reparsing the raw ImageDescription. Skip keys that contain
-	// characters never seen in real Aperio key names — splitKV sees the
-	// codec/geometry prelude (e.g. "46000x32914 [...] JPEG/RGB Q=30") as a
-	// "key" because it embeds an '=' sign, but it's not a real kv pair.
+	// Cross-format vendor passthrough: surface every kv under the
+	// detected writer's namespace so consumers can reach format-
+	// specific fields without reparsing the raw ImageDescription.
+	// Falls back to "svs" if the writer was not detected. Skip keys
+	// that contain characters never seen in real Aperio key names —
+	// splitKV sees the codec/geometry prelude (e.g. "46000x32914 [...]
+	// JPEG/RGB Q=30") as a "key" because it embeds an '=' sign, but
+	// it's not a real kv pair.
+	namespace := strings.ToLower(w.manufacturer)
+	if namespace == "" {
+		namespace = "svs"
+	}
 	for k, v := range kv {
 		if !isAperioKey(k) {
 			continue
 		}
-		md.SetProperty("aperio."+k, v)
+		md.SetProperty(namespace+"."+k, v)
 	}
 
 	// Aperio Date/Time are separate fields in MM/DD/YYYY and HH:MM:SS form.
