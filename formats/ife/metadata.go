@@ -70,14 +70,13 @@ func (a AttributesFormat) String() string {
 // Metadata is the IFE-specific metadata struct. Embeds
 // [opentile.Metadata] so the cross-format common fields are
 // type-asserted off the same value.
+//
+// v0.17 (Q4 Option B): the format-specific MicronsPerPixel (f32)
+// outer field was removed because it shadowed the cross-format
+// MicronsPerPixel (f64); consumers that previously read the f32 raw
+// value now read the (lossless-widened) f64 from the embedded struct.
 type Metadata struct {
 	opentile.Metadata
-
-	// MicronsPerPixel is the level-0 MPP from the METADATA block's
-	// f32 microns_per_pixel field. 0 when the encoder didn't set it.
-	// IFE doesn't carry anisotropic pixel spacing — the same value
-	// applies to X and Y per the upstream spec.
-	MicronsPerPixel float32
 
 	// MagnificationFromHeader is the level-0 magnification from the
 	// METADATA block's f32 magnification field. 0 when unset.
@@ -140,9 +139,19 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	imagesOff := binary.LittleEndian.Uint64(buf[24:32])
 	iccOff := binary.LittleEndian.Uint64(buf[32:40])
 	// annotations_offset at 40:48 — read for forward-compat but not parsed in v0.8.
-	md.MicronsPerPixel = math.Float32frombits(binary.LittleEndian.Uint32(buf[48:52]))
+	mppF32 := math.Float32frombits(binary.LittleEndian.Uint32(buf[48:52]))
 	md.MagnificationFromHeader = math.Float32frombits(binary.LittleEndian.Uint32(buf[52:56]))
 	md.Magnification = float64(md.MagnificationFromHeader)
+
+	// v0.17 cross-format MPP: the IFE METADATA block carries a single
+	// f32 microns_per_pixel value applied to both axes — the spec
+	// doesn't allow anisotropic pixels. Widen f32→f64 (lossless) and
+	// SetMPPSymmetric to populate the symmetric scalar slot.
+	if mppF32 > 0 {
+		md.MicronsPerPixelX = float64(mppF32)
+		md.MicronsPerPixelY = float64(mppF32)
+	}
+	md.SetMPPSymmetric()
 
 	if attrsOff != NullOffset && attrsOff != 0 {
 		fmtType, ver, kvs, err := readAttributes(r, attrsOff, fileSize)
@@ -152,6 +161,21 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 		md.AttributesFormat = fmtType
 		md.AttributesVersion = ver
 		md.Attributes = kvs
+
+		// v0.17 cross-format wiring from ATTRIBUTES:
+		//
+		//   - "tiff.ImageDescription" (the IFE encoder preserves the
+		//     source slide's ImageDescription tag verbatim under this
+		//     key — observed on cervix_2x's GT450-derived fixture) →
+		//     cross.ImageDescription. Other IFE fixtures may store
+		//     their description under a different key; consumers
+		//     wanting raw access read md.Attributes directly.
+		//
+		//   - Every attribute (typed or untyped) → "iris.<key>"
+		//     Properties for cross-format vendor passthrough so
+		//     consumers can reach format-specific fields without
+		//     reaching back into md.Attributes.
+		populateIFECrossFields(&md.Metadata, kvs)
 	} else {
 		md.AttributesFormat = AttributesFormatUndefined
 	}
@@ -175,6 +199,30 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	}
 
 	return md, assoc, icc, nil
+}
+
+// populateIFECrossFields copies the parsed IFE ATTRIBUTES map onto
+// the cross-format opentile.Metadata: surface known keys onto typed
+// fields (ImageDescription) and mirror every attribute under the
+// "iris." Properties namespace so cross-format consumers can reach
+// vendor-specific data without parsing md.Attributes themselves.
+//
+// Added in v0.17.
+func populateIFECrossFields(cross *opentile.Metadata, kvs map[string]string) {
+	for k, v := range kvs {
+		// Surface every attribute, regardless of source vendor. The
+		// IFE encoder may pass through arbitrary keys from the
+		// originating scanner (cervix carries 24 attributes spanning
+		// "tiff.*", "aperio.*"); preserving the original vendor
+		// prefix under "iris." keeps the provenance visible.
+		cross.SetProperty("iris."+k, v)
+	}
+	// "tiff.ImageDescription" carries the source slide's
+	// ImageDescription tag verbatim when the IFE encoder preserves
+	// it. Empty string and missing key both fall through unchanged.
+	if v, ok := kvs["tiff.ImageDescription"]; ok && v != "" {
+		cross.ImageDescription = v
+	}
 }
 
 // ATTRIBUTES block layout (29 B header):

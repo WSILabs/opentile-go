@@ -244,6 +244,7 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 			{"foo", "bar"},
 			{"aperio.AppMag", "40"},
 			{"empty.value", ""},
+			{"tiff.ImageDescription", "Aperio v1.0\nfoo\n"},
 		},
 		images: []synthImage{
 			{W: 100, H: 50, Encoding: 2, Title: "thumbnail", ImageBytes: []byte("\xff\xd8\xff\xe0FAKE_JPEG")},
@@ -263,6 +264,30 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	cm := tiler.Metadata()
 	if cm.Magnification != 20 {
 		t.Errorf("Magnification = %v, want 20", cm.Magnification)
+	}
+	// v0.17 additions: per-axis MPP populated from header f32 (0.5
+	// is exact in IEEE-754 binary so the f32→f64 widening is exact).
+	if cm.MicronsPerPixelX != 0.5 || cm.MicronsPerPixelY != 0.5 {
+		t.Errorf("MicronsPerPixelX/Y = %v / %v, want 0.5 / 0.5", cm.MicronsPerPixelX, cm.MicronsPerPixelY)
+	}
+	if cm.MicronsPerPixel != 0.5 {
+		t.Errorf("MicronsPerPixel = %v, want 0.5 (IFE reports symmetric pixels)", cm.MicronsPerPixel)
+	}
+	// tiff.ImageDescription attribute → cross.ImageDescription.
+	if cm.ImageDescription != "Aperio v1.0\nfoo\n" {
+		t.Errorf("cross.ImageDescription = %q, want %q", cm.ImageDescription, "Aperio v1.0\nfoo\n")
+	}
+	// Vendor passthrough: every IFE attribute under "iris." namespace.
+	if got := cm.Properties["iris.foo"]; got != "bar" {
+		t.Errorf("Properties[iris.foo] = %q, want %q", got, "bar")
+	}
+	if got := cm.Properties["iris.aperio.AppMag"]; got != "40" {
+		t.Errorf("Properties[iris.aperio.AppMag] = %q, want %q", got, "40")
+	}
+	// Empty values still surface (the attribute existed; consumers
+	// distinguish "absent" vs "empty" via map lookup).
+	if got, ok := cm.Properties["iris.empty.value"]; !ok || got != "" {
+		t.Errorf("Properties[iris.empty.value]: ok=%v val=%q, want ok=true val=\"\"", ok, got)
 	}
 
 	// ICC profile.
@@ -305,6 +330,11 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	if !ok {
 		t.Fatal("MetadataOf returned !ok")
 	}
+	// v0.17: ifeMD.MicronsPerPixel now resolves through field promotion
+	// to the embedded opentile.Metadata.MicronsPerPixel float64 (the
+	// outer f32 was removed per Q4 Option B because it shadowed the
+	// cross-format slot). 0.5 is exact in IEEE-754 binary so f32→f64
+	// widening preserves the value.
 	if ifeMD.MicronsPerPixel != 0.5 {
 		t.Errorf("MPP = %v", ifeMD.MicronsPerPixel)
 	}
@@ -317,7 +347,7 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	if ifeMD.AttributesFormat != AttributesFormatFreeText {
 		t.Errorf("AttributesFormat = %v", ifeMD.AttributesFormat)
 	}
-	if got, want := len(ifeMD.Attributes), 3; got != want {
+	if got, want := len(ifeMD.Attributes), 4; got != want {
 		t.Errorf("attrs count = %d, want %d", got, want)
 	}
 	if ifeMD.Attributes["foo"] != "bar" {
