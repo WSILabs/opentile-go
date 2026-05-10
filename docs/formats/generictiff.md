@@ -43,6 +43,17 @@ Both fixtures live under `sample_files/generic-tiff/`. The first exercises the p
 | Cross-backing parity (mmap default vs pread) | ✅ | `tests/parity/generic_geometry_test.go::TestGenericOpenFileBackingsByteIdentical` |
 | Concurrent `Tile()` / `TileInto()` from many goroutines | ✅ | Standard v0.1 invariant — parsed IFDs and tile offset/length arrays populate at `Open` and are immutable thereafter |
 
+## Edge tile semantics
+
+Tiles are stored at full `TileSize` regardless of position; right-edge and bottom-edge tiles include padding bytes in the unused region (the TIFF tile format stores them this way). This applies regardless of compression — JPEG, JP2K, LZW, Deflate, None, and the v0.14 wsi-tools-introduced WebP / JPEG XL / AVIF / HTJ2K codecs all follow the same TIFF tile boundary convention. opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 | Capability | Status | Tracking |

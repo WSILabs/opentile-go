@@ -22,6 +22,17 @@ Hamamatsu's NanoZoomer scanner output. File extension `.ndpi`. Common in patholo
 | Associated Map pages | ✅ deviation | The `Magnification == -2.0` page (single-channel grayscale uncompressed strip) surfaced as `AssociatedImage` with `Type() == "map"`. Go-side extension; Python opentile filters them out |
 | Format-specific metadata | ✅ via `ndpi.MetadataOf(t)` — source-lens magnification, focal offset, scanner serial |
 
+## Edge tile semantics
+
+NDPI's "tiles" are JPEG restart-marker-delimited frames within a single per-page JPEG strip; every frame decodes to full `TileSize` regardless of position. Right-edge and bottom-edge frames include padding bytes in the unused region (the JPEG encoder writes the page this way — opentile-go does not add the padding). opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+Matches upstream Python opentile. SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 None of our 3 local NDPI fixtures (`CMU-1.ndpi`, `OS-2.ndpi`, `Hamamatsu-1.ndpi`) hits any unsupported path. Documented limitations:

@@ -68,6 +68,17 @@ The 4 main scans are 4 vertically-stacked tissue regions on one slide. SCN store
 | `WarmLevel(i)` page-cache pre-warm | ✅ | Standard v0.9 pattern |
 | Cross-backing parity (mmap default vs pread) | ✅ | `tests/parity/leicascn_geometry_test.go::TestSCNOpenFileBackingsByteIdentical` |
 
+## Edge tile semantics
+
+Tiles within each region are stored at full `TileSize` regardless of position; right-edge and bottom-edge tiles include padding bytes in the unused region (the TIFF tile format stores them this way). For multi-region SCN files, the composite-level grid maps logical (x, y) coordinates onto per-region tile addresses; the per-region tile padding semantics are unchanged. opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 | Capability | Status | Tracking |

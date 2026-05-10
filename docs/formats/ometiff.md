@@ -23,6 +23,17 @@ The Open Microscopy Environment's TIFF dialect, written by Bio-Formats and most 
 | BigTIFF | ✅ (both fixtures are BigTIFF) |
 | OME-XML metadata | ✅ via `ometiff.MetadataOf(t)` — exposes PhysicalSize per Image |
 
+## Edge tile semantics
+
+Tiles (in tiled SubIFD pyramids) are stored at full `TileSize` regardless of position; right-edge and bottom-edge tiles include padding bytes in the unused region (the TIFF tile format stores them this way). The OneFrame fallback path operates on full-page frames, so the same padding semantics apply when synthetic tile boundaries don't align with the underlying frame. opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+Matches upstream Python opentile. SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 | Capability | Status | Why |

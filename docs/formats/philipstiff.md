@@ -22,6 +22,17 @@ Philips IntelliSite Pathology Solution scanner output. File extension `.tiff` (o
 | Associated label / overview / thumbnail | ✅ | Single-strip JPEG passthrough with optional JPEGTables splice |
 | Format-specific metadata | ✅ via `philipstiff.MetadataOf(t)` — exposes PixelSpacing, BitsAllocated, BitsStored, HighBit, PixelRepresentation, LossyImageCompressionMethod/Ratio |
 
+## Edge tile semantics
+
+Tiles are stored at full `TileSize` regardless of position; right-edge and bottom-edge tiles include padding bytes in the unused region (the TIFF tile format stores them this way). Sparse-tile-filled regions follow the same convention — the synthetic blank tile is also full `TileSize`. opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+Matches upstream Python opentile. SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 | Capability | Status | Why |

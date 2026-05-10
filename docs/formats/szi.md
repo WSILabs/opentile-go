@@ -70,6 +70,22 @@ CMU-1 is the canonical CC-BY-licensed Aperio reference slide re-encoded as SZI b
 | Associated images: `label.jpg`, `macro.jpg`, `thumbnail.jpg` | ✅ | `macro.jpg` filename → `Type() == "overview"` per v0.15 alignment |
 | Cross-backing parity (mmap default vs pread) | ✅ | `tests/parity/szi_geometry_test.go` |
 
+## Edge tile semantics
+
+Per the DZI spec referenced by SZI: *"border tiles (outermost right and bottom of the image) may have a different size from the standard tile to match the image width/height."* opentile-go honors this — corner tiles decode to their actual content dimensions. **Example:** `CMU-1.szi`'s L0 corner tile is a 172×151 JPEG (image bounds 2220×2967, TileSize 256, corner = 9×12 grid cell). NOT 256×256 padded.
+
+The same per-tile content formula applies as on padded formats; on SZI it matches the decoded JPEG/PNG dimensions exactly:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+// On SZI: this matches the actual decoded tile dimensions.
+// On TIFF-based formats: the decoded tile is at full TileSize and
+// the consumer must clip — see docs/formats/{svs,ndpi,...}.md.
+```
+
+This is one of the few places SZI's behavior differs from the TIFF-based formats opentile-go reads. Other format readers (SVS, NDPI, Philips, OME-TIFF, BIF, IFE, Leica SCN, generic TIFF) return full-tile-padded edge tiles per the underlying file format.
+
 ## What's not supported
 
 | Capability | Status | Why |

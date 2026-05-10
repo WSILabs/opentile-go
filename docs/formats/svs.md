@@ -22,6 +22,17 @@ Aperio's scanned-slide format, produced by Leica Aperio scanners (most common di
 | BigTIFF | ✅ since v0.2 (`scan_620_.svs`, `svs_40x_bigtiff.svs` exercise this) |
 | Format-specific metadata | ✅ via `svs.MetadataOf(t)` — exposes MPP, SoftwareLine, Filename |
 
+## Edge tile semantics
+
+Tiles are stored at full `TileSize` regardless of position; right-edge and bottom-edge tiles include padding bytes in the unused region (the TIFF tile format stores them this way — opentile-go does not add the padding). The padding region's pixel content is encoder-specific (typically replicated edge pixels). opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+Matches upstream Python opentile (`get_tile()` is also byte-passthrough). SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 | Capability | Status | Why |

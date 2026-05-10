@@ -25,6 +25,24 @@ import (
 // by TileInto into the caller-provided dst remain caller-owned.
 // opentile-go never reads them after return.
 //
+// Edge-tile semantics vary by format. TIFF-based formats (SVS, NDPI,
+// Philips, OME-TIFF, BIF, Leica SCN, generic TIFF) and IFE store all
+// tiles at full [Level.TileSize] regardless of position; right-edge
+// and bottom-edge tiles include padding bytes outside the actual
+// image bounds — opentile-go does not add the padding, it's how the
+// underlying file format encodes them. SZI/DZI is the exception:
+// border tiles decode to their actual content dimensions per the
+// DZI spec. Consumers rendering tiles at slide-image positions
+// should clip output to the meaningful sub-rect using
+//
+//	contentW := min(TileSize().W, Size().W - x*TileSize().W)
+//	contentH := min(TileSize().H, Size().H - y*TileSize().H)
+//
+// On SZI/DZI the formula matches decoded dimensions exactly; on
+// padded formats the formula identifies the meaningful sub-rect
+// within the full-size tile. Per-format details in
+// `docs/formats/<fmt>.md`.
+//
 // Under [BackingMmap] (the v0.9 default), the underlying file must
 // not be truncated or rewritten while a Tiler is open — doing so
 // raises SIGBUS in any thread that subsequently reads through the

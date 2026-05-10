@@ -42,6 +42,17 @@ Cervix is a **2× downsampled** export from the Iris reference encoder (full-res
 | Associated images (IMAGE_ARRAY) | ✅ | `Tiler.Associated()` returns label / overview / thumbnail / macro / map / probability with normalised type names (v0.15+). Unknown titles surface lowercased. Per-image `Compression()` is JPEG (encoding=2) or AVIF (encoding=3); PNG (encoding=1) is reported as `CompressionUnknown` for now (passthrough — consumer can sniff the PNG signature). Cervix has one 1920×1337 JPEG thumbnail |
 | Synthetic-writer test harness | ✅ in `formats/ife/synthetic_test.go` + `formats/ife/metadata_test.go` — covers layer inversion, sparse tiles, IRIS / AVIF encodings, iterator order, error paths, and full METADATA round-trip with attributes / images / ICC |
 
+## Edge tile semantics
+
+The IFE spec mandates fixed-size tiles (256×256 native; 256×256-after-inversion when reads invert the slide-relative orientation). Right-edge and bottom-edge tiles whose origin + TileSize would extend beyond the level's `Size()` include padding bytes in the unused region — the IFE encoder writes them this way per the spec. opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
+
+```go
+contentW := min(ts.W, sz.W - x*ts.W)
+contentH := min(ts.H, sz.H - y*ts.H)
+```
+
+SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
+
 ## What's not supported
 
 | Capability | Status | Why |
