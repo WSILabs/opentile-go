@@ -137,6 +137,23 @@ Fixture-JSON note: T4 added populated values to `Leica-1` / `Leica-2` fixture me
 
 `ometiff.MetadataOf(t)` continues to expose the typed `OMEMetadata` accessor.
 
+## OME-XML writer attribution
+
+OME-TIFF files are written by many sources (Bio-Formats conversions
+from vendor formats, QuPath exports, OMERO pipelines, custom code).
+opentile-go captures the OME-XML root `Creator` attribute as
+`Properties["ome.creator"]` (e.g., `"OME Bio-Formats 6.0.0-rc1"`)
+to identify the WRITER. The cross-format `ScannerManufacturer`
+field is populated separately from `<Microscope>` elements when
+present and reflects the SCANNER OEM (which is distinct from the
+writer software).
+
+Consumers needing writer-vendor info should read `ome.creator`;
+consumers needing scanner identity should read `ScannerManufacturer`.
+
+This distinction (writer vs. scanner OEM) is intentional per the
+v0.18 spec — see `docs/superpowers/specs/2026-05-09-opentile-go-v18-svs-writer-detection-design.md`.
+
 ## Implementation references
 
 - Our package: `formats/ometiff/`
