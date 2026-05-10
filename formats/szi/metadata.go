@@ -2,6 +2,7 @@ package szi
 
 import (
 	"encoding/xml"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -11,14 +12,27 @@ import (
 
 // Metadata is the SZI-specific scan metadata parsed from the file's
 // scan-properties.xml. Cross-format fields (Magnification, scanner
-// identity, AcquisitionDateTime) populate the embedded
-// opentile.Metadata; SZI-specific fields (per-axis MPP, sensor
-// pixel size, scan-area dimensions, case/job identifiers, vendor-
-// prefixed open-ended properties) live on the outer struct.
+// identity, AcquisitionDateTime, per-axis MPP, comments, user name,
+// case number, scanned area, scan duration) populate the embedded
+// opentile.Metadata; SZI-specific raw representations (sensor pixel
+// size, scan-area dimensions, scan-job identifiers, the raw
+// "0h17m22s" ElapsedTime string, and the vendor.<key> open-ended
+// properties map) live on the outer struct.
 //
 // Consumers read the common fields via opentile.Tiler.Metadata() as
-// usual; to read the SZI-specific fields, pass the Tiler to
-// szi.MetadataOf.
+// usual; to read the SZI-specific raw fields, pass the Tiler to
+// szi.MetadataOf. Field reads via Go's embedded-struct promotion
+// continue to compile: szi.MetadataOf(t).MicronsPerPixel routes
+// through opentile.Metadata.MicronsPerPixel.
+//
+// v0.17 cleanup (Q4 Option B): MicronsPerPixel, MicronsPerPixelX,
+// MicronsPerPixelY, Comments, UserName, CaseNumber, and ScannedArea
+// were removed from this struct because they are exact duplicates
+// of the embedded opentile.Metadata fields / Properties keys
+// populated by parseScanProperties. Field reads via promotion
+// continue to compile unchanged; only struct-literal construction
+// (szi.Metadata{MicronsPerPixel: ...}) breaks — that surface is
+// internal/test-only.
 type Metadata struct {
 	opentile.Metadata
 
@@ -27,22 +41,24 @@ type Metadata struct {
 	// Date is the <image date="..."> attribute (YYYY-MM-DD).
 	Date time.Time
 
-	// UserName, SoftwareName, SoftwareVersion mirror the canonical
+	// SoftwareName, SoftwareVersion mirror the canonical
 	// scan-properties.xml fields. ScannerSoftware on the embedded
 	// opentile.Metadata carries "<SoftwareName> <SoftwareVersion>"
 	// as a single-element slice when both are present.
-	UserName        string
 	SoftwareName    string
 	SoftwareVersion string
 
 	// TimeStart / TimeEnd are scan-start / scan-end timestamps in
 	// the local clock of the scanner (no timezone). The embedded
 	// opentile.Metadata.AcquisitionDateTime mirrors TimeStart.
-	TimeStart   time.Time
-	TimeEnd     time.Time
+	TimeStart time.Time
+	TimeEnd   time.Time
+	// ElapsedTime is the raw "XhYmZs" string (e.g., "0h17m22s")
+	// from the scan-properties.xml <ElapsedTime> property. The
+	// parsed-seconds form is exposed as
+	// Properties[opentile.PropertyScanDurationSec].
 	ElapsedTime string
 
-	CaseNumber  string
 	ScanJobName string
 
 	ScannerSerialNo string
@@ -50,26 +66,19 @@ type Metadata struct {
 	CameraName      string
 	SensorPixelSize float64 // µm
 
-	ScannedArea float64 // mm²
-	ScanWidth   float64 // mm
-	ScanHeight  float64 // mm
-
-	// MicronsPerPixel is the canonical per-slide MPP from the
-	// <MicronsPerPixel> property if present, else the average of
-	// MicronsPerPixelX / MicronsPerPixelY when both are present.
-	// Zero when neither path yields a value.
-	MicronsPerPixel  float64
-	MicronsPerPixelX float64
-	MicronsPerPixelY float64
-
-	// Comments is the free-form <Comments> property.
-	Comments string
+	ScanWidth  float64 // mm
+	ScanHeight float64 // mm
 
 	// VendorProperties holds open-ended custom properties whose
 	// name contains a "." separator (per spec page 9: "Just add
 	// your scanner name before the field name, separated by a
 	// dot, e.g., 'vendor.MicronsX' or 'ScanCompany.FilterName'").
-	// Keys are surfaced as-is including the dotted prefix.
+	// Keys are surfaced as-is including the dotted prefix. This
+	// map is preserved as the canonical SZI-spec surface for
+	// vendor extensions even though the cross-format Properties
+	// map carries similar data — VendorProperties serves SZI-
+	// spec-aware consumers; Properties serves cross-format
+	// consumers.
 	VendorProperties map[string]string
 }
 
@@ -182,17 +191,52 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 			softwareVersion = p.Value
 			szim.SoftwareVersion = p.Value
 
-		// SZI-specific Metadata fields.
+		// v0.17 Q4 Option B: cross-format-canonical fields populate
+		// the embedded opentile.Metadata only; format-specific
+		// duplicates were removed from szi.Metadata.
+		case "MicronsPerPixelX":
+			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
+				cross.MicronsPerPixelX = f
+			}
+		case "MicronsPerPixelY":
+			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
+				cross.MicronsPerPixelY = f
+			}
+		case "MicronsPerPixel":
+			// The single-MPP value, when present, populates per-
+			// axis when X/Y aren't separately specified. Don't
+			// pre-set cross.MicronsPerPixel directly —
+			// SetMPPSymmetric handles the X==Y collapse at the
+			// end. SZI fixtures in the wild typically emit all
+			// three values with X==Y; the spec-example CMU-1.szi
+			// emits only the single MicronsPerPixel.
+			if f, e := strconv.ParseFloat(p.Value, 64); e == nil && cross.MicronsPerPixelX == 0 {
+				cross.MicronsPerPixelX = f
+				cross.MicronsPerPixelY = f
+			}
+		case "Comments":
+			cross.SetProperty(opentile.PropertyComments, p.Value)
 		case "UserName":
-			szim.UserName = p.Value
+			cross.SetProperty(opentile.PropertyUserName, p.Value)
+		case "CaseNumber":
+			cross.SetProperty(opentile.PropertyCaseNumber, p.Value)
+		case "ScannedArea":
+			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
+				cross.SetProperty(opentile.PropertyScannedAreaMM2,
+					strconv.FormatFloat(f, 'f', -1, 64))
+			}
+		case "ElapsedTime":
+			szim.ElapsedTime = p.Value // raw "0h17m22s" preserved
+			if seconds, ok := parseSZIDuration(p.Value); ok {
+				cross.SetProperty(opentile.PropertyScanDurationSec,
+					strconv.FormatFloat(seconds, 'f', -1, 64))
+			}
+
+		// SZI-specific raw fields without a cross-format equivalent.
 		case "TimeEnd":
 			if t, e := time.Parse("2006-01-02T15:04:05", p.Value); e == nil {
 				szim.TimeEnd = t
 			}
-		case "ElapsedTime":
-			szim.ElapsedTime = p.Value
-		case "CaseNumber":
-			szim.CaseNumber = p.Value
 		case "ScanJobName":
 			szim.ScanJobName = p.Value
 		case "CameraName":
@@ -200,10 +244,6 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 		case "SensorPixelSize":
 			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
 				szim.SensorPixelSize = f
-			}
-		case "ScannedArea":
-			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
-				szim.ScannedArea = f
 			}
 		case "ScanWidth":
 			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
@@ -213,20 +253,6 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
 				szim.ScanHeight = f
 			}
-		case "MicronsPerPixel":
-			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
-				szim.MicronsPerPixel = f
-			}
-		case "MicronsPerPixelX":
-			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
-				szim.MicronsPerPixelX = f
-			}
-		case "MicronsPerPixelY":
-			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
-				szim.MicronsPerPixelY = f
-			}
-		case "Comments":
-			szim.Comments = p.Value
 		}
 	}
 
@@ -240,14 +266,29 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 		cross.ScannerSoftware = []string{s}
 	}
 
-	// MicronsPerPixel fallback: average of X/Y if canonical field
-	// missing and both axes are present.
-	if szim.MicronsPerPixel == 0 && szim.MicronsPerPixelX > 0 && szim.MicronsPerPixelY > 0 {
-		szim.MicronsPerPixel = (szim.MicronsPerPixelX + szim.MicronsPerPixelY) / 2
-	}
+	// Collapse symmetric per-axis MPP into the canonical MPP slot.
+	// When X == Y (the common case on SZI fixtures), this populates
+	// cross.MicronsPerPixel; otherwise leaves it zero so consumers
+	// know to read the per-axis values explicitly.
+	cross.SetMPPSymmetric()
 
 	// Mirror the cross-format metadata onto the embedded struct so
 	// szi.MetadataOf consumers can read both layers from one value.
 	szim.Metadata = cross
 	return cross, szim, nil
+}
+
+// parseSZIDuration parses the SZI ElapsedTime format ("XhYmZs",
+// e.g., "0h17m22s") and returns total seconds. Returns 0, false
+// on malformed input. The format is loose: hours, minutes, and
+// seconds may be any non-negative float; a single literal mismatch
+// (missing 'h' / 'm' / 's', extra text, empty input) yields a
+// false return rather than a partial parse.
+func parseSZIDuration(s string) (float64, bool) {
+	var hours, minutes, seconds float64
+	n, err := fmt.Sscanf(s, "%fh%fm%fs", &hours, &minutes, &seconds)
+	if err != nil || n != 3 {
+		return 0, false
+	}
+	return hours*3600 + minutes*60 + seconds, true
 }

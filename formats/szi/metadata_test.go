@@ -3,6 +3,8 @@ package szi
 import (
 	"testing"
 	"time"
+
+	opentile "github.com/cornish/opentile-go"
 )
 
 func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
@@ -23,6 +25,8 @@ func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
     <property><name>SoftwareVersion</name><value>3.1.4</value></property>
     <property><name>UserName</name><value>operator1</value></property>
     <property><name>Comments</name><value>field comment</value></property>
+    <property><name>ScannedArea</name><value>123.456</value></property>
+    <property><name>CaseNumber</name><value>H-2024-001</value></property>
     <property><name>vendor.SerialNumber</name><value>OCUS-1234</value></property>
     <property><name>Grundium.CustomField</name><value>customvalue</value></property>
   </properties>
@@ -54,18 +58,39 @@ func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
 		t.Errorf("ScannerSoftware = %v, want [OcusScan 3.1.4]", cross.ScannerSoftware)
 	}
 
-	// SZI-specific fields.
-	if szim.UserName != "operator1" {
-		t.Errorf("UserName = %q", szim.UserName)
+	// v0.17 cross-format MPP: per-axis populated; SetMPPSymmetric
+	// collapses to the canonical slot since X == Y.
+	if cross.MicronsPerPixelX != 0.25055239898989901 {
+		t.Errorf("MicronsPerPixelX = %v, want 0.25055239898989901", cross.MicronsPerPixelX)
 	}
+	if cross.MicronsPerPixelY != 0.25055239898989901 {
+		t.Errorf("MicronsPerPixelY = %v, want 0.25055239898989901", cross.MicronsPerPixelY)
+	}
+	if cross.MicronsPerPixel != 0.25055239898989901 {
+		t.Errorf("MicronsPerPixel = %v, want 0.25055239898989901 (X==Y collapse)", cross.MicronsPerPixel)
+	}
+
+	// v0.17 cross-format Properties.
+	if got := cross.Properties[opentile.PropertyComments]; got != "field comment" {
+		t.Errorf("Properties[Comments] = %q, want %q", got, "field comment")
+	}
+	if got := cross.Properties[opentile.PropertyUserName]; got != "operator1" {
+		t.Errorf("Properties[UserName] = %q, want %q", got, "operator1")
+	}
+	if got := cross.Properties[opentile.PropertyCaseNumber]; got != "H-2024-001" {
+		t.Errorf("Properties[CaseNumber] = %q, want %q", got, "H-2024-001")
+	}
+	if got := cross.Properties[opentile.PropertyScannedAreaMM2]; got != "123.456" {
+		t.Errorf("Properties[ScannedAreaMM2] = %q, want %q", got, "123.456")
+	}
+	// ElapsedTime "0h15m30s" → 0*3600 + 15*60 + 30 = 930 seconds.
+	if got := cross.Properties[opentile.PropertyScanDurationSec]; got != "930" {
+		t.Errorf("Properties[ScanDurationSec] = %q, want %q", got, "930")
+	}
+
+	// SZI-specific raw fields preserved.
 	if szim.ElapsedTime != "0h15m30s" {
-		t.Errorf("ElapsedTime = %q", szim.ElapsedTime)
-	}
-	if szim.Comments != "field comment" {
-		t.Errorf("Comments = %q", szim.Comments)
-	}
-	if szim.MicronsPerPixel != 0.25055239898989901 {
-		t.Errorf("MicronsPerPixel = %v", szim.MicronsPerPixel)
+		t.Errorf("ElapsedTime = %q (raw form preserved)", szim.ElapsedTime)
 	}
 	wantTimeEnd := time.Date(2024, 1, 15, 10, 45, 30, 0, time.UTC)
 	if !szim.TimeEnd.Equal(wantTimeEnd) {
@@ -85,9 +110,15 @@ func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
 		t.Errorf("Date = %v, want %v", szim.Date, wantDate)
 	}
 
-	// Embedded cross-format fields accessible via szim.
+	// Embedded cross-format fields accessible via promotion.
 	if szim.Magnification != 40 {
 		t.Errorf("szim.Magnification = %v, want 40", szim.Magnification)
+	}
+	if szim.MicronsPerPixel != 0.25055239898989901 {
+		t.Errorf("szim.MicronsPerPixel (promoted) = %v, want 0.25055239898989901", szim.MicronsPerPixel)
+	}
+	if got := szim.Properties[opentile.PropertyUserName]; got != "operator1" {
+		t.Errorf("szim.Properties[UserName] (promoted) = %q, want operator1", got)
 	}
 
 	// Vendor-prefixed properties land in VendorProperties; canonical
@@ -133,25 +164,79 @@ func TestParseScanProperties_MissingFieldsLenient(t *testing.T) {
 	}
 }
 
-func TestParseScanProperties_MicronsAvg(t *testing.T) {
-	// Canonical MicronsPerPixel missing → average of X/Y populates
-	// szi.Metadata.MicronsPerPixel.
+func TestParseScanProperties_MicronsAsymmetric(t *testing.T) {
+	// Per-axis MPP populates cross.MicronsPerPixelX/Y; when X != Y,
+	// SetMPPSymmetric leaves cross.MicronsPerPixel zero (consumers
+	// read per-axis values explicitly when the slide is anisotropic).
 	const data = `<image><properties>
 <property><name>MicronsPerPixelX</name><value>0.4</value></property>
 <property><name>MicronsPerPixelY</name><value>0.6</value></property>
 </properties></image>`
-	_, szim, err := parseScanProperties([]byte(data))
+	cross, _, err := parseScanProperties([]byte(data))
 	if err != nil {
 		t.Fatalf("parseScanProperties: %v", err)
 	}
-	if szim.MicronsPerPixel != 0.5 {
-		t.Errorf("MicronsPerPixel avg = %v, want 0.5", szim.MicronsPerPixel)
+	if cross.MicronsPerPixelX != 0.4 {
+		t.Errorf("MicronsPerPixelX = %v, want 0.4", cross.MicronsPerPixelX)
 	}
-	if szim.MicronsPerPixelX != 0.4 {
-		t.Errorf("MicronsPerPixelX = %v, want 0.4", szim.MicronsPerPixelX)
+	if cross.MicronsPerPixelY != 0.6 {
+		t.Errorf("MicronsPerPixelY = %v, want 0.6", cross.MicronsPerPixelY)
 	}
-	if szim.MicronsPerPixelY != 0.6 {
-		t.Errorf("MicronsPerPixelY = %v, want 0.6", szim.MicronsPerPixelY)
+	if cross.MicronsPerPixel != 0 {
+		t.Errorf("MicronsPerPixel = %v, want 0 (X != Y, no symmetric collapse)", cross.MicronsPerPixel)
+	}
+}
+
+func TestParseScanProperties_MicronsCanonicalOnly(t *testing.T) {
+	// When only the canonical <MicronsPerPixel> is present (the
+	// spec-example CMU-1.szi flavor), it propagates to per-axis
+	// X/Y, then SetMPPSymmetric collapses to the canonical slot.
+	const data = `<image><properties>
+<property><name>MicronsPerPixel</name><value>0.402</value></property>
+</properties></image>`
+	cross, _, err := parseScanProperties([]byte(data))
+	if err != nil {
+		t.Fatalf("parseScanProperties: %v", err)
+	}
+	if cross.MicronsPerPixelX != 0.402 {
+		t.Errorf("MicronsPerPixelX = %v, want 0.402", cross.MicronsPerPixelX)
+	}
+	if cross.MicronsPerPixelY != 0.402 {
+		t.Errorf("MicronsPerPixelY = %v, want 0.402", cross.MicronsPerPixelY)
+	}
+	if cross.MicronsPerPixel != 0.402 {
+		t.Errorf("MicronsPerPixel = %v, want 0.402 (X==Y collapse)", cross.MicronsPerPixel)
+	}
+}
+
+func TestParseSZIDuration(t *testing.T) {
+	cases := []struct {
+		in     string
+		want   float64
+		wantOK bool
+	}{
+		{"0h17m22s", 1042, true},
+		{"1h0m0s", 3600, true},
+		{"0h0m30s", 30, true},
+		{"0h0m0s", 0, true},
+		{"2h30m45s", 2*3600 + 30*60 + 45, true},
+		// Malformed:
+		{"", 0, false},
+		{"17m22s", 0, false},
+		{"abc", 0, false},
+		{"1:30:00", 0, false},
+		{"1h30m", 0, false},
+		{"30s", 0, false},
+	}
+	for _, tc := range cases {
+		got, ok := parseSZIDuration(tc.in)
+		if ok != tc.wantOK {
+			t.Errorf("parseSZIDuration(%q) ok = %v, want %v", tc.in, ok, tc.wantOK)
+			continue
+		}
+		if ok && got != tc.want {
+			t.Errorf("parseSZIDuration(%q) = %v, want %v", tc.in, got, tc.want)
+		}
 	}
 }
 
