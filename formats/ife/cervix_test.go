@@ -210,6 +210,39 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Errorf("CodecMajor = %d (zero); cervix encoder is 2025.x", ifeMD.CodecMajor)
 	}
 
+	// v0.17 cross-format assertions on cervix's real metadata.
+	cm = tiler.Metadata()
+	// MPP: cervix header reports 16.835 µm/px (a 2× downsample of
+	// a 0.263 µm/px GT450 scan). f32→f64 widening introduces a tiny
+	// epsilon (16.835 isn't exact in IEEE-754 binary); assert
+	// directionally rather than against a specific bit pattern.
+	if cm.MicronsPerPixelX < 16.83 || cm.MicronsPerPixelX > 16.84 {
+		t.Errorf("cross.MicronsPerPixelX = %v, want ≈ 16.835", cm.MicronsPerPixelX)
+	}
+	if cm.MicronsPerPixelX != cm.MicronsPerPixelY {
+		t.Errorf("cross.MicronsPerPixelX (%v) != Y (%v); IFE pixels are isotropic", cm.MicronsPerPixelX, cm.MicronsPerPixelY)
+	}
+	if cm.MicronsPerPixel == 0 {
+		t.Error("cross.MicronsPerPixel = 0; SetMPPSymmetric should populate it on isotropic pixels")
+	}
+	// Vendor passthrough: every IFE attribute available under "iris.".
+	if got := cm.Properties["iris.aperio.AppMag"]; got != "40" {
+		t.Errorf("Properties[iris.aperio.AppMag] = %q, want %q", got, "40")
+	}
+	if got := cm.Properties["iris.aperio.ScannerType"]; got != "GT450" {
+		t.Errorf("Properties[iris.aperio.ScannerType] = %q, want %q", got, "GT450")
+	}
+	// tiff.ImageDescription → cross.ImageDescription (the cervix
+	// fixture preserves the source GT450's banner verbatim).
+	if cm.ImageDescription == "" {
+		t.Error("cross.ImageDescription empty; cervix carries tiff.ImageDescription attribute")
+	}
+	// Negative: cervix has no user-name field — canonical
+	// PropertyUserName must be absent.
+	if _, present := cm.Properties[opentile.PropertyUserName]; present {
+		t.Errorf("Properties[%s]: present but cervix has no user-name attribute", opentile.PropertyUserName)
+	}
+
 	// Tiles iterator on the coarsest level (a 2×2 grid → 4 tiles).
 	lTop := levels[len(levels)-1]
 	count := 0

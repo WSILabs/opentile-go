@@ -3,7 +3,7 @@
   "format": "ome-tiff",
   "levels": null,
   "metadata": {
-    "magnification": 0
+    "magnification": 40
   },
   "associated": [
     {

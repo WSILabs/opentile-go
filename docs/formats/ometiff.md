@@ -108,6 +108,24 @@ OneFrame levels of the dropped Leica-2 pyramids have no straight-byte Python ref
 | Plane-0-only indexing on `PlanarConfiguration=2` | v0.6 | not opt-out-able | When OME pages use separate-plane storage (3 channels × grid entries in TileOffsets), Python opentile silently uses plane 0 only via flat `y*W + x` indexing. We mirror that for byte parity. The other planes are inaccessible through our public API |
 | First-strip-only on multi-strip OneFrame | v0.6 | not opt-out-able | OME planar OneFrame pages can carry `rowsperstrip × samplesperpixel` strips (Leica-1 L2 has 7206). Python opentile's `_read_frame(0)` consumes only strip 0 (plane 0 row 0) and lets libjpeg-turbo's `TJERR_WARNING` recover from the truncated scan data. Our cgo wrapper distinguishes warning from fatal via `tjGetErrorCode` and matches Python's behaviour |
 
+## Cross-format Metadata mapping (v0.17)
+
+OME-TIFF carries metadata in OME-XML inside the page-0 `ImageDescription`. Pre-v0.17 the cross-format `Metadata()` returned an empty struct; v0.17 wires it from the parsed OME-XML:
+
+| OME-XML element | cross-format Metadata position |
+|---|---|
+| `<Pixels PhysicalSizeX>` / `<Pixels PhysicalSizeY>` | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y |
+| `<Image Description>` element text | `ImageDescription` |
+| `<AcquisitionDate>` element text | `AcquisitionDateTime` |
+| `<Objective NominalMagnification>` | `Magnification` |
+| `<Experimenter UserName>` (when present) | `Properties[PropertyUserName]` (Bio-Formats fixtures lack `<Experimenter>`, so absent today) |
+| OME root `Creator` attribute | `Properties["ome.creator"]` |
+| OME root `UUID` attribute | `Properties["ome.uuid"]` |
+
+Fixture-JSON note: T4 added populated values to `Leica-1` / `Leica-2` fixture metadata snapshots (Magnification 0 → 20/40).
+
+`ometiff.MetadataOf(t)` continues to expose the typed `OMEMetadata` accessor.
+
 ## Implementation references
 
 - Our package: `formats/ometiff/`

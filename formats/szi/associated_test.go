@@ -93,14 +93,17 @@ func TestMetadataOf_CMU1(t *testing.T) {
 	if szim.Magnification != 10 {
 		t.Errorf("Magnification = %v, want 10", szim.Magnification)
 	}
+	// MicronsPerPixel reads via embedded-struct promotion through
+	// opentile.Metadata after v0.17 cleanup (Q4 Option B).
 	if szim.MicronsPerPixel != 0.402 {
 		t.Errorf("MicronsPerPixel = %v, want 0.402", szim.MicronsPerPixel)
 	}
-	if szim.UserName != "thomas" {
-		t.Errorf("UserName = %q, want thomas", szim.UserName)
+	// v0.17: UserName / CaseNumber moved to cross-format Properties.
+	if got := szim.Properties[opentile.PropertyUserName]; got != "thomas" {
+		t.Errorf("Properties[UserName] = %q, want thomas", got)
 	}
-	if szim.CaseNumber != "H-2017-234" {
-		t.Errorf("CaseNumber = %q, want H-2017-234", szim.CaseNumber)
+	if got := szim.Properties[opentile.PropertyCaseNumber]; got != "H-2017-234" {
+		t.Errorf("Properties[CaseNumber] = %q, want H-2017-234", got)
 	}
 	// Tiler.Metadata() should return the same cross-format values.
 	cross := tlr.Metadata()

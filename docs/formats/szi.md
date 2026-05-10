@@ -94,24 +94,30 @@ CMU-1 is the canonical CC-BY-licensed Aperio reference slide re-encoded as SZI b
 - `ScannerSerial` ← `<ScannerSerialNo>`
 - `AcquisitionDateTime` ← `<TimeStart>`
 - `ScannerSoftware` ← `"<SoftwareName> <SoftwareVersion>"` (single-element slice)
+- `MicronsPerPixelX` / `MicronsPerPixelY` ← `<MicronsPerPixelX>` / `<MicronsPerPixelY>` (added in v0.17)
+- `MicronsPerPixel` ← X when X == Y, else 0 (Q2 smart-MPP gate; added in v0.17)
+- `ImageDescription` ← empty for SZI (use `Properties[PropertyComments]` for free-text)
+- `Properties[PropertyCaseNumber]` ← `<CaseNumber>` (added in v0.17)
+- `Properties[PropertyUserName]` ← `<UserName>` (added in v0.17)
+- `Properties[PropertyScannedAreaMM2]` ← `<ScannedArea>` (added in v0.17)
+- `Properties[PropertyScanDurationSec]` ← parsed `<ElapsedTime>` "XhYmZs" → seconds (added in v0.17)
+- `Properties[PropertyComments]` ← `<Comments>` (added in v0.17)
 
 **SZI-specific `szi.Metadata`** (read via `szi.MetadataOf(tiler)`):
 
-- Embedded `opentile.Metadata` (so consumers read both layers from one value)
+- Embedded `opentile.Metadata` (so consumers read both layers from one value; cross-format-canonical fields above flow through field promotion)
 - `Version`, `Date` — `<image>` element attributes
-- `UserName`, `SoftwareName`, `SoftwareVersion`
-- `TimeStart`, `TimeEnd`, `ElapsedTime`
-- `CaseNumber`, `ScanJobName`, `ScannerSerialNo`
+- `SoftwareName`, `SoftwareVersion`
+- `TimeStart`, `TimeEnd`, `ElapsedTime` (raw "XhYmZs" string preserved per Q4 Option B)
+- `ScanJobName`, `ScannerSerialNo`
 - `CameraName`, `SensorPixelSize` (µm)
-- `ScannedArea` (mm²), `ScanWidth`, `ScanHeight` (mm)
-- `MicronsPerPixel`, `MicronsPerPixelX`, `MicronsPerPixelY`
-- `Comments`
+- `ScanWidth`, `ScanHeight` (mm)
 - **`VendorProperties map[string]string`** — open-ended `vendor.<key>` properties per spec page 9: *"Just add your scanner name before the field name, separated by a dot, e.g., 'vendor.MicronsX' or 'ScanCompany.FilterName'."* Keys surface as-is including the dotted prefix.
+
+v0.17 cleanup (per Q4 Option B): the format-specific `szi.Metadata` no longer carries `MicronsPerPixel`, `MicronsPerPixelX/Y`, `Comments`, `UserName`, `CaseNumber`, or `ScannedArea` — those are cross-format-canonical and flow through the embedded `opentile.Metadata`. Behavior change vs v0.16: anisotropic SZI now leaves `MicronsPerPixel = 0` (was previously averaging X / Y); per Q2 smart-MPP-only-when-X==Y.
 
 Notes:
 
-- **`MicronsPerPixel` is not yet on the cross-format `opentile.Metadata`.** It lives on `szi.Metadata` only in v0.16. Cross-format MPP exposure is tracked as a backlog item (`docs/deferred.md` §11 R20) — touches every format reader's `Metadata()` implementation.
-- **`Comments` (an SZI free-form scan-note field)** likewise lives on `szi.Metadata` only.
 - The XML parser is lenient: missing fields land as zero values; malformed numerics are silently skipped.
 - The namespace varies in real-world SZI files (spec page lists `http://www.pathozoom.com/SZI`, the CMU-1 fixture uses lowercase `http://www.pathozoom.com/szi`); the parser matches local element names regardless of namespace.
 

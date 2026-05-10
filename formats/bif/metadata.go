@@ -1,6 +1,7 @@
 package bif
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,11 +59,6 @@ type Metadata struct {
 	// the entire stack can range over this slice instead of looping
 	// 0..SizeZ-1 + calling ZPlaneFocus.
 	ZPlaneFoci []float64
-
-	// ImageDescription mirrors the level-0 IFD's ImageDescription
-	// tag verbatim (e.g., "level=0 mag=40 quality=95"). Useful for
-	// debugging or for surfacing the per-level JPEG quality.
-	ImageDescription string
 
 	// AOIs is the list of areas-of-interest declared in the
 	// <iScan> XMP (one entry per AOI<N> sub-element). For
@@ -153,10 +149,76 @@ func (t *Tiler) metadata() *Metadata {
 		// scanner-software build, NOT the scan-time. Real
 		// scan-time lives in the IFD's TIFF tag DateTime
 		// (yyyy:mm:dd HH:MM:SS) — populated below.
+
+		// Cross-format MPP (v0.17): BIF carries a single ScanRes
+		// applied to both axes — the spec doesn't allow anisotropic
+		// pixels. SetMPPSymmetric collapses the equal X/Y values
+		// into the symmetric MicronsPerPixel slot.
+		if t.iscan.ScanRes > 0 {
+			md.MicronsPerPixelX = t.iscan.ScanRes
+			md.MicronsPerPixelY = t.iscan.ScanRes
+		}
+		md.SetMPPSymmetric()
+
+		// Cross-format canonical: scan operator. The iScan element's
+		// UserName attribute is rare in real fixtures (neither
+		// Ventana-1 nor OS-1 carry one) but the bifxml parser
+		// surfaces it when present.
+		if t.iscan.UserName != "" {
+			md.SetProperty(opentile.PropertyUserName, t.iscan.UserName)
+		}
+
+		// Cross-format vendor passthrough: surface every iScan XML
+		// attribute under the "ventana." namespace so consumers can
+		// reach format-specific fields without reparsing the raw
+		// XMP. Includes attributes that ARE typed elsewhere on the
+		// outer Metadata struct (e.g. ScannerModel, ScanRes,
+		// BuildVersion) so the namespaced Properties view is a
+		// faithful complete mirror of the source XML.
+		if t.iscan.ScannerModel != "" {
+			md.SetProperty("ventana.ScannerModel", t.iscan.ScannerModel)
+		}
+		if t.iscan.Magnification != 0 {
+			md.SetProperty("ventana.Magnification", strconv.FormatFloat(t.iscan.Magnification, 'f', -1, 64))
+		}
+		if t.iscan.ScanRes != 0 {
+			md.SetProperty("ventana.ScanRes", strconv.FormatFloat(t.iscan.ScanRes, 'f', -1, 64))
+		}
+		if t.iscan.ScanWhitePointPresent {
+			md.SetProperty("ventana.ScanWhitePoint", strconv.FormatUint(uint64(t.iscan.ScanWhitePoint), 10))
+		}
+		if t.iscan.ZLayers != 0 {
+			md.SetProperty("ventana.Z-layers", strconv.Itoa(t.iscan.ZLayers))
+		}
+		if t.iscan.ZSpacing != 0 {
+			md.SetProperty("ventana.Z-spacing", strconv.FormatFloat(t.iscan.ZSpacing, 'f', -1, 64))
+		}
+		if t.iscan.BuildVersion != "" {
+			md.SetProperty("ventana.BuildVersion", t.iscan.BuildVersion)
+		}
+		if t.iscan.BuildDate != "" {
+			md.SetProperty("ventana.BuildDate", t.iscan.BuildDate)
+		}
+		if t.iscan.UnitNumber != "" {
+			md.SetProperty("ventana.UnitNumber", t.iscan.UnitNumber)
+		}
+		if t.iscan.UserName != "" {
+			md.SetProperty("ventana.UserName", t.iscan.UserName)
+		}
+		// RawAttributes covers any iScan attribute the typed parser
+		// didn't pull into a struct field (e.g. "Mode" — consumed but
+		// not typed — and any future attribute names a spec revision
+		// might introduce).
+		for k, v := range t.iscan.RawAttributes {
+			md.SetProperty("ventana."+k, v)
+		}
 	}
 
 	// Pull TIFF tag DateTime / Software / ImageDescription from the
-	// level-0 IFD when available.
+	// level-0 IFD when available. ImageDescription populates the
+	// cross-format opentile.Metadata.ImageDescription via field
+	// promotion (v0.17: Q4 Option B removed the duplicate outer
+	// field).
 	if len(t.levelIFDs) > 0 {
 		p := t.levelIFDs[0].Page
 		if v, ok := p.ImageDescription(); ok {

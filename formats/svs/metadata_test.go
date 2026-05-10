@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	opentile "github.com/cornish/opentile-go"
 )
 
 func TestParseDescription(t *testing.T) {
@@ -159,5 +161,75 @@ func TestParseDescriptionDuplicateKeyLastWins(t *testing.T) {
 	}
 	if md.MPP != 0.25 {
 		t.Errorf("duplicate MPP: got %v, want 0.25 (last-wins)", md.MPP)
+	}
+}
+
+// TestParseDescriptionCrossFormatFields verifies the v0.17 cross-format
+// Metadata positions (MicronsPerPixel*, ImageDescription, Properties) are
+// populated alongside the SVS-specific fields. Asserts symmetric MPP
+// (Aperio reports a single value), the verbatim ImageDescription tag,
+// the canonical PropertyUserName slot, and "aperio." vendor passthrough.
+func TestParseDescriptionCrossFormatFields(t *testing.T) {
+	desc := "Aperio Image Library v11.2.1\n" +
+		"46000x32914 [0,100 46000x32714] (240x240) JPEG/RGB Q=30|" +
+		"AppMag = 20|MPP = 0.4990|Date = 02/02/2017|Time = 11:22:33|" +
+		"ScanScope ID = SS1234|Filename = CMU-1|User = scanner-op-1|" +
+		"ICC Profile = ScanScope v1"
+	md, err := parseDescription(desc)
+	if err != nil {
+		t.Fatalf("parseDescription: %v", err)
+	}
+	if md.MicronsPerPixelX != 0.499 {
+		t.Errorf("MicronsPerPixelX: got %v, want 0.499", md.MicronsPerPixelX)
+	}
+	if md.MicronsPerPixelY != 0.499 {
+		t.Errorf("MicronsPerPixelY: got %v, want 0.499", md.MicronsPerPixelY)
+	}
+	if md.MicronsPerPixel != 0.499 {
+		t.Errorf("MicronsPerPixel (symmetric): got %v, want 0.499", md.MicronsPerPixel)
+	}
+	if md.ImageDescription != desc {
+		t.Errorf("ImageDescription: got %q, want verbatim tag", md.ImageDescription)
+	}
+	if got := md.Properties[opentile.PropertyUserName]; got != "scanner-op-1" {
+		t.Errorf("PropertyUserName: got %q, want scanner-op-1", got)
+	}
+	if got := md.Properties["aperio.User"]; got != "scanner-op-1" {
+		t.Errorf("aperio.User: got %q, want scanner-op-1", got)
+	}
+	if got := md.Properties["aperio.AppMag"]; got != "20" {
+		t.Errorf("aperio.AppMag: got %q, want 20", got)
+	}
+	if got := md.Properties["aperio.MPP"]; got != "0.4990" {
+		t.Errorf("aperio.MPP: got %q, want 0.4990", got)
+	}
+	if got := md.Properties["aperio.Filename"]; got != "CMU-1" {
+		t.Errorf("aperio.Filename: got %q, want CMU-1", got)
+	}
+	// Key with embedded space round-trips correctly.
+	if got := md.Properties["aperio.ICC Profile"]; got != "ScanScope v1" {
+		t.Errorf("aperio.ICC Profile: got %q, want ScanScope v1", got)
+	}
+	// The geometry/codec prelude line that splitKV may capture as a
+	// junk "key" must not be surfaced in Properties.
+	for k := range md.Properties {
+		if strings.ContainsAny(k, "[](),/;\n") {
+			t.Errorf("Properties contains junk key %q", k)
+		}
+	}
+}
+
+// TestParseDescriptionAsymmetricMPPNotApplicable documents that Aperio
+// only ever reports a single MPP, so MicronsPerPixel is always populated
+// (never zero-because-asymmetric) when MPP is present.
+func TestParseDescriptionMPPSymmetric(t *testing.T) {
+	desc := "Aperio v1.0\n100x100 (256x256) JPEG/RGB Q=30|MPP = 0.25"
+	md, err := parseDescription(desc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if md.MicronsPerPixel != 0.25 || md.MicronsPerPixelX != 0.25 || md.MicronsPerPixelY != 0.25 {
+		t.Errorf("expected MPP=X=Y=0.25, got MPP=%v X=%v Y=%v",
+			md.MicronsPerPixel, md.MicronsPerPixelX, md.MicronsPerPixelY)
 	}
 }

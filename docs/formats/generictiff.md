@@ -131,6 +131,21 @@ The raw ImageDescription remains stored verbatim for consumers who
 want full provenance (`source=svs`, `codec=avif`, wsi-tools version).
 Non-wsi-tools ImageDescriptions are unaffected.
 
+## Cross-format Metadata mapping (v0.17)
+
+For wsi-tools-tagged generic TIFFs, the v0.17 cross-format Metadata expansion lifts every parsed field onto the cross-format struct. For non-wsi-tools generic TIFFs, only `ImageDescription` (verbatim) is populated.
+
+| Source | cross-format Metadata position |
+|---|---|
+| wsi-tools `mpp=` | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y |
+| wsi-tools `mag=` | `Magnification` |
+| wsi-tools `scanner=` | `ScannerManufacturer` |
+| wsi-tools `date=` | `AcquisitionDateTime` |
+| any non-empty ImageDescription | `ImageDescription` (verbatim) |
+| wsi-tools provenance | `Properties["wsi-tools.version"]`, `Properties["wsi-tools.source"]`, `Properties["wsi-tools.codec"]` |
+
+Per Q4 Option B, the format-specific `generictiff.Metadata.MicronsPerPixel` and `ImageDescription` duplicates were retired in v0.17 (the cross-format positions cover them).
+
 ## Implementation references
 
 - Our package: `formats/generictiff/`

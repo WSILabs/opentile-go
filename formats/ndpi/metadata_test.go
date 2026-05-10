@@ -3,6 +3,8 @@ package ndpi
 import (
 	"testing"
 	"time"
+
+	opentile "github.com/cornish/opentile-go"
 )
 
 func TestParseMetadataFromFields(t *testing.T) {
@@ -52,5 +54,97 @@ func TestParseMetadataMissingFields(t *testing.T) {
 	}
 	if !got.AcquisitionDateTime.IsZero() {
 		t.Errorf("AcquisitionDateTime: got %v, want zero", got.AcquisitionDateTime)
+	}
+	if got.MicronsPerPixel != 0 || got.MicronsPerPixelX != 0 || got.MicronsPerPixelY != 0 {
+		t.Errorf("MPP fields: got X=%v Y=%v MPP=%v, want all 0",
+			got.MicronsPerPixelX, got.MicronsPerPixelY, got.MicronsPerPixel)
+	}
+	if got.ImageDescription != "" {
+		t.Errorf("ImageDescription: got %q, want empty", got.ImageDescription)
+	}
+}
+
+// TestParseMetadataCrossFormatMPPAsymmetric exercises the v0.17 MPP
+// computation on real-fixture-shaped inputs. NDPI fixtures observed
+// in the suite have asymmetric per-axis pixel size (CMU-1.ndpi
+// X=0.4564, Y=0.4551; OS-2.ndpi X=0.2271, Y=0.2271), so MicronsPerPixel
+// reports 0 (asymmetric sentinel) while X/Y carry the true values.
+func TestParseMetadataCrossFormatMPPAsymmetric(t *testing.T) {
+	got := parseFromFields(metadataFields{
+		Magnification:  20.0,
+		XResolution:    [2]uint32{21910, 1}, // CMU-1.ndpi values
+		YResolution:    [2]uint32{21975, 1},
+		ResolutionUnit: 3, // centimeters
+	})
+	// 10000 / (21910/1) ≈ 0.45641
+	if got.MicronsPerPixelX < 0.456 || got.MicronsPerPixelX > 0.457 {
+		t.Errorf("MicronsPerPixelX: got %v, want ≈0.4564", got.MicronsPerPixelX)
+	}
+	if got.MicronsPerPixelY < 0.455 || got.MicronsPerPixelY > 0.456 {
+		t.Errorf("MicronsPerPixelY: got %v, want ≈0.4551", got.MicronsPerPixelY)
+	}
+	if got.MicronsPerPixel != 0 {
+		t.Errorf("MicronsPerPixel (asymmetric): got %v, want 0", got.MicronsPerPixel)
+	}
+}
+
+// TestParseMetadataCrossFormatMPPSymmetric exercises the symmetric
+// path (rare on real NDPI but covered for correctness).
+func TestParseMetadataCrossFormatMPPSymmetric(t *testing.T) {
+	got := parseFromFields(metadataFields{
+		XResolution:    [2]uint32{20000, 1},
+		YResolution:    [2]uint32{20000, 1},
+		ResolutionUnit: 3,
+	})
+	if got.MicronsPerPixel != 0.5 || got.MicronsPerPixelX != 0.5 || got.MicronsPerPixelY != 0.5 {
+		t.Errorf("expected MPP=X=Y=0.5, got MPP=%v X=%v Y=%v",
+			got.MicronsPerPixel, got.MicronsPerPixelX, got.MicronsPerPixelY)
+	}
+}
+
+// TestParseMetadataCrossFormatVendorAndSerial verifies the cross-format
+// ScannerSerial slot is populated from the NDPI Reference tag (real
+// fixture: OS-2.ndpi Reference="870003"), and that vendor passthrough
+// surfaces the parsed Hamamatsu fields under "hamamatsu.".
+func TestParseMetadataCrossFormatVendorAndSerial(t *testing.T) {
+	got := parseFromFields(metadataFields{
+		Magnification:          40.0,
+		Reference:              "870003",
+		ZOffsetFromSlideCenter: 2500,
+	})
+	if got.ScannerSerial != "870003" {
+		t.Errorf("ScannerSerial: got %q, want 870003", got.ScannerSerial)
+	}
+	if v := got.Properties["hamamatsu.Reference"]; v != "870003" {
+		t.Errorf("hamamatsu.Reference: got %q, want 870003", v)
+	}
+	if v := got.Properties["hamamatsu.SourceLens"]; v != "40" {
+		t.Errorf("hamamatsu.SourceLens: got %q, want 40", v)
+	}
+	if v := got.Properties["hamamatsu.FocalOffsetMM"]; v == "" {
+		t.Errorf("hamamatsu.FocalOffsetMM: missing")
+	}
+	// PropertyUserName is unused by NDPI (no User-equivalent vendor tag);
+	// document that absence so a future refactor that incorrectly adds
+	// such a mapping breaks this test.
+	if _, ok := got.Properties[opentile.PropertyUserName]; ok {
+		t.Errorf("PropertyUserName: NDPI must not populate this; got %q",
+			got.Properties[opentile.PropertyUserName])
+	}
+}
+
+// TestParseMetadataMPPRequiresCMUnit documents that MPP computation
+// only fires when ResolutionUnit == 3 (centimeters). Real NDPI
+// fixtures all use cm units; other units would produce wrong-by-orders-
+// of-magnitude values, so the safer behavior is "skip and leave zero."
+func TestParseMetadataMPPRequiresCMUnit(t *testing.T) {
+	got := parseFromFields(metadataFields{
+		XResolution:    [2]uint32{20000, 1},
+		YResolution:    [2]uint32{20000, 1},
+		ResolutionUnit: 2, // inches — not what NDPI uses
+	})
+	if got.MicronsPerPixelX != 0 || got.MicronsPerPixelY != 0 || got.MicronsPerPixel != 0 {
+		t.Errorf("MPP must be zero when ResolutionUnit != 3, got X=%v Y=%v MPP=%v",
+			got.MicronsPerPixelX, got.MicronsPerPixelY, got.MicronsPerPixel)
 	}
 }

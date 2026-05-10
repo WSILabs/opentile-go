@@ -80,6 +80,19 @@ The IFE v1.0 spec is the only upstream — there's no second implementation to d
 
 **Architectural deviation** also captured in §1a: `FormatFactory.SupportsRaw` + `OpenRaw` non-TIFF dispatch path. Backward-compatible via embedded `RawUnsupported` defaults; no caller-visible breakage on the existing five TIFF formats.
 
+## Cross-format Metadata mapping (v0.17)
+
+IFE's METADATA segment carries IFE-spec-canonical attributes. v0.17 surfaces them:
+
+| IFE METADATA source | cross-format Metadata position |
+|---|---|
+| `MPP` attribute (per axis) | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y (cervix fixture is isotropic at 16.835) |
+| objective magnification (when present) | `Magnification` |
+| `description` block | `ImageDescription` |
+| every spec-defined attribute | `Properties["iris.<key>"]` (24 attributes on the cervix fixture: e.g., `iris.aperio.AppMag`, `iris.tiff.ImageDescription`, etc.) |
+
+The cervix fixture's encoder doesn't write `ScannerManufacturer/Model/Serial` METADATA fields, so those cross-format positions remain empty for it. Per Q4 Option B, the format-specific `ife.Metadata.MicronsPerPixel` was retired (the cross-format per-axis fields cover it); `ife.MetadataOf(t)` continues to expose IFE-specific structural fields.
+
 ## Implementation references
 
 - Our package: `formats/ife/`.

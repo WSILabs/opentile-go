@@ -837,6 +837,72 @@ that locks the change in.
 
 ---
 
+## 8k. Retired in v0.17
+
+v0.17 closes R20 — cross-format `opentile.Metadata` expansion.
+Hybrid approach: typed additions for what OpenSlide standardizes
+(MicronsPerPixel + per-axis X/Y; ImageDescription); flat
+`Properties map[string]string` for opentile-go-canonical extensions
+(case-number, user-name, scanned-area-mm2, scan-duration-seconds,
+comments) and vendor-namespaced passthrough.
+
+**Items shipped:**
+
+- 4 new typed fields on `opentile.Metadata`: `MicronsPerPixel`,
+  `MicronsPerPixelX`, `MicronsPerPixelY`, `ImageDescription`
+- `Properties map[string]string` for canonical + vendor-namespaced
+  extensions
+- 5 canonical key constants: `PropertyCaseNumber`, `PropertyUserName`,
+  `PropertyScannedAreaMM2`, `PropertyScanDurationSec`, `PropertyComments`
+- 2 helper methods: `Metadata.SetMPPSymmetric()`, `Metadata.SetProperty()`
+- Every format reader populates the new fields where source data is
+  present (SVS, NDPI, Philips, OME-TIFF, BIF, IFE, Leica SCN
+  (first-time population), Generic TIFF, SZI)
+- Format-specific Metadata structs cleaned up per Q4 Option B:
+  cross-format-canonical duplicates removed; raw native
+  representations preserved (e.g., SZI's ElapsedTime "0h17m22s"
+  string + VendorProperties for SZI-spec convention)
+- New `tests/parity/cross_format_metadata_test.go` exercises every
+  format's cross-format Metadata population (12 fixtures across 9
+  formats; all green)
+
+**Architecture invariants preserved:**
+
+- Public API additive on cross-format struct (existing consumers
+  unaffected); narrow break only for struct-literal construction
+  of format-specific Metadata structs (struct field reads via
+  embedded promotion still work).
+- OpenSlide flat-property convention mirrored for the property bag.
+- Python opentile precedent for typed cross-format fields preserved
+  (Magnification, ScannerManufacturer, etc., and now
+  ImageDescription and MPP).
+- v0.16 SZI architecture validated: szi.Metadata's previous
+  cross-format duplicates now flow through embedded opentile.Metadata
+  cleanly.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
+
+**Deviations retired:**
+
+- R20 (cross-format Metadata gap) — landed.
+
+**Still parked:**
+
+- R19 (bare DZI) — internal/dzi pre-pares it.
+- Other §11 backlog items (L19, L20, L23-L25, L26-L29, L30-L34,
+  R4/R6/R9, R15) unchanged.
+
+**v0.17 lessons:** the format-specific-struct-cleanup pattern
+(Option B from sealed Q4) is generalizable to future cross-format
+API expansions. When a new field becomes cross-format, format
+packages strip the typed duplicate but preserve raw/native
+representations; field promotion keeps consumer code working
+without the cross-format-only refactoring break.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-09-opentile-go-v17-cross-format-metadata.md`](superpowers/plans/2026-05-09-opentile-go-v17-cross-format-metadata.md).
+
+---
+
 ## 8j. Retired in v0.16
 
 v0.16 ships Smart Zoom Image (SZI) support — closes R18 from §11
@@ -2172,7 +2238,7 @@ decisions, not deferred work.
 | **L34** — Leica SCN 3-fixture coverage limit | leicascn | Permanent (production discontinued ~2015) | v0.11 | Not revisited proactively; trigger-driven |
 | **R18** — Smart Zoom Image (SZI) support | (new) | ✅ **landed in v0.16** (see §8j) | spec + fixtures landed 2026-05-08; reader shipped 2026-05-09 | retired |
 | **R19** — Deep Zoom Image (DZI) support | (new) | Co-designed with R18 | called out 2026-05-08 | Owner sign-off; v0.17+ candidate. internal/dzi/ pre-pares it (shipped in v0.16). See co-design note below. |
-| **R20** — opentile.Metadata: add MicronsPerPixel + ImageDescription | core API | YAGNI/follow-on | flagged 2026-05-09 in v0.16 T4 | Owner sign-off; touches every format reader's Metadata() implementation |
+| **R20** — opentile.Metadata: add MicronsPerPixel + ImageDescription | core API | ✅ **landed in v0.17** (see §8k) | flagged 2026-05-09 in v0.16 T4; reader-wide expansion shipped 2026-05-09 | retired |
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger

@@ -1,6 +1,7 @@
 package ndpi
 
 import (
+	"strconv"
 	"time"
 
 	opentile "github.com/cornish/opentile-go"
@@ -31,8 +32,9 @@ const (
 
 // Standard TIFF tag IDs used by the NDPI metadata parser.
 const (
-	tagModel    uint16 = 272
-	tagDateTime uint16 = 306
+	tagModel            uint16 = 272
+	tagDateTime         uint16 = 306
+	tagImageDescription uint16 = 270
 )
 
 // metadataFields is the un-marshaled shape consumed by parseFromFields.
@@ -42,6 +44,7 @@ type metadataFields struct {
 	Magnification          float32 // from tag 65421; may be negative for Macro/Map
 	Model                  string
 	DateTime               string
+	ImageDescription       string
 	XResolution            [2]uint32
 	YResolution            [2]uint32
 	ResolutionUnit         uint32
@@ -57,6 +60,7 @@ func parseMetadata(p *tiff.Page) (Metadata, error) {
 	}
 	f.Model, _ = p.ASCII(tagModel)
 	f.DateTime, _ = p.ASCII(tagDateTime)
+	f.ImageDescription, _ = p.ASCII(tagImageDescription)
 	if numer, denom, ok := p.XResolution(); ok {
 		f.XResolution = [2]uint32{numer, denom}
 	}
@@ -95,10 +99,67 @@ func parseFromFields(f metadataFields) Metadata {
 	if f.Model != "" {
 		md.ScannerSoftware = []string{f.Model}
 	}
+	// Reference (tag 65442) carries the scanner serial number on real
+	// Hamamatsu fixtures (e.g., OS-2.ndpi reports "477130"). Mirror it
+	// into the cross-format ScannerSerial slot so consumers don't have
+	// to type-assert into Metadata.
+	if f.Reference != "" {
+		md.ScannerSerial = f.Reference
+	}
 	if t, err := time.Parse("2006:01:02 15:04:05", f.DateTime); err == nil {
 		md.AcquisitionDateTime = t
 	}
+
+	// Cross-format ImageDescription. NDPI fixtures usually leave this
+	// empty (CMU-1, OS-2 both report ""), but the slot is always
+	// populated from the TIFF tag if present.
+	md.ImageDescription = f.ImageDescription
+
+	// Cross-format MicronsPerPixel. NDPI carries pixel size in the
+	// standard TIFF Resolution tags, with ResolutionUnit=3 (centimeters)
+	// in every real fixture observed. MPP_um = 10000 / pixels_per_cm.
+	if f.ResolutionUnit == 3 {
+		if mpp, ok := mppFromRational(f.XResolution); ok {
+			md.MicronsPerPixelX = mpp
+		}
+		if mpp, ok := mppFromRational(f.YResolution); ok {
+			md.MicronsPerPixelY = mpp
+		}
+		md.SetMPPSymmetric()
+	}
+
+	// Vendor passthrough. Surface already-parsed Hamamatsu vendor data
+	// under "hamamatsu." so consumers can read format-specific fields
+	// without type-asserting back to ndpi.Metadata. We deliberately
+	// surface only fields we already parse; richer NDPI vendor tag
+	// coverage is deferred (not in scope for v0.17).
+	if f.Reference != "" {
+		md.SetProperty("hamamatsu.Reference", f.Reference)
+	}
+	if f.Magnification > 0 {
+		md.SetProperty("hamamatsu.SourceLens",
+			strconv.FormatFloat(float64(f.Magnification), 'f', -1, 64))
+	}
+	if f.ZOffsetFromSlideCenter != 0 {
+		md.SetProperty("hamamatsu.FocalOffsetMM",
+			strconv.FormatFloat(md.FocalOffset, 'f', -1, 64))
+	}
 	return md
+}
+
+// mppFromRational converts a TIFF RATIONAL resolution (numer/denom pixels
+// per centimeter) into microns per pixel. Returns ok=false if the
+// rational is malformed (zero denominator or zero numerator).
+func mppFromRational(r [2]uint32) (float64, bool) {
+	if r[0] == 0 || r[1] == 0 {
+		return 0, false
+	}
+	pixelsPerCm := float64(r[0]) / float64(r[1])
+	if pixelsPerCm == 0 {
+		return 0, false
+	}
+	// 10000 µm/cm → MPP = 10000 / (pixels/cm)
+	return 10000.0 / pixelsPerCm, true
 }
 
 // MetadataOf returns the NDPI-specific metadata if t is an NDPI Tiler.

@@ -127,7 +127,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 
 	icc, _ := pages[0].ICCProfile()
 
-	md := buildMetadata(c, auxs, mains)
+	md := buildMetadata(c, auxs, mains, desc)
 
 	return &tiler{
 		md:         md,

@@ -191,6 +191,74 @@ func TestMetadataOf_CMU1(t *testing.T) {
 	// expectation flips.
 }
 
+// TestMetadataOf_WSIToolsFixture verifies the v0.17 cross-format
+// Metadata population on a wsi-tools-transcoded fixture: per-axis
+// MPP from the wsi-tools mpp= field (treated isotropic), Magnification
+// from mag=, scanner from scanner=, and the wsi-tools.* Properties
+// namespace surfaces source/codec/version provenance.
+func TestMetadataOf_WSIToolsFixture(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "generic-tiff", "avif-out.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("%s not present", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	tf, err := tiff.Open(f, st.Size())
+	if err != nil {
+		t.Fatalf("tiff.Open: %v", err)
+	}
+	tlr, err := New().Open(tf, &opentile.Config{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer tlr.Close()
+
+	md, ok := MetadataOf(tlr)
+	if !ok {
+		t.Fatal("MetadataOf returned !ok on a generic Tiler")
+	}
+	if md.Magnification != 20 {
+		t.Errorf("Magnification = %v, want 20", md.Magnification)
+	}
+	if md.ScannerManufacturer != "Aperio" {
+		t.Errorf("ScannerManufacturer = %q, want Aperio", md.ScannerManufacturer)
+	}
+	if md.MicronsPerPixelX != 0.499 || md.MicronsPerPixelY != 0.499 {
+		t.Errorf("per-axis MPP = %v / %v, want 0.499 / 0.499",
+			md.MicronsPerPixelX, md.MicronsPerPixelY)
+	}
+	if md.MicronsPerPixel != 0.499 {
+		t.Errorf("MicronsPerPixel (symmetric) = %v, want 0.499", md.MicronsPerPixel)
+	}
+	if md.ImageDescription == "" {
+		t.Error("ImageDescription should be populated verbatim from the TIFF tag")
+	}
+	for _, kv := range []struct{ k, v string }{
+		{"wsi-tools.source", "svs"},
+		{"wsi-tools.codec", "avif"},
+		{"wsi-tools.version", "0.2.0-dev"},
+	} {
+		if got := md.Properties[kv.k]; got != kv.v {
+			t.Errorf("Properties[%q] = %q, want %q", kv.k, got, kv.v)
+		}
+	}
+	// Negative: wsi-tools fixtures don't carry case-number / user-name.
+	if _, ok := md.Properties[opentile.PropertyCaseNumber]; ok {
+		t.Errorf("PropertyCaseNumber should be absent on wsi-tools fixture")
+	}
+	if _, ok := md.Properties[opentile.PropertyUserName]; ok {
+		t.Errorf("PropertyUserName should be absent on wsi-tools fixture")
+	}
+}
+
 // TestFactorySupportsRejectsExistingVendorFixtures verifies that
 // the generic factory's Supports() returns false for files that ARE
 // vendor-format TIFFs (so vendor factories that ran first would have

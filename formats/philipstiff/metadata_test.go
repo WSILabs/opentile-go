@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	opentile "github.com/cornish/opentile-go"
 )
 
 func TestParseMetadataFullPhilips4(t *testing.T) {
@@ -57,6 +59,24 @@ func TestParseMetadataFullPhilips4(t *testing.T) {
 	if md.PixelRepresentation != "0" {
 		t.Errorf("PixelRepresentation: got %q, want %q", md.PixelRepresentation, "0")
 	}
+	// v0.17 cross-format Metadata.
+	if md.MicronsPerPixelX != 0.25 {
+		t.Errorf("MicronsPerPixelX: got %v, want 0.25", md.MicronsPerPixelX)
+	}
+	if md.MicronsPerPixelY != 0.25 {
+		t.Errorf("MicronsPerPixelY: got %v, want 0.25", md.MicronsPerPixelY)
+	}
+	if md.MicronsPerPixel != 0.25 {
+		t.Errorf("MicronsPerPixel (symmetric): got %v, want 0.25", md.MicronsPerPixel)
+	}
+	if md.ImageDescription == "" || md.ImageDescription != xml {
+		t.Errorf("ImageDescription should equal raw XML verbatim")
+	}
+	// Real Philips fixtures don't carry an operator field; assert the
+	// canonical key is absent (NOT empty string).
+	if _, ok := md.Properties[opentile.PropertyUserName]; ok {
+		t.Errorf("PropertyUserName should be absent when source has no operator id")
+	}
 }
 
 func TestParseMetadataPartialPhilips1(t *testing.T) {
@@ -92,6 +112,75 @@ func TestParseMetadataPartialPhilips1(t *testing.T) {
 	}
 	if !reflect.DeepEqual(md.ScannerSoftware, []string{"4.0.3"}) {
 		t.Errorf("ScannerSoftware: got %v, want [4.0.3]", md.ScannerSoftware)
+	}
+	// v0.17 cross-format: Philips-1 has asymmetric pixel size, so
+	// MicronsPerPixel stays zero and consumers must consult X/Y.
+	if md.MicronsPerPixelX != 0.226891 {
+		t.Errorf("MicronsPerPixelX: got %v, want 0.226891", md.MicronsPerPixelX)
+	}
+	if md.MicronsPerPixelY != 0.226907 {
+		t.Errorf("MicronsPerPixelY: got %v, want 0.226907", md.MicronsPerPixelY)
+	}
+	if md.MicronsPerPixel != 0 {
+		t.Errorf("MicronsPerPixel should be 0 on asymmetric pixels; got %v", md.MicronsPerPixel)
+	}
+}
+
+func TestParseMetadataPropertiesPassthrough(t *testing.T) {
+	// Verify the philips.<key> vendor namespace surfaces non-canonical
+	// PIM_DP_*/PIIM_*/UFS_*/DICOM_* attributes (less the typed-mapped
+	// keys) under Properties so consumers can read them without
+	// reparsing the raw XML.
+	xml := `<DataObject>
+      <Attribute Name="DICOM_MANUFACTURER">PHILIPS</Attribute>
+      <Attribute Name="PIM_DP_UFS_BARCODE">MTIzNA==</Attribute>
+      <Attribute Name="PIM_DP_UFS_INTERFACE_VERSION">5.0</Attribute>
+      <Attribute Name="PIIM_DP_SCANNER_RACK_NUMBER">1</Attribute>
+      <Attribute Name="DICOM_DATE_OF_LAST_CALIBRATION">"20160718"</Attribute>
+    </DataObject>`
+	md, err := parseMetadata(xml)
+	if err != nil {
+		t.Fatalf("parseMetadata: %v", err)
+	}
+	want := map[string]string{
+		"philips.PIM_DP_UFS_BARCODE":             "MTIzNA==",
+		"philips.PIM_DP_UFS_INTERFACE_VERSION":   "5.0",
+		"philips.PIIM_DP_SCANNER_RACK_NUMBER":    "1",
+		"philips.DICOM_DATE_OF_LAST_CALIBRATION": "20160718",
+	}
+	for k, v := range want {
+		got, ok := md.Properties[k]
+		if !ok {
+			t.Errorf("Properties[%q] missing", k)
+			continue
+		}
+		if got != v {
+			t.Errorf("Properties[%q] = %q, want %q", k, got, v)
+		}
+	}
+	// DICOM_MANUFACTURER is mapped to a typed field, so it MUST NOT
+	// show up under the philips.* namespace too (would be noise).
+	if _, ok := md.Properties["philips.DICOM_MANUFACTURER"]; ok {
+		t.Error("Properties should not duplicate typed DICOM_MANUFACTURER under philips namespace")
+	}
+}
+
+func TestParseMetadataOperatorIDSurfaced(t *testing.T) {
+	// PIM_DP_SCANNER_OPERATOR_ID is not seen in our real Philips
+	// fixtures but the plan calls it out for forward-compat: when
+	// present, surface as PropertyUserName + the philips.<key>.
+	xml := `<DataObject>
+      <Attribute Name="PIM_DP_SCANNER_OPERATOR_ID">"alice"</Attribute>
+    </DataObject>`
+	md, err := parseMetadata(xml)
+	if err != nil {
+		t.Fatalf("parseMetadata: %v", err)
+	}
+	if got := md.Properties[opentile.PropertyUserName]; got != "alice" {
+		t.Errorf("PropertyUserName = %q, want alice", got)
+	}
+	if got := md.Properties["philips.PIM_DP_SCANNER_OPERATOR_ID"]; got != "alice" {
+		t.Errorf("philips.PIM_DP_SCANNER_OPERATOR_ID = %q, want alice", got)
 	}
 }
 

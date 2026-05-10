@@ -101,3 +101,35 @@ func TestParseWSIToolsDescription_UnknownKeys(t *testing.T) {
 		t.Errorf("magnification = %v, want 40.0 (known keys parsed even with unknown keys present)", md.magnification)
 	}
 }
+
+func TestPopulateWSIToolsProperties_AllFields(t *testing.T) {
+	desc := `wsi-tools/0.2.0-dev transcode source=svs codec=avif mpp=0.499 mag=20x scanner="Aperio" date=2009-12-29`
+	var md Metadata
+	populateWSIToolsProperties(&md, desc)
+	want := map[string]string{
+		"wsi-tools.version": "0.2.0-dev",
+		"wsi-tools.source":  "svs",
+		"wsi-tools.codec":   "avif",
+	}
+	for k, v := range want {
+		if got := md.Properties[k]; got != v {
+			t.Errorf("Properties[%q] = %q, want %q", k, got, v)
+		}
+	}
+}
+
+func TestPopulateWSIToolsProperties_MissingKeysAbsent(t *testing.T) {
+	// Per Q6: missing source-data → key absent (NOT empty string).
+	desc := `wsi-tools/0.2.0 transcode mpp=0.25`
+	var md Metadata
+	populateWSIToolsProperties(&md, desc)
+	if got := md.Properties["wsi-tools.version"]; got != "0.2.0" {
+		t.Errorf("version = %q, want 0.2.0", got)
+	}
+	if _, ok := md.Properties["wsi-tools.source"]; ok {
+		t.Errorf("wsi-tools.source should be absent when source key not in desc")
+	}
+	if _, ok := md.Properties["wsi-tools.codec"]; ok {
+		t.Errorf("wsi-tools.codec should be absent when codec key not in desc")
+	}
+}

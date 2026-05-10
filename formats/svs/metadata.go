@@ -38,6 +38,11 @@ func parseDescription(desc string) (Metadata, error) {
 	}
 	var md Metadata
 
+	// Cross-format: surface the full raw ImageDescription tag verbatim so
+	// consumers that want the structured Aperio header can read it without
+	// reaching back into the TIFF.
+	md.ImageDescription = desc
+
 	// Split off the software banner (first line).
 	newline := strings.IndexByte(desc, '\n')
 	if newline < 0 {
@@ -67,12 +72,32 @@ func parseDescription(desc string) (Metadata, error) {
 			return md, fmt.Errorf("svs: parse MPP %q: %w", v, err)
 		}
 		md.MPP = parsed
+		// Aperio reports a single MPP; pixels are square, so X == Y.
+		md.MicronsPerPixelX = parsed
+		md.MicronsPerPixelY = parsed
+		md.SetMPPSymmetric()
 	}
 	if v, ok := kv["ScanScope ID"]; ok {
 		md.ScannerSerial = v
 	}
 	if v, ok := kv["Filename"]; ok {
 		md.Filename = v
+	}
+	if v, ok := kv["User"]; ok {
+		md.SetProperty(opentile.PropertyUserName, v)
+	}
+
+	// Cross-format vendor passthrough: surface every Aperio key under the
+	// "aperio." namespace so consumers can reach format-specific fields
+	// without reparsing the raw ImageDescription. Skip keys that contain
+	// characters never seen in real Aperio key names — splitKV sees the
+	// codec/geometry prelude (e.g. "46000x32914 [...] JPEG/RGB Q=30") as a
+	// "key" because it embeds an '=' sign, but it's not a real kv pair.
+	for k, v := range kv {
+		if !isAperioKey(k) {
+			continue
+		}
+		md.SetProperty("aperio."+k, v)
 	}
 
 	// Aperio Date/Time are separate fields in MM/DD/YYYY and HH:MM:SS form.
@@ -106,6 +131,29 @@ func parseAperioDateTime(date, tm string) (time.Time, error) {
 		lastErr = err
 	}
 	return time.Time{}, lastErr
+}
+
+// isAperioKey returns true if s looks like a real Aperio header key (e.g.
+// "AppMag", "ScanScope ID", "Focus Offset"). Real keys are
+// alphanumeric-plus-space; the codec/geometry prelude line that splitKV
+// occasionally captures as a junk "key" contains '[', '(', '/', ',',
+// ';', or newlines — none of which appear in any real Aperio key.
+func isAperioKey(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z':
+		case c >= 'a' && c <= 'z':
+		case c >= '0' && c <= '9':
+		case c == ' ' || c == '_' || c == '-' || c == '.':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // splitKV parses "k1 = v1|k2 = v2|..." into a map. Whitespace around keys and

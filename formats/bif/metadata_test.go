@@ -42,6 +42,36 @@ func TestMetadataPopulatesIScanFields(t *testing.T) {
 		t.Errorf("ScannerSoftware: got %v, want [1.1.0.15854]", common.ScannerSoftware)
 	}
 
+	// v0.17 cross-format additions: per-axis MPP populated from
+	// ScanRes (single-value applied to both axes); SetMPPSymmetric
+	// collapses to the symmetric slot.
+	if common.MicronsPerPixelX != 0.25 || common.MicronsPerPixelY != 0.25 {
+		t.Errorf("MicronsPerPixelX/Y: got %v / %v, want 0.25 / 0.25", common.MicronsPerPixelX, common.MicronsPerPixelY)
+	}
+	if common.MicronsPerPixel != 0.25 {
+		t.Errorf("MicronsPerPixel: got %v, want 0.25 (BIF reports symmetric pixels)", common.MicronsPerPixel)
+	}
+	// ImageDescription is now on the cross-format struct (Q4 Option B);
+	// access it via field promotion off bm or directly off common.
+	if common.ImageDescription != "level=0 mag=40 quality=95" {
+		t.Errorf("cross.ImageDescription: got %q", common.ImageDescription)
+	}
+	// Vendor passthrough: every iScan attribute under "ventana." namespace.
+	if got := common.Properties["ventana.ScannerModel"]; got != "VENTANA DP 200" {
+		t.Errorf("Properties[ventana.ScannerModel]: got %q, want %q", got, "VENTANA DP 200")
+	}
+	if got := common.Properties["ventana.ScanRes"]; got != "0.25" {
+		t.Errorf("Properties[ventana.ScanRes]: got %q, want %q", got, "0.25")
+	}
+	if got := common.Properties["ventana.UnitNumber"]; got != "2000515" {
+		t.Errorf("Properties[ventana.UnitNumber]: got %q, want %q", got, "2000515")
+	}
+	// Negative: this fixture has no UserName attribute, so canonical
+	// PropertyUserName must be absent.
+	if _, ok := common.Properties[opentile.PropertyUserName]; ok {
+		t.Errorf("Properties[%s]: present but fixture has no UserName", opentile.PropertyUserName)
+	}
+
 	bm, ok := MetadataOf(tiler)
 	if !ok {
 		t.Fatal("MetadataOf: ok=false on a real BIF Tiler")
