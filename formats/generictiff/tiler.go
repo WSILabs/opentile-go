@@ -8,40 +8,30 @@ import (
 	"github.com/cornish/opentile-go/internal/tiff"
 )
 
-// Metadata is the generic-TIFF format-specific metadata. Embeds
-// opentile.Metadata so the cross-format fields (ScannerManufacturer,
-// ScannerModel, ScannerSoftware, AcquisitionDateTime) populate via
-// the embedded struct; the v0.10 spec §7 generic-only fields
-// (MicronsPerPixel, ImageDescription) live on the outer struct.
+// Metadata is the generic-TIFF format-specific metadata. The shape is
+// purely the embedded cross-format opentile.Metadata: as of v0.17 the
+// previously-outer fields (MicronsPerPixel, ImageDescription) moved to
+// the cross-format struct and are accessed via field promotion.
 //
 // Read via [MetadataOf]:
 //
 //	if md, ok := generic.MetadataOf(tiler); ok {
-//	    fmt.Println(md.MicronsPerPixel, md.ImageDescription)
+//	    fmt.Println(md.MicronsPerPixel, md.MicronsPerPixelX, md.ImageDescription)
 //	}
 //
-// Magnification is always 0: generic TIFFs don't carry magnification
-// in any standard TIFF tag, and we don't synthesise one. Derive from
+// Magnification is always 0 unless the wsi-tools ImageDescription
+// extension supplies one: generic TIFFs don't carry magnification in
+// any standard TIFF tag and we don't synthesise one. Derive from
 // MicronsPerPixel if needed (e.g., 0.25 µm/px ≈ 40× on a typical
 // pathology scanner — but that's caller policy, not slide truth).
+//
+// MicronsPerPixel is set when level-0 XResolution + ResolutionUnit are
+// both present and ResolutionUnit ∈ {2 (inch), 3 (cm)}; isotropy is
+// inferred from a separate YResolution read (when present and equal,
+// MicronsPerPixel == X == Y per [opentile.Metadata.SetMPPSymmetric]).
+// Callers reading the per-axis fields directly can detect anisotropy.
 type Metadata struct {
 	opentile.Metadata
-
-	// MicronsPerPixel is the level-0 X-axis pixel spacing derived
-	// from XResolution (282) + ResolutionUnit (296). Set to 0 when
-	// either tag is missing or ResolutionUnit is 1 (no unit).
-	// ResolutionUnit values: 1=none → 0; 2=inch → 25400/res µm;
-	// 3=cm → 10000/res µm.
-	//
-	// Generic TIFFs are typically isotropic so we surface a single
-	// scalar rather than X/Y. Callers who care about anisotropy can
-	// still read XResolution / YResolution off the page directly.
-	MicronsPerPixel float64
-
-	// ImageDescription is the level-0 IFD's ImageDescription tag
-	// (270) verbatim. Generic-TIFF encoders may stash arbitrary
-	// free-form text here; the reader doesn't try to parse it.
-	ImageDescription string
 }
 
 // tilerUnwrapper is the unexported wrapper interface implemented by
@@ -119,16 +109,23 @@ func (t *tiler) WarmLevel(i int) error {
 //	Model (272)        → ScannerModel
 //	Software (305)     → ScannerSoftware (semicolon/newline-split)
 //	DateTime (306)     → AcquisitionDateTime (TIFF "YYYY:MM:DD HH:MM:SS")
-//	XResolution (282)  → MicronsPerPixel (via ResolutionUnit)
+//	XResolution (282)  → MicronsPerPixelX (via ResolutionUnit)
+//	YResolution (283)  → MicronsPerPixelY (via ResolutionUnit)
 //	ResolutionUnit (296)
-//	ImageDescription (270) → ImageDescription verbatim
+//	ImageDescription (270) → cross.ImageDescription verbatim
 //
-// Magnification has no standard TIFF tag → always 0.
+// Magnification has no standard TIFF tag → always 0 unless overridden
+// below.
 //
 // v0.14 addition: when ImageDescription begins with `wsi-tools/`, the
 // wsi-tools parser populates Magnification / ScannerManufacturer /
-// AcquisitionDateTime / MicronsPerPixel from the parsed fields,
-// overriding any standard-TIFF-tag-derived values.
+// AcquisitionDateTime / MicronsPerPixelX/Y from the parsed fields,
+// overriding any standard-TIFF-tag-derived values. wsi-tools fixtures
+// also surface source/codec/version under Properties under the
+// "wsi-tools." namespace.
+//
+// v0.17: per-axis MPP is now populated; SetMPPSymmetric() then
+// populates the scalar MicronsPerPixel slot only when X == Y.
 func buildMetadata(p *tiff.Page) Metadata {
 	var md Metadata
 	if v, ok := p.ASCII(tagMake); ok {
@@ -148,7 +145,9 @@ func buildMetadata(p *tiff.Page) Metadata {
 	if v, ok := p.ImageDescription(); ok {
 		md.ImageDescription = strings.TrimSpace(v)
 	}
-	md.MicronsPerPixel = micronsPerPixel(p)
+	mppX, mppY := perAxisMicronsPerPixel(p)
+	md.MicronsPerPixelX = mppX
+	md.MicronsPerPixelY = mppY
 
 	// v0.14: wsi-tools ImageDescription override.
 	if md.ImageDescription != "" {
@@ -163,10 +162,18 @@ func buildMetadata(p *tiff.Page) Metadata {
 				md.AcquisitionDateTime = wt.acquisitionDate
 			}
 			if wt.hasMPP {
-				md.MicronsPerPixel = wt.micronsPerPixel
+				// wsi-tools mpp is a scalar; treat as isotropic.
+				md.MicronsPerPixelX = wt.micronsPerPixel
+				md.MicronsPerPixelY = wt.micronsPerPixel
 			}
+			// v0.17: wsi-tools-only provenance fields surface under the
+			// "wsi-tools." Properties namespace so consumers can detect
+			// transcoded fixtures + recover source/codec/version without
+			// reparsing the raw ImageDescription.
+			populateWSIToolsProperties(&md, md.ImageDescription)
 		}
 	}
+	md.SetMPPSymmetric()
 	return md
 }
 
@@ -194,31 +201,46 @@ func splitSoftware(s string) []string {
 	return out
 }
 
-// micronsPerPixel computes µm/px from the page's XResolution +
-// ResolutionUnit. Returns 0 on missing tags or ResolutionUnit=1
-// (no unit). Spec §7 conversion factors:
+// perAxisMicronsPerPixel computes (X, Y) µm/px from the page's
+// XResolution + YResolution + ResolutionUnit. Returns 0 on either axis
+// when its rational is malformed or ResolutionUnit is missing /
+// ResolutionUnit=1 (no unit). When YResolution is missing but
+// XResolution is present, Y mirrors X (most generic-TIFF fixtures are
+// isotropic and only emit one of the two tags). Spec §7 conversion
+// factors:
 //
-//	ResolutionUnit=2 (inch) → 25400 µm/inch / pixels-per-inch
-//	ResolutionUnit=3 (cm)   → 10000 µm/cm   / pixels-per-cm
-func micronsPerPixel(p *tiff.Page) float64 {
-	num, den, ok := p.XResolution()
-	if !ok || num == 0 || den == 0 {
-		return 0
-	}
+//	ResolutionUnit=2 (inch) → 25400 µm/inch / pixels-per-unit
+//	ResolutionUnit=3 (cm)   → 10000 µm/cm   / pixels-per-unit
+func perAxisMicronsPerPixel(p *tiff.Page) (x, y float64) {
 	unit, ok := p.ResolutionUnit()
 	if !ok {
-		return 0
+		return 0, 0
 	}
-	pixelsPerUnit := float64(num) / float64(den)
-	if pixelsPerUnit == 0 {
-		return 0
+	convert := func(num, den uint32) float64 {
+		if num == 0 || den == 0 {
+			return 0
+		}
+		pixelsPerUnit := float64(num) / float64(den)
+		if pixelsPerUnit == 0 {
+			return 0
+		}
+		switch unit {
+		case 2: // inch
+			return 25400.0 / pixelsPerUnit
+		case 3: // centimeter
+			return 10000.0 / pixelsPerUnit
+		default:
+			return 0
+		}
 	}
-	switch unit {
-	case 2: // inch
-		return 25400.0 / pixelsPerUnit
-	case 3: // centimeter
-		return 10000.0 / pixelsPerUnit
-	default:
-		return 0
+	if num, den, ok := p.XResolution(); ok {
+		x = convert(num, den)
 	}
+	if num, den, ok := p.YResolution(); ok {
+		y = convert(num, den)
+	} else {
+		// No explicit YResolution → assume isotropic (mirror X).
+		y = x
+	}
+	return x, y
 }

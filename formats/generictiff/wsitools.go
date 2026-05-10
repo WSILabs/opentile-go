@@ -82,6 +82,45 @@ func parseWSIToolsDescription(desc string) (wsiToolsMetadata, bool) {
 	return md, true
 }
 
+// populateWSIToolsProperties surfaces wsi-tools-specific provenance
+// fields (source, codec, version) under the "wsi-tools." Properties
+// namespace on md. Caller has already verified desc starts with the
+// wsi-tools prefix. Per v0.17 spec §1.2: keys absent from desc remain
+// absent from Properties (NOT empty string).
+//
+// The version string is the suffix immediately after "wsi-tools/" up
+// to the next whitespace. source / codec come from the kv pairs.
+func populateWSIToolsProperties(md *Metadata, desc string) {
+	// version: between "wsi-tools/" and the first space.
+	if rest := strings.TrimPrefix(desc, wsiToolsPrefix); rest != desc {
+		if sp := strings.IndexByte(rest, ' '); sp >= 0 {
+			rest = rest[:sp]
+		}
+		if rest != "" {
+			md.SetProperty("wsi-tools.version", rest)
+		}
+	}
+	// source / codec from kv pairs.
+	for _, tok := range tokeniseKVPairs(desc) {
+		eq := strings.IndexByte(tok, '=')
+		if eq < 0 {
+			continue
+		}
+		key := tok[:eq]
+		val := strings.Trim(tok[eq+1:], `"`)
+		switch key {
+		case "source":
+			if val != "" {
+				md.SetProperty("wsi-tools.source", val)
+			}
+		case "codec":
+			if val != "" {
+				md.SetProperty("wsi-tools.codec", val)
+			}
+		}
+	}
+}
+
 // tokeniseKVPairs splits a wsi-tools ImageDescription line into
 // key=value tokens, treating double-quoted values as a single token.
 func tokeniseKVPairs(desc string) []string {
