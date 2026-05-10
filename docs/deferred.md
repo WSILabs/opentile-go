@@ -839,6 +839,80 @@ that locks the change in.
 
 ---
 
+## 8l. Retired in v0.18
+
+v0.18 closes a misattribution bug discovered post-v0.17 brainstorm:
+SVS files written by non-Aperio scanners (Grundium observed) got
+`ScannerManufacturer = "Aperio"` because the SVS reader assumed
+format-vendor = writer-vendor. v0.18 detects the actual writer
+from ImageDescription first-line + TIFF Software/Make tags;
+namespaces Properties keys per detected writer; documents the
+recognized writer set explicitly.
+
+**Items shipped:**
+
+- `formats/svs/metadata.go::detectWriter()` — heuristic parser for
+  the ImageDescription first line. Patterns recognized:
+  - `"Aperio Image Library v..."` → Aperio canonical
+  - `"Aperio Image, <name>"` → comma-suffix writer (first word =
+    manufacturer; remainder = model)
+  - undetected → empty manufacturer; `svs.<key>` Properties fallback
+- `parseDescription` updated to use the detected writer; previously
+  hardcoded `"Aperio"` removed.
+- `ScannerSoftware` now sensibly split (was: single jammed first
+  line; now: two-element list for comma-prefix patterns).
+- Properties keys namespace per detected writer:
+  - `aperio.<key>` for Aperio-written
+  - `grundium.<key>` for Grundium-written
+  - `svs.<key>` fallback for undetected
+- Standardized SVS keys (MPP, AppMag, ScanScope ID, User, Date,
+  Time) continue to populate cross-format Metadata regardless of
+  writer.
+- Fixture JSONs updated for Grundium SVS:
+  `scan_620_.json` + `svs_40x_bigtiff.json`
+  metadata.scanner_manufacturer flipped from "Aperio" → "Grundium".
+- `docs/formats/svs.md` gains "Recognized SVS writers" section
+  with the detection table.
+- `formats/ometiff/metadata.go` audited (no code change needed):
+  Creator is correctly captured as `ome.creator` and kept distinct
+  from ScannerManufacturer per v0.18 Q4. Documentation extended
+  to make the distinction explicit.
+
+**Architecture invariants preserved:**
+
+- Public API additive (writer detection refines existing
+  ScannerManufacturer / ScannerModel / Properties surface; no new
+  typed fields).
+- Narrow break: consumer code that hardcoded Aperio expectations
+  on Grundium SVS files (e.g., test code asserting
+  `ScannerManufacturer == "Aperio"` on a Grundium fixture) now
+  sees correct attribution and may need updating.
+- v0.17 cross-format Metadata structure preserved; per-format
+  Metadata structs unchanged.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
+
+**Deviations retired:**
+
+- Misattribution of Grundium-written SVS files as Aperio (was
+  silently bad pre-v0.18).
+
+**Still parked:**
+
+- R19 (bare DZI) — internal/dzi pre-pares it.
+- R21 (COG first-class support) — pairs naturally with HTTP-range backing.
+- L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9, R15.
+
+**v0.18 lessons:** The "writer-vendor vs format-vendor" distinction
+is real. SVS is the worst-affected (ad-hoc multi-vendor) but the
+pattern (heuristic detection + per-writer namespacing + standardized-key
+preservation) generalizes if other formats later need similar
+treatment.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-09-opentile-go-v18-svs-writer-detection.md`](superpowers/plans/2026-05-09-opentile-go-v18-svs-writer-detection.md).
+
+---
+
 ## 8k. Retired in v0.17
 
 v0.17 closes R20 — cross-format `opentile.Metadata` expansion.
