@@ -2,6 +2,7 @@ package leicascn
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -183,15 +184,58 @@ func (i *scnImage) ChannelName(c int) string {
 }
 
 // buildMetadata constructs the SCN-specific Metadata from the parsed
-// Collection plus the auxiliary/main-scan partitioning. Cross-format
-// fields (ScannerManufacturer, ScannerModel, AcquisitionDateTime)
-// are populated from the SCN XML's <device model="..."> attribute and
-// <creationDate> element.
-func buildMetadata(c *Collection, auxs, mains []Image) Metadata {
+// Collection plus the auxiliary/main-scan partitioning, plus the raw
+// SCN-XML text (surfaced verbatim as cross.ImageDescription). Cross-
+// format fields are populated from the SCN-XML's primary main-scan
+// <image> element:
+//
+//   - ScannerManufacturer = "Leica" (hardcoded; SCN is Leica's format)
+//   - ScannerModel from <device model="..."> first ;-separated token
+//   - ScannerSoftware from <device version="...">
+//   - AcquisitionDateTime from <creationDate> (ISO 8601)
+//   - Magnification from <objective>
+//   - MicronsPerPixelX/Y derived from the primary <view sizeX/sizeY>
+//     (slide-physical extent in nm) divided by <pixels sizeX/sizeY>
+//     (level-0 pixel extent), converted nm → µm. SetMPPSymmetric
+//     collapses to the symmetric slot when X == Y (typical for SCN).
+//   - ImageDescription = raw SCN-XML text (verbatim, mirrors svs/bif
+//     pattern)
+//   - Properties["leica.collection.uuid"] = collection UUID
+//   - Properties["leica.collection.name"] = collection name (when set)
+//   - Properties["leica.barcode"] = base64-encoded barcode (when set)
+//   - Properties["leica.illumination_source"] = primary main's
+//     illumination ("brightfield" or "fluorescence")
+//   - Properties["leica.region_count"] = number of main-scan regions
+//     (>1 only on multi-region files like Leica-2.scn)
+//
+// Multi-region note: SCN files can carry multiple main-scan <image>
+// elements (Leica-2.scn has 4); the cross-format Metadata reflects
+// region 0's pixel scale + objective. Per-region pixel scale is
+// available via Metadata.Regions (slide-physical extent + offset)
+// for consumers needing the full layout.
+func buildMetadata(c *Collection, auxs, mains []Image, desc string) Metadata {
 	md := Metadata{
 		CollectionUUID: c.UUID,
 		Barcode:        c.Barcode,
 	}
+
+	// ImageDescription: surface the full raw SCN-XML verbatim. Mirrors
+	// the svs / bif pattern of preserving the source description so
+	// callers can re-parse it without going through MetadataOf.
+	md.ImageDescription = desc
+
+	// Properties: collection-level non-canonical surface. Use the
+	// "leica." prefix for SCN-specific keys per v0.17 convention.
+	if c.UUID != "" {
+		md.SetProperty("leica.collection.uuid", c.UUID)
+	}
+	if c.Name != "" {
+		md.SetProperty("leica.collection.name", c.Name)
+	}
+	if c.Barcode != "" {
+		md.SetProperty("leica.barcode", c.Barcode)
+	}
+	md.SetProperty("leica.region_count", strconv.Itoa(len(mains)))
 
 	// Cross-format identity fields. Use the first main-scan's device
 	// info if available, else the first auxiliary's.
@@ -219,6 +263,22 @@ func buildMetadata(c *Collection, auxs, mains []Image) Metadata {
 		// SCN's <objective> is the microscope objective magnification,
 		// directly comparable to SVS's AppMag.
 		md.Magnification = primaryImg.Objective
+
+		// Per-axis MPP from <view sizeX/sizeY> (slide-physical nm) ÷
+		// <pixels sizeX/sizeY> (level-0 pixels) ÷ 1000 (nm → µm).
+		// SCN files in our slate produce symmetric values (X == Y);
+		// SetMPPSymmetric collapses to the symmetric slot.
+		if primaryImg.PixelsSizeX > 0 && primaryImg.ViewSizeXNm > 0 {
+			md.MicronsPerPixelX = float64(primaryImg.ViewSizeXNm) / float64(primaryImg.PixelsSizeX) / 1000.0
+		}
+		if primaryImg.PixelsSizeY > 0 && primaryImg.ViewSizeYNm > 0 {
+			md.MicronsPerPixelY = float64(primaryImg.ViewSizeYNm) / float64(primaryImg.PixelsSizeY) / 1000.0
+		}
+		md.SetMPPSymmetric()
+
+		if primaryImg.IlluminationSource != "" {
+			md.SetProperty("leica.illumination_source", primaryImg.IlluminationSource)
+		}
 	}
 
 	for _, aux := range auxs {
