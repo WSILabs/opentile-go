@@ -33,6 +33,32 @@ contentH := min(ts.H, sz.H - y*ts.H)
 
 Matches upstream Python opentile (`get_tile()` is also byte-passthrough). SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
 
+## Recognized SVS writers
+
+SVS is the WSI ad-hoc standard — the format originated with Aperio but is
+now written by multiple vendors. opentile-go detects the writer from the
+ImageDescription tag's first line and adjusts `ScannerManufacturer`,
+`ScannerModel`, and Properties namespacing accordingly.
+
+| Writer first-line marker | Detected `ScannerManufacturer` | Detected `ScannerModel` | Properties namespace | Status |
+|---|---|---|---|---|
+| `Aperio Image Library v...` | `Aperio` | empty | `aperio.<key>` | ✅ canonical; verified on `CMU-1-Small-Region.svs`, `CMU-1.svs`, `JP2K-33003-1.svs` |
+| `Aperio Image, Grundium Ocus` | `Grundium` | `Ocus` | `grundium.<key>` | ✅ verified on `scan_620_.svs`, `svs_40x_bigtiff.svs` |
+| `Aperio Image, <vendor> [<model>]` | `<vendor>` (first whitespace-separated word) | `<model>` (remainder) | `<vendor>.<key>` (lowercased) | best-effort; pattern extension when fixtures surface |
+| Any other first-line pattern | empty | empty | `svs.<key>` (format-default fallback) | best-effort; standardized SVS keys (MPP, AppMag) still populate cross-format Metadata |
+
+**Standardized vs. vendor-specific keys.** SVS-format-defined keys
+(`MPP`, `AppMag`, `ScanScope ID`, `Filename`, `User`, `Date`, `Time`)
+populate cross-format `Metadata` (MicronsPerPixel, Magnification,
+ScannerSerial, etc.) regardless of writer. Vendor-specific extensions
+land under the writer-namespaced Properties bucket.
+
+**Why this matters:** pre-v0.18, every SVS got `ScannerManufacturer = "Aperio"`
+even when the actual writer was Grundium. v0.18's per-writer detection
+fixes this attribution bug. Future writers (3DHistech via SVS export;
+others) follow the same pattern automatically — the fallback
+namespace ensures parsing doesn't break for unrecognized writers.
+
 ## What's not supported
 
 | Capability | Status | Why |

@@ -11,14 +11,70 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.17: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.18: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.17 introduced
-no new active limitations — it was a cross-format Metadata expansion
-milestone closing R20 from §11 backlog. See
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.18 introduced
+no new active limitations — it was an SVS writer-vendor detection
+milestone closing a misattribution bug. See
 `docs/deferred.md` §11 consolidated backlog. Open work parked in
 tracked issues:
+
+## [0.18.0] — 2026-05-09
+
+SVS writer-vendor detection — closes a misattribution bug where
+SVS files written by non-Aperio scanners (Grundium observed)
+incorrectly reported `ScannerManufacturer = "Aperio"`. v0.18
+detects the actual writer from ImageDescription first-line + TIFF
+Software/Make tags; namespaces Properties keys per detected writer.
+
+### Added
+
+- `formats/svs/metadata.go::detectWriter()` — heuristic parser
+  for the SVS ImageDescription first-line writer marker.
+- "Recognized SVS writers" documentation in `docs/formats/svs.md`
+  listing the supported writer first-line patterns + their
+  detected vendor/model + Properties namespacing + status.
+- "OME-XML writer attribution" documentation in
+  `docs/formats/ometiff.md` clarifying the separation between
+  `ome.creator` (writer) and `ScannerManufacturer` (scanner OEM).
+
+### Fixed
+
+- **SVS misattribution bug:** Grundium-written SVS files
+  (scan_620_.svs, svs_40x_bigtiff.svs) now correctly report
+  `ScannerManufacturer = "Grundium"`, `ScannerModel = "Ocus"`.
+  Properties keys namespace under `grundium.<key>` instead of
+  the misleading `aperio.<key>`.
+- `ScannerSoftware` for SVS files no longer jams the first-line
+  banner into a single string when the comma-suffix pattern
+  is present; now sensibly split (e.g., `["Aperio Image", "Grundium Ocus"]`).
+
+### Changed
+
+- Fixture JSON parity files updated for Grundium SVS:
+  `tests/fixtures/scan_620_.json` and `tests/fixtures/svs_40x_bigtiff.json`
+  metadata.scanner_manufacturer flipped from "Aperio" → "Grundium".
+
+### Notes
+
+- **Narrow break:** consumer code hardcoding "Aperio" expectations
+  on Grundium SVS files now sees correct attribution and may need
+  updating. This is a bug fix; consumers should read
+  `ScannerManufacturer` rather than assuming.
+- **Standardized SVS keys** (MPP, AppMag, ScanScope ID, User,
+  Date, Time) continue to populate cross-format Metadata regardless
+  of writer.
+- **Vendor-specific keys** namespace under the writer's lowercase
+  first word: `aperio.<key>` for Aperio-written, `grundium.<key>`
+  for Grundium-written, `svs.<key>` for undetected fallback.
+- **Future writers** (3DHistech via SVS export; others) follow the
+  same pattern automatically — the fallback namespace ensures
+  parsing doesn't break for unrecognized writers.
+- **OME-TIFF** writer attribution unchanged (was already correct);
+  documentation extended.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
 
 ## [0.17.0] — 2026-05-09
 

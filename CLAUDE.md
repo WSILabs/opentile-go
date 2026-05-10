@@ -2,45 +2,47 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.17 (shipped 2026-05-09)
+## Current milestone — v0.18 (shipped)
 
-- **Scope:** Cross-format Metadata expansion (R20). Hybrid: typed
-  additions for what OpenSlide standardizes (MicronsPerPixel +
-  per-axis X/Y; ImageDescription) + Properties map[string]string
-  for opentile-go-canonical extensions (case-number, user-name,
-  scanned-area-mm2, scan-duration-seconds, comments) and vendor-
-  namespaced passthrough. Every format reader updated to populate
-  the new fields. Closes R20 from deferred backlog. 8 plan tasks
-  single batch.
-- **API additions:** 4 typed Metadata fields (MicronsPerPixel,
-  MicronsPerPixelX/Y, ImageDescription); Properties map; 5
-  canonical key constants (PropertyCaseNumber, PropertyUserName,
-  PropertyScannedAreaMM2, PropertyScanDurationSec, PropertyComments);
-  2 helper methods (SetMPPSymmetric, SetProperty).
-- **API breaks:** narrow — struct-literal construction of format-
-  specific Metadata structs (e.g., szi.Metadata{MicronsPerPixel:
-  ...}) no longer compiles for fields moved to embedded
-  opentile.Metadata. Field reads via embedded promotion continue
-  to work without source change.
-- **Active limitations:** unchanged from v0.16. No new L items.
+- **Scope:** SVS writer-vendor detection. Closes misattribution
+  bug where Grundium-written SVS files (and any other non-Aperio
+  writer) reported ScannerManufacturer="Aperio". v0.18 detects
+  the actual writer from ImageDescription first-line + TIFF
+  Software/Make tags; namespaces Properties keys per detected
+  writer. Documents recognized writer set explicitly. OME-TIFF
+  audited (already correct; docs extended). 3 plan tasks single
+  batch.
+- **API additions:** none (refines existing ScannerManufacturer /
+  ScannerModel / Properties population).
+- **API breaks:** narrow — consumer code hardcoding "Aperio" on
+  Grundium SVS files sees correct attribution post-v0.18.
+- **Active limitations:** unchanged from v0.17. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  docs/deferred.md §1a): unchanged. New typed fields (MPP,
-  ImageDescription) align with OpenSlide; the Properties map +
-  opentile-go-canonical extensions are opentile-go originals.
+  docs/deferred.md §1a): unchanged. Python opentile has the same
+  format-vendor=writer-vendor conflation; v0.18 improves on this.
 - **Correctness bar:** make test green; TestSlideParity 30 fixtures
-  unchanged from v0.16; new TestCrossFormatMetadata exercises every
-  format's cross-format Metadata population (12 fixtures, 9 formats;
-  all green).
-- **Sealed Q-decisions (8):** Q1 hybrid; Q2 smart MPP (X==Y only);
-  Q3 lowercase-with-hyphens canonical keys + vendor.<key>
-  namespacing; Q4 Option B (strip duplicates; keep raw native);
-  Q5 strings throughout; Q6 missing = key absent; Q7 v0.17.0;
-  Q8 keep all per-format MetadataOf accessors.
-- **Deferred forward:** R19 (bare DZI), L19, L20, L23-L25, L26-L29,
-  L30-L34, R4/R6/R9, R15. v1.0 cut still pending.
-- **Design:** docs/superpowers/specs/2026-05-09-opentile-go-v17-cross-format-metadata-design.md
-- **Plan:** docs/superpowers/plans/2026-05-09-opentile-go-v17-cross-format-metadata.md
-- **Work branch:** feat/v0.17
+  green; TestCrossFormatMetadata green.
+- **Sealed Q-decisions (6):** Q1 single parser with vendor-detection
+  dispatch (Option A; rejects sub-readers); Q2 detection signal
+  order (ImageDescription → Software → Make); Q3 unknown-writer
+  fallback (svs.<key> namespace); Q4 OME-TIFF Creator stays
+  separate from ScannerManufacturer; Q5 v0.18.0 (mostly additive);
+  Q6 lowercased first-word vendor namespace.
+- **Deferred forward:** R19 (bare DZI), R21 (COG first-class +
+  HTTP-range backing). L19, L20, L23-L25, L26-L29, L30-L34,
+  R4/R6/R9, R15. v1.0 cut still pending.
+- **Design:** docs/superpowers/specs/2026-05-09-opentile-go-v18-svs-writer-detection-design.md
+- **Plan:** docs/superpowers/plans/2026-05-09-opentile-go-v18-svs-writer-detection.md
+- **Work branch:** feat/v0.18
+
+## Previous milestone — v0.17 (shipped 2026-05-09)
+
+Cross-format Metadata expansion — closes R20. Hybrid: typed
+additions (MicronsPerPixel + per-axis X/Y; ImageDescription) +
+Properties map[string]string for opentile-go-canonical extensions
+and vendor-namespaced passthrough. Every format reader updated
+to populate the new fields. Format-specific Metadata structs
+cleaned up per Q4 Option B.
 
 ## Previous milestone — v0.16 (shipped 2026-05-09)
 
