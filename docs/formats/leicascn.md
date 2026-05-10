@@ -115,6 +115,23 @@ Additionally, the `AssociatedImage.Kind()` method was renamed to `Type()` (DICOM
 
 **Consumer migration:** where you reference `Type()` for Leica SCN auxiliary images, replace `case "macro":` with `case "overview":`. Update any references to `AssociatedImage.Kind()` → `AssociatedImage.Type()`.
 
+## Cross-format Metadata mapping (v0.17)
+
+Pre-v0.17 `leicascn.Tiler.Metadata()` returned an empty struct. v0.17 (T6) wires it from the parsed SCN-XML:
+
+| SCN-XML source | cross-format Metadata position |
+|---|---|
+| `<view sizeX>` / `<view sizeY>` (slide-physical extent in nm) ÷ `<pixels sizeX>` / `<pixels sizeY>` (level-0 pixel extent), nm → µm | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y (all 3 fixtures symmetric) |
+| objective magnification element | `Magnification` (already populated since v0.11) |
+| `Leica` (constant) / `<scanSettings><scannerSettings>` model | `ScannerManufacturer` / `ScannerModel` (already populated since v0.11) |
+| full SCN-XML document | `ImageDescription` |
+| `<barcode>` text | `Properties["leica.barcode"]` |
+| `<collection name>` / `<collection uuid>` | `Properties["leica.collection.name"]` / `Properties["leica.collection.uuid"]` |
+| `<illuminationSource>` | `Properties["leica.illumination_source"]` |
+| classified region count | `Properties["leica.region_count"]` |
+
+For multi-region SCN files, the cross-format Metadata reflects region 0; `leicascn.MetadataOf(t)` exposes the full per-region detail.
+
 ## Implementation references
 
 - Our package: `formats/leicascn/`

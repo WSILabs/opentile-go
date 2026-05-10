@@ -37,6 +37,20 @@ Philips IntelliSite Pathology Solution scanner output. File extension `.tiff` (o
 
 None. Behaviour matches Python opentile 0.20.0 exactly.
 
+## Cross-format Metadata mapping (v0.17)
+
+Philips's DICOM-attribute XML carries the cross-format-canonical fields. v0.17 surfaces them as:
+
+| DICOM/Philips XML attribute | cross-format Metadata position |
+|---|---|
+| `DICOM_PIXEL_SPACING` (mm/px × 1000 → µm) | `MicronsPerPixelX/Y` (per axis); `MicronsPerPixel` populated by `SetMPPSymmetric()` when X == Y |
+| `Philips DP` `Software` tag | `ScannerManufacturer` (`Hamamatsu` or `PHILIPS` per scanner) |
+| ImageDescription verbatim (full DataObject XML) | `ImageDescription` |
+| `PIM_DP_SCANNER_OPERATOR_ID` | `Properties[PropertyUserName]` (when present; absent on all 4 current fixtures) |
+| every other `<DataObject>` Attribute | `Properties["philips.<Name>"]` (vendor passthrough — `PIM_DP_*`, `DICOM_*`, `PIIM_*`, `UFS_*`) |
+
+`philipstiff.MetadataOf(t)` continues to expose the typed DICOM fields (`PixelSpacing`, `BitsAllocated`, etc.).
+
 ## Implementation references
 
 - Our package: `formats/philipstiff/`

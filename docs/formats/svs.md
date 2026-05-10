@@ -37,6 +37,20 @@ Aperio's scanned-slide format, produced by Leica Aperio scanners (most common di
 
 None. Behaviour matches Python opentile 0.20.0 exactly.
 
+## Cross-format Metadata mapping (v0.17)
+
+Aperio's `ImageDescription` carries `key = value` pairs (`MPP`, `AppMag`, `User`, etc.). v0.17 surfaces them on the cross-format `opentile.Metadata`:
+
+| Aperio source | cross-format Metadata position |
+|---|---|
+| `MPP` | `MicronsPerPixelX/Y` (set both; `SetMPPSymmetric()` populates `MicronsPerPixel` since X == Y by construction) |
+| `AppMag` | `Magnification` |
+| ImageDescription verbatim | `ImageDescription` |
+| `User` | `Properties[PropertyUserName]` (canonical) AND `Properties["aperio.User"]` (vendor passthrough) |
+| every other Aperio kv | `Properties["aperio.<key>"]` (vendor passthrough — all keys passing the SVS reader's `isAperioKey` filter) |
+
+`svs.MetadataOf(t)` continues to expose the format-specific `MPP`, `SoftwareLine`, and `Filename` fields; the cross-format additions are duplicates surfaced through the embedded `opentile.Metadata`.
+
 ## Implementation references
 
 - Our package: `formats/svs/`

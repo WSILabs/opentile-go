@@ -71,6 +71,22 @@ Upstream Python opentile doesn't read BIF, so every v0.7 behaviour is technicall
 | `Level.TileOverlap() image.Point` interface evolution | v0.7 | non-BIF formats return `image.Point{}` (zero) — no caller change needed | Tile() returns raw compressed bytes (preserving byte-passthrough hot path); consumer needs the overlap value to position tiles correctly |
 | Non-strict `ScannerModel` acceptance | v0.7 | not opt-out-able | Spec mandates `ScannerModel == "VENTANA DP 200"` rejection-otherwise; we accept any iScan-tagged BigTIFF and route via `HasPrefix("VENTANA DP")` so legacy iScan slides aren't worse-than-openslide |
 
+## Cross-format Metadata mapping (v0.17)
+
+BIF's iScan XMP carries the cross-format-canonical fields. v0.17 surfaces them:
+
+| iScan XMP source | cross-format Metadata position |
+|---|---|
+| `ScanRes` (X / Y when distinct) | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y (both fixtures isotropic at 0.25 / 0.2325) |
+| `Magnification` | `Magnification` |
+| Vendor (constant) | `ScannerManufacturer = "Roche"` |
+| `ScannerModel` | `ScannerModel` (e.g., `VENTANA DP 200`) |
+| Synthesised splice descriptor | `ImageDescription` (`level=0 mag=40 quality=95`) |
+| `UserName` | `Properties[PropertyUserName]` (canonical) AND `Properties["ventana.UserName"]` |
+| every other iScan XMP attribute | `Properties["ventana.<key>"]` (vendor passthrough — 13–18 keys per fixture) |
+
+Per Q4 Option B, `bif.Metadata.ImageDescription` was retired (the cross-format `ImageDescription` covers it); `bif.MetadataOf(t)` continues to expose `ZSpacing` and `ZPlaneFoci`.
+
 ## Implementation references
 
 - Our package: `formats/bif/`

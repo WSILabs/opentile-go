@@ -2,49 +2,62 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.16 (shipped)
+## Current milestone — v0.17 (shipped 2026-05-09)
 
-- **Scope:** Smart Zoom Image (SZI) reader. Closes R18 from
-  deferred backlog. New formats/szi/ package backed by new shared
-  internal/dzi/ core (manifest parser + tile-coordinate math;
-  designed for additive bare-DZI support in v0.17+). Driven by
-  user's wsi-tools / viewer pipeline targeting Grundium-scanner
-  output. 6 plan tasks single batch.
-- **API additions:** opentile.FormatSZI ("szi") + opentile.CompressionPNG
-  enum values; internal/dzi package; formats/szi package with
-  szi.MetadataOf accessor; szi.Metadata struct including
-  VendorProperties map[string]string for open-ended vendor.<key>
-  properties.
-- **API breaks:** none (purely additive).
-- **Active limitations:** unchanged from v0.15. No new L items.
+- **Scope:** Cross-format Metadata expansion (R20). Hybrid: typed
+  additions for what OpenSlide standardizes (MicronsPerPixel +
+  per-axis X/Y; ImageDescription) + Properties map[string]string
+  for opentile-go-canonical extensions (case-number, user-name,
+  scanned-area-mm2, scan-duration-seconds, comments) and vendor-
+  namespaced passthrough. Every format reader updated to populate
+  the new fields. Closes R20 from deferred backlog. 8 plan tasks
+  single batch.
+- **API additions:** 4 typed Metadata fields (MicronsPerPixel,
+  MicronsPerPixelX/Y, ImageDescription); Properties map; 5
+  canonical key constants (PropertyCaseNumber, PropertyUserName,
+  PropertyScannedAreaMM2, PropertyScanDurationSec, PropertyComments);
+  2 helper methods (SetMPPSymmetric, SetProperty).
+- **API breaks:** narrow — struct-literal construction of format-
+  specific Metadata structs (e.g., szi.Metadata{MicronsPerPixel:
+  ...}) no longer compiles for fields moved to embedded
+  opentile.Metadata. Field reads via embedded promotion continue
+  to work without source change.
+- **Active limitations:** unchanged from v0.16. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  docs/deferred.md §1a): unchanged from v0.15. SZI is beyond
-  upstream's coverage — no upstream parity to honor.
+  docs/deferred.md §1a): unchanged. New typed fields (MPP,
+  ImageDescription) align with OpenSlide; the Properties map +
+  opentile-go-canonical extensions are opentile-go originals.
 - **Correctness bar:** make test green; TestSlideParity 30 fixtures
-  (was 28).
-- **Sealed Q-decisions (8):** Q1 SZI-only in v0.16 (DZI deferred);
-  Q2 strict on missing tiles (ErrCorruptArchive); Q3 typed
-  szi.Metadata + VendorProperties map; Q4 vendor/ folder content
-  deferred; Q5 eager ZIP central-directory parse; Q6 internal/dzi
-  split; Q7 both fixtures into TestSlideParity; Q8 6-task batch.
-- **Deferred forward:** R19 (bare DZI) — internal/dzi pre-pares it.
-  R20 (cross-format Metadata MicronsPerPixel + ImageDescription) —
-  flagged during v0.16 T4. L19, L20, L23-L25, L26-L29, L30-L34,
-  R4/R6/R9, R15. v1.0 cut still pending.
-- **Design:** docs/superpowers/specs/2026-05-08-opentile-go-v16-szi-design.md
-- **Plan:** docs/superpowers/plans/2026-05-08-opentile-go-v16-szi.md
-- **Work branch:** feat/v0.16
+  unchanged from v0.16; new TestCrossFormatMetadata exercises every
+  format's cross-format Metadata population (12 fixtures, 9 formats;
+  all green).
+- **Sealed Q-decisions (8):** Q1 hybrid; Q2 smart MPP (X==Y only);
+  Q3 lowercase-with-hyphens canonical keys + vendor.<key>
+  namespacing; Q4 Option B (strip duplicates; keep raw native);
+  Q5 strings throughout; Q6 missing = key absent; Q7 v0.17.0;
+  Q8 keep all per-format MetadataOf accessors.
+- **Deferred forward:** R19 (bare DZI), L19, L20, L23-L25, L26-L29,
+  L30-L34, R4/R6/R9, R15. v1.0 cut still pending.
+- **Design:** docs/superpowers/specs/2026-05-09-opentile-go-v17-cross-format-metadata-design.md
+- **Plan:** docs/superpowers/plans/2026-05-09-opentile-go-v17-cross-format-metadata.md
+- **Work branch:** feat/v0.17
 
-## Previous milestone — v0.15 (shipped 2026-05-08)
+## Previous milestone — v0.16 (shipped 2026-05-09)
 
-Naming-cleanup milestone — AssociatedImage.Kind() renamed to Type()
-(DICOM ImageType convention); generic-TIFF + Leica SCN emitted
-"macro" flipped to "overview" (aligns with DICOM + Python opentile
-+ 6 sibling format readers). IFE preserves both as IFE-spec-distinct
-values. Breaking change; pre-1.0; sole-consumer sign-off.
+Smart Zoom Image (SZI) reader. Closes R18. New formats/szi/ +
+internal/dzi/ packages; opentile.FormatSZI + opentile.CompressionPNG
+enums; mmap-aliased ZIP-entry tile fetch; szi.MetadataOf accessor +
+szi.Metadata with VendorProperties map; 2 fixtures (CMU-1.szi +
+scan_618_grundium 709 MB) wired into TestSlideParity (28 → 30).
+Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 
 ## Earlier milestones
 
+- v0.15 (2026-05-08): Naming cleanup — AssociatedImage.Kind() →
+  Type() (DICOM convention); generic-TIFF + Leica SCN emitted
+  "macro" → "overview" (aligns with DICOM + Python opentile + 6
+  sibling format readers). IFE preserves both. Breaking change;
+  pre-1.0; sole-consumer sign-off.
 - v0.14 (2026-05-08): Novel-codec milestone — generic-TIFF reader
   recognises 4 new tile compression tag values (WebP / JPEG XL /
   AVIF / HTJ2K) produced by the user's wsi-tools transcoder. Plus

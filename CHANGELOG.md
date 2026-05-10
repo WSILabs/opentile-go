@@ -11,14 +11,89 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.16: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.17: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.16 introduced
-no new active limitations — it was a Smart Zoom Image (SZI) reader
-milestone closing R18 from §11 backlog, additive only. See
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.17 introduced
+no new active limitations — it was a cross-format Metadata expansion
+milestone closing R20 from §11 backlog. See
 `docs/deferred.md` §11 consolidated backlog. Open work parked in
 tracked issues:
+
+## [0.17.0] — 2026-05-09
+
+Cross-format Metadata expansion — closes R20. Typed additions
+(MicronsPerPixel + per-axis X/Y; ImageDescription) plus a flat
+Properties map[string]string for opentile-go-canonical extensions
+and vendor-namespaced passthrough. Mirrors OpenSlide's flat-
+property convention where it's standard; falls back to typed
+fields for the well-precedented WSI cross-cutting fields.
+
+### Added
+
+- 4 new typed fields on `opentile.Metadata`:
+  - `MicronsPerPixel float64` (populated when X == Y; zero
+    otherwise)
+  - `MicronsPerPixelX float64`
+  - `MicronsPerPixelY float64`
+  - `ImageDescription string` (structured per-format description)
+- `Properties map[string]string` for additional cross-format
+  metadata. Two key conventions:
+  - opentile-go-canonical (lowercase-with-hyphens): see new
+    constants below
+  - vendor-namespaced (`<format>.<key>`): vendor-specific fields
+    surfaced as-is, e.g., `aperio.AppMag`, `philips.PIM_DP_*`,
+    `ventana.<key>`, `hamamatsu.SourceLens`, `ome.creator`,
+    `leica.barcode`, `iris.<key>`, `wsi-tools.codec`
+- 5 canonical key constants:
+  - `opentile.PropertyCaseNumber = "case-number"`
+  - `opentile.PropertyUserName = "user-name"`
+  - `opentile.PropertyScannedAreaMM2 = "scanned-area-mm2"`
+  - `opentile.PropertyScanDurationSec = "scan-duration-seconds"`
+  - `opentile.PropertyComments = "comments"`
+- 2 helper methods:
+  - `Metadata.SetMPPSymmetric()` — derives plain MPP from per-axis
+    when X == Y (strict equality)
+  - `Metadata.SetProperty(key, value string)` — nil-safe Properties
+    setter (lazily initializes the map)
+- New `tests/parity/cross_format_metadata_test.go` — cross-format
+  metadata parity gate (12 fixtures across 9 formats; asserts the
+  expected populated fields per probe-confirmed truth).
+
+### Changed
+
+- Every format reader (SVS, NDPI, Philips, OME-TIFF, BIF, IFE,
+  Leica SCN, Generic TIFF, SZI) now populates the new typed fields
+  + canonical Properties keys where source data is present.
+- `leicascn.Tiler.Metadata()` now populates from SCN-XML view scale
+  (was previously empty).
+- Format-specific Metadata structs (`szi.Metadata`, `bif.Metadata`,
+  `generictiff.Metadata`, `ife.Metadata`) lose cross-format-canonical
+  duplicates per Q4 Option B; raw native representations preserved
+  (e.g., SZI's `ElapsedTime` "XhYmZs" string + `VendorProperties`
+  for SZI's spec-defined open-ended properties).
+- Behavior change vs v0.16 SZI: anisotropic SZI now leaves
+  `MicronsPerPixel = 0` (was averaging X / Y); per Q2 smart-MPP-only-
+  when-X==Y. CMU-1.szi and Grundium fixture are both isotropic so
+  observable behavior is unchanged on the wired fixtures.
+
+### Notes
+
+- **No break for existing consumers reading via Tiler.Metadata().**
+  New fields default to zero values; existing typed fields
+  (Magnification, ScannerManufacturer, etc.) unchanged.
+- **Narrow break for struct-literal construction of format-specific
+  Metadata structs.** E.g., `szi.Metadata{MicronsPerPixel: 0.4}` no
+  longer compiles — set on the embedded opentile.Metadata instead
+  (`szi.Metadata{Metadata: opentile.Metadata{MicronsPerPixel: 0.4}}`),
+  or use `SetMPPSymmetric()` from the per-axis fields. Surface is
+  narrow — mostly internal/test code.
+- **Hybrid design rationale:** typed fields land at OpenSlide's
+  precedent (MPP, comment); Properties map handles opentile-go
+  originals (case-number, user-name, etc.). See spec §1 for the
+  authority audit comparing OpenSlide / Python opentile.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
 
 ## [0.16.0] — 2026-05-09
 
