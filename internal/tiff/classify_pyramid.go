@@ -150,6 +150,33 @@ func validSampleFormat(spp, bps uint32) bool {
 	return spp == 1 || spp == 3
 }
 
+// isIntegerMultipleRatio reports whether candidate ratio r matches
+// any prior chain ratio scaled by a small clean integer factor
+// (1, 2, 4, 8, 16 or their reciprocals: 1, 1/2, 1/4, 1/8, 1/16).
+// Tolerance reuses cfg.InterLevelTolerance to allow encoder rounding
+// (a "2.0×" downsample often computes to 2.001× or 1.999× depending
+// on which dimension is dominant).
+//
+// Pre-v0.19 the validator rejected any drift > tolerance, dropping
+// pyramid levels from files with mixed-ratio chains (e.g., a
+// 4×/2×/2× pyramid produced by Aperio Image Library on certain
+// scan sizes). v0.19 accepts these via this predicate.
+func isIntegerMultipleRatio(r float64, prior []float64, tolerance float64) bool {
+	for _, p := range prior {
+		for _, mult := range []float64{1, 2, 4, 8, 16} {
+			for _, target := range []float64{p * mult, p / mult} {
+				if target <= 0 {
+					continue
+				}
+				if math.Abs(r-target)/target <= tolerance {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // ClassifyPyramid attempts to find a coherent tiled pyramid in
 // pages per the v0.10 generic-TIFF spec §4 algorithm:
 //
@@ -228,8 +255,15 @@ func ClassifyPyramid(infos []PyramidLevelInfo, cfg ClassifyPyramidConfig) (Class
 		if len(ratios) > 0 {
 			drift := math.Abs(rW-ratios[len(ratios)-1]) / ratios[len(ratios)-1]
 			if drift > cfg.InterLevelTolerance {
-				leftoverTiled = append(leftoverTiled, cand)
-				continue
+				// v0.19 (Issue #5 part B): accept clean integer-multiple
+				// jumps as a deliberate step change (e.g., 4×/2×/2×
+				// pyramid chains in Aperio/Grundium SVS routed through
+				// generic-tiff). Reject only when the ratio doesn't match
+				// any prior ratio scaled by a clean integer factor.
+				if !isIntegerMultipleRatio(rW, ratios, cfg.InterLevelTolerance) {
+					leftoverTiled = append(leftoverTiled, cand)
+					continue
+				}
 			}
 		}
 		pyramid = append(pyramid, cand)

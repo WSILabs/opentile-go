@@ -176,14 +176,15 @@ func TestClassifyPyramid_RejectInterAxisFailure(t *testing.T) {
 }
 
 func TestClassifyPyramid_RejectInterLevelDriftBeyondTolerance(t *testing.T) {
-	// L0→L1 ratio = 2.0; L1→L2 ratio = 4.0. Inter-level drift =
-	// |2-4|/2 = 100%, way over ±5%. The 4×-step IFD is dropped to
-	// leftover; with MinLevels=3 (v0.10 strictness; explicit here)
-	// the surviving 2-level chain falls below the floor → reject.
+	// L0→L1 ratio = 2.0; L1→L2 ratio = 3.0 (via 1024→512→170).
+	// Inter-level drift = |2-3|/2 = 50%, way over ±5%. The 3×-step
+	// IFD is dropped to leftover (not an integer-multiple of 2);
+	// with MinLevels=3 (v0.10 strictness; explicit here) the
+	// surviving 2-level chain falls below the floor → reject.
 	infos := []PyramidLevelInfo{
 		tiledRGB(0, 1024, 1024),
 		tiledRGB(1, 512, 512),
-		tiledRGB(2, 128, 128), // 4× step from L1
+		tiledRGB(2, 170, 170), // ~3× step from L1, not an integer-multiple
 	}
 	cfg := DefaultClassifyPyramidConfig()
 	cfg.MinLevels = 3
@@ -355,5 +356,53 @@ func TestValidCompression(t *testing.T) {
 				t.Errorf("validCompression(%d) = %v, want %v", tc.comp, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestIsIntegerMultipleRatio(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		r         float64
+		prior     []float64
+		tolerance float64
+		want      bool
+	}{
+		{"2x is half of 4x prior", 2.0, []float64{4.0}, 0.05, true},
+		{"4x is double of 2x prior", 4.0, []float64{2.0}, 0.05, true},
+		{"3x is not integer-multiple of 2x", 3.0, []float64{2.0}, 0.05, false},
+		{"2.001x within tolerance of 2x prior", 2.001, []float64{2.0}, 0.05, true},
+		{"empty prior", 4.0, nil, 0.05, false},
+		{"8x with mixed prior", 8.0, []float64{2.0, 4.0}, 0.05, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isIntegerMultipleRatio(tc.r, tc.prior, tc.tolerance)
+			if got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestClassifyPyramid_IntegerMultipleChain(t *testing.T) {
+	// Synthetic 4×/2×/2× chain: 49152 → 12288 → 6144 → 3072 wide.
+	// Pre-v0.19 the second step (49152→12288 = 4×) sets the chain
+	// ratio at 4×; the third step (12288→6144 = 2×) drifts 50% from
+	// 4× and is rejected. v0.19 accepts via integer-multiple match
+	// (2× is a clean half of 4×).
+	infos := []PyramidLevelInfo{
+		tiledRGB(0, 49152, 32768),
+		tiledRGB(1, 12288, 8192),
+		tiledRGB(2, 6144, 4096),
+		tiledRGB(3, 3072, 2048),
+	}
+	res, err := ClassifyPyramid(infos, DefaultClassifyPyramidConfig())
+	if err != nil {
+		t.Fatalf("expected accept, got err: %v", err)
+	}
+	if len(res.Pyramid) != 4 {
+		t.Errorf("pyramid len = %d, want 4", len(res.Pyramid))
+	}
+	if len(res.Others) != 0 {
+		t.Errorf("others len = %d, want 0", len(res.Others))
 	}
 }
