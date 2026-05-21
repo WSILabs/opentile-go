@@ -1,5 +1,12 @@
 # COG-WSI Format Specification
 
+> **Vendored copy.** This file is a point-in-time snapshot of the COG-WSI
+> spec authored in [cornish/wsitools](https://github.com/cornish/wsitools/blob/main/docs/superpowers/specs/2026-05-20-cog-wsi-format.md).
+> The wsitools repository holds the canonical, authoritative version;
+> consult it for the latest text. This copy lives here so the opentile-go
+> COG-WSI reader (issue #6) can reference the spec inline without an
+> external link.
+
 **Version:** 0.1
 **Status:** Draft
 **Date:** 2026-05-20
