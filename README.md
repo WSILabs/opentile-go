@@ -33,6 +33,7 @@ tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 | **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥1 level, geometric scale chain) | classifier-assigned: label, overview, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None, WebP, JPEG XL, AVIF, HTJ2K (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generictiff.md](./docs/formats/generictiff.md) |
 | **Leica SCN\*** | `.scn` | tiled BigTIFF; multi-region "discontinuous scanning"; multi-channel fluorescence | classifier-assigned: overview per auxiliary `<image>` | JPEG | sampled-tile SHAs + per-fixture geometry pin + bio-formats CLI parity oracle | [docs/formats/leicascn.md](./docs/formats/leicascn.md) |
 | **Smart Zoom Image (SZI)\*** | `.szi` | ZIP-wrapped Microsoft Deep Zoom pyramid; per-level dim halving; sparse images not supported per spec | label, overview (from `macro.jpg`), thumbnail | JPEG / PNG (all passthrough) | sampled-tile SHAs + per-fixture geometry pin | [docs/formats/szi.md](./docs/formats/szi.md) |
+| **COG-WSI\*** | `.tiff` | strict GDAL Cloud Optimized GeoTIFF + WSI private tags (65080-87) + COG_WSI_VERSION ghost-area marker | label, overview (from `macro` or `overview` WSIImageType), thumbnail | source-format preserving (JPEG, JP2K, LZW, …) | per-fixture geometry pin + cross-fixture parity vs source format + ErrNotConformantCOGWSI spec validation | [docs/formats/cogwsi.md](./docs/formats/cogwsi.md) |
 
 \* Marks Go-side extensions beyond upstream Python opentile; see [Deviations](#deviations-from-upstream-python-opentile) below.
 
@@ -67,7 +68,7 @@ t, err := opentile.OpenFile("slide.tiff")
 if err != nil { /* ErrUnsupportedFormat or open error */ }
 defer t.Close()
 
-fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "leica-scn", "szi"
+fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "leica-scn", "szi", "cog-wsi"
 fmt.Println("levels:", len(t.Levels()))
 ```
 
@@ -214,6 +215,7 @@ opentile-go aims for byte-parity with Python opentile 0.20.0. A small number of 
 | Leica SCN reader for legacy SCN400 / SCN400F output | Leica SCN | v0.11 | not opt-out-able once registered | First real-fixture exercise of `Image.SizeC() > 1` (Leica-Fluorescence-1.scn's separated-channel data); also the first multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage. |
 | `Level.TilePrefix` / `TileBodyInto` / `TileBodyMaxSize` + `opentile.SpliceJPEGTile` interface evolution | All formats (JPEG splice formats benefit) | v0.13 | additive — existing `Tile()` / `TileInto()` unchanged | Bandwidth-deduplication API for client-server consumers: send the per-level prefix once, send per-tile body bytes per request, reconstitute on client. Savings fixture-author-dependent (only slides with shared JPEGTables benefit). |
 | Smart Zoom Image (SZI) reader | Smart Zoom Image | v0.16 | not opt-out-able once registered | First ZIP-backed format opentile-go reads; first format to surface `CompressionPNG`. Spec-mandated uncompressed-stored ZIP entries preserve the v0.9 mmap-aliased fast path. Backed by a new shared `internal/dzi/` core designed for additive bare-DZI support in v0.17+. |
+| COG-WSI reader + integer-multiple pyramid ratio acceptance | COG-WSI + generic-TIFF | v0.19 | not opt-out-able once registered | First spec-validated COG-profile reader opentile-go ships; pairs WSI-domain private tags 65080-87 + `COG_WSI_VERSION` ghost-area marker with the GDAL Cloud Optimized GeoTIFF base structure. Closes Issues [#5](https://github.com/cornish/opentile-go/issues/5) + [#6](https://github.com/cornish/opentile-go/issues/6). Generic-TIFF standalone benefit: relaxed strict-drift check now accepts clean integer-multiple pyramid ratios (Aperio / Grundium SVS-style 4×/2×/2× chains). |
 
 Full reasoning + per-deviation commit references are in [`docs/deferred.md`](./docs/deferred.md).
 

@@ -1,6 +1,6 @@
 {
-  "slide": "Leica-1.ome.tiff",
-  "format": "ome-tiff",
+  "slide": "Leica-1_cog-wsi.tiff",
+  "format": "cog-wsi",
   "levels": [
     {
       "index": 0,
@@ -17,7 +17,7 @@
         76
       ],
       "compression": "jpeg",
-      "mpp_um": 500,
+      "mpp_um": 0,
       "pyramid_index": 0
     },
     {
@@ -35,8 +35,8 @@
         19
       ],
       "compression": "jpeg",
-      "mpp_um": 2000,
-      "pyramid_index": 2
+      "mpp_um": 0,
+      "pyramid_index": 1
     },
     {
       "index": 2,
@@ -53,8 +53,8 @@
         5
       ],
       "compression": "jpeg",
-      "mpp_um": 8000,
-      "pyramid_index": 4
+      "mpp_um": 0,
+      "pyramid_index": 2
     },
     {
       "index": 3,
@@ -71,8 +71,8 @@
         2
       ],
       "compression": "jpeg",
-      "mpp_um": 31972.222222222223,
-      "pyramid_index": 6
+      "mpp_um": 0,
+      "pyramid_index": 3
     },
     {
       "index": 4,
@@ -89,13 +89,12 @@
         1
       ],
       "compression": "jpeg",
-      "mpp_um": 127888.88888888889,
-      "pyramid_index": 8
+      "mpp_um": 0,
+      "pyramid_index": 4
     }
   ],
   "metadata": {
-    "magnification": 20,
-    "acquisition_rfc3339": "2011-05-31T09:43:06Z"
+    "magnification": 0
   },
   "sampled_tiles": {
     "0:0:0": {

@@ -65,6 +65,43 @@ const (
 	tiledThumbnailMaxAreaRatio = 0.001
 )
 
+// ClassifyAssociatedFromPage is the WSI-tag-aware entry point used
+// by v0.19+ generic-TIFF. When the page carries an explicit
+// [tiff.TagWSIImageType] (COG-WSI spec §5.2 / opentile-go v0.19),
+// that value is authoritative and the dimension/aspect heuristics
+// are skipped:
+//
+//	WSIImageType=label                    → TypeLabel
+//	WSIImageType=macro | overview         → TypeOverview (v0.15 canonical)
+//	WSIImageType=thumbnail                → TypeThumbnail
+//	WSIImageType=pyramid                  → TypeAssociated (defensive;
+//	                                         pyramid IFDs shouldn't reach here)
+//
+// Falls back to the pre-v0.19 [ClassifyAssociated] heuristics when
+// no WSI tag is present (vips-converted files, pre-v0.19 generic
+// TIFFs, etc.).
+func ClassifyAssociatedFromPage(page *tiff.Page, ifd, baseline tiff.PyramidLevelInfo) string {
+	if wt, ok := page.WSIImageType(); ok {
+		switch wt {
+		case "label":
+			return TypeLabel
+		case "macro", "overview":
+			return TypeOverview
+		case "thumbnail":
+			return TypeThumbnail
+		case "pyramid":
+			// Defensive: pyramid-typed IFDs should never reach the
+			// associated classifier (they're routed into the pyramid
+			// build). If they do, fall through to associated rather
+			// than misclassifying as a level.
+			return TypeAssociated
+		}
+		// Unknown WSIImageType value: fall through to heuristic path
+		// rather than asserting a class we can't justify.
+	}
+	return ClassifyAssociated(ifd, baseline)
+}
+
 // ClassifyAssociated assigns a Type() value to an IFD that the
 // pyramid validator routed into Others (i.e., a non-pyramid IFD —
 // stripped, or tiled-but-didn't-fit-the-pyramid-scale). Applies the

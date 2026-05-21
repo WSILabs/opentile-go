@@ -16,6 +16,7 @@ import (
 
 	opentile "github.com/cornish/opentile-go"
 	"github.com/cornish/opentile-go/formats/bif"
+	"github.com/cornish/opentile-go/formats/cogwsi"
 	"github.com/cornish/opentile-go/formats/generictiff"
 	"github.com/cornish/opentile-go/formats/ife"
 	"github.com/cornish/opentile-go/formats/leicascn"
@@ -44,6 +45,11 @@ func Register() {
 		// never claim a ZIP-magic file anyway, but keeping non-TIFF
 		// readers ahead of the catch-all matches the IFE precedent.
 		opentile.Register(szi.New())
+		// COG-WSI registers before generictiff so its ghost-area
+		// detector (Supports → COG_WSI_VERSION key present) wins
+		// over the catch-all on COG-WSI files. Mirrors the
+		// leicascn-before-generictiff precedent from v0.11.
+		opentile.Register(cogwsi.New())
 		// Generic TIFF must register LAST: it's the catch-all
 		// for tiled pyramidal TIFFs that no vendor format claims.
 		// Registering earlier would let it steal vendor-shaped TIFFs.

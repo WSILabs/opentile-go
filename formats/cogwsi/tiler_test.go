@@ -1,0 +1,189 @@
+package cogwsi_test
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	opentile "github.com/cornish/opentile-go"
+	_ "github.com/cornish/opentile-go/formats/all"
+	"github.com/cornish/opentile-go/formats/cogwsi"
+)
+
+// TestOpen_CMU1SmallRegion is the T5 smoke test: opens the small
+// COG-WSI fixture via opentile.OpenFile() (which exercises the
+// formats/all registration + ghost-area dispatch) and confirms the
+// returned Tiler self-reports as FormatCOGWSI.
+//
+// Skips when OPENTILE_TESTDIR is unset or the fixture is missing,
+// to keep `go test ./...` green in CI environments without the
+// sample-files directory.
+func TestOpen_CMU1SmallRegion(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("fixture not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+	if got := tlr.Format(); got != opentile.FormatCOGWSI {
+		t.Errorf("Format = %q, want %q", got, opentile.FormatCOGWSI)
+	}
+}
+
+// TestTiler_CMU1SmallRegion_FullPyramid opens the canonical small
+// COG-WSI fixture, walks every pyramid level, and confirms the first
+// tile per level decodes as a valid JPEG (SOI marker FF D8 FF). Also
+// verifies the associated-image set matches the spec-violating
+// "macro" → Type("overview") mapping per v0.15 canonical naming.
+func TestTiler_CMU1SmallRegion_FullPyramid(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("fixture not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+
+	levels := tlr.Levels()
+	if len(levels) == 0 {
+		t.Fatal("Levels(): empty")
+	}
+	for i, lvl := range levels {
+		b, err := lvl.Tile(0, 0)
+		if err != nil {
+			t.Fatalf("level %d Tile(0,0): %v", i, err)
+		}
+		if len(b) < 3 || b[0] != 0xFF || b[1] != 0xD8 || b[2] != 0xFF {
+			t.Errorf("level %d first tile lacks JPEG SOI: %x", i, b[:min(8, len(b))])
+		}
+	}
+
+	got := make([]string, 0)
+	for _, a := range tlr.Associated() {
+		got = append(got, a.Type())
+	}
+	// Probe of CMU-1-Small-Region_cog-wsi.tiff: 4 IFDs total; one
+	// pyramid + thumbnail + label + overview (in that IFD order, per
+	// spec §6).
+	want := []string{"thumbnail", "label", "overview"}
+	if len(got) != len(want) {
+		t.Fatalf("associated kinds = %v, want %v", got, want)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("associated[%d] = %q, want %q", i, got[i], w)
+		}
+	}
+}
+
+// TestTiler_Metadata verifies the cross-format Metadata populates
+// from the WSI private tags (MPP, magnification) + COG-WSI ghost
+// (spec version) + WSI source/tools tags, all routed per plan T6
+// step 3.
+func TestTiler_Metadata(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("fixture not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+
+	md := tlr.Metadata()
+
+	// MPP — probe showed 0.499 on both axes.
+	if md.MicronsPerPixelX != 0.499 || md.MicronsPerPixelY != 0.499 {
+		t.Errorf("MicronsPerPixel = (%g, %g), want (0.499, 0.499)",
+			md.MicronsPerPixelX, md.MicronsPerPixelY)
+	}
+	if md.MicronsPerPixel != 0.499 {
+		t.Errorf("MicronsPerPixel (symmetric) = %g, want 0.499", md.MicronsPerPixel)
+	}
+	if md.Magnification != 20 {
+		t.Errorf("Magnification = %g, want 20", md.Magnification)
+	}
+	// Scanner attribution preserved from the SVS source.
+	if md.ScannerManufacturer != "Aperio" {
+		t.Errorf("ScannerManufacturer = %q, want %q", md.ScannerManufacturer, "Aperio")
+	}
+	if md.ImageDescription != "wsitools/0.6.0-dev convert source=svs" {
+		t.Errorf("ImageDescription = %q", md.ImageDescription)
+	}
+
+	// Properties[cog-wsi.*]
+	checkProp := func(key, want string) {
+		t.Helper()
+		got := md.Properties[key]
+		if got != want {
+			t.Errorf("Properties[%q] = %q, want %q", key, got, want)
+		}
+	}
+	checkProp(cogwsi.PropSourceFormat, "svs")
+	checkProp(cogwsi.PropWSIToolsVer, "0.6.0-dev")
+	checkProp(cogwsi.PropSpecVersion, "0.1")
+}
+
+// TestOpen_NonConformantGhost confirms a file with a COG_WSI_VERSION
+// marker but a malformed required-key value (here: LAYOUT=OTHER)
+// fails opening with ErrNotConformantCOGWSI.
+//
+// Synthesises a minimal classic-TIFF + ghost-area header that
+// passes Supports() (COG_WSI_VERSION present) but trips
+// validateGhost on the bad LAYOUT value.
+func TestOpen_NonConformantGhost(t *testing.T) {
+	const badGhost = "GDAL_STRUCTURAL_METADATA_SIZE=000148 bytes\n" +
+		"LAYOUT=OTHER\n" +
+		"BLOCK_ORDER=ROW_MAJOR\n" +
+		"BLOCK_LEADER=SIZE_AS_UINT4\n" +
+		"BLOCK_TRAILER=LAST_4_BYTES_REPEATED\n" +
+		"KNOWN_INCOMPATIBLE_EDITION=NO\n" +
+		"COG_WSI_VERSION=0.1\n"
+
+	// Classic TIFF header pointing past the ghost area to an IFD —
+	// the IFD doesn't need to validate; ghost-area validation fires
+	// first.
+	ghostBytes := []byte(badGhost)
+	headerSize := 8
+	firstIFDOff := uint32(headerSize + len(ghostBytes))
+
+	buf := new(bytes.Buffer)
+	buf.Write([]byte{'I', 'I', 42, 0})
+	buf.Write([]byte{byte(firstIFDOff), byte(firstIFDOff >> 8), byte(firstIFDOff >> 16), byte(firstIFDOff >> 24)})
+	buf.Write(ghostBytes)
+	// Empty IFD (0 entries, no next).
+	buf.Write([]byte{0, 0, 0, 0, 0, 0})
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "bad.tiff")
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := opentile.OpenFile(path)
+	if err == nil {
+		t.Fatal("OpenFile: want error, got nil")
+	}
+	if !errors.Is(err, cogwsi.ErrNotConformantCOGWSI) {
+		t.Errorf("err = %v, want ErrNotConformantCOGWSI", err)
+	}
+}
