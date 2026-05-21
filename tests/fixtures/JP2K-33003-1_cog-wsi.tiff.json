@@ -1,0 +1,228 @@
+{
+  "slide": "JP2K-33003-1_cog-wsi.tiff",
+  "format": "cog-wsi",
+  "levels": [
+    {
+      "index": 0,
+      "size": [
+        15374,
+        17497
+      ],
+      "tile_size": [
+        256,
+        256
+      ],
+      "grid": [
+        61,
+        69
+      ],
+      "compression": "jp2k",
+      "mpp_um": 0,
+      "pyramid_index": 0
+    },
+    {
+      "index": 1,
+      "size": [
+        3843,
+        4374
+      ],
+      "tile_size": [
+        256,
+        256
+      ],
+      "grid": [
+        16,
+        18
+      ],
+      "compression": "jp2k",
+      "mpp_um": 0,
+      "pyramid_index": 1
+    },
+    {
+      "index": 2,
+      "size": [
+        1921,
+        2187
+      ],
+      "tile_size": [
+        256,
+        256
+      ],
+      "grid": [
+        8,
+        9
+      ],
+      "compression": "jp2k",
+      "mpp_um": 0,
+      "pyramid_index": 2
+    }
+  ],
+  "metadata": {
+    "magnification": 40,
+    "scanner_manufacturer": "Aperio",
+    "acquisition_rfc3339": "2009-07-16T18:15:06Z"
+  },
+  "sampled_tiles": {
+    "0:0:0": {
+      "sha256": "5e5f27d12cdc19a54d56a49321a292ec7c08645ae840b963d6de1bed0a14cd6d",
+      "reason": "top-left corner"
+    },
+    "0:0:68": {
+      "sha256": "92d65aca02278cc7b00fa80bda0cb08610cbd4cb713e1c24d628a66b697caf17",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "0:15:17": {
+      "sha256": "4a00a6ca04059aeedfff84e3d2da204cb9093707d4bff50edce45a19b3f11ba4",
+      "reason": "interior diagonal q1"
+    },
+    "0:1:34": {
+      "sha256": "7a655c84cad45a86d01b8196d6eacadb243c1b06d38699da82dc623cad4939d2",
+      "reason": "near-left mid-row"
+    },
+    "0:30:1": {
+      "sha256": "ec96687741e8eee89ee5662c1a3f71c4852ae4e06502b0822b663727effc7c21",
+      "reason": "near-top mid-column"
+    },
+    "0:30:34": {
+      "sha256": "2977e94dbd7eedd0b2bb3e94473d84373321de4d36538a85712e1fc12e32ac82",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "0:30:68": {
+      "sha256": "0b221c6f1d5505fa0705eccb5ae38f6d492c0e2e803b22a60953ad20f33e483d",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "0:45:51": {
+      "sha256": "b3d5e88a133372252fcf7b214ea49f0c4530a356115f4ab66ad43719a2999859",
+      "reason": "interior diagonal q3"
+    },
+    "0:60:0": {
+      "sha256": "777cf0627587310cdb4ba577d05f3e915ba4f63eba42fc99d54eed1f1d9bf769",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "0:60:34": {
+      "sha256": "05f8cb01eff04459cae81a6321429aace6cb8ab83f92b685cdaaa38222a72bbc",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "0:60:68": {
+      "sha256": "5f0ffe9ebfa4cf81c2977370e30acee4b4aacdcf3612b15ca4127c1fe1ee1766",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "1:0:0": {
+      "sha256": "01d63d0fd5da78ed4de5862abbae9da6efc84ae05a3301394bde230125eaf447",
+      "reason": "top-left corner"
+    },
+    "1:0:17": {
+      "sha256": "5e8af58d09bf10a498003ee608dfb536eba459372d14f6119fff6b78f7810fab",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "1:12:13": {
+      "sha256": "ed331a5c3adcf0ffbd55811d9208292ae7a03c84ad95be20275e2883f3782a60",
+      "reason": "interior diagonal q3"
+    },
+    "1:15:0": {
+      "sha256": "809e1c2684954046e02d89069d6a2d77097be1a115ae0c8491a7ae634fcbde9b",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "1:15:17": {
+      "sha256": "26da868541cd3f76b7356dafcef14c6269c0378d7395454d91aabc5a0f5918de",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "1:15:9": {
+      "sha256": "35fc52d18bea53b38bc62db2aba026b41954ee258712d5bae8b1558f93ca237a",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "1:1:9": {
+      "sha256": "113788a4ff5651f9cee6ecbe47c97eef03fc2e8747a5b9ede305a202a9a3892a",
+      "reason": "near-left mid-row"
+    },
+    "1:4:4": {
+      "sha256": "7cf865b2a73a593950821af620ed27fce777d8ab8e13d029d7c45d80c668c77e",
+      "reason": "interior diagonal q1"
+    },
+    "1:8:1": {
+      "sha256": "5dcac25171665c40bf14c270c4457aad82776cb3943811d3dc6c989b19d7faaf",
+      "reason": "near-top mid-column"
+    },
+    "1:8:17": {
+      "sha256": "837cb56350e65285fdd7cde33aebb1fef394879a8ad500431dd9565868c3cbba",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "1:8:9": {
+      "sha256": "ababc4d6ede1364f35d91091479bf4be98f732d13f7650cc3fedb707216c61aa",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "2:0:0": {
+      "sha256": "a6a5ae619901917d81f67914cce81973f3615dc4047352c971c37e53bd188f91",
+      "reason": "top-left corner"
+    },
+    "2:0:8": {
+      "sha256": "3e46aefb53ac77cc651662182edf309c36af92227a3efe35806bfc108b5c97e5",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "2:1:4": {
+      "sha256": "3c346763d8f7c9c65268261a3d8ac2c77ba198f95342f240da17bae353f42845",
+      "reason": "near-left mid-row"
+    },
+    "2:2:2": {
+      "sha256": "38e38b4a1761472207355cd870f4411505935bcd734d10631cf71aaeeeec18e5",
+      "reason": "interior diagonal q1"
+    },
+    "2:4:1": {
+      "sha256": "75a9ab4e84a7542640eed427d29c91a8d8bf77d5020c62729ac3f4f5c04580f1",
+      "reason": "near-top mid-column"
+    },
+    "2:4:4": {
+      "sha256": "9369c6ed1ee0c81134bde2fdcdc3d395a1e2d78f337afb8c0b4184a96ea7e354",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "2:4:8": {
+      "sha256": "a7c5cc9c28a00a2cc92e7140df9691ab9bbf18ec346227b737668ca69f15cda2",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "2:6:6": {
+      "sha256": "d8376568cfd3c83ced2fac66f920cc1de4360f74081b16b164695bf66d475f81",
+      "reason": "interior diagonal q3"
+    },
+    "2:7:0": {
+      "sha256": "b660faacf5d0d96a4eca46fc1a1a673196992bf7dc7e9ba20a3674bc35de70a1",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "2:7:4": {
+      "sha256": "aabcb4fb5e9e09dedd5229e520131b71c3cc8f268e33d11453307b125a537aeb",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "2:7:8": {
+      "sha256": "95c8fc4b65dc6f0e7b314e06f4dbf8218f9bf8e08381ad67d7edf2e9d0eafcab",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    }
+  },
+  "associated": [
+    {
+      "kind": "thumbnail",
+      "size": [
+        674,
+        768
+      ],
+      "compression": "jpeg",
+      "sha256": "57846368b7e2770b3c268cde8355416087fd45f00975370a6cc9ff3b46a570ae"
+    },
+    {
+      "kind": "label",
+      "size": [
+        415,
+        422
+      ],
+      "compression": "lzw",
+      "sha256": "3d91d97e46e351c38f95949ca9d18363cd242b266a5669e313f3b52fdfeb9e4b"
+    },
+    {
+      "kind": "overview",
+      "size": [
+        1280,
+        421
+      ],
+      "compression": "jpeg",
+      "sha256": "37b0201f37b9a8734012f566a77dc2676585a19e8a37acb647df37ca0ef239a2"
+    }
+  ]
+}

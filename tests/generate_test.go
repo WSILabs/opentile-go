@@ -48,6 +48,20 @@ func sampledByDefault(slide string) bool {
 	// CMU-1.szi (~1 MB) stays full-walk.
 	case "scan_618_grundium_SZI.szi":
 		return true
+	// COG-WSI (v0.19): wsitools-converted fixtures. CMU-1-Small-Region
+	// (~1.9 MB) stays full-walk; everything else qualifies under the
+	// >100 MB sampled-by-default policy. cervix (2.1 GB) and
+	// svs_40x_bigtiff (4.8 GB) are the largest.
+	case "CMU-1_cog-wsi.tiff",
+		"JP2K-33003-1_cog-wsi.tiff",
+		"scan_617_cog-wsi.tiff",
+		"scan_620_cog-wsi.tiff",
+		"svs_40x_bigtiff_cog-wsi.tiff",
+		"Leica-1_cog-wsi.tiff",
+		"Philips-1_cog-wsi.tiff",
+		"Ventana-1_cog-wsi.tiff",
+		"cervix_2x_jpeg_cog-wsi.tiff":
+		return true
 	}
 	return false
 }

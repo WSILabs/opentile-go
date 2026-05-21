@@ -74,6 +74,19 @@ var slideCandidates = []string{
 	// large sampled fixture from a Grundium Ocus scanner.
 	"CMU-1.szi",
 	"scan_618_grundium_SZI.szi",
+	// COG-WSI fixtures (v0.19): wsitools-converted from each source
+	// format. Geometry matches the original; tile bytes match where
+	// the COG-WSI writer preserved them bit-exact per spec.
+	"CMU-1-Small-Region_cog-wsi.tiff",
+	"CMU-1_cog-wsi.tiff",
+	"JP2K-33003-1_cog-wsi.tiff",
+	"scan_617_cog-wsi.tiff",
+	"scan_620_cog-wsi.tiff",
+	"svs_40x_bigtiff_cog-wsi.tiff",
+	"Leica-1_cog-wsi.tiff",
+	"Philips-1_cog-wsi.tiff",
+	"Ventana-1_cog-wsi.tiff",
+	"cervix_2x_jpeg_cog-wsi.tiff",
 }
 
 // resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
@@ -82,7 +95,7 @@ var slideCandidates = []string{
 // can be set to the repo sample_files root and cover every supported
 // format in one run.
 func resolveSlide(dir, name string) (string, bool) {
-	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn", "szi"} {
+	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn", "szi", "cog-wsi"} {
 		p := filepath.Join(dir, sub, name)
 		if _, err := os.Stat(p); err == nil {
 			return p, true

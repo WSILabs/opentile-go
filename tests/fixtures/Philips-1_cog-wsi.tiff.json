@@ -1,0 +1,424 @@
+{
+  "slide": "Philips-1_cog-wsi.tiff",
+  "format": "cog-wsi",
+  "levels": [
+    {
+      "index": 0,
+      "size": [
+        44981,
+        35783
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        88,
+        70
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 0
+    },
+    {
+      "index": 1,
+      "size": [
+        22491,
+        17892
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        44,
+        35
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 1
+    },
+    {
+      "index": 2,
+      "size": [
+        11246,
+        8946
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        22,
+        18
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 2
+    },
+    {
+      "index": 3,
+      "size": [
+        5623,
+        4473
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        11,
+        9
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 3
+    },
+    {
+      "index": 4,
+      "size": [
+        2812,
+        2237
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        6,
+        5
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 4
+    },
+    {
+      "index": 5,
+      "size": [
+        1406,
+        1119
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        3,
+        3
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 5
+    },
+    {
+      "index": 6,
+      "size": [
+        703,
+        560
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        2,
+        2
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 6
+    },
+    {
+      "index": 7,
+      "size": [
+        352,
+        280
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        1,
+        1
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 7
+    }
+  ],
+  "metadata": {
+    "magnification": 0,
+    "scanner_manufacturer": "Hamamatsu"
+  },
+  "sampled_tiles": {
+    "0:0:0": {
+      "sha256": "aef3964245350f96af3e53d93e62da18da42bdeac39f9be8ee251907f508c736",
+      "reason": "top-left corner"
+    },
+    "0:0:69": {
+      "sha256": "6bda7bf721cfdb3922ba93c56703bd927b33ffcbc1afd1dbc7e72c5a95f956c3",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "0:1:35": {
+      "sha256": "bac7f0ed7fa10ecc22ab11038942e415c478ad5f934d5a3965d5b19257f44ae3",
+      "reason": "near-left mid-row"
+    },
+    "0:22:17": {
+      "sha256": "7cf0bf3eb39b71b6b23fc5138b5aa63e849d8221a444e8c06e5815fc950fbe69",
+      "reason": "interior diagonal q1"
+    },
+    "0:44:1": {
+      "sha256": "d8eeb31e90a02d2200a74dfe5e6be22b25b50348670bf4fe1a4ac6e215656689",
+      "reason": "near-top mid-column"
+    },
+    "0:44:35": {
+      "sha256": "ac65bdfcfbe8ea936ed706a4c292016e2841e45e7087c71764cc2597b61ad1ad",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "0:44:69": {
+      "sha256": "f374d10af359444fc872539d38b70b66e8f93298e60a0edc1eade0353e1f140c",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "0:66:52": {
+      "sha256": "c5f082f41ff6268c5eeaf5b707f5246e89de344d134c524c214230f0457a2443",
+      "reason": "interior diagonal q3"
+    },
+    "0:87:0": {
+      "sha256": "7b39dd8ddbff14f1ebaa2f11948164e082ed2647bc6dea8d0ac6d9fc2aed6e36",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "0:87:35": {
+      "sha256": "5f5cb900105c5aba9588fdf9720a8044659af79c745a6f813cbae010f342be96",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "0:87:69": {
+      "sha256": "bfceb116ebf1743e339fd32448945761fa4dd64a5bdc9b0c33186a3e040c9657",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "1:0:0": {
+      "sha256": "05922a00432a8532961186ebe932ef900ade7db7c0c67dc147a9e7e2390cb6f7",
+      "reason": "top-left corner"
+    },
+    "1:0:34": {
+      "sha256": "48b4124cac434e34418e91944692c45a6a1c714e90c2eebd91b04e644f24a3ac",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "1:11:8": {
+      "sha256": "b8cfe2b9d2b8f48366d7fce1bc0fd55f385a6c7c33e85a92e209545bff0a9e7a",
+      "reason": "interior diagonal q1"
+    },
+    "1:1:17": {
+      "sha256": "15e538bb1b585739356f6f9b1be548578690061448e56f895836b0ec042584a5",
+      "reason": "near-left mid-row"
+    },
+    "1:22:1": {
+      "sha256": "70c3847331fd2a4cbf15c329f5812427db5897537473b2ec38bbf76aaec22f2b",
+      "reason": "near-top mid-column"
+    },
+    "1:22:17": {
+      "sha256": "6b8fa9c2dd785a1ed979b41ab436eb8304ed503dbbdd0fdfaafe038c7531a611",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "1:22:34": {
+      "sha256": "e460e5f5a0375af4d53b483dd8360879e0f6b3dadb7a010bbf471237334310bc",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "1:33:26": {
+      "sha256": "75455b04cf7cabc0e4f84a22c944e68cb063c71cceb0582183b8c0b7cbcd4303",
+      "reason": "interior diagonal q3"
+    },
+    "1:43:0": {
+      "sha256": "c0645a26317a9c114bab7b5a70573634b7e1908737369839a37a0a3826638924",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "1:43:17": {
+      "sha256": "ca58fb7e0356801e6c276828e47e42034081a443440c286fb717ae6d3837cb99",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "1:43:34": {
+      "sha256": "25df2af0f6a4dc84305d80e4ec3eff66da7050cad8ecbbe6186bb94d7dcbb0bb",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "2:0:0": {
+      "sha256": "8464e4c960699e9d7093d625efd2f8612b377e456fc40c15e36e8fa7a31a40fe",
+      "reason": "top-left corner"
+    },
+    "2:0:17": {
+      "sha256": "9d679167f3ffd581639e236c7cb3d75f40899fd6b58942698b0e0f4456f80419",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "2:11:1": {
+      "sha256": "470df0e740099bc908fc2da2220f4d9dcd2994e0f08e078717950f79eee08f55",
+      "reason": "near-top mid-column"
+    },
+    "2:11:17": {
+      "sha256": "f0e76ae23f9b958addc80d6ef24ff18d3e3d6e5310da5c5e056d6b4ce093a375",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "2:11:9": {
+      "sha256": "d4bf4f2c010abba1e7186b8d0215e164d8c80765274460f16dba57b6c0726d1c",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "2:16:13": {
+      "sha256": "5c829884e33345a0978201a069ab757b3b52922ae61fb956be188859e2eeed00",
+      "reason": "interior diagonal q3"
+    },
+    "2:1:9": {
+      "sha256": "c41376ed2f147ff054d9fccd37a821243ddc9dc80f7ed79ce9faa1f26a27da3a",
+      "reason": "near-left mid-row"
+    },
+    "2:21:0": {
+      "sha256": "d2aa96b0c295e4212bbd68171ed9c1b19d2f05e1f1ef0b9f3108398f1aac4396",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "2:21:17": {
+      "sha256": "f9dfa66cd5a678651629f91e2e6548be7becf1408ce35aa8a85869b3a55c8451",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "2:21:9": {
+      "sha256": "d816d0450d51b34046ff6e2123f0f82062adbf5d28236303d9a33d5b0d51f638",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "2:5:4": {
+      "sha256": "a230720b2b882a5ae55e09dfb4766362cd6b9a459b2832434b0e68a621954e54",
+      "reason": "interior diagonal q1"
+    },
+    "3:0:0": {
+      "sha256": "8804f4a9008663af722f95f4cfc619b1fa1790d75f7090c69cd3d15cd35c1e38",
+      "reason": "top-left corner"
+    },
+    "3:0:8": {
+      "sha256": "6f81a67da69765b544392e90be18903ec80aa61fc1628a5b951c5e810eb9394a",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "3:10:0": {
+      "sha256": "46c7e515c45d452b15779ec0374c166523698222d6ab6d261930cbe9c3596518",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "3:10:4": {
+      "sha256": "af71ca77ed6627ac9fbc6a3459ef5f75bc8299d41fddd07fb644064ed96c8a52",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "3:10:8": {
+      "sha256": "2f81c2ef7c0c6ec0a0a583651d4734bed8ed40a7bdb3a4566ae24f85a4ed0de9",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "3:1:4": {
+      "sha256": "3b8d91af659d49115a16465dfa6006bdbdccbe9ddf18fe7f4d40d25ee0e7885d",
+      "reason": "near-left mid-row"
+    },
+    "3:2:2": {
+      "sha256": "6d908767477475b9790dd740871f1e082de526d711faca0b2b1cbb05d73f4e85",
+      "reason": "interior diagonal q1"
+    },
+    "3:5:1": {
+      "sha256": "281d629d75c8b4b39570403dc704e9069b3bc73386448d55b0dc82e5c3c35f9f",
+      "reason": "near-top mid-column"
+    },
+    "3:5:4": {
+      "sha256": "41fe10f55831682906ff9a12db17ba58227470844d571a0d8c1988c7e9f47cb4",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "3:5:8": {
+      "sha256": "21bc485f7cc9c6cbb842188f89ed00a150cd90f3f1a2e52d8246c4fee9a4c4df",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "3:8:6": {
+      "sha256": "29444c1f3d7011272c517ba4c6221855481f5db0a1ae20f86ce5e6329fa81412",
+      "reason": "interior diagonal q3"
+    },
+    "4:0:0": {
+      "sha256": "2ebeefb1ca705211bf7a10a57d1a80ac6ba61e7074f3eeb3451d0e72bb301042",
+      "reason": "top-left corner"
+    },
+    "4:0:4": {
+      "sha256": "0df5e48083e5b6038eca1ae82e3650fc21bd47081084c168d0d69b84b05c6685",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "4:1:1": {
+      "sha256": "f7d21e29b68016a478f4c1273b23c6664dd378f6b41a730aa724cd5d070ae473",
+      "reason": "interior diagonal q1"
+    },
+    "4:1:2": {
+      "sha256": "5dae43c33e585b480ce4d04ae047da4aca23879713d87aa4c4fdead7856ee0d9",
+      "reason": "near-left mid-row"
+    },
+    "4:3:1": {
+      "sha256": "d5bd95e35e385dc25e95110e48abe7b49d59d4e6959547b01409bbef5cd6a124",
+      "reason": "near-top mid-column"
+    },
+    "4:3:2": {
+      "sha256": "7c144d2645d5f4f9336aeec3daa793bc102eaa2cbed3546dfbc91c68f9c18e0d",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "4:3:4": {
+      "sha256": "6ee212ec1e337b5ee408c897363afa17667aa4e286f66bce8c88f14f35d7a845",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "4:4:3": {
+      "sha256": "604e8ea9473cd7659a058baa9ea4dc1085f9b31bd1d01dca6407426937123a73",
+      "reason": "interior diagonal q3"
+    },
+    "4:5:0": {
+      "sha256": "c1df97c9fe8601c9a7bec0d286cf60216e6db8e3574c2c73466c9191fddc3384",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "4:5:2": {
+      "sha256": "388f8ea501a7c7e55d2232ad57e7db8300565500480591a4ea9db3d91d2b2a22",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "4:5:4": {
+      "sha256": "2ac18e4e7c7138b2fd0c07edeea516a741458477c40851e629f81195a269aaa4",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "5:0:0": {
+      "sha256": "ba259eb009a4b5149dabd08a6e20360b7b4cdc4f74c7481237126e08ff82e8ba",
+      "reason": "top-left corner"
+    },
+    "5:0:2": {
+      "sha256": "b2caba65f2106cc31b054e3a8bd31caf2e126fc2292c72b2391988721f74ecf6",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "5:1:1": {
+      "sha256": "585e07c616d7d507fa2ab6192e67d463732fe5921286f44175d3d82971f00aac",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "5:1:2": {
+      "sha256": "cd91f676e8b455979e240fa931be9f82c35cf0195f2d99a1565dfbabb2869ecd",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "5:2:0": {
+      "sha256": "fccda441fbd2218ce3e3d5a3a4cffe17814811b09efb27e22fbc8bf7ce3f32b6",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "5:2:1": {
+      "sha256": "2794fe1d30c669e0ad74798bf13b72f54bf5b49b08252563a39b4b78c0468d4c",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "5:2:2": {
+      "sha256": "47a8f9719a5f51faee6a6d4f31d505b7fdfe2edba8dfc6089a3625b0b92f7b88",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "6:0:0": {
+      "sha256": "0564d545ccb59bfc614c0f82882f08c099dc13b3e9d19bbb80136f11df07c58b",
+      "reason": "top-left corner"
+    },
+    "6:0:1": {
+      "sha256": "9f074ed3f538f79ee301307f7b6b164815307a4de5235c65eac93c5e535d9dea",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "6:1:0": {
+      "sha256": "cf9316267ad9d9e97e4fc4ff3dbcffc394ea02ba53270703e04b5ff698530c34",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "6:1:1": {
+      "sha256": "6fe2d1f3549b0c045a402bf1803d3c146c2291c22180b0873141634a1cb00ca1",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "7:0:0": {
+      "sha256": "ef169bec530ac94cd4c742c4874c5dc7a44b2aa9623516217fdaf19889c54dc8",
+      "reason": "top-left corner"
+    }
+  }
+}

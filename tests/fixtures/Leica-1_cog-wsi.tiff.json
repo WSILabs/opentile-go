@@ -1,0 +1,264 @@
+{
+  "slide": "Leica-1_cog-wsi.tiff",
+  "format": "cog-wsi",
+  "levels": [
+    {
+      "index": 0,
+      "size": [
+        36832,
+        38432
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        72,
+        76
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 0
+    },
+    {
+      "index": 1,
+      "size": [
+        9208,
+        9608
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        18,
+        19
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 1
+    },
+    {
+      "index": 2,
+      "size": [
+        2302,
+        2402
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        5,
+        5
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 2
+    },
+    {
+      "index": 3,
+      "size": [
+        576,
+        600
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        2,
+        2
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 3
+    },
+    {
+      "index": 4,
+      "size": [
+        144,
+        150
+      ],
+      "tile_size": [
+        512,
+        512
+      ],
+      "grid": [
+        1,
+        1
+      ],
+      "compression": "jpeg",
+      "mpp_um": 0,
+      "pyramid_index": 4
+    }
+  ],
+  "metadata": {
+    "magnification": 0
+  },
+  "sampled_tiles": {
+    "0:0:0": {
+      "sha256": "668b391411f5ec95baea72f8e2a3baff04b9fec738e703a9519b5c6c10e75bd3",
+      "reason": "top-left corner"
+    },
+    "0:0:75": {
+      "sha256": "e5a73c181512df4a73f2529812c1de37685b55fd33cdb2154c68bcb7661fd4f5",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "0:18:19": {
+      "sha256": "70d4e67b1ac7c0b4874fa0bb4f7c22853de93f61463950eafa4d2cef85ae25bf",
+      "reason": "interior diagonal q1"
+    },
+    "0:1:38": {
+      "sha256": "a70c6dfb408358073dab274238d2bb402d22ccfde53ea855f9a1e4d26f023479",
+      "reason": "near-left mid-row"
+    },
+    "0:36:1": {
+      "sha256": "45ef36bf5dae3a798edd5da23b96b33cae6c892e37a66d2ed2c24fe3204c8e78",
+      "reason": "near-top mid-column"
+    },
+    "0:36:38": {
+      "sha256": "f202f40f08b2f770aef73b117ebe3de576de37676507e198e0c019b50cd9711c",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "0:36:75": {
+      "sha256": "1707e65a55a117d6af192c5b06fc3cc34aaddd125adba477f496bdf279a9963b",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "0:54:57": {
+      "sha256": "a90ffda538051ed07457da788c6f296b286ba8fcdffd51b7bb191f9c0452012a",
+      "reason": "interior diagonal q3"
+    },
+    "0:71:0": {
+      "sha256": "cb35204045b5991beea8a96b8cc5fbdb96398cd7d76c920bd7f2500ec9b875e2",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "0:71:38": {
+      "sha256": "ffe5ca235f4f6041db00d6906beb9d584ec57b6c54e8227749dccb22e4a7fa24",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "0:71:75": {
+      "sha256": "e2af8a2e8e526b2ba459437ce5a344947ad589a24b7e9be32cd7e6b00e555993",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "1:0:0": {
+      "sha256": "50e90366cfafc985f6869e219b28d68796d8962ee0cf87eb62cb6f3b31d173b9",
+      "reason": "top-left corner"
+    },
+    "1:0:18": {
+      "sha256": "a74a4e29bfe33c0e73d3c2ff2422826a0b1a5210d848766d6b9933bf49812998",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "1:13:14": {
+      "sha256": "291b9ba5ca93734a0be560aa067832456dba77b5635b201a43d67b3ca7807fd1",
+      "reason": "interior diagonal q3"
+    },
+    "1:17:0": {
+      "sha256": "2a1132470670ff064cc3a6e4996028079effbf4f1f9f19a9df04828eeea4f5fc",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "1:17:18": {
+      "sha256": "c3a5a56e3e76994a4fc75c6c2be8aa7767dd0e835c0e46e3d9a7580616977bdf",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "1:17:9": {
+      "sha256": "1f9a0a6fcb181e714e15b95623ba251486271b9a0ca9a4640b17f1fb9bdeae52",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "1:1:9": {
+      "sha256": "d72b7f2881712f7027ae09bdc257693170dd455284d2ba22c965b02fae860a0d",
+      "reason": "near-left mid-row"
+    },
+    "1:4:4": {
+      "sha256": "ba8fe6691003b7911be43172b38a5a3422a7ffc8747850cb43fca938d998d923",
+      "reason": "interior diagonal q1"
+    },
+    "1:9:1": {
+      "sha256": "2c5f6bf8f61d030b420da26bc95292d9463d8acff2989884e5f33169e37ea27e",
+      "reason": "near-top mid-column"
+    },
+    "1:9:18": {
+      "sha256": "d46f3e25130a3e75d96b931f44dc43ccc7e3653097a82ef505b4e0a48d5b086e",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "1:9:9": {
+      "sha256": "f35a5f8188739a969bb67dc275bcd437f7e9b6808591d6d55524eabdfd964db3",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "2:0:0": {
+      "sha256": "892028df76a75b706985f04b2fc890c2553723260a83e3e3819eaabf64f996a5",
+      "reason": "top-left corner"
+    },
+    "2:0:4": {
+      "sha256": "fc7c8c1c6fd510c193877bf8d323a7300ec7e7267ab0f70755032c3c8cc70b6b",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "2:1:1": {
+      "sha256": "450cc5f6803a7b9b9934323001eda6ab784bec2084091ed5158fca00c3992085",
+      "reason": "interior diagonal q1"
+    },
+    "2:1:2": {
+      "sha256": "450cc5f6803a7b9b9934323001eda6ab784bec2084091ed5158fca00c3992085",
+      "reason": "near-left mid-row"
+    },
+    "2:2:1": {
+      "sha256": "450cc5f6803a7b9b9934323001eda6ab784bec2084091ed5158fca00c3992085",
+      "reason": "near-top mid-column"
+    },
+    "2:2:2": {
+      "sha256": "450cc5f6803a7b9b9934323001eda6ab784bec2084091ed5158fca00c3992085",
+      "reason": "interior diagonal q2 (center)"
+    },
+    "2:2:4": {
+      "sha256": "fc7c8c1c6fd510c193877bf8d323a7300ec7e7267ab0f70755032c3c8cc70b6b",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
+    "2:3:3": {
+      "sha256": "450cc5f6803a7b9b9934323001eda6ab784bec2084091ed5158fca00c3992085",
+      "reason": "interior diagonal q3"
+    },
+    "2:4:0": {
+      "sha256": "dc5ffc64ff7a866c065d5d5b5ca8ad0f4478480ef9851ce3f43d194256b0d052",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "2:4:2": {
+      "sha256": "9b5e4dcf916f336b98213a3091cbc343e8e4cfa9bd216ce95c2aaa77409c72e8",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
+    "2:4:4": {
+      "sha256": "e7ba18c3886019b52fc0e963bb158dd649bd8938d6fdc3c47a101d73380d79a3",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "3:0:0": {
+      "sha256": "66e25f0dbdbd225a89de65249f4c1e420576a31b7f142706363b8fdb25c8b124",
+      "reason": "top-left corner"
+    },
+    "3:0:1": {
+      "sha256": "66e25f0dbdbd225a89de65249f4c1e420576a31b7f142706363b8fdb25c8b124",
+      "reason": "bottom-left corner; OOB fill in y"
+    },
+    "3:1:0": {
+      "sha256": "66e25f0dbdbd225a89de65249f4c1e420576a31b7f142706363b8fdb25c8b124",
+      "reason": "top-right corner; OOB fill in x"
+    },
+    "3:1:1": {
+      "sha256": "66e25f0dbdbd225a89de65249f4c1e420576a31b7f142706363b8fdb25c8b124",
+      "reason": "bottom-right corner; OOB fill in both axes"
+    },
+    "4:0:0": {
+      "sha256": "df341bbe7eef9df5e6e8ffdb1bd1ea6c5b01d6a6d0887de2aaab8588f3255bd4",
+      "reason": "top-left corner"
+    }
+  },
+  "associated": [
+    {
+      "kind": "overview",
+      "size": [
+        1616,
+        4668
+      ],
+      "compression": "jpeg",
+      "sha256": "a51ab3ee4f0f45c3d939eeb72810a23c80c5e27d20cd069ed83263a41da1c294"
+    }
+  ]
+}
