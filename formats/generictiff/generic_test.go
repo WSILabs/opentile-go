@@ -329,3 +329,108 @@ func ifNot(b bool, prefix string) string {
 	}
 	return prefix + ""
 }
+
+// TestFactoryOpen_COGWSI_WSITagShortCircuit force-routes COG-WSI
+// fixtures (which carry COG-WSI's WSIImageType / WSILevelIndex
+// private tags) directly through the generic-TIFF factory and
+// confirms the v0.19 WSI-tag short-circuit produces the writer-
+// declared classification — not the dimension/aspect heuristic.
+//
+// Both pyramid build (WSILevelIndex ordering) and associated
+// classification (WSIImageType dispatch) are exercised. The two
+// fixtures intentionally cover cases the heuristic path would
+// misclassify:
+//
+//   - scan_620: the 1536x1024 thumbnail exceeds thumbnailMaxDim
+//     (1500) and would heuristically classify as "associated";
+//     WSI tag short-circuits it to "thumbnail".
+//   - Ventana-1: the 1251x3685 overview is a tiled aspect-ratio
+//     edge case the heuristic path also misses; WSI tag delivers
+//     "overview".
+//
+// CMU-1 is the baseline-pass case where the heuristic and the
+// WSI-tag path agree — included to verify the short-circuit
+// doesn't regress the easy case.
+//
+// Skipped cleanly when OPENTILE_TESTDIR is unset or fixtures are
+// absent.
+func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+
+	for _, tc := range []struct {
+		name           string
+		wantLevels     int
+		wantBaselineW  uint32
+		wantBaselineH  uint32
+		wantAssociated []string // ordered by Others order
+	}{
+		{
+			name:           "CMU-1_cog-wsi.tiff",
+			wantLevels:     3,
+			wantBaselineW:  46000,
+			wantBaselineH:  32914,
+			wantAssociated: []string{TypeThumbnail, TypeLabel, TypeOverview},
+		},
+		{
+			name:           "scan_620_cog-wsi.tiff",
+			wantLevels:     4,
+			wantBaselineW:  49152,
+			wantBaselineH:  32768,
+			wantAssociated: []string{TypeThumbnail, TypeLabel, TypeOverview},
+		},
+		{
+			name:           "Ventana-1_cog-wsi.tiff",
+			wantLevels:     8,
+			wantBaselineW:  24576,
+			wantBaselineH:  21504,
+			wantAssociated: []string{TypeOverview},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(dir, "cog-wsi", tc.name)
+			if _, err := os.Stat(path); err != nil {
+				t.Skipf("%s not present", path)
+			}
+			f, err := os.Open(path)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer f.Close()
+			st, _ := f.Stat()
+			tf, err := tiff.Open(f, st.Size())
+			if err != nil {
+				t.Fatalf("tiff.Open: %v", err)
+			}
+			fac := New()
+			if !fac.Supports(tf) {
+				t.Fatalf("Supports(%s) = false", tc.name)
+			}
+			tiler, err := fac.Open(tf, &opentile.Config{})
+			if err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+			levels := tiler.Levels()
+			if len(levels) != tc.wantLevels {
+				t.Fatalf("levels = %d, want %d", len(levels), tc.wantLevels)
+			}
+			if sz := levels[0].Size(); uint32(sz.W) != tc.wantBaselineW || uint32(sz.H) != tc.wantBaselineH {
+				t.Errorf("baseline = %dx%d, want %dx%d", sz.W, sz.H, tc.wantBaselineW, tc.wantBaselineH)
+			}
+			got := make([]string, 0, len(tiler.Associated()))
+			for _, a := range tiler.Associated() {
+				got = append(got, a.Type())
+			}
+			if len(got) != len(tc.wantAssociated) {
+				t.Fatalf("associated kinds = %v, want %v", got, tc.wantAssociated)
+			}
+			for i, want := range tc.wantAssociated {
+				if got[i] != want {
+					t.Errorf("associated[%d] = %q, want %q", i, got[i], want)
+				}
+			}
+		})
+	}
+}

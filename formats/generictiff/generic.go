@@ -3,6 +3,7 @@ package generictiff
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	opentile "github.com/cornish/opentile-go"
 	"github.com/cornish/opentile-go/internal/tiff"
@@ -56,9 +57,21 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	for i, p := range pages {
 		infos = append(infos, tiff.PyramidLevelInfoFromPage(i, p))
 	}
-	res, err := tiff.ClassifyPyramid(infos, tiff.DefaultClassifyPyramidConfig())
+	// v0.19: WSI-tag short-circuit for the pyramid build. When every
+	// tiled candidate IFD carries the WSILevelIndex private tag
+	// (COG-WSI spec §5.2), trust the writer's declared ordering and
+	// skip ClassifyPyramid's dimension-ratio drift check. Non-tiled
+	// or non-tagged IFDs flow to Others as usual. When tags are
+	// absent / partial, fall through to the pre-v0.19 heuristic path.
+	res, ok, err := classifyByWSITag(pages, infos)
 	if err != nil {
 		return nil, fmt.Errorf("generic: %w", err)
+	}
+	if !ok {
+		res, err = tiff.ClassifyPyramid(infos, tiff.DefaultClassifyPyramidConfig())
+		if err != nil {
+			return nil, fmt.Errorf("generic: %w", err)
+		}
 	}
 	if len(res.Pyramid) == 0 {
 		// ClassifyPyramid would have errored already, but defend the
@@ -79,7 +92,10 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	baseline := res.Pyramid[0]
 	var associated []opentile.AssociatedImage
 	for _, info := range res.Others {
-		kind := ClassifyAssociated(info, baseline)
+		// v0.19: WSI-tag-aware classification. Honors COG-WSI's
+		// authoritative WSIImageType tag when present; falls back to
+		// the pre-v0.19 dimension/aspect heuristics otherwise.
+		kind := ClassifyAssociatedFromPage(pages[info.Index], info, baseline)
 		src := associatedSourceInfoFromClassified(pages[info.Index], info)
 		a, err := newAssociatedImage(kind, src, r)
 		if err != nil {
@@ -103,6 +119,84 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 		associated: associated,
 		icc:        icc,
 	}, nil
+}
+
+// classifyByWSITag builds a [tiff.ClassifyPyramidResult] directly
+// from the COG-WSI private tags when every tiled candidate IFD
+// carries [tiff.TagWSILevelIndex]. Returns (result, true, nil) on
+// the WSI-tag path; (zero, false, nil) when the tag-set is absent
+// or partial (caller falls back to dimension-ratio
+// [tiff.ClassifyPyramid]); a non-nil error only on the duplicate-
+// index case the writer is unambiguously responsible for.
+//
+// v0.19 (Issue #5 part A): a COG-WSI writer that emits
+// WSIImageType=pyramid + WSILevelIndex on every pyramid IFD has
+// already declared the level ordering. Trusting the writer skips
+// drift-tolerance gymnastics on integer-multiple chains (handled
+// by T3) and on weirder scale series (e.g., 3.33×, 2.5×) that the
+// dimension-ratio heuristic would reject.
+//
+// Selection rule: every tiled IFD MUST carry WSILevelIndex; tiled
+// IFDs with WSILevelIndex go to Pyramid (ascending by declared
+// index), everything else (untiled IFDs, plus any tiled IFD whose
+// WSIImageType marks it as non-pyramid) goes to Others. A tiled
+// IFD that lacks WSILevelIndex but has a non-"pyramid" WSIImageType
+// (e.g., a tiled overview) does not abort the short-circuit; only a
+// tiled IFD that has neither tag does. This handles COG-WSI files
+// whose pyramid IFDs all carry the tag but whose tiled associated
+// images (rare but legal) do not.
+func classifyByWSITag(pages []*tiff.Page, infos []tiff.PyramidLevelInfo) (tiff.ClassifyPyramidResult, bool, error) {
+	type indexed struct {
+		info tiff.PyramidLevelInfo
+		lvl  uint32
+	}
+	var pyramid []indexed
+	var others []tiff.PyramidLevelInfo
+	for _, info := range infos {
+		if !info.IsTiled() {
+			others = append(others, info)
+			continue
+		}
+		page := pages[info.Index]
+		lvl, hasIdx := page.WSILevelIndex()
+		if hasIdx {
+			pyramid = append(pyramid, indexed{info, lvl})
+			continue
+		}
+		// Tiled but no WSILevelIndex. If the writer explicitly tagged
+		// it as non-pyramid (e.g., a tiled overview), route to Others
+		// and keep the short-circuit alive. Otherwise, abandon — we
+		// can't trust a heterogeneous tagging story.
+		if wt, ok := page.WSIImageType(); ok && wt != "pyramid" {
+			others = append(others, info)
+			continue
+		}
+		return tiff.ClassifyPyramidResult{}, false, nil
+	}
+	if len(pyramid) == 0 {
+		// No tiled candidates at all → not a generic pyramid; let the
+		// dimension-ratio path produce the canonical error.
+		return tiff.ClassifyPyramidResult{}, false, nil
+	}
+	// Ascending by declared level index; ties (writer bug) → error.
+	sort.SliceStable(pyramid, func(i, j int) bool {
+		return pyramid[i].lvl < pyramid[j].lvl
+	})
+	for i := 1; i < len(pyramid); i++ {
+		if pyramid[i].lvl == pyramid[i-1].lvl {
+			return tiff.ClassifyPyramidResult{}, false,
+				fmt.Errorf("duplicate WSILevelIndex %d on IFDs %d and %d",
+					pyramid[i].lvl, pyramid[i-1].info.Index, pyramid[i].info.Index)
+		}
+	}
+	res := tiff.ClassifyPyramidResult{
+		Pyramid: make([]tiff.PyramidLevelInfo, 0, len(pyramid)),
+		Others:  others,
+	}
+	for _, p := range pyramid {
+		res.Pyramid = append(res.Pyramid, p.info)
+	}
+	return res, true, nil
 }
 
 // associatedSourceInfoFromClassified projects the tiff.Page's tags
