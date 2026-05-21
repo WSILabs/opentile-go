@@ -5,30 +5,40 @@ import (
 	"fmt"
 
 	opentile "github.com/cornish/opentile-go"
+	"github.com/cornish/opentile-go/formats/generictiff"
 	"github.com/cornish/opentile-go/internal/cog"
 	"github.com/cornish/opentile-go/internal/tiff"
 )
 
 // ErrNotConformantCOGWSI is returned by Open when the file claims
 // to be COG-WSI (via the COG_WSI_VERSION ghost-area key) but
-// violates the spec.
+// violates the spec. Callers can match with
+// errors.Is(err, cogwsi.ErrNotConformantCOGWSI).
 var ErrNotConformantCOGWSI = errors.New("cogwsi: file is not spec-conformant")
 
 // Tiler is the COG-WSI format implementation of opentile.Tiler.
 //
-// T5 ships a skeleton: Format() / Close() are real, but Levels /
-// Images / Associated / Metadata / ICCProfile / WarmLevel return
-// placeholders. T6 fills in real behavior backed by the WSI
-// private tags and the generic-TIFF tile-fetch infrastructure.
+// Per v0.19 plan T6, cogwsi delegates the tile-byte hot path
+// (pyramid + associated level construction, tile reads, splice
+// prefix, mmap aliasing) to formats/generictiff via the
+// WSI-tag-aware path landed in T4. cogwsi's distinctions are:
+//
+//   - Spec validation at open (ErrNotConformantCOGWSI) — done
+//     before the inner Open runs, so non-conformant files fail
+//     fast with a precise message.
+//   - Format() returns FormatCOGWSI (not FormatGenericTIFF), so
+//     downstream consumers can distinguish.
+//   - Metadata() augments the cross-format struct with the
+//     WSIMPP*/WSIMagnification tags + COG-WSI Properties.
 type Tiler struct {
-	tf    *tiff.File
-	ghost cog.GhostArea
-	cfg   *opentile.Config
-	// T6: pyramid + associated + metadata
+	inner opentile.Tiler
+	md    opentile.Metadata
 }
 
-// openCOGWSI parses the ghost area, validates the COG-WSI version,
-// and constructs a Tiler. Detailed spec validation lands in T6.
+// openCOGWSI parses the ghost area, validates the COG-WSI version
+// + ghost values + per-IFD spec conformance, then delegates the
+// pyramid + associated build to generictiff (which honors the
+// WSI tags as authoritative per T4).
 func openCOGWSI(tf *tiff.File, cfg *opentile.Config) (*Tiler, error) {
 	ghost, err := readGhostArea(tf)
 	if err != nil {
@@ -48,44 +58,75 @@ func openCOGWSI(tf *tiff.File, cfg *opentile.Config) (*Tiler, error) {
 			ErrNotConformantCOGWSI, major)
 	}
 
-	t := &Tiler{
-		tf:    tf,
-		ghost: ghost,
-		cfg:   cfg,
+	// Spec §3 — ghost area required-value invariants.
+	if err := validateGhost(ghost); err != nil {
+		return nil, err
 	}
-	// T6: full spec validation + pyramid + associated + metadata wiring.
-	return t, nil
+
+	// Spec §5.2 + §6 — per-IFD WSI tag conformance + ordering.
+	pages := tf.Pages()
+	if err := validateIFDs(pages); err != nil {
+		return nil, err
+	}
+
+	// Build the inner tile-byte machinery via generic-TIFF. T4
+	// added WSI-tag awareness so the existing Open path handles
+	// COG-WSI pyramids + associated classification correctly.
+	inner, err := generictiff.New().Open(tf, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cogwsi: generic-tiff open: %w", err)
+	}
+
+	md := buildMetadata(pages[0], ghost)
+
+	return &Tiler{inner: inner, md: md}, nil
 }
 
 // Format reports the format identifier.
 func (t *Tiler) Format() opentile.Format { return opentile.FormatCOGWSI }
 
-// Close releases resources associated with the Tiler. The
-// underlying io.ReaderAt is owned by the caller per the opentile
-// contract; Close drops the reference but does not close it.
-func (t *Tiler) Close() error { t.tf = nil; return nil }
+// Close releases resources held by the inner Tiler.
+func (t *Tiler) Close() error {
+	if t.inner == nil {
+		return nil
+	}
+	err := t.inner.Close()
+	t.inner = nil
+	return err
+}
 
-// T6 will replace these placeholders with real implementations.
+// Images returns the main pyramids. Delegates to the inner generic
+// Tiler; COG-WSI files always carry a single pyramid (spec §5.2).
+func (t *Tiler) Images() []opentile.Image { return t.inner.Images() }
 
-// Images returns the main pyramids. T5 placeholder — T6 fills in.
-func (t *Tiler) Images() []opentile.Image { return nil }
+// Levels returns the main pyramid levels (shortcut for Images()[0].
+// Levels()).
+func (t *Tiler) Levels() []opentile.Level { return t.inner.Levels() }
 
-// Levels returns the main pyramid levels. T5 placeholder.
-func (t *Tiler) Levels() []opentile.Level { return nil }
+// Level returns the pyramid level at index i.
+func (t *Tiler) Level(i int) (opentile.Level, error) { return t.inner.Level(i) }
 
-// Level returns the level at index i. T5 placeholder — always
-// reports ErrLevelOutOfRange until T6 populates pyramids.
-func (t *Tiler) Level(i int) (opentile.Level, error) { return nil, opentile.ErrLevelOutOfRange }
+// Associated returns associated images (label / overview / thumbnail
+// per v0.15 canonical naming; the WSIImageType=macro tag maps to
+// Type() == "overview" per the v0.15 SCN+generictiff alignment).
+func (t *Tiler) Associated() []opentile.AssociatedImage { return t.inner.Associated() }
 
-// Associated returns associated images. T5 placeholder.
-func (t *Tiler) Associated() []opentile.AssociatedImage { return nil }
+// Metadata returns the COG-WSI-specific cross-format Metadata —
+// MPP / Magnification populated from the WSI private tags; scanner
+// attribution from standard TIFF tags (preserved by the writer per
+// spec §5.2); Properties[cog-wsi.*] for source-format / wsitools-
+// version / spec-version.
+func (t *Tiler) Metadata() opentile.Metadata { return t.md }
 
-// Metadata returns the cross-format metadata. T5 placeholder.
-func (t *Tiler) Metadata() opentile.Metadata { return opentile.Metadata{} }
+// ICCProfile returns the ICC profile bytes from L0, if present.
+func (t *Tiler) ICCProfile() []byte { return t.inner.ICCProfile() }
 
-// ICCProfile returns the ICC profile bytes, if any. T5 placeholder.
-func (t *Tiler) ICCProfile() []byte { return nil }
+// WarmLevel pre-warms the OS page cache for level i. Delegates to
+// the inner Tiler (which implements the v0.9 mmap-aware warm path).
+func (t *Tiler) WarmLevel(i int) error { return t.inner.WarmLevel(i) }
 
-// WarmLevel pre-warms the OS page cache for level i. T5 placeholder
-// — always reports ErrLevelOutOfRange until T6 populates pyramids.
-func (t *Tiler) WarmLevel(i int) error { return opentile.ErrLevelOutOfRange }
+// UnwrapTiler exposes the inner generic-TIFF Tiler so callers that
+// hold a *cogwsi.Tiler can reach the generic-TIFF-format-specific
+// helpers (e.g., generictiff.MetadataOf). Mirrors the unwrap
+// pattern used by *fileCloser and other format wrappers.
+func (t *Tiler) UnwrapTiler() opentile.Tiler { return t.inner }
