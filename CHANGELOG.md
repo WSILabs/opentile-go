@@ -11,14 +11,106 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.18: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.19: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.18 introduced
-no new active limitations — it was an SVS writer-vendor detection
-milestone closing a misattribution bug. See
-`docs/deferred.md` §11 consolidated backlog. Open work parked in
-tracked issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.19 introduced
+no new active limitations — it was a COG-WSI reader milestone closing
+GH issues #5 + #6 and fully retiring R21. See `docs/deferred.md` §11
+consolidated backlog. Open work parked in tracked issues:
+
+## [0.19.0] — 2026-05-20
+
+COG-WSI support — closes user's two GH issues (#5 + #6). New
+`formats/cogwsi/` package + `internal/cog/` ghost-area parser +
+WSI private tag readers in `internal/tiff`. Extends `formats/
+generictiff/` to honor WSI tags as authoritative + accept clean
+integer-multiple pyramid ratios (Issue #5 standalone benefit).
+
+### Added
+
+- New `opentile.FormatCOGWSI = "cog-wsi"` enum value.
+- New `formats/cogwsi/` reader with ghost-area dispatch + spec
+  validation + canonical metadata via WSI private tags.
+- New `cogwsi.ErrNotConformantCOGWSI` sentinel returned at `Open`
+  on spec violations (ghost-area / IFD-ordering / WSI-tag).
+- New `internal/cog/` package: GDAL ghost-area parser
+  (`GhostArea`, `ParseGhostArea`, `ParseCOGWSIVersion`,
+  `ErrGhostAreaMalformed`). Designed for COG-WSI's primary use +
+  plain-COG forward-compat.
+- New `internal/tiff` WSI private tag readers (tag IDs 65080-65087
+  per COG-WSI spec §5.2). 8 typed accessors on `*tiff.Page`;
+  added `Page.doubleTag` helper (mirrors the existing Float32
+  accessor pattern).
+- `formats/generictiff/` extended: WSIImageType-aware
+  classification (Issue #5 part A; wrapper function
+  `ClassifyAssociatedFromPage` preserves the existing signature)
+  + integer-multiple pyramid ratio acceptance (Issue #5 part B;
+  `isIntegerMultipleRatio` predicate).
+- `cogwsi.Tiler.UnwrapTiler() opentile.Tiler` — exposes the inner
+  generic-TIFF Tiler so callers that use type-asserted format-
+  specific helpers (e.g., `generictiff.MetadataOf`) work through
+  the wrapper.
+- 10 new test fixtures wired into TestSlideParity
+  (30 → 40 fixtures): wsitools-converted from every source
+  format opentile-go reads (5 SVS, 1 Philips TIFF, 1 OME-TIFF,
+  1 BIF, 1 IFE, 1 SZI). `CMU-1-Small-Region_cog-wsi.tiff`
+  full-walk; the other 9 sampled by default.
+- `tests/parity/cogwsi_geometry_test.go` per-fixture geometry pin.
+- Cross-fixture parity gate: each `<source>_cog-wsi.tiff` vs the
+  original `<source>` confirms writer preserves bit-exact
+  geometry + tile bytes per spec.
+- `docs/formats/cogwsi.md` — full format doc.
+
+### Changed
+
+- `internal/tiff/classify_pyramid.go::buildPyramidChain` now
+  accepts clean integer-multiple step ratios (1×, 2×, 4×, 8×,
+  16×, …). Pre-v0.19 the strict drift check rejected mixed-ratio
+  chains. Standalone benefit: Aperio / Grundium SVS-style
+  4×/2×/2× chains transcoded through wsi-tools now read cleanly
+  via generic-tiff when no vendor reader claims them.
+- `formats/generictiff/classifier.go` gains
+  `ClassifyAssociatedFromPage(*tiff.Page) Kind` wrapper for WSI-
+  tag dispatch (existing `ClassifyAssociated` signature
+  preserved).
+- `formats/all/all.go` registers `cogwsi.Factory` AFTER `szi`
+  and BEFORE `generictiff.Factory` (format-specific detector wins
+  over generic catch-all).
+- Fixture catch-ups (no reader-side regressions):
+  - `scan_620_grundium_TIFF.tiff` geometry expectation flipped
+    from buggy 3-level (v0.10 pin) to real 4-level. Surfaced by
+    the integer-multiple ratio relaxation.
+  - `Hamamatsu-1.ndpi` + `OS-2.ndpi` gained `scanner_serial`
+    fields (stale since v0.17's NDPI metadata expansion).
+  - `Leica-1.ome.tiff` + `Leica-2.ome.tiff` gained
+    `acquisition_rfc3339` fields (stale since v0.17's OME-TIFF
+    metadata expansion).
+
+### Removed / retired
+
+- R21 (general COG first-class support) — **fully retired**.
+  COG-WSI shipped in v0.19 covers the WSI-context demand; general
+  COG awareness is permanently YAGNI for opentile-go (we're WSI-
+  domain, not geospatial). Generic COG files continue to read via
+  `generic-tiff` as structurally-valid pyramid TIFFs.
+
+### Notes
+
+- **Spec-validation strictness:** COG-WSI files that fail
+  conformance return `cogwsi.ErrNotConformantCOGWSI`. The spec is
+  the contract; we don't bend.
+- **Cross-format parity:** the writer (user's wsitools) and our
+  reader agree on byte-passthrough semantics — confirmed by the
+  cross-fixture parity gate across all 10 fixtures.
+- **v0.18 SVS writer detection** carries through COG-WSI: when a
+  COG-WSI file's source was Grundium SVS, `ScannerManufacturer`
+  reports "Grundium" (via the preserved Make/Model TIFF tags).
+- **Future `COG_WSI_VERSION` ≥ 0.2** rejects with
+  `ErrNotConformantCOGWSI` until version-aware extensions ship.
+  Defensive — better to fail loudly than silently misread.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
 
 ## [0.18.0] — 2026-05-09
 

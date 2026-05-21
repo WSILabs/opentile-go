@@ -2,38 +2,68 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.18 (shipped)
+## Current milestone — v0.19 (shipped 2026-05-20)
 
-- **Scope:** SVS writer-vendor detection. Closes misattribution
-  bug where Grundium-written SVS files (and any other non-Aperio
-  writer) reported ScannerManufacturer="Aperio". v0.18 detects
-  the actual writer from ImageDescription first-line + TIFF
-  Software/Make tags; namespaces Properties keys per detected
-  writer. Documents recognized writer set explicitly. OME-TIFF
-  audited (already correct; docs extended). 3 plan tasks single
-  batch.
-- **API additions:** none (refines existing ScannerManufacturer /
-  ScannerModel / Properties population).
-- **API breaks:** narrow — consumer code hardcoding "Aperio" on
-  Grundium SVS files sees correct attribution post-v0.18.
-- **Active limitations:** unchanged from v0.17. No new L items.
+- **Scope:** COG-WSI support. Closes user's two GH issues —
+  [#5](https://github.com/cornish/opentile-go/issues/5) (generic-
+  TIFF WSI-tag awareness + integer-multiple pyramid ratio
+  relaxation) and [#6](https://github.com/cornish/opentile-go/issues/6)
+  (dedicated `cogwsi` reader). New `formats/cogwsi/` package +
+  `internal/cog/` ghost-area parser + WSI private tag readers in
+  `internal/tiff` (8 typed accessors on `*tiff.Page` for tags
+  65080-65087). Extends `formats/generictiff/` to honor WSI tags
+  as authoritative + accept clean integer-multiple pyramid ratios.
+  8 plan tasks across single-batch execution.
+- **API additions:** `opentile.FormatCOGWSI = "cog-wsi"` +
+  `formats/cogwsi/` package (Tiler + Factory + UnwrapTiler) +
+  `cogwsi.ErrNotConformantCOGWSI` sentinel + `internal/cog/`
+  parser (`GhostArea`, `ParseGhostArea`, `ParseCOGWSIVersion`,
+  `ErrGhostAreaMalformed`).
+- **API breaks:** none (purely additive; existing API unchanged).
+- **Active limitations:** unchanged from v0.18. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  docs/deferred.md §1a): unchanged. Python opentile has the same
-  format-vendor=writer-vendor conflation; v0.18 improves on this.
-- **Correctness bar:** make test green; TestSlideParity 30 fixtures
-  green; TestCrossFormatMetadata green.
-- **Sealed Q-decisions (6):** Q1 single parser with vendor-detection
-  dispatch (Option A; rejects sub-readers); Q2 detection signal
-  order (ImageDescription → Software → Make); Q3 unknown-writer
-  fallback (svs.<key> namespace); Q4 OME-TIFF Creator stays
-  separate from ScannerManufacturer; Q5 v0.18.0 (mostly additive);
-  Q6 lowercased first-word vendor namespace.
-- **Deferred forward:** R19 (bare DZI), R21 (COG first-class +
-  HTTP-range backing). L19, L20, L23-L25, L26-L29, L30-L34,
-  R4/R6/R9, R15. v1.0 cut still pending.
-- **Design:** docs/superpowers/specs/2026-05-09-opentile-go-v18-svs-writer-detection-design.md
-- **Plan:** docs/superpowers/plans/2026-05-09-opentile-go-v18-svs-writer-detection.md
-- **Work branch:** feat/v0.18
+  docs/deferred.md §1a): +1 (COG-WSI reader + integer-multiple
+  pyramid ratio acceptance). Python opentile doesn't read COG-WSI.
+- **Correctness bar:** make test green; TestSlideParity 40 fixtures
+  green (30 → 40 with 10 new cog-wsi fixtures);
+  TestCOGWSIGeometry green; cross-fixture parity gate green
+  (each `<source>_cog-wsi.tiff` vs original source = bit-exact
+  tile bytes).
+- **Sealed Q-decisions** (per spec + plan §3): cogwsi as wrapper
+  around inner generictiff Tiler (Option A; minimal diff);
+  ClassifyAssociatedFromPage wrapper preserves existing signature;
+  validation at Open returns ErrNotConformantCOGWSI;
+  cogwsi.Factory registered AFTER szi + BEFORE generictiff;
+  COG_WSI_VERSION 0.1-only (defensive — future versions reject
+  loudly); plain (geospatial) COG = permanently YAGNI (R21
+  retired).
+- **Deferred forward:** R19 (bare DZI), R22 (cross-format Writer
+  typed field). L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
+  R15. v1.0 cut still pending.
+- **R21 retired:** general COG first-class support — WSI-context
+  portion shipped as COG-WSI; plain geospatial COG isn't our
+  domain.
+- **Bench reality:** no perf-axis work this milestone; v0.13
+  bandwidth-deduplication API delegates through to generictiff
+  for cog-wsi files.
+- **Fixture catch-ups (incidental):** scan_620_grundium_TIFF
+  geometry flipped 3-level → 4-level (real shape; v0.10 pin was
+  buggy); Hamamatsu-1.ndpi + OS-2.ndpi gained scanner_serial;
+  Leica-1.ome.tiff + Leica-2.ome.tiff gained acquisition_rfc3339.
+  No reader-side regressions.
+- **Design:** docs/superpowers/specs/2026-05-20-opentile-go-v19-cog-wsi-design.md
+- **Plan:** docs/superpowers/plans/2026-05-20-opentile-go-v19-cog-wsi.md
+- **Work branch:** feat/v0.19
+
+## Previous milestone — v0.18 (shipped 2026-05-09)
+
+SVS writer-vendor detection. Closes misattribution bug where
+Grundium-written SVS files (and any other non-Aperio writer)
+reported ScannerManufacturer="Aperio". v0.18 detects the actual
+writer from ImageDescription first-line + TIFF Software/Make
+tags; namespaces Properties keys per detected writer. Documents
+recognized writer set explicitly. OME-TIFF audited (already
+correct; docs extended). 3 plan tasks single batch.
 
 ## Previous milestone — v0.17 (shipped 2026-05-09)
 

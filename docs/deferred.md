@@ -60,7 +60,7 @@ real slide motivates the work.
 | R18 | Smart Zoom Image (SZI) | post-v0.15 candidate | ZIP container around a Microsoft Deep Zoom Image (DZI) pyramid + `scan-properties.xml` + `associated_images/{label,macro,thumbnail}.jpg`. Open spec by smartinmedia / pathozoom (LGPL + CC-BY); spec PDF at `sample_files/szi/SZI format description - 2018-11-24.pdf` (downloaded 2026-05-08). Two local fixtures: `CMU-1.szi` (1.5 MB, from the spec repo) + `scan_618_grundium_SZI.szi` (709 MB, Grundium-produced). Driven by user's wsi-tools / viewer pipeline targeting Grundium scanner output. Reader would be ZIP central-directory traversal + DZI manifest parser + JPEG passthrough; uncompressed-stored ZIP entries support direct mmap-aliased ReaderAt access (matches v0.9's mmap-default invariant). See **Co-design note (R18 / R19)** below. |
 | R19 | Deep Zoom Image (DZI) | post-v0.15 candidate (paired with R18) | Microsoft DZI format — bare directory layout: `<name>.dzi` XML manifest + `<name>_files/<level>/<col>_<row>.<ext>` tile tree. Used by OpenSeadragon and tile-serving infrastructure. Lower demand than SZI as an opentile-go input (DZI is typically *served* rather than *read* — the viewer side already handles it). Co-designed with R18 since SZI is a ZIP wrapper around DZI. See **Co-design note (R18 / R19)** below. |
 | R20 | Cross-format `opentile.Metadata` expansion | v0.17 | ✅ landed (see §8k). Hybrid typed + Properties map approach; closes the cross-format API gap surfaced in v0.16 T4 + flagged independently by user's separate consumer. |
-| R21 | Cloud Optimized GeoTIFF (COG) first-class support | post-v0.17 candidate | A TIFF profile with required structural properties (tiled, internal overviews, IFDs-before-data, optional `GDAL_STRUCTURAL_METADATA` ghost header). **Already readable today** via `formats/generictiff/` for any COG that meets the v0.10 validator (≥1 tiled IFD, geometric scale chain, whitelist compression). First-class support would add: `opentile.FormatCOG = "cog"` enum value; ghost-header-based detection (~5 LOC reading first IFD's ImageDescription); structural validation against the OGC COG spec; surfacing GDAL structural metadata + GeoTIFF georeferencing tags via `Properties["cog.<key>"]` and `Properties["geotiff.<key>"]`. Estimated ~3 tasks. **Pairs naturally with HTTP-range backing** — `OpenFile` is currently `*os.File`-only; an HTTP-backed `io.ReaderAt` would benefit from COG's range-friendly IFDs-before-data layout (one initial range read fetches all IFD metadata; per-tile reads are direct byte offsets). Without HTTP-range backing, the COG-aware win is mostly cosmetic (`Format() == "cog"` label + structural metadata exposure). Owner preference (2026-05-09): first-class support is cheap enough to bundle with the HTTP-range milestone whenever that ships, rather than waiting for a dedicated COG milestone. Trigger: HTTP-range backing being scheduled, OR a consumer signal specifically asking for COG awareness. References: cogeo.org; OGC 21-026 (GeoTIFF 1.1 / Cloud Optimized GeoTIFF). |
+| R21 | Cloud Optimized GeoTIFF (COG) first-class support | ✅ retired (COG-WSI portion shipped in v0.19; plain COG deemed permanently YAGNI — opentile-go is WSI-domain, geospatial COG isn't our domain) | A TIFF profile with required structural properties (tiled, internal overviews, IFDs-before-data, optional `GDAL_STRUCTURAL_METADATA` ghost header). **WSI-context COG (COG-WSI)** landed in v0.19 (see §8m) — closes the user's GH Issues #5 + #6 with a strict spec-validated reader pairing the GDAL COG base structure with WSI-domain private tags 65080-87 + `COG_WSI_VERSION` ghost-area marker. **Plain (geospatial) COG** is permanently YAGNI for opentile-go — generic COG files continue to read via `formats/generictiff/` as structurally-valid pyramid TIFFs whenever they meet the v0.10 validator; first-class `Format() == "cog"` labeling + GeoTIFF tag exposure would add no WSI value. Owner seal (v0.19 brainstorm, 2026-05-20): geospatial COG isn't our domain. References: cogeo.org; OGC 21-026 (GeoTIFF 1.1 / Cloud Optimized GeoTIFF). |
 | R22 | Cross-format `Writer` typed field on `opentile.Metadata` | post-v0.18 candidate | Add `Writer string` typed field carrying the file-producer identifier — distinct from `ScannerManufacturer` (scanner OEM, populated correctly post-v0.18) and `ScannerSoftware []string` (broader software stack). Every WSI file has a writer; typed field appropriate for "every file has it" semantics. Currently writer info is reachable but inconsistent: SVS canonical → `ScannerSoftware[0]`; SVS Grundium → split awkwardly across `ScannerSoftware[0]="Aperio Image"` + `ScannerSoftware[1]="Grundium Ocus"`; OME-TIFF → buried in `Properties["ome.creator"]`; SZI → `ScannerSoftware[0]`; NDPI/Philips/BIF/IFE/SCN → `ScannerSoftware[0]`. Per-format population: SVS Aperio = full SoftwareLine; SVS Grundium = comma-suffix writer ID ("Grundium Ocus"); OME-TIFF = `<OME Creator>` attribute (promote from Properties to typed); SZI = `"<SoftwareName> <SoftwareVersion>"`; others = format-specific scanner-software identifier. ~3-4 tasks: cross-format struct addition + per-format population + tests + docs. Pairs naturally with v0.18's writer-vendor detection (already detects writer-vendor for SVS; would surface the writer string itself). Pairs less tightly with v0.17's MPP/ImageDescription expansion (different concept axis). Trigger: consumer signal asking specifically for writer-info; typed Writer would unbury OME's `Properties["ome.creator"]` to a discoverable Go field. |
 
 ---
@@ -840,6 +840,119 @@ that locks the change in.
 
 ---
 
+## 8m. Retired in v0.19
+
+v0.19 ships COG-WSI support — closes the user's two GH Issues
+[#5](https://github.com/cornish/opentile-go/issues/5) (generic-TIFF
+WSI-tag awareness + integer-multiple pyramid ratio relaxation) and
+[#6](https://github.com/cornish/opentile-go/issues/6) (dedicated
+`cogwsi` reader). Pairs the GDAL Cloud Optimized GeoTIFF base
+structure with WSI-domain private tags 65080-87 and a
+`COG_WSI_VERSION` ghost-area marker. Also retires R21 fully — see
+§1 status update.
+
+**Items shipped:**
+
+- `internal/cog/` — GDAL ghost-area parser: `GhostArea`,
+  `ParseGhostArea`, `ParseCOGWSIVersion`, `ErrGhostAreaMalformed`.
+  Designed for COG-WSI's primary use + plain-COG forward-compat.
+- `internal/tiff` WSI private tag readers — 8 typed accessors on
+  `*tiff.Page` covering tags 65080-65087 per COG-WSI spec §5.2.
+  Used existing `Page.ASCII` for strings + `Page.scalarU32` for
+  LONGs; added a new `Page.doubleTag` helper for DOUBLEs (mirrors
+  the existing Float32 accessor pattern).
+- `formats/generictiff/` extended with WSI-tag-aware classification
+  (Issue #5 part A): wrapper function `ClassifyAssociatedFromPage`
+  preserves the existing signature; pyramid build short-circuits
+  when every tiled IFD carries `WSILevelIndex`.
+- `internal/tiff/classify_pyramid.go::isIntegerMultipleRatio`
+  predicate (Issue #5 part B) — accepts clean integer-multiple
+  pyramid downscale chains (1×, 2×, 4×, 8×, 16×, and reciprocals).
+  Standalone benefit: Aperio / Grundium SVS 4×/2×/2× chains now
+  read cleanly via generic-tiff when no vendor reader claims them.
+- `formats/cogwsi/` — full Tiler:
+  - `Factory.Supports(*tiff.File)` ghost-area dispatch; registered
+    AFTER `szi` and BEFORE `generictiff` in `formats/all/all.go`
+    so vendor detectors still win, generic-TIFF still catches all.
+  - Validation at `Open`: `validateGhost` + `validateIFDs` →
+    `ErrNotConformantCOGWSI` sentinel on spec violations.
+  - Tiler delegates tile reads to an inner `generictiff.Tiler`
+    via Option A wrapper; `UnwrapTiler() opentile.Tiler` exposes
+    the inner Tiler so `generictiff.MetadataOf` works through the
+    wrapper.
+  - Canonical metadata populated from WSI private tags (WSIMPP /
+    WSIMPPX/Y / WSIMagnification → cross-format Metadata;
+    WSISourceFormat → `Properties["cog-wsi.source-format"]`;
+    parsed `COG_WSI_VERSION` → `Properties["cog-wsi.spec-version"]`).
+- `opentile.FormatCOGWSI = "cog-wsi"` enum value.
+- 10 new fixtures wired into `TestSlideParity` (30 → 40):
+  `CMU-1-Small-Region` / `CMU-1` / `JP2K-33003-1` / `scan_620_`
+  / `svs_40x_bigtiff` (5 SVS), `Philips-1` (Philips TIFF),
+  `Leica-1` (OME-TIFF), `Ventana-1` (BIF), `cervix_2x_jpeg`
+  (IFE), `scan_617` (SZI). `CMU-1-Small-Region_cog-wsi.tiff` is
+  the full-walk fixture; the other 9 are sampled by default.
+- `tests/parity/cogwsi_geometry_test.go` per-fixture geometry
+  pin (per-level Size / TileSize / Grid / Compression,
+  AssociatedImage Type + sizes, Metadata fields).
+- Cross-fixture parity gate confirms each `<source>_cog-wsi.tiff`
+  tile bytes equal the original `<source>` file's tile bytes —
+  proving the writer's source-format-preserving invariant and our
+  reader's byte-passthrough invariant agree.
+- `docs/formats/cogwsi.md` — full format doc.
+
+**Architecture invariants preserved:**
+
+- Public API additive (new `FormatCOGWSI` enum value + new
+  package + new `cogwsi.ErrNotConformantCOGWSI` sentinel; no
+  existing API broken).
+- `formats/generictiff` ClassifyAssociated extension via wrapper
+  function (minimal diff; existing callers unaffected).
+- Lock-free hot path preserved: cogwsi delegates to generictiff,
+  which preserves the v0.9 mmap-default + zero-alloc TileInto
+  pattern.
+- cgo footprint unchanged.
+- v1.0 cut still pending.
+
+**Deviations retired:**
+
+- COG-WSI files previously misrouted as generic-TIFF (worked,
+  but without canonical WSI metadata or spec validation).
+- Aperio / Grundium SVS 4×/2×/2× chains previously rejected by
+  the generic-TIFF strict drift check (Issue #5 part B).
+
+**Still parked:**
+
+- R19 (bare DZI) — internal/dzi pre-pares it.
+- L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9, R15.
+- R22 (cross-format `Writer` typed field) — YAGNI without
+  explicit consumer ask.
+
+**v0.19 fixture catch-ups (incidental, no reader-side regressions):**
+
+- `scan_620_grundium_TIFF.tiff` geometry expectation flipped
+  from buggy 3-level (v0.10 pin) to real 4-level (T3/T4 surfaced
+  the discrepancy via the integer-multiple ratio relaxation).
+- `Hamamatsu-1.ndpi` + `OS-2.ndpi` gained `scanner_serial`
+  metadata expectations (stale since v0.17's NDPI metadata
+  expansion).
+- `Leica-1.ome.tiff` + `Leica-2.ome.tiff` gained
+  `acquisition_rfc3339` metadata expectations (stale since
+  v0.17's OME-TIFF metadata expansion).
+
+**v0.19 lessons:** The "is plain COG worth first-classing?"
+question got a clean NO answer — opentile-go is WSI-domain, not
+geospatial. Better to ship the WSI-context COG profile (COG-WSI)
+that closes real consumer issues than to chase a label-only
+("`Format() == "cog"`") cosmetic. The wrapper-function approach
+for `ClassifyAssociatedFromPage` (preserving the existing
+signature) kept the generic-TIFF diff minimal — a generalizable
+pattern when extending an internal classifier without breaking
+existing callers.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-20-opentile-go-v19-cog-wsi.md`](superpowers/plans/2026-05-20-opentile-go-v19-cog-wsi.md).
+
+---
+
 ## 8l. Retired in v0.18
 
 v0.18 closes a misattribution bug discovered post-v0.17 brainstorm:
@@ -901,7 +1014,7 @@ recognized writer set explicitly.
 **Still parked:**
 
 - R19 (bare DZI) — internal/dzi pre-pares it.
-- R21 (COG first-class support) — pairs naturally with HTTP-range backing.
+- R21 (COG first-class support) — pairs naturally with HTTP-range backing. (Note: R21 was fully retired in v0.19; see §8m.)
 - L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9, R15.
 
 **v0.18 lessons:** The "writer-vendor vs format-vendor" distinction
@@ -2316,8 +2429,15 @@ decisions, not deferred work.
 | **R18** — Smart Zoom Image (SZI) support | (new) | ✅ **landed in v0.16** (see §8j) | spec + fixtures landed 2026-05-08; reader shipped 2026-05-09 | retired |
 | **R19** — Deep Zoom Image (DZI) support | (new) | Co-designed with R18 | called out 2026-05-08 | Owner sign-off; v0.17+ candidate. internal/dzi/ pre-pares it (shipped in v0.16). See co-design note below. |
 | **R20** — opentile.Metadata: add MicronsPerPixel + ImageDescription | core API | ✅ **landed in v0.17** (see §8k) | flagged 2026-05-09 in v0.16 T4; reader-wide expansion shipped 2026-05-09 | retired |
-| **R21** — Cloud Optimized GeoTIFF (COG) first-class support | core/generic-TIFF | YAGNI without HTTP-range backing | called out 2026-05-09 | Owner sign-off; cheap (~3 tasks) when bundled with HTTP-range milestone. COG files Just Work today via generic-TIFF; first-class adds detection + label + GDAL structural metadata exposure |
 | **R22** — Cross-format `Writer` typed field | core API | YAGNI without explicit consumer ask | called out 2026-05-09 (post-v0.18 brainstorm) | Owner sign-off; ~3-4 tasks. Writer info currently buried (ScannerSoftware[0] or Properties["ome.creator"]); typed field would unify discoverability across formats |
+
+**Closed by v0.19:** GH Issues
+[#5](https://github.com/cornish/opentile-go/issues/5) (generic-TIFF
+WSI-tag awareness + integer-multiple pyramid ratio relaxation) and
+[#6](https://github.com/cornish/opentile-go/issues/6) (dedicated
+`cogwsi` reader). R21 (general COG first-class support) is also
+fully retired — the WSI-context portion shipped as COG-WSI in v0.19;
+plain geospatial COG is permanently YAGNI for opentile-go. See §8m.
 
 Re-triage at v0.9 ship: either pick the next milestone's scope from
 this list, or fold an item into a v0.9.x point release if the trigger
