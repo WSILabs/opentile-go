@@ -258,13 +258,14 @@ End-of-milestone:
 - Cross-fixture parity: COG-WSI tiles match source-format tiles bit-exact on sampled positions (where source had a comparable tile at the same pyramid level + position)
 - Issue #5 + #6 closed at ship
 
-## 9. R21 status update
+## 9. R21 status update — fully retired
 
-R21 in `docs/deferred.md §1` + §11 ("Cloud Optimized GeoTIFF (COG) first-class support") is **partially superseded** by v0.19:
+R21 in `docs/deferred.md §1` + §11 ("Cloud Optimized GeoTIFF (COG) first-class support") is **fully retired** by v0.19:
 
 - The COG-WSI-specific story (10 real fixtures, explicit consumer, dedicated reader) is fully shipped in v0.19 via `formats/cogwsi/`.
-- General COG (non-WSI; geospatial COG without WSI tags) remains parked under R21. The new `internal/cog/` package pre-pares it (ghost-area parser is generic).
-- T8 updates R21's status to "partially landed — cog-wsi shipped in v0.19; general COG awareness still parked pending HTTP-range backing or specific consumer ask."
+- General COG (non-WSI; geospatial COG without WSI tags) is **deemed permanently YAGNI** for opentile-go. opentile-go is a WSI-domain library; geospatial COG isn't our domain. The plain-COG-as-WSI-format story is theoretical — no commercial WSI platform uses it; no fixture has surfaced in 7 milestones of port + extension work; OpenSlide doesn't implement plain COG as a distinct format either. If a plain-COG file with WSI dimensions ever surfaces, it reads via `formats/generictiff/` as a structurally-valid pyramid TIFF — no `Format() == "cog"` label needed.
+- The new `internal/cog/` package stays — it's needed by cogwsi anyway. It's a side-benefit, not the basis for resurrecting R21.
+- T8 marks R21 retired in `docs/deferred.md §1` (annotate `Status` column: `✅ retired (COG-WSI portion shipped in v0.19; plain COG deemed permanently YAGNI)`) and removes the active R21 row from §11.
 
 ## 10. References
 
