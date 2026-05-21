@@ -3,7 +3,8 @@
   "format": "ome-tiff",
   "levels": null,
   "metadata": {
-    "magnification": 40
+    "magnification": 40,
+    "acquisition_rfc3339": "2014-11-26T14:12:11Z"
   },
   "associated": [
     {

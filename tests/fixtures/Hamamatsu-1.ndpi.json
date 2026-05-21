@@ -114,6 +114,7 @@
   "metadata": {
     "magnification": 40,
     "scanner_manufacturer": "Hamamatsu",
+    "scanner_serial": "000062",
     "acquisition_rfc3339": "2021-03-29T09:49:38Z"
   },
   "sampled_tiles": {

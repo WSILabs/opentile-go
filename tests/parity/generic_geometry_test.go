@@ -117,8 +117,15 @@ var genericFixtures = []genericFixture{
 		// see docs/formats/generictiff.md).
 		filename: "scan_620_grundium_TIFF.tif",
 		levels: []genericLevelExpect{
+			// v0.19 (Issue #5 part B): T3's integer-multiple ratio
+			// acceptance restored the L2 IFD (6144×4096) that the
+			// pre-v0.19 strict drift check dropped as a 4× orphan
+			// after the initial 4× step. The chain now reads as the
+			// real-on-disk 49152 → 12288 → 6144 → 3072 (4-level),
+			// not the pre-fix 3-level 49152 → 12288 → 3072.
 			{W: 49152, H: 32768, TileW: 512, TileH: 512, GridW: 96, GridH: 64, Compression: opentile.CompressionJPEG},
 			{W: 12288, H: 8192, TileW: 512, TileH: 512, GridW: 24, GridH: 16, Compression: opentile.CompressionJPEG},
+			{W: 6144, H: 4096, TileW: 512, TileH: 512, GridW: 12, GridH: 8, Compression: opentile.CompressionJPEG},
 			{W: 3072, H: 2048, TileW: 512, TileH: 512, GridW: 6, GridH: 4, Compression: opentile.CompressionJPEG},
 		},
 		tileMagic: []byte{0xFF, 0xD8},

@@ -94,7 +94,8 @@
     }
   ],
   "metadata": {
-    "magnification": 20
+    "magnification": 20,
+    "acquisition_rfc3339": "2011-05-31T09:43:06Z"
   },
   "sampled_tiles": {
     "0:0:0": {
