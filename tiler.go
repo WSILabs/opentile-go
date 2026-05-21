@@ -36,6 +36,11 @@ const (
 	//
 	// Added in v0.16.
 	FormatSZI Format = "szi"
+	// FormatCOGWSI identifies a Cloud Optimized GeoTIFF for WSI file —
+	// a strict extension of GDAL Cloud Optimized GeoTIFF carrying
+	// WSI-specific private tags + ghost-area marker. Spec at
+	// docs/specs/2026-05-20-cog-wsi-format.md. Added in v0.19.
+	FormatCOGWSI Format = "cog-wsi"
 )
 
 // Tiler is the top-level handle returned by [Open] / [OpenFile].
