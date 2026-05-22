@@ -5,6 +5,7 @@ import (
 	"time"
 
 	opentile "github.com/cornish/opentile-go"
+	"github.com/cornish/opentile-go/formats/svs"
 	"github.com/cornish/opentile-go/internal/cog"
 	"github.com/cornish/opentile-go/internal/tiff"
 )
@@ -83,6 +84,29 @@ func buildMetadata(p0 *tiff.Page, ghost cog.GhostArea) opentile.Metadata {
 	props := map[string]string{}
 	if v, ok := p0.WSISourceFormat(); ok {
 		props[PropSourceFormat] = v
+		// v0.20.1 (R23): for SVS-sourced COG-WSI, re-run v0.18's
+		// SVS writer detection on the preserved Software tag.
+		// wsitools preserves Make/Software verbatim from source, but
+		// for SVS sources the standard Make tag is just the format-
+		// vendor label ("Aperio" pre-v0.18 behavior) — the actual
+		// writer-vendor information lives in the comma-suffix of
+		// the Software field (e.g., "Aperio Image, Grundium Ocus"
+		// → manufacturer="Grundium", model="Ocus"). When the SVS
+		// reader opens a Grundium SVS directly it parses this from
+		// ImageDescription; the cogwsi reader gets the same info
+		// via the preserved Software tag.
+		if v == "svs" {
+			if sw, swOK := p0.Software(); swOK {
+				firstLine := sw
+				if i := strings.IndexByte(sw, '\n'); i >= 0 {
+					firstLine = sw[:i]
+				}
+				if w := svs.DetectWriter(firstLine); w.Manufacturer != "" {
+					md.ScannerManufacturer = w.Manufacturer
+					md.ScannerModel = w.Model
+				}
+			}
+		}
 	}
 	if v, ok := p0.WSIToolsVersion(); ok {
 		props[PropWSIToolsVer] = v

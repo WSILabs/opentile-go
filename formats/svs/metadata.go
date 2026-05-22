@@ -29,7 +29,7 @@ type Metadata struct {
 	Filename     string  // Aperio "Filename" key if present
 }
 
-// writerVendor describes the SVS writer detected from the
+// WriterVendor describes the SVS writer detected from the
 // ImageDescription first line. SVS is the WSI ad-hoc standard and
 // is written by multiple vendors (Aperio canonical, Grundium,
 // likely 3DHistech via export). The first line of the
@@ -43,25 +43,25 @@ type Metadata struct {
 // When undetected, the parser falls back to the "svs" namespace
 // for Properties keys; standardized SVS-format keys (MPP, AppMag,
 // ScanScope ID) still populate cross-format Metadata regardless.
-type writerVendor struct {
-	manufacturer string   // e.g., "Aperio", "Grundium", "" if undetected
-	model        string   // e.g., "Ocus", "" if not declared
-	softwares    []string // sensibly-split software components
+type WriterVendor struct {
+	Manufacturer string   // e.g., "Aperio", "Grundium", "" if undetected
+	Model        string   // e.g., "Ocus", "" if not declared
+	Softwares    []string // sensibly-split software components
 }
 
-// detectWriter parses the SVS ImageDescription's first line to
-// identify the writer-vendor. See writerVendor for pattern map.
-func detectWriter(firstLine string) writerVendor {
+// DetectWriter parses the SVS ImageDescription's first line to
+// identify the writer-vendor. See WriterVendor for pattern map.
+func DetectWriter(firstLine string) WriterVendor {
 	line := strings.TrimSpace(firstLine)
 	if line == "" {
-		return writerVendor{}
+		return WriterVendor{}
 	}
 	// "Aperio Image Library v..." → canonical Aperio
 	if strings.HasPrefix(line, "Aperio Image Library") {
-		return writerVendor{
-			manufacturer: "Aperio",
-			model:        "",
-			softwares:    []string{line},
+		return WriterVendor{
+			Manufacturer: "Aperio",
+			Model:        "",
+			Softwares:    []string{line},
 		}
 	}
 	// "Aperio Image, <name>" → writer is in the comma-suffix
@@ -81,17 +81,17 @@ func detectWriter(firstLine string) writerVendor {
 		if len(fields) > 1 {
 			mod = strings.Join(fields[1:], " ")
 		}
-		return writerVendor{
-			manufacturer: mfr,
-			model:        mod,
-			softwares:    []string{"Aperio Image", writerID},
+		return WriterVendor{
+			Manufacturer: mfr,
+			Model:        mod,
+			Softwares:    []string{"Aperio Image", writerID},
 		}
 	}
 	// Undetected: fall back to "" manufacturer; surface raw line as software.
-	return writerVendor{
-		manufacturer: "",
-		model:        "",
-		softwares:    []string{line},
+	return WriterVendor{
+		Manufacturer: "",
+		Model:        "",
+		Softwares:    []string{line},
 	}
 }
 
@@ -113,34 +113,34 @@ func parseDescription(desc string) (Metadata, error) {
 	newline := strings.IndexByte(desc, '\n')
 	if newline < 0 {
 		md.SoftwareLine = desc
-		w := detectWriter(desc)
-		md.ScannerManufacturer = w.manufacturer
-		md.ScannerModel = w.model
-		md.ScannerSoftware = w.softwares
+		w := DetectWriter(desc)
+		md.ScannerManufacturer = w.Manufacturer
+		md.ScannerModel = w.Model
+		md.ScannerSoftware = w.Softwares
 		// v0.20: Writer = the actual writer (per v0.18's detection).
 		// For Aperio canonical (single-element softwares), use the full
 		// SoftwareLine. For comma-suffix patterns (Grundium etc., two-
 		// element), use the writer-vendor identifier from the suffix.
-		if len(w.softwares) >= 2 {
-			md.Writer = w.softwares[1]
-		} else if len(w.softwares) == 1 {
-			md.Writer = w.softwares[0]
+		if len(w.Softwares) >= 2 {
+			md.Writer = w.Softwares[1]
+		} else if len(w.Softwares) == 1 {
+			md.Writer = w.Softwares[0]
 		}
 		return md, nil
 	}
 	md.SoftwareLine = strings.TrimRight(desc[:newline], "\r\n ")
-	w := detectWriter(md.SoftwareLine)
-	md.ScannerManufacturer = w.manufacturer
-	md.ScannerModel = w.model
-	md.ScannerSoftware = w.softwares
+	w := DetectWriter(md.SoftwareLine)
+	md.ScannerManufacturer = w.Manufacturer
+	md.ScannerModel = w.Model
+	md.ScannerSoftware = w.Softwares
 	// v0.20: Writer = the actual writer (per v0.18's detection).
 	// For Aperio canonical (single-element softwares), use the full
 	// SoftwareLine. For comma-suffix patterns (Grundium etc., two-
 	// element), use the writer-vendor identifier from the suffix.
-	if len(w.softwares) >= 2 {
-		md.Writer = w.softwares[1]
-	} else if len(w.softwares) == 1 {
-		md.Writer = w.softwares[0]
+	if len(w.Softwares) >= 2 {
+		md.Writer = w.Softwares[1]
+	} else if len(w.Softwares) == 1 {
+		md.Writer = w.Softwares[0]
 	}
 
 	// Parse '|' separated key-value pairs in the remainder.
@@ -183,7 +183,7 @@ func parseDescription(desc string) (Metadata, error) {
 	// splitKV sees the codec/geometry prelude (e.g. "46000x32914 [...]
 	// JPEG/RGB Q=30") as a "key" because it embeds an '=' sign, but
 	// it's not a real kv pair.
-	namespace := strings.ToLower(w.manufacturer)
+	namespace := strings.ToLower(w.Manufacturer)
 	if namespace == "" {
 		namespace = "svs"
 	}
