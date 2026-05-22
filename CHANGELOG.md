@@ -11,13 +11,67 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.19.1: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.20: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.19.1 introduced
-no new active limitations — it was a coverage cleanup patch. See
-`docs/deferred.md` §11 consolidated backlog. Open work parked in tracked
-issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.20 introduced
+no new active limitations — pure-additive cross-format Writer typed
+field. See `docs/deferred.md` §11 consolidated backlog. Open work
+parked in tracked issues:
+
+## [0.20.0] — 2026-05-20
+
+Cross-format Writer typed field — closes R22. Adds `Writer string`
+to `opentile.Metadata` carrying the file-producer identifier.
+Pure-additive; no API breakage; no behavior changes for existing
+consumers.
+
+### Added
+
+- **`opentile.Metadata.Writer string`** — typed field for the file
+  producer (the software that wrote the file). Distinct from:
+  - `ScannerManufacturer` (scanner OEM — who made the hardware)
+  - `ScannerSoftware []string` (broader software stack — may include
+    both writer and scanner software)
+- Per-format Writer population:
+  - **SVS Aperio canonical**: `"Aperio Image Library v11.2.1"` (full
+    SoftwareLine; preserves version)
+  - **SVS Grundium / non-canonical**: `"Grundium Ocus"` (comma-suffix
+    writer from v0.18 detection)
+  - **NDPI**: format-specific Model identifier (e.g. `"NanoZoomer"`)
+  - **Philips TIFF**: raw `DICOM_SOFTWARE_VERSIONS` field (may include
+    surrounding double-quotes)
+  - **OME-TIFF**: `"OME Bio-Formats X.Y.Z"` (Creator attribute
+    promoted from `Properties["ome.creator"]`)
+  - **Leica SCN**: primary image's `<device version>`
+  - **BIF**: iScan `BuildVersion`
+  - **IFE**: ImageDescription first line (Iris encoder identifier)
+  - **SZI**: `"<SoftwareName> <SoftwareVersion>"` combined (empty when
+    SoftwareName absent — e.g., Grundium SZI)
+  - **Generic-TIFF (no wsi-tools)**: TIFF `Software` tag value
+  - **Generic-TIFF (wsi-tools)**: `"wsitools/<version>"` (overrides
+    Software-derived value when wsi-tools parser triggers)
+  - **COG-WSI**: `"wsitools/<WSIToolsVersion>"` from private tag 65084
+    (file producer; source scanner stays in ScannerManufacturer per spec)
+- `TestCrossFormatMetadata` extended with per-fixture `wantWriterContains`
+  substring assertions.
+
+### Notes
+
+- **Backward-compat**: Properties keys (`ome.creator`,
+  `cog-wsi.wsitools-version`) continue to populate as before. The
+  new typed `Writer` field is the primary surface; Properties keys
+  remain accessible at zero extra cost.
+- **Q5 semantics**: for converted files (OME-TIFF via Bio-Formats;
+  COG-WSI via wsitools; wsi-tools-converted generic-TIFF), Writer
+  is the converter and ScannerManufacturer/Model/Software preserve
+  the source scanner attribution per format spec.
+- **R23 derived bug**: Grundium-source COG-WSI files report
+  `ScannerManufacturer = "Aperio"` (pre-v0.18 attribution leaked
+  through the wsitools-preserved TIFF Make tag). Filed as R23 in
+  the deferred backlog for a separate fix; out of v0.20 scope.
+- v1.0 cut still pending.
+- cgo footprint unchanged.
 
 ## [0.19.1] — 2026-05-20
 

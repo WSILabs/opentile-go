@@ -140,6 +140,7 @@ Pre-v0.17 `leicascn.Tiler.Metadata()` returned an empty struct. v0.17 (T6) wires
 | `<collection name>` / `<collection uuid>` | `Properties["leica.collection.name"]` / `Properties["leica.collection.uuid"]` |
 | `<illuminationSource>` | `Properties["leica.illumination_source"]` |
 | classified region count | `Properties["leica.region_count"]` |
+| primary image's `<device version>` | `Metadata.Writer` (v0.20) |
 
 For multi-region SCN files, the cross-format Metadata reflects region 0; `leicascn.MetadataOf(t)` exposes the full per-region detail.
 

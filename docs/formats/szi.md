@@ -118,6 +118,7 @@ This is one of the few places SZI's behavior differs from the TIFF-based formats
 - `Properties[PropertyScannedAreaMM2]` ← `<ScannedArea>` (added in v0.17)
 - `Properties[PropertyScanDurationSec]` ← parsed `<ElapsedTime>` "XhYmZs" → seconds (added in v0.17)
 - `Properties[PropertyComments]` ← `<Comments>` (added in v0.17)
+- `Writer` ← `"<SoftwareName> <SoftwareVersion>"` combined (added in v0.20; empty when SoftwareName absent, e.g., Grundium SZI)
 
 **SZI-specific `szi.Metadata`** (read via `szi.MetadataOf(tiler)`):
 

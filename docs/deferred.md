@@ -61,7 +61,7 @@ real slide motivates the work.
 | R19 | Deep Zoom Image (DZI) | post-v0.15 candidate (paired with R18) | Microsoft DZI format — bare directory layout: `<name>.dzi` XML manifest + `<name>_files/<level>/<col>_<row>.<ext>` tile tree. Used by OpenSeadragon and tile-serving infrastructure. Lower demand than SZI as an opentile-go input (DZI is typically *served* rather than *read* — the viewer side already handles it). Co-designed with R18 since SZI is a ZIP wrapper around DZI. See **Co-design note (R18 / R19)** below. |
 | R20 | Cross-format `opentile.Metadata` expansion | v0.17 | ✅ landed (see §8k). Hybrid typed + Properties map approach; closes the cross-format API gap surfaced in v0.16 T4 + flagged independently by user's separate consumer. |
 | R21 | Cloud Optimized GeoTIFF (COG) first-class support | ✅ retired (COG-WSI portion shipped in v0.19; plain COG deemed permanently YAGNI — opentile-go is WSI-domain, geospatial COG isn't our domain) | A TIFF profile with required structural properties (tiled, internal overviews, IFDs-before-data, optional `GDAL_STRUCTURAL_METADATA` ghost header). **WSI-context COG (COG-WSI)** landed in v0.19 (see §8m) — closes the user's GH Issues #5 + #6 with a strict spec-validated reader pairing the GDAL COG base structure with WSI-domain private tags 65080-87 + `COG_WSI_VERSION` ghost-area marker. **Plain (geospatial) COG** is permanently YAGNI for opentile-go — generic COG files continue to read via `formats/generictiff/` as structurally-valid pyramid TIFFs whenever they meet the v0.10 validator; first-class `Format() == "cog"` labeling + GeoTIFF tag exposure would add no WSI value. Owner seal (v0.19 brainstorm, 2026-05-20): geospatial COG isn't our domain. References: cogeo.org; OGC 21-026 (GeoTIFF 1.1 / Cloud Optimized GeoTIFF). |
-| R22 | Cross-format `Writer` typed field on `opentile.Metadata` | post-v0.18 candidate | Add `Writer string` typed field carrying the file-producer identifier — distinct from `ScannerManufacturer` (scanner OEM, populated correctly post-v0.18) and `ScannerSoftware []string` (broader software stack). Every WSI file has a writer; typed field appropriate for "every file has it" semantics. Currently writer info is reachable but inconsistent: SVS canonical → `ScannerSoftware[0]`; SVS Grundium → split awkwardly across `ScannerSoftware[0]="Aperio Image"` + `ScannerSoftware[1]="Grundium Ocus"`; OME-TIFF → buried in `Properties["ome.creator"]`; SZI → `ScannerSoftware[0]`; NDPI/Philips/BIF/IFE/SCN → `ScannerSoftware[0]`. Per-format population: SVS Aperio = full SoftwareLine; SVS Grundium = comma-suffix writer ID ("Grundium Ocus"); OME-TIFF = `<OME Creator>` attribute (promote from Properties to typed); SZI = `"<SoftwareName> <SoftwareVersion>"`; others = format-specific scanner-software identifier. ~3-4 tasks: cross-format struct addition + per-format population + tests + docs. Pairs naturally with v0.18's writer-vendor detection (already detects writer-vendor for SVS; would surface the writer string itself). Pairs less tightly with v0.17's MPP/ImageDescription expansion (different concept axis). Trigger: consumer signal asking specifically for writer-info; typed Writer would unbury OME's `Properties["ome.creator"]` to a discoverable Go field. |
+| R22 | Cross-format `Writer` typed field on `opentile.Metadata` | v0.20 | ✅ landed in v0.20 (see §8n). `Writer string` carries the file-producer identifier — distinct from `ScannerManufacturer` (scanner OEM) and `ScannerSoftware []string` (broader software stack). Populated by all 10 readers: SVS canonical SoftwareLine + Grundium comma-suffix from v0.18 detection; NDPI Model; Philips raw `DICOM_SOFTWARE_VERSIONS`; OME-TIFF promoting `ome.creator`; Leica SCN primary `<device version>`; BIF iScan `BuildVersion`; IFE encoder identifier; SZI `"<SoftwareName> <SoftwareVersion>"`; generic-TIFF `Software` tag with `"wsitools/<version>"` override; COG-WSI `"wsitools/<WSIToolsVersion>"` from private tag 65084. Properties keys (`ome.creator`, `cog-wsi.wsitools-version`) retained for backward-compat. |
 | R23 | Re-apply v0.18 SVS `detectWriter` to COG-WSI files with `WSISourceFormat == "svs"` | post-v0.19 candidate | Derived bug discovered during v0.20 brainstorm probe: Grundium-source COG-WSI fixtures (e.g., `scan_620_cog-wsi.tiff`, `svs_40x_bigtiff_cog-wsi.tiff`) report `ScannerManufacturer = "Aperio"` because the wsitools writer preserves the source SVS's standard TIFF `Make` tag (which is just the format-vendor label, NOT the writer-vendor — pre-v0.18 behavior). The v0.18 SVS reader fixed this by parsing the comma-suffix from ImageDescription (`"Aperio Image, Grundium Ocus"` → `ScannerManufacturer = "Grundium"`, `ScannerModel = "Ocus"`), but the cogwsi reader (which delegates to generictiff per v0.19 T6 Option A) uses the standard Make tag and doesn't re-run that detection. The detection-source string IS still present in the preserved `Software = [Aperio Image, Grundium Ocus]` field — re-running v0.18's `detectWriter` on Software[0] for COG-WSI files where `Properties["cog-wsi.source-format"] == "svs"` would fix this. ~1-2 tasks: small surgical fix in `formats/cogwsi/metadata.go` or `formats/generictiff` post-processing; fixture JSON updates for affected COG-WSI fixtures. Standalone benefit: matches v0.18 attribution semantics on COG-WSI files derived from non-canonical-Aperio SVS sources. |
 
 ---
@@ -838,6 +838,56 @@ that locks the change in.
   duplicate DQT/DHT segments in the sparse-tile output — JPEG
   decoders accept this. Cross-check against Python at Philips-4 L0
   (0,0) caught our initial single-splice version.
+
+---
+
+## 8n. Retired in v0.20
+
+v0.20 closes R22 — cross-format `Writer string` typed field added
+to `opentile.Metadata`. Pure-additive; no API breakage.
+
+**Items shipped:**
+
+- `opentile.Metadata.Writer string` typed field. File-producer
+  identifier; distinct from `ScannerManufacturer` (scanner OEM)
+  and `ScannerSoftware []string` (broader software stack).
+- Per-format population in all 10 readers (SVS canonical + Grundium
+  detection from v0.18; NDPI; Philips; OME-TIFF promoting ome.creator;
+  Leica SCN; BIF; IFE; SZI combined SoftwareName+Version; Generic-TIFF
+  TIFF Software path + wsi-tools override; COG-WSI wsitools/<version>
+  from WSIToolsVersion private tag 65084).
+- TestCrossFormatMetadata extension: per-fixture Writer substring
+  assertion via `wantWriterContains`.
+
+**Architecture invariants preserved:**
+
+- Pure-additive on cross-format Metadata; existing consumers
+  unaffected.
+- Properties keys (ome.creator, cog-wsi.wsitools-version) retained
+  for backward-compat.
+- v0.18 SVS writer detection (`writerVendor`) reused for SVS Writer
+  population.
+- Scanner attribution semantics unchanged (ScannerManufacturer is
+  still the scanner OEM; Writer is the file producer).
+- v1.0 cut still pending.
+- cgo footprint unchanged.
+
+**Deviations retired:**
+
+- R22 (cross-format Writer typed field) — landed.
+
+**Still parked:**
+
+- R19 (bare DZI)
+- R23 (re-apply v0.18 SVS detectWriter to Grundium-source COG-WSI)
+- Other §11 backlog rows unchanged.
+
+**v0.20 lessons:** the typed/Properties hybrid pattern from v0.17
+generalized cleanly to Writer — populate the typed field at the
+same site as existing ScannerSoftware population; keep the older
+Properties keys for backward-compat at zero extra cost.
+
+**Plan cross-reference:** [`docs/superpowers/plans/2026-05-20-opentile-go-v20-writer-typed-field.md`](superpowers/plans/2026-05-20-opentile-go-v20-writer-typed-field.md).
 
 ---
 
@@ -2430,7 +2480,6 @@ decisions, not deferred work.
 | **R18** — Smart Zoom Image (SZI) support | (new) | ✅ **landed in v0.16** (see §8j) | spec + fixtures landed 2026-05-08; reader shipped 2026-05-09 | retired |
 | **R19** — Deep Zoom Image (DZI) support | (new) | Co-designed with R18 | called out 2026-05-08 | Owner sign-off; v0.17+ candidate. internal/dzi/ pre-pares it (shipped in v0.16). See co-design note below. |
 | **R20** — opentile.Metadata: add MicronsPerPixel + ImageDescription | core API | ✅ **landed in v0.17** (see §8k) | flagged 2026-05-09 in v0.16 T4; reader-wide expansion shipped 2026-05-09 | retired |
-| **R22** — Cross-format `Writer` typed field | core API | YAGNI without explicit consumer ask | called out 2026-05-09 (post-v0.18 brainstorm) | Owner sign-off; ~3-4 tasks. Writer info currently buried (ScannerSoftware[0] or Properties["ome.creator"]); typed field would unify discoverability across formats |
 
 **Closed by v0.19:** GH Issues
 [#5](https://github.com/cornish/opentile-go/issues/5) (generic-TIFF

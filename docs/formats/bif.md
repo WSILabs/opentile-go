@@ -95,6 +95,7 @@ BIF's iScan XMP carries the cross-format-canonical fields. v0.17 surfaces them:
 | Synthesised splice descriptor | `ImageDescription` (`level=0 mag=40 quality=95`) |
 | `UserName` | `Properties[PropertyUserName]` (canonical) AND `Properties["ventana.UserName"]` |
 | every other iScan XMP attribute | `Properties["ventana.<key>"]` (vendor passthrough — 13–18 keys per fixture) |
+| `BuildVersion` (iScan XMP) | `Metadata.Writer` (v0.20) |
 
 Per Q4 Option B, `bif.Metadata.ImageDescription` was retired (the cross-format `ImageDescription` covers it); `bif.MetadataOf(t)` continues to expose `ZSpacing` and `ZPlaneFoci`.
 

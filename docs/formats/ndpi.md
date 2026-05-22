@@ -64,6 +64,7 @@ NDPI's pixel-size lives on the per-axis TIFF resolution tags — and on every fi
 | `Reference` tag (65422) | `Properties["hamamatsu.Reference"]` (when present) |
 | `FocalPlaneTolerance` (focal offset) | `Properties["hamamatsu.FocalOffsetMM"]` (when present) |
 | — | NDPI has no `ImageDescription` tag and no operator/user field; `ImageDescription` and `Properties[PropertyUserName]` remain empty |
+| TIFF `Model` tag (e.g. `NanoZoomer`) | `Metadata.Writer` (v0.20) |
 
 `ndpi.MetadataOf(t)` continues to expose the raw NDPI scanner / source-lens fields.
 

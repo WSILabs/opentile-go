@@ -3,6 +3,7 @@ package parity
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	opentile "github.com/cornish/opentile-go"
@@ -26,153 +27,178 @@ import (
 //     starting with the given prefix (used to assert vendor-namespaced
 //     passthrough is present, e.g., "aperio.", "ventana.", "philips.",
 //     "ome.", "leica.", "iris.aperio.", "wsi-tools.").
+//   - wantWriterContains: substring expected to appear in
+//     Metadata.Writer (substring match for version flexibility;
+//     added in v0.20 alongside the typed Writer field).
 //
 // The expectations table reflects probe-confirmed truth for each
-// fixture as observed in T2-T7 of v0.17.
+// fixture as observed in T2-T7 of v0.17 and T2-T4 of v0.20.
 type crossFormatMetadataExpect struct {
-	fixture           string
-	subdir            string // path component under OPENTILE_TESTDIR
-	wantMagnification bool
-	wantMPPPerAxis    bool
-	wantMPPSymmetric  bool
-	wantImageDesc     bool
-	wantUserName      bool
-	wantScannerMfr    bool
-	wantPropPrefix    string
+	fixture            string
+	subdir             string // path component under OPENTILE_TESTDIR
+	wantMagnification  bool
+	wantMPPPerAxis     bool
+	wantMPPSymmetric   bool
+	wantImageDesc      bool
+	wantUserName       bool
+	wantScannerMfr     bool
+	wantPropPrefix     string
+	wantWriterContains string
 }
 
 var cfmExpect = []crossFormatMetadataExpect{
 	{
 		// SVS small-region: Aperio ImageDescription kv, MPP symmetric.
-		fixture:           "CMU-1-Small-Region.svs",
-		subdir:            "svs",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantUserName:      true, // aperio.User → user-name canonical key
-		wantScannerMfr:    true, // "Aperio"
-		wantPropPrefix:    "aperio.",
+		fixture:            "CMU-1-Small-Region.svs",
+		subdir:             "svs",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantUserName:       true, // aperio.User → user-name canonical key
+		wantScannerMfr:     true, // "Aperio"
+		wantPropPrefix:     "aperio.",
+		wantWriterContains: "Aperio Image Library", // canonical Aperio SoftwareLine
+	},
+	{
+		// SVS Grundium scan_620_: non-canonical Aperio writer. v0.18
+		// detection sets Writer to the comma-suffix vendor "Grundium Ocus".
+		fixture:            "scan_620_.svs",
+		subdir:             "svs",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantScannerMfr:     true, // "Grundium" per v0.18
+		wantWriterContains: "Grundium Ocus",
 	},
 	{
 		// NDPI: per-axis MPP from XResolution/YResolution. Both fixture
 		// values asymmetric by tiny amounts → MicronsPerPixel = 0.
 		// Hamamatsu vendor tags surfaced under "hamamatsu." prefix.
-		fixture:           "CMU-1.ndpi",
-		subdir:            "ndpi",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  false, // asymmetric pixels
-		wantImageDesc:     false, // NDPI has no ImageDescription tag
-		wantScannerMfr:    true,
-		wantPropPrefix:    "hamamatsu.",
+		fixture:            "CMU-1.ndpi",
+		subdir:             "ndpi",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   false, // asymmetric pixels
+		wantImageDesc:      false, // NDPI has no ImageDescription tag
+		wantScannerMfr:     true,
+		wantPropPrefix:     "hamamatsu.",
+		wantWriterContains: "NanoZoomer", // NDPI Model identifier
 	},
 	{
 		// Philips-1: Hamamatsu-scanned. DICOM_PIXEL_SPACING asymmetric;
 		// no PIM_DP_SCANNER_OPERATOR_ID so user-name absent. Many
 		// philips.* keys.
-		fixture:           "Philips-1.tiff",
-		subdir:            "philips-tiff",
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  false, // X != Y
-		wantImageDesc:     true,
-		wantScannerMfr:    true, // "Hamamatsu"
-		wantPropPrefix:    "philips.",
+		fixture:            "Philips-1.tiff",
+		subdir:             "philips-tiff",
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   false, // X != Y
+		wantImageDesc:      true,
+		wantScannerMfr:     true, // "Hamamatsu"
+		wantPropPrefix:     "philips.",
+		wantWriterContains: "4.0.3", // raw DICOM_SOFTWARE_VERSIONS (quoted)
 	},
 	{
 		// Philips-4: Philips-scanned, DICOM_PIXEL_SPACING symmetric.
-		fixture:           "Philips-4.tiff",
-		subdir:            "philips-tiff",
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantScannerMfr:    true, // "PHILIPS"
-		wantPropPrefix:    "philips.",
+		fixture:          "Philips-4.tiff",
+		subdir:           "philips-tiff",
+		wantMPPPerAxis:   true,
+		wantMPPSymmetric: true,
+		wantImageDesc:    true,
+		wantScannerMfr:   true, // "PHILIPS"
+		wantPropPrefix:   "philips.",
 	},
 	{
 		// OME-TIFF Leica-1: Bio-Formats. Magnification from objective
 		// NominalMagnification; MPP symmetric (PhysicalSizeX==Y);
 		// ImageDescription from <Image Description>; ome.creator/uuid
 		// surfaced. Bio-Formats lacks Experimenter → no user-name.
-		fixture:           "Leica-1.ome.tiff",
-		subdir:            "ome-tiff",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantPropPrefix:    "ome.",
+		fixture:            "Leica-1.ome.tiff",
+		subdir:             "ome-tiff",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantPropPrefix:     "ome.",
+		wantWriterContains: "Bio-Formats", // OME Creator attribute
 	},
 	{
 		// BIF Ventana-1: per-axis from iScan XML, symmetric (0.25).
 		// PropertyUserName from iScan UserName attr.
 		// ScannerManufacturer = "Roche". 13-18 ventana.<key>.
-		fixture:           "Ventana-1.bif",
-		subdir:            "bif",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantUserName:      true,
-		wantScannerMfr:    true,
-		wantPropPrefix:    "ventana.",
+		fixture:            "Ventana-1.bif",
+		subdir:             "bif",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantUserName:       true,
+		wantScannerMfr:     true,
+		wantPropPrefix:     "ventana.",
+		wantWriterContains: "1.1", // iScan BuildVersion "1.1.0.15854"
 	},
 	{
 		// IFE cervix: isotropic MPP from IFE-spec MPP attribute.
 		// Magnification (0.625); IFE encoder doesn't write
 		// ScannerManufacturer/Model. iris.<key> passthrough (24).
-		fixture:           "cervix_2x_jpeg.iris",
-		subdir:            "ife",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantPropPrefix:    "iris.",
+		fixture:            "cervix_2x_jpeg.iris",
+		subdir:             "ife",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantPropPrefix:     "iris.",
+		wantWriterContains: "GT450", // IFE ImageDescription first line
 	},
 	{
 		// Leica SCN: T6 first-time cross-format Metadata population.
 		// MPP from <view>/<pixels> nm→µm; symmetric on all fixtures.
 		// ImageDescription = full SCN-XML. leica.<key> passthrough.
-		fixture:           "Leica-1.scn",
-		subdir:            "scn",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantScannerMfr:    true,
-		wantPropPrefix:    "leica.",
+		fixture:            "Leica-1.scn",
+		subdir:             "scn",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantScannerMfr:     true,
+		wantPropPrefix:     "leica.",
+		wantWriterContains: "1.4.0", // primary image's DeviceVersion
 	},
 	{
 		// Generic TIFF wsi-tools fixture: MPP from wsi-tools
 		// ImageDescription parser. Provenance under wsi-tools.<key>.
 		// Aperio also surfaced because wsi-tools fixture preserves
 		// upstream Aperio metadata.
-		fixture:           "avif-out.tiff",
-		subdir:            "generic-tiff",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantImageDesc:     true,
-		wantScannerMfr:    true,
-		wantPropPrefix:    "wsi-tools.",
+		fixture:            "avif-out.tiff",
+		subdir:             "generic-tiff",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantImageDesc:      true,
+		wantScannerMfr:     true,
+		wantPropPrefix:     "wsi-tools.",
+		wantWriterContains: "wsitools", // wsi-tools override "wsitools/<version>"
 	},
 	{
 		// Generic TIFF non-wsi-tools fixture: stripped CMU-1 (no MPP).
 		// Has ImageDescription verbatim but no parsed cross-format MPP.
-		fixture:        "CMU-1.stripped.tiff",
-		subdir:         "generic-tiff",
-		wantImageDesc:  true,
+		fixture:       "CMU-1.stripped.tiff",
+		subdir:        "generic-tiff",
+		wantImageDesc: true,
 	},
 	{
 		// SZI CMU-1: spec-example fixture; full canonical-key suite
 		// populated (case-number, user-name, scanned-area-mm2,
 		// scan-duration-seconds, comments). Scanner = "TestCompany".
-		fixture:           "CMU-1.szi",
-		subdir:            "szi",
-		wantMagnification: true,
-		wantMPPPerAxis:    true,
-		wantMPPSymmetric:  true,
-		wantUserName:      true,
-		wantScannerMfr:    true,
+		fixture:            "CMU-1.szi",
+		subdir:             "szi",
+		wantMagnification:  true,
+		wantMPPPerAxis:     true,
+		wantMPPSymmetric:   true,
+		wantUserName:       true,
+		wantScannerMfr:     true,
+		wantWriterContains: "Scan it", // spec-example SoftwareName+Version
 	},
 	{
 		// SZI Grundium: scanner = "Grundium" / "Ocus"; symmetric MPP.
@@ -183,6 +209,16 @@ var cfmExpect = []crossFormatMetadataExpect{
 		wantMPPPerAxis:    true,
 		wantMPPSymmetric:  true,
 		wantScannerMfr:    true,
+		// Grundium SZI has no SoftwareName/Version; Writer stays empty.
+	},
+	{
+		// COG-WSI: wsitools/<WSIToolsVersion> from private tag 65084.
+		// Writer is the file producer; source scanner attribution
+		// stays in ScannerManufacturer per the COG-WSI spec.
+		fixture:            "CMU-1-Small-Region_cog-wsi.tiff",
+		subdir:             "cog-wsi",
+		wantImageDesc:      true,
+		wantWriterContains: "wsitools",
 	},
 }
 
@@ -241,6 +277,12 @@ func TestCrossFormatMetadata(t *testing.T) {
 				if got := md.Properties[opentile.PropertyUserName]; got == "" {
 					t.Errorf("Properties[%q] empty; want non-empty",
 						opentile.PropertyUserName)
+				}
+			}
+			if fx.wantWriterContains != "" {
+				if !strings.Contains(md.Writer, fx.wantWriterContains) {
+					t.Errorf("Writer = %q; want substring %q",
+						md.Writer, fx.wantWriterContains)
 				}
 			}
 			if fx.wantPropPrefix != "" {

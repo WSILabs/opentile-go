@@ -154,6 +154,7 @@ For wsi-tools-tagged generic TIFFs, the v0.17 cross-format Metadata expansion li
 | wsi-tools `date=` | `AcquisitionDateTime` |
 | any non-empty ImageDescription | `ImageDescription` (verbatim) |
 | wsi-tools provenance | `Properties["wsi-tools.version"]`, `Properties["wsi-tools.source"]`, `Properties["wsi-tools.codec"]` |
+| TIFF `Software` tag (non-wsi-tools); `"wsitools/<version>"` when wsi-tools triggers | `Metadata.Writer` (v0.20; wsi-tools override wins) |
 
 Per Q4 Option B, the format-specific `generictiff.Metadata.MicronsPerPixel` and `ImageDescription` duplicates were retired in v0.17 (the cross-format positions cover them).
 

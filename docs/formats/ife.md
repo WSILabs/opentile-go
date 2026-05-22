@@ -101,6 +101,7 @@ IFE's METADATA segment carries IFE-spec-canonical attributes. v0.17 surfaces the
 | objective magnification (when present) | `Magnification` |
 | `description` block | `ImageDescription` |
 | every spec-defined attribute | `Properties["iris.<key>"]` (24 attributes on the cervix fixture: e.g., `iris.aperio.AppMag`, `iris.tiff.ImageDescription`, etc.) |
+| ImageDescription first line (Iris encoder identifier) | `Metadata.Writer` (v0.20) |
 
 The cervix fixture's encoder doesn't write `ScannerManufacturer/Model/Serial` METADATA fields, so those cross-format positions remain empty for it. Per Q4 Option B, the format-specific `ife.Metadata.MicronsPerPixel` was retired (the cross-format per-axis fields cover it); `ife.MetadataOf(t)` continues to expose IFE-specific structural fields.
 
