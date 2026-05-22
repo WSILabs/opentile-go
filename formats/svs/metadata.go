@@ -117,6 +117,15 @@ func parseDescription(desc string) (Metadata, error) {
 		md.ScannerManufacturer = w.manufacturer
 		md.ScannerModel = w.model
 		md.ScannerSoftware = w.softwares
+		// v0.20: Writer = the actual writer (per v0.18's detection).
+		// For Aperio canonical (single-element softwares), use the full
+		// SoftwareLine. For comma-suffix patterns (Grundium etc., two-
+		// element), use the writer-vendor identifier from the suffix.
+		if len(w.softwares) >= 2 {
+			md.Writer = w.softwares[1]
+		} else if len(w.softwares) == 1 {
+			md.Writer = w.softwares[0]
+		}
 		return md, nil
 	}
 	md.SoftwareLine = strings.TrimRight(desc[:newline], "\r\n ")
@@ -124,6 +133,15 @@ func parseDescription(desc string) (Metadata, error) {
 	md.ScannerManufacturer = w.manufacturer
 	md.ScannerModel = w.model
 	md.ScannerSoftware = w.softwares
+	// v0.20: Writer = the actual writer (per v0.18's detection).
+	// For Aperio canonical (single-element softwares), use the full
+	// SoftwareLine. For comma-suffix patterns (Grundium etc., two-
+	// element), use the writer-vendor identifier from the suffix.
+	if len(w.softwares) >= 2 {
+		md.Writer = w.softwares[1]
+	} else if len(w.softwares) == 1 {
+		md.Writer = w.softwares[0]
+	}
 
 	// Parse '|' separated key-value pairs in the remainder.
 	body := desc[newline+1:]

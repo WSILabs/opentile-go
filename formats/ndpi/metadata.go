@@ -98,6 +98,7 @@ func parseFromFields(f metadataFields) Metadata {
 	md.ScannerModel = f.Model
 	if f.Model != "" {
 		md.ScannerSoftware = []string{f.Model}
+		md.Writer = f.Model // v0.20: NDPI's Model is the writer identifier
 	}
 	// Reference (tag 65442) carries the scanner serial number on real
 	// Hamamatsu fixtures (e.g., OS-2.ndpi reports "477130"). Mirror it

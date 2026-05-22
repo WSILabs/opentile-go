@@ -236,3 +236,34 @@ func TestParseMetadataMalformedXMLError(t *testing.T) {
 		t.Error("expected error on malformed XML")
 	}
 }
+
+// TestParseMetadataWriter verifies Writer field population from
+// raw DICOM_SOFTWARE_VERSIONS string (v0.20 addition).
+func TestParseMetadataWriter(t *testing.T) {
+	xml := `<DataObject ObjectType="DPUfsImport">
+      <Attribute Name="DICOM_SOFTWARE_VERSIONS">"1.6.6186" "20150402_R48" "4.0.3"</Attribute>
+    </DataObject>`
+	md, err := parseMetadata(xml)
+	if err != nil {
+		t.Fatalf("parseMetadata: %v", err)
+	}
+	// Writer should be the raw multi-value string
+	if md.Writer != `"1.6.6186" "20150402_R48" "4.0.3"` {
+		t.Errorf("Writer = %q, want raw multi-value string", md.Writer)
+	}
+}
+
+// TestParseMetadataWriterEmpty verifies Writer remains empty when
+// DICOM_SOFTWARE_VERSIONS is absent.
+func TestParseMetadataWriterEmpty(t *testing.T) {
+	xml := `<DataObject ObjectType="DPUfsImport">
+      <Attribute Name="DICOM_MANUFACTURER">PHILIPS</Attribute>
+    </DataObject>`
+	md, err := parseMetadata(xml)
+	if err != nil {
+		t.Fatalf("parseMetadata: %v", err)
+	}
+	if md.Writer != "" {
+		t.Errorf("Writer = %q, want empty", md.Writer)
+	}
+}
