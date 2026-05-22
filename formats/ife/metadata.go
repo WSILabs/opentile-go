@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 
 	opentile "github.com/cornish/opentile-go"
 )
@@ -207,7 +208,8 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 // "iris." Properties namespace so cross-format consumers can reach
 // vendor-specific data without parsing md.Attributes themselves.
 //
-// Added in v0.17.
+// Added in v0.17. v0.20: also populates Writer from the ImageDescription
+// first line when present (IFE encoder passthrough of source vendor info).
 func populateIFECrossFields(cross *opentile.Metadata, kvs map[string]string) {
 	for k, v := range kvs {
 		// Surface every attribute, regardless of source vendor. The
@@ -222,6 +224,15 @@ func populateIFECrossFields(cross *opentile.Metadata, kvs map[string]string) {
 	// it. Empty string and missing key both fall through unchanged.
 	if v, ok := kvs["tiff.ImageDescription"]; ok && v != "" {
 		cross.ImageDescription = v
+		// v0.20: extract Writer from the first line (carries source
+		// vendor info when the encoder preserves it; e.g., "Aperio
+		// Leica Biosystems GT450 v1.0.1" for Aperio-scanned fixtures).
+		// IFE has no native Software field, so fallback to the image
+		// description passthrough.
+		lines := strings.Split(v, "\n")
+		if len(lines) > 0 && lines[0] != "" {
+			cross.Writer = lines[0]
+		}
 	}
 }
 
@@ -597,8 +608,8 @@ type associatedImage struct {
 	bytes       []byte
 }
 
-func (a *associatedImage) Type() string                    { return a.kind }
-func (a *associatedImage) Size() opentile.Size             { return a.size }
+func (a *associatedImage) Type() string                      { return a.kind }
+func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {
 	out := make([]byte, len(a.bytes))

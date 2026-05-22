@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	opentile "github.com/cornish/opentile-go"
@@ -156,6 +157,9 @@ func TestCervixEndToEnd(t *testing.T) {
 	cm := tiler.Metadata()
 	if cm.Magnification == 0 {
 		t.Error("Metadata.Magnification = 0; cervix carries 0.625")
+	}
+	if !strings.Contains(cm.Writer, "Aperio") {
+		t.Errorf("Writer (v0.20): got %q, want substring 'Aperio' (cervix is Aperio-scanned)", cm.Writer)
 	}
 	icc := tiler.ICCProfile()
 	if len(icc) != 6064 {
