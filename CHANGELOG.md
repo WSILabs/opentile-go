@@ -11,13 +11,50 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.19: L4, L5, L14 (Permanent — carried over
+Active limitations after v0.19.1: L4, L5, L14 (Permanent — carried over
 from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
 L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.19 introduced
-no new active limitations — it was a COG-WSI reader milestone closing
-GH issues #5 + #6 and fully retiring R21. See `docs/deferred.md` §11
-consolidated backlog. Open work parked in tracked issues:
+L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.19.1 introduced
+no new active limitations — it was a coverage cleanup patch. See
+`docs/deferred.md` §11 consolidated backlog. Open work parked in tracked
+issues:
+
+## [0.19.1] — 2026-05-20
+
+Coverage cleanup patch. No API changes; no behavior changes. Three
+previously sub-80%-coverage packages brought above the
+`make cover` gate via targeted test additions.
+
+### Changed
+
+- `formats/cogwsi` coverage 77.5% → 91.2%. Targeted tests for
+  `Factory.Format`, `Tiler.Level`, `Tiler.WarmLevel`,
+  `Tiler.UnwrapTiler`, plus error branches in `openCOGWSI`.
+- `formats/szi` coverage 76.8% → 92.8%. New `factory_test.go` +
+  `errors_test.go` + `image_test.go`. Synthetic SZI byte payloads
+  via `archive/zip.Writer` exercise the missing-manifest /
+  missing-scan-properties / malformed-XML / multi-root-folder
+  error branches.
+- `internal/oneframe` coverage 70.4% → 93.1%. **New
+  `internal/oneframe/oneframe_test.go`** — this internal package
+  previously had no dedicated tests; coverage flowed entirely
+  through NDPI striped + OME OneFrame integration. v0.19.1 T3
+  adds focused unit tests for v0.13 splice stubs (TilePrefix /
+  TileBodyInto / TileBodyMaxSize), error branches
+  (OOB / dimension-unavailable / short-buffer), tile iterator,
+  and constructor validation.
+
+### Notes
+
+- `internal/oneframe.warm()` is defined but never called in the
+  current codebase. Flagged as a dead-code candidate for a future
+  cleanup OR intentional reservation for a future warm-strategy
+  feature.
+- All 22 packages now ≥80% per CLAUDE.md's `make cover` gate.
+- Side benefit: `formats/generictiff` coverage jumped 83.0% →
+  87.6% because new cogwsi tests exercise the generictiff-
+  delegated path.
+- cgo footprint unchanged.
 
 ## [0.19.0] — 2026-05-20
 
