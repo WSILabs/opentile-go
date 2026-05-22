@@ -178,7 +178,7 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 // TestParseDescription_GrundiumFixture verifies the v0.18 writer-vendor
 // detection on a real Grundium-written SVS fixture. Pre-v0.18 the parser
 // hardcoded ScannerManufacturer="Aperio" for all SVS regardless of writer,
-// causing Grundium-scanned slides to misattribute. Now detectWriter parses
+// causing Grundium-scanned slides to misattribute. Now DetectWriter parses
 // the ImageDescription first line ("Aperio Image, Grundium Ocus") and
 // surfaces the actual writer + namespaces Properties under "grundium.<key>"
 // instead of "aperio.<key>".

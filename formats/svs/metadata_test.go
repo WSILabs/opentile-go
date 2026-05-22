@@ -61,15 +61,15 @@ func TestDetectWriter(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := detectWriter(tc.input)
-			if got.manufacturer != tc.wantManufacturer {
-				t.Errorf("manufacturer = %q, want %q", got.manufacturer, tc.wantManufacturer)
+			got := DetectWriter(tc.input)
+			if got.Manufacturer != tc.wantManufacturer {
+				t.Errorf("manufacturer = %q, want %q", got.Manufacturer, tc.wantManufacturer)
 			}
-			if got.model != tc.wantModel {
-				t.Errorf("model = %q, want %q", got.model, tc.wantModel)
+			if got.Model != tc.wantModel {
+				t.Errorf("model = %q, want %q", got.Model, tc.wantModel)
 			}
-			if !slices.Equal(got.softwares, tc.wantSoftwares) {
-				t.Errorf("softwares = %v, want %v", got.softwares, tc.wantSoftwares)
+			if !slices.Equal(got.Softwares, tc.wantSoftwares) {
+				t.Errorf("softwares = %v, want %v", got.Softwares, tc.wantSoftwares)
 			}
 		})
 	}
