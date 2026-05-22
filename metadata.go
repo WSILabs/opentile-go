@@ -83,6 +83,33 @@ type Metadata struct {
 	//
 	// Added in v0.17.
 	Properties map[string]string
+
+	// Writer identifies the software that wrote this file — the
+	// file producer, distinct from ScannerManufacturer (scanner OEM)
+	// and ScannerSoftware []string (broader software stack).
+	//
+	// Format-specific population:
+	//   SVS Aperio canonical    "Aperio Image Library v11.2.1"
+	//   SVS Grundium / other    "Grundium Ocus" (comma-suffix writer
+	//                            from v0.18 detection)
+	//   OME-TIFF                "OME Bio-Formats 6.0.0-rc1" (Creator
+	//                            attribute; promoted from Properties)
+	//   SZI                     "<SoftwareName> <SoftwareVersion>"
+	//                            (e.g., "OcusScan 3.1.4")
+	//   COG-WSI                 "wsitools/<WSIToolsVersion>" (file
+	//                            producer; source scanner stays in
+	//                            ScannerManufacturer per spec)
+	//   Generic-TIFF (wsi-tools  "wsitools/<version>" from the
+	//     fixtures avif/jxl/      wsi-tools ImageDescription parser
+	//     htj2k/webp)
+	//   NDPI / Philips / BIF /  format-specific Software field (often
+	//     IFE / Leica SCN        equals ScannerSoftware[0])
+	//
+	// Empty when the format provides no writer indication. Consumers
+	// checking presence compare against "" explicitly.
+	//
+	// Added in v0.20.
+	Writer string
 }
 
 // SetMPPSymmetric populates MicronsPerPixel from MicronsPerPixelX and
