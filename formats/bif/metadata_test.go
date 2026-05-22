@@ -41,6 +41,9 @@ func TestMetadataPopulatesIScanFields(t *testing.T) {
 	if len(common.ScannerSoftware) != 1 || common.ScannerSoftware[0] != "1.1.0.15854" {
 		t.Errorf("ScannerSoftware: got %v, want [1.1.0.15854]", common.ScannerSoftware)
 	}
+	if common.Writer != "1.1.0.15854" {
+		t.Errorf("Writer (v0.20): got %q, want %q", common.Writer, "1.1.0.15854")
+	}
 
 	// v0.17 cross-format additions: per-axis MPP populated from
 	// ScanRes (single-value applied to both axes); SetMPPSymmetric

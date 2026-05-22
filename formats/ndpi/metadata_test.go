@@ -148,3 +148,27 @@ func TestParseMetadataMPPRequiresCMUnit(t *testing.T) {
 			got.MicronsPerPixelX, got.MicronsPerPixelY, got.MicronsPerPixel)
 	}
 }
+
+// TestParseMetadataWriter verifies Writer field population from
+// Model field (v0.20 addition).
+func TestParseMetadataWriter(t *testing.T) {
+	got := parseFromFields(metadataFields{
+		Magnification: 20.0,
+		Model:         "NanoZoomer 2.0-HT",
+		DateTime:      "2014:01:07 11:22:33",
+	})
+	if got.Writer != "NanoZoomer 2.0-HT" {
+		t.Errorf("Writer = %q, want %q", got.Writer, "NanoZoomer 2.0-HT")
+	}
+}
+
+// TestParseMetadataWriterEmpty verifies Writer remains empty when
+// Model is absent.
+func TestParseMetadataWriterEmpty(t *testing.T) {
+	got := parseFromFields(metadataFields{
+		Magnification: 20.0,
+	})
+	if got.Writer != "" {
+		t.Errorf("Writer = %q, want empty", got.Writer)
+	}
+}

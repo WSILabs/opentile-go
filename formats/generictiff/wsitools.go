@@ -30,6 +30,7 @@ type wsiToolsMetadata struct {
 	acquisitionDate     time.Time
 	hasMPP              bool
 	micronsPerPixel     float64
+	Version             string // v0.20: wsi-tools version for Writer population
 }
 
 // parseWSIToolsDescription parses an ImageDescription string in the
@@ -47,6 +48,14 @@ func parseWSIToolsDescription(desc string) (wsiToolsMetadata, bool) {
 		return wsiToolsMetadata{}, false
 	}
 	var md wsiToolsMetadata
+
+	// Extract version: between "wsi-tools/" and the first space or end of string.
+	rest := strings.TrimPrefix(desc, wsiToolsPrefix)
+	if sp := strings.IndexByte(rest, ' '); sp >= 0 {
+		md.Version = rest[:sp]
+	} else {
+		md.Version = rest
+	}
 
 	for _, tok := range tokeniseKVPairs(desc) {
 		eq := strings.IndexByte(tok, '=')

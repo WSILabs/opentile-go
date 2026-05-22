@@ -80,6 +80,7 @@ func parseMetadata(xmlStr string) (Metadata, error) {
 	}
 	if v, ok := tags["DICOM_SOFTWARE_VERSIONS"]; ok {
 		md.ScannerSoftware = splitMultiValue(v)
+		md.Writer = v // v0.20: Writer is the raw multi-value Software string
 	}
 	if v, ok := tags["DICOM_ACQUISITION_DATETIME"]; ok {
 		// Upstream wraps the parse in try/except → returns None on

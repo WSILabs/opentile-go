@@ -73,3 +73,17 @@ func TestPropertyConstants(t *testing.T) {
 		})
 	}
 }
+
+func TestMetadataWriter_ZeroValue(t *testing.T) {
+	var m Metadata
+	if m.Writer != "" {
+		t.Errorf("zero-value Writer = %q, want empty", m.Writer)
+	}
+}
+
+func TestMetadataWriter_SetGet(t *testing.T) {
+	m := Metadata{Writer: "Aperio Image Library v11.2.1"}
+	if m.Writer != "Aperio Image Library v11.2.1" {
+		t.Errorf("Writer = %q", m.Writer)
+	}
+}

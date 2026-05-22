@@ -135,6 +135,12 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	md.CodecMajor = binary.LittleEndian.Uint16(buf[10:12])
 	md.CodecMinor = binary.LittleEndian.Uint16(buf[12:14])
 	md.CodecBuild = binary.LittleEndian.Uint16(buf[14:16])
+	// v0.20: Writer = "iris/<CodecMajor>.<CodecMinor>.<CodecBuild>".
+	// The Iris codec is the IFE writer; ImageDescription (when present)
+	// is preserved source-format metadata (e.g., Aperio GT450 on the
+	// cervix fixture — the SOURCE SCANNER that produced the SVS that
+	// was later re-encoded into IFE), NOT the IFE writer.
+	md.Writer = fmt.Sprintf("iris/%d.%d.%d", md.CodecMajor, md.CodecMinor, md.CodecBuild)
 	attrsOff := binary.LittleEndian.Uint64(buf[16:24])
 	imagesOff := binary.LittleEndian.Uint64(buf[24:32])
 	iccOff := binary.LittleEndian.Uint64(buf[32:40])
@@ -207,7 +213,8 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 // "iris." Properties namespace so cross-format consumers can reach
 // vendor-specific data without parsing md.Attributes themselves.
 //
-// Added in v0.17.
+// Added in v0.17. v0.20: also populates Writer from the ImageDescription
+// first line when present (IFE encoder passthrough of source vendor info).
 func populateIFECrossFields(cross *opentile.Metadata, kvs map[string]string) {
 	for k, v := range kvs {
 		// Surface every attribute, regardless of source vendor. The
@@ -220,6 +227,10 @@ func populateIFECrossFields(cross *opentile.Metadata, kvs map[string]string) {
 	// "tiff.ImageDescription" carries the source slide's
 	// ImageDescription tag verbatim when the IFE encoder preserves
 	// it. Empty string and missing key both fall through unchanged.
+	// Note: Writer is NOT set from this string — IFE's writer is the
+	// Iris codec (set from CodecMajor/Minor/Build above). ImageDescription
+	// here identifies the source scanner that produced the original
+	// slide before IFE re-encoding.
 	if v, ok := kvs["tiff.ImageDescription"]; ok && v != "" {
 		cross.ImageDescription = v
 	}
@@ -597,8 +608,8 @@ type associatedImage struct {
 	bytes       []byte
 }
 
-func (a *associatedImage) Type() string                    { return a.kind }
-func (a *associatedImage) Size() opentile.Size             { return a.size }
+func (a *associatedImage) Type() string                      { return a.kind }
+func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {
 	out := make([]byte, len(a.bytes))

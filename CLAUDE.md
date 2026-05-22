@@ -2,71 +2,67 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.19 (shipped 2026-05-20)
+## Current milestone — v0.20 (shipped 2026-05-20)
 
-- **Scope:** COG-WSI support. Closes user's two GH issues —
-  [#5](https://github.com/cornish/opentile-go/issues/5) (generic-
-  TIFF WSI-tag awareness + integer-multiple pyramid ratio
-  relaxation) and [#6](https://github.com/cornish/opentile-go/issues/6)
-  (dedicated `cogwsi` reader). New `formats/cogwsi/` package +
-  `internal/cog/` ghost-area parser + WSI private tag readers in
-  `internal/tiff` (8 typed accessors on `*tiff.Page` for tags
-  65080-65087). Extends `formats/generictiff/` to honor WSI tags
-  as authoritative + accept clean integer-multiple pyramid ratios.
-  8 plan tasks across single-batch execution.
-- **API additions:** `opentile.FormatCOGWSI = "cog-wsi"` +
-  `formats/cogwsi/` package (Tiler + Factory + UnwrapTiler) +
-  `cogwsi.ErrNotConformantCOGWSI` sentinel + `internal/cog/`
-  parser (`GhostArea`, `ParseGhostArea`, `ParseCOGWSIVersion`,
-  `ErrGhostAreaMalformed`).
-- **API breaks:** none (purely additive; existing API unchanged).
-- **Active limitations:** unchanged from v0.18. No new L items.
+- **Scope:** Cross-format `Writer` typed field — closes R22.
+  Adds `Writer string` to `opentile.Metadata` carrying the
+  file-producer identifier (distinct from `ScannerManufacturer`
+  scanner-OEM and `ScannerSoftware []string` broader stack).
+  Per-format population in all 10 readers (SVS canonical +
+  Grundium detection from v0.18; NDPI; Philips; OME-TIFF
+  promoting ome.creator; Leica SCN; BIF; IFE; SZI; Generic-TIFF
+  with wsi-tools override; COG-WSI from WSIToolsVersion private
+  tag 65084). 5 plan tasks single-batch execution. Pure-additive;
+  no API or behavior breakage.
+- **API additions:** `opentile.Metadata.Writer string` typed
+  field. No new sentinels, packages, or interface methods.
+- **API breaks:** none.
+- **Active limitations:** unchanged from v0.19. No new L items.
 - **Deviations from upstream Python opentile** (canonical list at
-  docs/deferred.md §1a): +1 (COG-WSI reader + integer-multiple
-  pyramid ratio acceptance). Python opentile doesn't read COG-WSI.
+  docs/deferred.md §1a): unchanged — v0.20 is a typed-field
+  surfacing of values opentile-go already reads.
 - **Correctness bar:** make test green; TestSlideParity 40 fixtures
-  green (30 → 40 with 10 new cog-wsi fixtures);
-  TestCOGWSIGeometry green; cross-fixture parity gate green
-  (each `<source>_cog-wsi.tiff` vs original source = bit-exact
-  tile bytes).
-- **Sealed Q-decisions** (per spec + plan §3): cogwsi as wrapper
-  around inner generictiff Tiler (Option A; minimal diff);
-  ClassifyAssociatedFromPage wrapper preserves existing signature;
-  validation at Open returns ErrNotConformantCOGWSI;
-  cogwsi.Factory registered AFTER szi + BEFORE generictiff;
-  COG_WSI_VERSION 0.1-only (defensive — future versions reject
-  loudly); plain (geospatial) COG = permanently YAGNI (R21
-  retired).
-- **Deferred forward:** R19 (bare DZI), R22 (cross-format Writer
-  typed field). L19, L20, L23-L25, L26-L29, L30-L34, R4/R6/R9,
-  R15. v1.0 cut still pending.
-- **R21 retired:** general COG first-class support — WSI-context
-  portion shipped as COG-WSI; plain geospatial COG isn't our
-  domain.
-- **Bench reality:** no perf-axis work this milestone; v0.13
-  bandwidth-deduplication API delegates through to generictiff
-  for cog-wsi files.
-- **Fixture catch-ups (incidental):** scan_620_grundium_TIFF
-  geometry flipped 3-level → 4-level (real shape; v0.10 pin was
-  buggy); Hamamatsu-1.ndpi + OS-2.ndpi gained scanner_serial;
-  Leica-1.ome.tiff + Leica-2.ome.tiff gained acquisition_rfc3339.
-  No reader-side regressions.
-- **Design:** docs/superpowers/specs/2026-05-20-opentile-go-v19-cog-wsi-design.md
-- **Plan:** docs/superpowers/plans/2026-05-20-opentile-go-v19-cog-wsi.md
-- **Work branch:** feat/v0.19
+  green; TestCrossFormatMetadata extended with per-fixture
+  `wantWriterContains` substring assertions (Aperio Image
+  Library, Grundium Ocus, NanoZoomer, "4.0.3", Bio-Formats,
+  iScan 1.1, GT450, 1.4.0 SCN, "Scan it", wsitools); all green.
+  `make cover` ≥80% per package.
+- **Sealed Q-decisions** (per spec): typed `Writer` (Q1);
+  per-format population at the same site as existing
+  ScannerSoftware logic (Q2); Properties keys retained
+  backward-compat (Q3); converted-file semantics — writer is the
+  converter, scanner attribution preserved (Q5); R23 derived
+  bug filed for separate fix (out-of-scope).
+- **Deferred forward:** R19 (bare DZI), R23 (re-apply v0.18 SVS
+  detectWriter to Grundium-source COG-WSI). L19, L20, L23-L25,
+  L26-L29, L30-L34, R4/R6/R9, R15. v1.0 cut still pending.
+- **R22 retired:** cross-format Writer typed field — shipped
+  (see deferred.md §8n).
+- **Bench reality:** no perf-axis work; pure metadata-surfacing
+  milestone.
+- **Design:** docs/superpowers/specs/2026-05-20-opentile-go-v20-writer-typed-field-design.md
+- **Plan:** docs/superpowers/plans/2026-05-20-opentile-go-v20-writer-typed-field.md
+- **Work branch:** feat/v0.20
 
-## Patch — v0.19.1 (shipped 2026-05-20)
+## Previous milestone — v0.19 (shipped 2026-05-20)
 
-Coverage cleanup. Three packages (cogwsi 77.5% → 91.2%; szi
-76.8% → 92.8%; oneframe 70.4% → 93.1%) brought above CLAUDE.md's
-≥80% `make cover` gate. No API or behavior changes. New
-`internal/oneframe/oneframe_test.go` from scratch.
+COG-WSI support. Closed the user's two GH issues
+([#5](https://github.com/cornish/opentile-go/issues/5) generic-
+TIFF WSI-tag awareness + integer-multiple pyramid ratio
+relaxation; [#6](https://github.com/cornish/opentile-go/issues/6)
+dedicated `cogwsi` reader). New `formats/cogwsi/` package +
+`internal/cog/` ghost-area parser + 8 typed WSI private-tag
+accessors on `*tiff.Page` (tags 65080-65087). cogwsi wraps an
+inner generictiff Tiler (Option A); validation at Open returns
+`ErrNotConformantCOGWSI`. Added `opentile.FormatCOGWSI`.
+TestSlideParity grew 30 → 40 fixtures. R21 retired — plain
+geospatial COG permanently YAGNI for opentile-go.
 
-Side benefit: generictiff coverage jumped to 87.6% because new
-cogwsi tests exercise the delegated path.
-
-Dead-code candidate flagged: `internal/oneframe.warm()` defined
-but never called.
+**Patch v0.19.1 (shipped 2026-05-20):** coverage cleanup —
+cogwsi 77.5% → 91.2%; szi 76.8% → 92.8%; oneframe 70.4% →
+93.1% (new `internal/oneframe/oneframe_test.go` from scratch).
+No API or behavior changes. Flagged `internal/oneframe.warm()`
+as dead-code candidate.
 
 ## Previous milestone — v0.18 (shipped 2026-05-09)
 

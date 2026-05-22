@@ -85,6 +85,7 @@ Aperio's `ImageDescription` carries `key = value` pairs (`MPP`, `AppMag`, `User`
 | ImageDescription verbatim | `ImageDescription` |
 | `User` | `Properties[PropertyUserName]` (canonical) AND `Properties["aperio.User"]` (vendor passthrough) |
 | every other Aperio kv | `Properties["aperio.<key>"]` (vendor passthrough — all keys passing the SVS reader's `isAperioKey` filter) |
+| SoftwareLine (canonical Aperio) / comma-suffix writer (Grundium et al., from v0.18 detection) | `Metadata.Writer` (v0.20) |
 
 `svs.MetadataOf(t)` continues to expose the format-specific `MPP`, `SoftwareLine`, and `Filename` fields; the cross-format additions are duplicates surfaced through the embedded `opentile.Metadata`.
 

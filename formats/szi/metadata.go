@@ -264,6 +264,7 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 			s += " " + softwareVersion
 		}
 		cross.ScannerSoftware = []string{s}
+		cross.Writer = s // v0.20: SZI's combined SoftwareName+Version is the writer
 	}
 
 	// Collapse symmetric per-axis MPP into the canonical MPP slot.

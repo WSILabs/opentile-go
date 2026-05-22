@@ -131,6 +131,11 @@ func TestTiler_Metadata(t *testing.T) {
 		t.Errorf("ImageDescription = %q", md.ImageDescription)
 	}
 
+	// v0.20: Writer = wsitools/<WSIToolsVersion> from private tag 65084.
+	if md.Writer != "wsitools/0.6.0-dev" {
+		t.Errorf("Writer = %q, want wsitools/0.6.0-dev", md.Writer)
+	}
+
 	// Properties[cog-wsi.*]
 	checkProp := func(key, want string) {
 		t.Helper()
@@ -187,7 +192,6 @@ func TestOpen_NonConformantGhost(t *testing.T) {
 		t.Errorf("err = %v, want ErrNotConformantCOGWSI", err)
 	}
 }
-
 
 // TestFactory_Format verifies that Factory.Format() returns the
 // FormatCOGWSI identifier.

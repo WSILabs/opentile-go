@@ -300,3 +300,32 @@ func TestParseDescriptionMPPSymmetric(t *testing.T) {
 			md.MicronsPerPixel, md.MicronsPerPixelX, md.MicronsPerPixelY)
 	}
 }
+
+// TestParseDescriptionWriterAperioCanonical verifies Writer field
+// population for canonical Aperio (v0.20 addition).
+func TestParseDescriptionWriterAperioCanonical(t *testing.T) {
+	desc := "Aperio Image Library v11.2.1\n" +
+		"46000x32914 [0,100 46000x32714] (240x240) JPEG/RGB Q=30|" +
+		"AppMag = 20|MPP = 0.4990"
+	md, err := parseDescription(desc)
+	if err != nil {
+		t.Fatalf("parseDescription: %v", err)
+	}
+	if md.Writer != "Aperio Image Library v11.2.1" {
+		t.Errorf("Writer = %q, want %q", md.Writer, "Aperio Image Library v11.2.1")
+	}
+}
+
+// TestParseDescriptionWriterGrundum verifies Writer field for Grundium
+// (comma-suffix pattern).
+func TestParseDescriptionWriterGrundum(t *testing.T) {
+	desc := "Aperio Image, Grundium Ocus\n" +
+		"100x100 (256x256) JPEG/RGB Q=30"
+	md, err := parseDescription(desc)
+	if err != nil {
+		t.Fatalf("parseDescription: %v", err)
+	}
+	if md.Writer != "Grundium Ocus" {
+		t.Errorf("Writer = %q, want %q", md.Writer, "Grundium Ocus")
+	}
+}

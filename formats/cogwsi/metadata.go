@@ -86,6 +86,8 @@ func buildMetadata(p0 *tiff.Page, ghost cog.GhostArea) opentile.Metadata {
 	}
 	if v, ok := p0.WSIToolsVersion(); ok {
 		props[PropWSIToolsVer] = v
+		// v0.20: Q5 — file producer is wsitools; overrides Software-derived Writer.
+		md.Writer = "wsitools/" + v
 	}
 	if ghost.COGWSIVersion != "" {
 		props[PropSpecVersion] = ghost.COGWSIVersion

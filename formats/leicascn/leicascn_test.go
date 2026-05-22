@@ -203,6 +203,9 @@ func TestMetadataOf_Leica1(t *testing.T) {
 	if md.AcquisitionDateTime.IsZero() {
 		t.Error("AcquisitionDateTime should be parsed (Leica-1 carries 2011-05-31T09:33:14.31Z)")
 	}
+	if md.Metadata.Writer == "" {
+		t.Error("Writer (v0.20) should be populated from DeviceVersion; got empty")
+	}
 
 	// Cross-format Metadata fields populated in v0.17 T6.
 	if md.MicronsPerPixel != 0.5 {

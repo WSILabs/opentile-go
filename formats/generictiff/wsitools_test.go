@@ -27,6 +27,10 @@ func TestParseWSIToolsDescription_HappyPath(t *testing.T) {
 	if !md.acquisitionDate.Equal(want) {
 		t.Errorf("date = %v, want %v", md.acquisitionDate, want)
 	}
+	// v0.20: Version extracted for Writer population.
+	if md.Version != "0.2.0-dev" {
+		t.Errorf("Version = %q, want 0.2.0-dev", md.Version)
+	}
 }
 
 func TestParseWSIToolsDescription_QuotedScannerWithSpace(t *testing.T) {

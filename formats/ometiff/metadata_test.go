@@ -213,6 +213,9 @@ func TestCrossMetadataPrimaryImage(t *testing.T) {
 	if md.Properties["ome.creator"] != "OME Bio-Formats 6.0.0-rc1" {
 		t.Errorf("Properties[ome.creator]: got %q", md.Properties["ome.creator"])
 	}
+	if md.Writer != "OME Bio-Formats 6.0.0-rc1" {
+		t.Errorf("Writer (v0.20): got %q, want %q", md.Writer, "OME Bio-Formats 6.0.0-rc1")
+	}
 	if md.Properties["ome.uuid"] != "urn:uuid:test" {
 		t.Errorf("Properties[ome.uuid]: got %q", md.Properties["ome.uuid"])
 	}

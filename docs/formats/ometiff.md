@@ -130,7 +130,7 @@ OME-TIFF carries metadata in OME-XML inside the page-0 `ImageDescription`. Pre-v
 | `<AcquisitionDate>` element text | `AcquisitionDateTime` |
 | `<Objective NominalMagnification>` | `Magnification` |
 | `<Experimenter UserName>` (when present) | `Properties[PropertyUserName]` (Bio-Formats fixtures lack `<Experimenter>`, so absent today) |
-| OME root `Creator` attribute | `Properties["ome.creator"]` |
+| OME root `Creator` attribute | `Properties["ome.creator"]` AND `Metadata.Writer` (v0.20; promoted to typed) |
 | OME root `UUID` attribute | `Properties["ome.uuid"]` |
 
 Fixture-JSON note: T4 added populated values to `Leica-1` / `Leica-2` fixture metadata snapshots (Magnification 0 → 20/40).

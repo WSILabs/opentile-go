@@ -96,6 +96,7 @@ WSI private tags drive canonical metadata population. The reader populates the c
 - `Magnification` ← `WSIMagnification` (tag 65086)
 - `Properties["cog-wsi.source-format"]` ← `WSISourceFormat` (tag 65087)
 - `Properties["cog-wsi.wsitools-version"]` ← writer-software identifier when present
+- `Writer` ← `"wsitools/<WSIToolsVersion>"` from private tag 65084 (added in v0.20; the file producer — distinct from `ScannerManufacturer` which preserves the source-scanner attribution per spec)
 - `Properties["cog-wsi.spec-version"]` ← parsed `COG_WSI_VERSION` ghost-area token (e.g., `"0.1"`)
 - `ImageDescription` ← page 0 ImageDescription verbatim (when present; typically empty in v0.1 writer output)
 

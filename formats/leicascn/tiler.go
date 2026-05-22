@@ -251,6 +251,7 @@ func buildMetadata(c *Collection, auxs, mains []Image, desc string) Metadata {
 		md.ScannerModel = scannerModel(primaryImg.DeviceModel)
 		if primaryImg.DeviceVersion != "" {
 			md.ScannerSoftware = []string{primaryImg.DeviceVersion}
+			md.Writer = primaryImg.DeviceVersion // v0.20
 		}
 		if primaryImg.CreationDate != "" {
 			if ts, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(primaryImg.CreationDate)); err == nil {

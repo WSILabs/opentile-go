@@ -142,6 +142,7 @@ func (t *Tiler) metadata() *Metadata {
 		}
 		if t.iscan.BuildVersion != "" {
 			md.ScannerSoftware = []string{t.iscan.BuildVersion}
+			md.Writer = t.iscan.BuildVersion // v0.20
 		}
 		md.ScannerSerial = t.iscan.UnitNumber
 

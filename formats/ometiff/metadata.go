@@ -271,6 +271,7 @@ func crossMetadata(om OMEMetadata, cls omeClassification) opentile.Metadata {
 	// OME-XML files written by Bio-Formats / OME tools).
 	if om.Creator != "" {
 		md.SetProperty("ome.creator", om.Creator)
+		md.Writer = om.Creator // v0.20: promote OME Creator to typed Writer field
 	}
 	if om.UUID != "" {
 		md.SetProperty("ome.uuid", om.UUID)

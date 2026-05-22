@@ -59,6 +59,7 @@ Philips's DICOM-attribute XML carries the cross-format-canonical fields. v0.17 s
 | ImageDescription verbatim (full DataObject XML) | `ImageDescription` |
 | `PIM_DP_SCANNER_OPERATOR_ID` | `Properties[PropertyUserName]` (when present; absent on all 4 current fixtures) |
 | every other `<DataObject>` Attribute | `Properties["philips.<Name>"]` (vendor passthrough — `PIM_DP_*`, `DICOM_*`, `PIIM_*`, `UFS_*`) |
+| `DICOM_SOFTWARE_VERSIONS` (raw, may be double-quoted) | `Metadata.Writer` (v0.20) |
 
 `philipstiff.MetadataOf(t)` continues to expose the typed DICOM fields (`PixelSpacing`, `BitsAllocated`, etc.).
 
