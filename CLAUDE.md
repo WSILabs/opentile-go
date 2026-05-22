@@ -55,6 +55,19 @@ Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/op
 - **Plan:** docs/superpowers/plans/2026-05-20-opentile-go-v19-cog-wsi.md
 - **Work branch:** feat/v0.19
 
+## Patch — v0.19.1 (shipped 2026-05-20)
+
+Coverage cleanup. Three packages (cogwsi 77.5% → 91.2%; szi
+76.8% → 92.8%; oneframe 70.4% → 93.1%) brought above CLAUDE.md's
+≥80% `make cover` gate. No API or behavior changes. New
+`internal/oneframe/oneframe_test.go` from scratch.
+
+Side benefit: generictiff coverage jumped to 87.6% because new
+cogwsi tests exercise the delegated path.
+
+Dead-code candidate flagged: `internal/oneframe.warm()` defined
+but never called.
+
 ## Previous milestone — v0.18 (shipped 2026-05-09)
 
 SVS writer-vendor detection. Closes misattribution bug where
