@@ -187,3 +187,123 @@ func TestOpen_NonConformantGhost(t *testing.T) {
 		t.Errorf("err = %v, want ErrNotConformantCOGWSI", err)
 	}
 }
+
+
+// TestFactory_Format verifies that Factory.Format() returns the
+// FormatCOGWSI identifier.
+func TestFactory_Format(t *testing.T) {
+	f := cogwsi.New()
+	got := f.Format()
+	if got != opentile.FormatCOGWSI {
+		t.Errorf("Format = %q, want %q", got, opentile.FormatCOGWSI)
+	}
+}
+
+// TestTiler_Level verifies Tiler.Level(i) delegates to the inner
+// Image.Level(i) and handles out-of-range indices correctly.
+func TestTiler_Level(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("fixture not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+
+	// Test valid level index
+	lvl, err := tlr.Level(0)
+	if err != nil {
+		t.Fatalf("Level(0): %v", err)
+	}
+	if lvl == nil {
+		t.Fatal("Level(0): got nil")
+	}
+
+	// Verify it matches Levels()[0]
+	levels := tlr.Levels()
+	if len(levels) == 0 {
+		t.Fatal("Levels(): empty")
+	}
+	if lvl != levels[0] {
+		t.Error("Level(0) does not match Levels()[0]")
+	}
+
+	// Test out-of-range index
+	_, err = tlr.Level(99)
+	if err == nil {
+		t.Fatal("Level(99): want error, got nil")
+	}
+}
+
+// TestTiler_WarmLevel verifies Tiler.WarmLevel(i) delegates to the
+// inner Tiler and handles bounds correctly.
+func TestTiler_WarmLevel(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("fixture not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+
+	// WarmLevel(0) should succeed (in-range).
+	if err := tlr.WarmLevel(0); err != nil {
+		t.Fatalf("WarmLevel(0): %v", err)
+	}
+
+	// WarmLevel(99) should fail (out-of-range).
+	if err := tlr.WarmLevel(99); err == nil {
+		t.Fatal("WarmLevel(99): want error, got nil")
+	}
+}
+
+// TestTiler_UnwrapTiler verifies Tiler.UnwrapTiler() returns the
+// inner generictiff Tiler. Accesses the method via a type assertion
+// since UnwrapTiler is not part of the opentile.Tiler interface.
+func TestTiler_UnwrapTiler(t *testing.T) {
+	dir := os.Getenv("OPENTILE_TESTDIR")
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	path := filepath.Join(dir, "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("fixture not present")
+	}
+	tlr, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer tlr.Close()
+
+	// Type-assert to access UnwrapTiler method.
+	unwrappable, ok := tlr.(interface{ UnwrapTiler() opentile.Tiler })
+	if !ok {
+		t.Fatal("Tiler does not implement UnwrapTiler()")
+	}
+	unwrapped := unwrappable.UnwrapTiler()
+	if unwrapped == nil {
+		t.Fatal("UnwrapTiler(): got nil")
+	}
+	// The unwrapped inner Tiler should have Images() and Levels()
+	// available (both are opentile.Tiler interface methods).
+	images := unwrapped.Images()
+	if len(images) == 0 {
+		t.Error("UnwrapTiler().Images(): empty")
+	}
+	levels := unwrapped.Levels()
+	if len(levels) == 0 {
+		t.Error("UnwrapTiler().Levels(): empty")
+	}
+}
