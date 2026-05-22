@@ -11,13 +11,51 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.20: L4, L5, L14 (Permanent — carried over
-from v0.6); L19, L20, L23, L24, L25 (carried forward from v0.7 / v0.8);
-L26, L27, L28, L29 (generic-TIFF design Q-decisions, v0.10); L30, L31,
-L32, L33, L34 (Leica SCN design Q-decisions, v0.11). v0.20 introduced
-no new active limitations — pure-additive cross-format Writer typed
-field. See `docs/deferred.md` §11 consolidated backlog. Open work
-parked in tracked issues:
+Active limitations after v0.20.1: same as v0.20 (no new L items
+in either patch). See `docs/deferred.md` §11 consolidated backlog.
+
+## [0.20.1] — 2026-05-20
+
+Closes R23. Surgical fix to scanner attribution for Grundium-source
+COG-WSI files. Pre-fix the cogwsi reader read the standard TIFF
+Make tag verbatim (`"Aperio"` — preserved from the source SVS's
+format-vendor label) and missed the writer-vendor info encoded in
+the comma-suffix of the preserved Software tag (`"Aperio Image,
+Grundium Ocus"`). v0.18's SVS reader already parses this for
+direct SVS opens; v0.20.1 reuses that detection for COG-WSI.
+
+### Fixed
+
+- Grundium-source COG-WSI fixtures (`scan_617_cog-wsi.tiff`,
+  `scan_620_cog-wsi.tiff`, `svs_40x_bigtiff_cog-wsi.tiff`) now
+  correctly report `ScannerManufacturer = "Grundium"`, `ScannerModel
+  = "Ocus"`. Pre-fix they reported `ScannerManufacturer = "Aperio"`
+  (the format-vendor label, not the writer-vendor).
+- Fixture JSONs for the 3 affected COG-WSI fixtures updated to
+  match.
+
+### Changed
+
+- `svs.WriterVendor` (struct with `Manufacturer` / `Model` /
+  `Softwares` fields) and `svs.DetectWriter(firstLine string)
+  WriterVendor` are now **exported** from `formats/svs`. The
+  cogwsi reader imports and reuses them. Internal SVS callers
+  updated for the new export-cased identifiers.
+
+### Notes
+
+- Future-proof: any future SVS writer-vendor pattern `svs.
+  DetectWriter` learns automatically applies to COG-WSI files
+  with `Properties["cog-wsi.source-format"] == "svs"`.
+- Canonical Aperio COG-WSI files (`CMU-1_cog-wsi.tiff`,
+  `CMU-1-Small-Region_cog-wsi.tiff`, `JP2K-33003-1_cog-wsi.tiff`)
+  are untouched — first-line pattern `"Aperio Image Library
+  v..."` still detects as Aperio.
+- Non-SVS-source COG-WSI files (`Leica-1_cog-wsi.tiff`,
+  `Philips-1_cog-wsi.tiff`, `Ventana-1_cog-wsi.tiff`,
+  `cervix_2x_jpeg_cog-wsi.tiff`) are untouched — the SVS
+  detection path only triggers on `source-format == "svs"`.
+- cgo footprint unchanged.
 
 ## [0.20.0] — 2026-05-20
 
