@@ -158,8 +158,8 @@ func TestCervixEndToEnd(t *testing.T) {
 	if cm.Magnification == 0 {
 		t.Error("Metadata.Magnification = 0; cervix carries 0.625")
 	}
-	if !strings.Contains(cm.Writer, "Aperio") {
-		t.Errorf("Writer (v0.20): got %q, want substring 'Aperio' (cervix is Aperio-scanned)", cm.Writer)
+	if !strings.HasPrefix(cm.Writer, "iris/") {
+		t.Errorf("Writer (v0.20): got %q, want prefix 'iris/' (IFE writer is the Iris codec; source scanner attribution lives in ImageDescription)", cm.Writer)
 	}
 	icc := tiler.ICCProfile()
 	if len(icc) != 6064 {

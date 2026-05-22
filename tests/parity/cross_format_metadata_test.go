@@ -149,7 +149,7 @@ var cfmExpect = []crossFormatMetadataExpect{
 		wantMPPSymmetric:   true,
 		wantImageDesc:      true,
 		wantPropPrefix:     "iris.",
-		wantWriterContains: "GT450", // IFE ImageDescription first line
+		wantWriterContains: "iris/", // IFE writer = Iris codec; source scanner (Aperio GT450) lives in ImageDescription
 	},
 	{
 		// Leica SCN: T6 first-time cross-format Metadata population.

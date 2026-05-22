@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strings"
 
 	opentile "github.com/cornish/opentile-go"
 )
@@ -136,6 +135,12 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	md.CodecMajor = binary.LittleEndian.Uint16(buf[10:12])
 	md.CodecMinor = binary.LittleEndian.Uint16(buf[12:14])
 	md.CodecBuild = binary.LittleEndian.Uint16(buf[14:16])
+	// v0.20: Writer = "iris/<CodecMajor>.<CodecMinor>.<CodecBuild>".
+	// The Iris codec is the IFE writer; ImageDescription (when present)
+	// is preserved source-format metadata (e.g., Aperio GT450 on the
+	// cervix fixture — the SOURCE SCANNER that produced the SVS that
+	// was later re-encoded into IFE), NOT the IFE writer.
+	md.Writer = fmt.Sprintf("iris/%d.%d.%d", md.CodecMajor, md.CodecMinor, md.CodecBuild)
 	attrsOff := binary.LittleEndian.Uint64(buf[16:24])
 	imagesOff := binary.LittleEndian.Uint64(buf[24:32])
 	iccOff := binary.LittleEndian.Uint64(buf[32:40])
@@ -222,17 +227,12 @@ func populateIFECrossFields(cross *opentile.Metadata, kvs map[string]string) {
 	// "tiff.ImageDescription" carries the source slide's
 	// ImageDescription tag verbatim when the IFE encoder preserves
 	// it. Empty string and missing key both fall through unchanged.
+	// Note: Writer is NOT set from this string — IFE's writer is the
+	// Iris codec (set from CodecMajor/Minor/Build above). ImageDescription
+	// here identifies the source scanner that produced the original
+	// slide before IFE re-encoding.
 	if v, ok := kvs["tiff.ImageDescription"]; ok && v != "" {
 		cross.ImageDescription = v
-		// v0.20: extract Writer from the first line (carries source
-		// vendor info when the encoder preserves it; e.g., "Aperio
-		// Leica Biosystems GT450 v1.0.1" for Aperio-scanned fixtures).
-		// IFE has no native Software field, so fallback to the image
-		// description passthrough.
-		lines := strings.Split(v, "\n")
-		if len(lines) > 0 && lines[0] != "" {
-			cross.Writer = lines[0]
-		}
 	}
 }
 
