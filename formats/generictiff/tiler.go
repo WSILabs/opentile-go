@@ -136,6 +136,7 @@ func buildMetadata(p *tiff.Page) Metadata {
 	}
 	if v, ok := p.Software(); ok {
 		md.ScannerSoftware = splitSoftware(v)
+		md.Writer = v // v0.20: raw Software string (may be overridden by wsi-tools path below)
 	}
 	if v, ok := p.ASCII(tiff.TagDateTime); ok {
 		if ts, err := time.Parse("2006:01:02 15:04:05", strings.TrimSpace(v)); err == nil {
@@ -171,6 +172,10 @@ func buildMetadata(p *tiff.Page) Metadata {
 			// transcoded fixtures + recover source/codec/version without
 			// reparsing the raw ImageDescription.
 			populateWSIToolsProperties(&md, md.ImageDescription)
+			// v0.20: wsi-tools is the file producer; override the Software-derived Writer.
+			if wt.Version != "" {
+				md.Writer = "wsitools/" + wt.Version
+			}
 		}
 	}
 	md.SetMPPSymmetric()

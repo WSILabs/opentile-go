@@ -58,6 +58,11 @@ func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
 		t.Errorf("ScannerSoftware = %v, want [OcusScan 3.1.4]", cross.ScannerSoftware)
 	}
 
+	// v0.20: Writer populated from SoftwareName + SoftwareVersion.
+	if cross.Writer != "OcusScan 3.1.4" {
+		t.Errorf("Writer = %q, want OcusScan 3.1.4", cross.Writer)
+	}
+
 	// v0.17 cross-format MPP: per-axis populated; SetMPPSymmetric
 	// collapses to the canonical slot since X == Y.
 	if cross.MicronsPerPixelX != 0.25055239898989901 {
