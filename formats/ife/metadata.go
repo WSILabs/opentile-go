@@ -7,7 +7,7 @@ import (
 	"io"
 	"math"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // Block recovery magic values per upstream IrisCodecExtension.hpp.

@@ -9,7 +9,7 @@ import (
 	"math"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // synthBuilder hand-rolls a complete IFE v1.0 byte buffer for unit

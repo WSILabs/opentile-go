@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/formats/bif"
-	_ "github.com/cornish/opentile-go/formats/all"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/formats/bif"
+	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 // TestBIFAccessors exercises Image / Tiler accessors on real BIF

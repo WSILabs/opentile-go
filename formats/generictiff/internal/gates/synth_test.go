@@ -10,9 +10,9 @@ import (
 	"sort"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // TestT3SyntheticFixtures probes the four synthetic fixtures

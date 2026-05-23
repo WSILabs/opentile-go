@@ -137,8 +137,8 @@ import (
     "io/ioutil"
     "os"
     "path/filepath"
-    "github.com/cornish/opentile-go/internal/tiff"
-    _ "github.com/cornish/opentile-go/formats/all"
+    "github.com/wsilabs/opentile-go/internal/tiff"
+    _ "github.com/wsilabs/opentile-go/formats/all"
 )
 func main() {
     var paths []string

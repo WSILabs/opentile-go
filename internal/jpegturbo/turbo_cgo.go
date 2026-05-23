@@ -364,7 +364,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/cornish/opentile-go/internal/jpeg"
+	"github.com/wsilabs/opentile-go/internal/jpeg"
 )
 
 // Crop performs an MCU-aligned lossless crop of src using libjpeg-turbo's

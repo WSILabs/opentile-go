@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/bifxml"
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/bifxml"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 func TestClassifyGeneration(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"io"
 	"iter"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // openIFE is the real OpenRaw entry point. It parses every metadata

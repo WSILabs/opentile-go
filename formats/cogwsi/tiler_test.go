@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/formats/cogwsi"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/formats/cogwsi"
 )
 
 // TestOpen_CMU1SmallRegion is the T5 smoke test: opens the small

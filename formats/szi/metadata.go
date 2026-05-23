@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // Metadata is the SZI-specific scan metadata parsed from the file's

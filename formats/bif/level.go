@@ -8,10 +8,10 @@ import (
 	"io"
 	"iter"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/bifxml"
-	"github.com/cornish/opentile-go/internal/jpeg"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/bifxml"
+	"github.com/wsilabs/opentile-go/internal/jpeg"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // bytesReader is a small adapter so blank-tile TileReader can return

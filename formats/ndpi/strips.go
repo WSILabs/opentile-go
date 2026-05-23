@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cornish/opentile-go/internal/jpeg"
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/jpeg"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // NDPI vendor-private tag IDs for per-strip restart-marker offsets.

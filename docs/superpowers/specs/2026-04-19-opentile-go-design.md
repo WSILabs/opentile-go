@@ -40,7 +40,7 @@ Direct port of the Python library, with the following adaptations:
 
 ## Module path and layout
 
-Module path: `github.com/cornish/opentile-go` (tentative — adjust at repo creation).
+Module path: `github.com/wsilabs/opentile-go` (tentative — adjust at repo creation).
 
 ```
 opentile-go/

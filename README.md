@@ -6,8 +6,8 @@ A Go library for reading raw compressed tiles from whole-slide imaging (WSI) fil
 
 ```go
 import (
-    opentile "github.com/cornish/opentile-go"
-    _ "github.com/cornish/opentile-go/formats/all"
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 t, err := opentile.OpenFile("slide.svs")
@@ -37,9 +37,9 @@ tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 
 \* Marks Go-side extensions beyond upstream Python opentile; see [Deviations](#deviations-from-upstream-python-opentile) below.
 
-**Detection** is automatic. `opentile.OpenFile` walks the registered factories — first asking each for `SupportsRaw(r, size)` against the raw byte stream, then falling through to TIFF-parsed `Supports(file)` — and dispatches the first match. The two-stage dispatch lets non-TIFF formats (IFE) short-circuit before `tiff.Open`. The generic-TIFF reader registers LAST so vendor format detectors get first crack at any TIFF; it activates as a catch-all only when no vendor factory claims the file. Format packages register at import time via `_ "github.com/cornish/opentile-go/formats/all"`.
+**Detection** is automatic. `opentile.OpenFile` walks the registered factories — first asking each for `SupportsRaw(r, size)` against the raw byte stream, then falling through to TIFF-parsed `Supports(file)` — and dispatches the first match. The two-stage dispatch lets non-TIFF formats (IFE) short-circuit before `tiff.Open`. The generic-TIFF reader registers LAST so vendor format detectors get first crack at any TIFF; it activates as a catch-all only when no vendor factory claims the file. Format packages register at import time via `_ "github.com/wsilabs/opentile-go/formats/all"`.
 
-**Format coverage**: opentile-go ports the four TIFF formats Python opentile 0.20.0 supports for tile extraction. 3DHistech TIFF (the fifth upstream format) is parked at [#2](https://github.com/cornish/opentile-go/issues/2). Ventana BIF — the first beyond upstream's coverage — landed in v0.7. Iris IFE — the first non-TIFF format — landed in v0.8. Generic TIFF — a catch-all reader for tiled pyramidal TIFFs without vendor metadata — landed in v0.10. Leica SCN — the legacy SCN400/SCN400F format, including the first multi-channel fluorescence support — landed in v0.11. Smart Zoom Image (SZI) — a ZIP-wrapped Microsoft Deep Zoom pyramid backed by a shared `internal/dzi/` core — landed in v0.16. Sakura SVSlide is parked at [#3](https://github.com/cornish/opentile-go/issues/3).
+**Format coverage**: opentile-go ports the four TIFF formats Python opentile 0.20.0 supports for tile extraction. 3DHistech TIFF (the fifth upstream format) is parked at [#2](https://github.com/wsilabs/opentile-go/issues/2). Ventana BIF — the first beyond upstream's coverage — landed in v0.7. Iris IFE — the first non-TIFF format — landed in v0.8. Generic TIFF — a catch-all reader for tiled pyramidal TIFFs without vendor metadata — landed in v0.10. Leica SCN — the legacy SCN400/SCN400F format, including the first multi-channel fluorescence support — landed in v0.11. Smart Zoom Image (SZI) — a ZIP-wrapped Microsoft Deep Zoom pyramid backed by a shared `internal/dzi/` core — landed in v0.16. Sakura SVSlide is parked at [#3](https://github.com/wsilabs/opentile-go/issues/3).
 
 ## Prerequisites
 
@@ -54,7 +54,7 @@ opentile-go is **mostly Go with one cgo dependency** — `internal/jpegturbo/` w
 ## Install
 
 ```sh
-go get github.com/cornish/opentile-go
+go get github.com/wsilabs/opentile-go
 ```
 
 Pin to v0.5.1 or later (v0.5.0 shipped with a wrong module path; see [CHANGELOG](./CHANGELOG.md)).
@@ -153,10 +153,10 @@ Cross-format fields (manufacturer, scanner serial, acquisition datetime, magnifi
 
 ```go
 import (
-    svs "github.com/cornish/opentile-go/formats/svs"
-    ndpi "github.com/cornish/opentile-go/formats/ndpi"
-    philips "github.com/cornish/opentile-go/formats/philips"
-    ome "github.com/cornish/opentile-go/formats/ome"
+    svs "github.com/wsilabs/opentile-go/formats/svs"
+    ndpi "github.com/wsilabs/opentile-go/formats/ndpi"
+    philips "github.com/wsilabs/opentile-go/formats/philips"
+    ome "github.com/wsilabs/opentile-go/formats/ome"
 )
 
 if md, ok := svs.MetadataOf(t); ok {
@@ -215,7 +215,7 @@ opentile-go aims for byte-parity with Python opentile 0.20.0. A small number of 
 | Leica SCN reader for legacy SCN400 / SCN400F output | Leica SCN | v0.11 | not opt-out-able once registered | First real-fixture exercise of `Image.SizeC() > 1` (Leica-Fluorescence-1.scn's separated-channel data); also the first multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage. |
 | `Level.TilePrefix` / `TileBodyInto` / `TileBodyMaxSize` + `opentile.SpliceJPEGTile` interface evolution | All formats (JPEG splice formats benefit) | v0.13 | additive — existing `Tile()` / `TileInto()` unchanged | Bandwidth-deduplication API for client-server consumers: send the per-level prefix once, send per-tile body bytes per request, reconstitute on client. Savings fixture-author-dependent (only slides with shared JPEGTables benefit). |
 | Smart Zoom Image (SZI) reader | Smart Zoom Image | v0.16 | not opt-out-able once registered | First ZIP-backed format opentile-go reads; first format to surface `CompressionPNG`. Spec-mandated uncompressed-stored ZIP entries preserve the v0.9 mmap-aliased fast path. Backed by a new shared `internal/dzi/` core designed for additive bare-DZI support in v0.17+. |
-| COG-WSI reader + integer-multiple pyramid ratio acceptance | COG-WSI + generic-TIFF | v0.19 | not opt-out-able once registered | First spec-validated COG-profile reader opentile-go ships; pairs WSI-domain private tags 65080-87 + `COG_WSI_VERSION` ghost-area marker with the GDAL Cloud Optimized GeoTIFF base structure. Closes Issues [#5](https://github.com/cornish/opentile-go/issues/5) + [#6](https://github.com/cornish/opentile-go/issues/6). Generic-TIFF standalone benefit: relaxed strict-drift check now accepts clean integer-multiple pyramid ratios (Aperio / Grundium SVS-style 4×/2×/2× chains). |
+| COG-WSI reader + integer-multiple pyramid ratio acceptance | COG-WSI + generic-TIFF | v0.19 | not opt-out-able once registered | First spec-validated COG-profile reader opentile-go ships; pairs WSI-domain private tags 65080-87 + `COG_WSI_VERSION` ghost-area marker with the GDAL Cloud Optimized GeoTIFF base structure. Closes Issues [#5](https://github.com/wsilabs/opentile-go/issues/5) + [#6](https://github.com/wsilabs/opentile-go/issues/6). Generic-TIFF standalone benefit: relaxed strict-drift check now accepts clean integer-multiple pyramid ratios (Aperio / Grundium SVS-style 4×/2×/2× chains). |
 
 Full reasoning + per-deviation commit references are in [`docs/deferred.md`](./docs/deferred.md).
 

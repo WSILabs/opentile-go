@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // buildPageWithMag constructs a minimal single-page TIFF with a

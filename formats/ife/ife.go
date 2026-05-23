@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Factory is the FormatFactory implementation for Iris IFE — the

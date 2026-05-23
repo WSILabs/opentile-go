@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // philipsSoftwarePrefix is the literal prefix on the Software tag (305)

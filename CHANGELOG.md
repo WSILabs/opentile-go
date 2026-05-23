@@ -11,8 +11,26 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-Active limitations after v0.20.1: same as v0.20 (no new L items
-in either patch). See `docs/deferred.md` §11 consolidated backlog.
+## [0.21.0] — 2026-05-23
+
+Relocation release: repository moved from `github.com/cornish/opentile-go`
+to `github.com/wsilabs/opentile-go`. No behavior change; this release
+exists so consumers can update their import paths. The old path
+continues to redirect at the HTTPS layer for existing clones, but Go
+module consumers must update their `go.mod` and import statements:
+
+```diff
+- github.com/cornish/opentile-go
++ github.com/wsilabs/opentile-go
+```
+
+Minor bump (rather than patch) reflects that this is a source-breaking
+change for module consumers, even though the binary behavior is
+unchanged.
+
+Active limitations after v0.21.0: same as v0.20 (no new L items in
+either v0.20.x patch or this relocation release). See
+`docs/deferred.md` §11 consolidated backlog.
 
 ## [0.20.1] — 2026-05-20
 
@@ -624,8 +642,8 @@ OME-Zarr, OME-NGFF). The bare names were ambiguous.
 
 | v0.11 | v0.12 |
 |---|---|
-| `github.com/cornish/opentile-go/formats/philips` | `github.com/cornish/opentile-go/formats/philipstiff` |
-| `github.com/cornish/opentile-go/formats/ome` | `github.com/cornish/opentile-go/formats/ometiff` |
+| `github.com/wsilabs/opentile-go/formats/philips` | `github.com/wsilabs/opentile-go/formats/philipstiff` |
+| `github.com/wsilabs/opentile-go/formats/ome` | `github.com/wsilabs/opentile-go/formats/ometiff` |
 
 The package qualifier follows: `philips.MetadataOf` →
 `philipstiff.MetadataOf`; `ome.MetadataOf` → `ometiff.MetadataOf`.
@@ -1044,13 +1062,13 @@ spliced JPEG bytes is the right answer.
   - `tests/fixtures/v0.9-after-tileinto.txt` — after A.2 + pool
   - `tests/fixtures/v0.9-after-splice.txt` — after A.3 in-place splice
 
-- **R4 / R9** ([#1](https://github.com/cornish/opentile-go/issues/1)) —
+- **R4 / R9** ([#1](https://github.com/wsilabs/opentile-go/issues/1)) —
   SVS corrupt-edge reconstruct + JP2K decode/encode. No local SVS slide
   exhibits the corrupt-edge bug; work parked until one motivates it.
-- **R6** ([#2](https://github.com/cornish/opentile-go/issues/2)) —
+- **R6** ([#2](https://github.com/wsilabs/opentile-go/issues/2)) —
   3DHistech TIFF. Niche MRXS conversion target; never encountered in
   the wild. Trigger-driven park.
-- **R15** ([#3](https://github.com/cornish/opentile-go/issues/3)) —
+- **R15** ([#3](https://github.com/wsilabs/opentile-go/issues/3)) —
   Sakura SVSlide. Trigger-driven park.
 
 ## [0.8.0] — 2026-05-01
@@ -1395,9 +1413,9 @@ Three new deliberate divergences (see
 ### Fixed
 
 - **Module path** — `go.mod` and every Go import statement renamed
-  from `github.com/tcornish/opentile-go` to `github.com/cornish/opentile-go`,
+  from `github.com/tcornish/opentile-go` to `github.com/wsilabs/opentile-go`,
   matching the actual GitHub repo location. v0.5.0's module path was
-  wrong and `go get github.com/cornish/opentile-go@v0.5.0` failed for
+  wrong and `go get github.com/wsilabs/opentile-go@v0.5.0` failed for
   downstream consumers; pin to v0.5.1 or later. No public API changes;
   purely a packaging fix.
 
@@ -1496,7 +1514,7 @@ expose, across all 7 fixtures in the parity oracle.
 
 - **R4** (SVS corrupt-edge reconstruct) and **R9** (JPEG 2000
   decode/encode) parked at
-  [#1](https://github.com/cornish/opentile-go/issues/1). None of
+  [#1](https://github.com/wsilabs/opentile-go/issues/1). None of
   our 5 local SVS slides exhibits the corrupt-edge bug; 12 tasks
   of new cgo (libopenjp2 + jpegturbo Decode/Encode) plus a Pillow
   byte-equivalent BILINEAR port plus reconstruct.go for a
@@ -1614,14 +1632,28 @@ Initial functional milestone. Aperio SVS tiled-level passthrough.
 - Three real-slide fixtures: CMU-1-Small-Region.svs, CMU-1.svs (JPEG),
   JP2K-33003-1.svs (JP2K passthrough).
 
-[Unreleased]: https://github.com/cornish/opentile-go/compare/v0.9.0...HEAD
-[0.9.0]: https://github.com/cornish/opentile-go/releases/tag/v0.9.0
-[0.8.0]: https://github.com/cornish/opentile-go/releases/tag/v0.8.0
-[0.7.0]: https://github.com/cornish/opentile-go/releases/tag/v0.7.0
-[0.6.0]: https://github.com/cornish/opentile-go/releases/tag/v0.6.0
-[0.5.1]: https://github.com/cornish/opentile-go/releases/tag/v0.5.1
-[0.5.0]: https://github.com/cornish/opentile-go/releases/tag/v0.5.0
-[0.4.0]: https://github.com/cornish/opentile-go/releases/tag/v0.4.0
-[0.3.0]: https://github.com/cornish/opentile-go/releases/tag/v0.3.0
-[0.2.0]: https://github.com/cornish/opentile-go/releases/tag/v0.2.0
-[0.1.0]: https://github.com/cornish/opentile-go/tree/feat/v0.1
+[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.21.0
+[0.20.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.20.1
+[0.20.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.20.0
+[0.19.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.19.1
+[0.19.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.19.0
+[0.18.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.18.0
+[0.17.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.17.0
+[0.16.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.16.0
+[0.15.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.15.0
+[0.14.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.14.0
+[0.13.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.13.0
+[0.12.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.12.0
+[0.11.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.11.0
+[0.10.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.10.0
+[0.9.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.9.0
+[0.8.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.8.0
+[0.7.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.7.0
+[0.6.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.6.0
+[0.5.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.5.1
+[0.5.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.5.0
+[0.4.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.4.0
+[0.3.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.3.0
+[0.2.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.2.0
+[0.1.0]: https://github.com/wsilabs/opentile-go/tree/feat/v0.1

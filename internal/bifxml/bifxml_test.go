@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/bifxml"
+	"github.com/wsilabs/opentile-go/internal/bifxml"
 )
 
 // testdata loads a file from the testdata/ subdirectory.

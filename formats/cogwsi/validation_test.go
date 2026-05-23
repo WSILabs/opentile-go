@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/cog"
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // TestValidateGhost runs each ghost-area invariant per spec §3 +

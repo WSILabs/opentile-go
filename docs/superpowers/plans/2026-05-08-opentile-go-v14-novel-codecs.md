@@ -355,7 +355,7 @@ func TestTiffCompressionToOpentile(t *testing.T) {
 }
 ```
 
-If `formats/generictiff/tiled_test.go` doesn't exist, look for `formats/generictiff/generic_test.go` or any *_test.go file in the package and append there. Verify the imports include `opentile "github.com/cornish/opentile-go"`.
+If `formats/generictiff/tiled_test.go` doesn't exist, look for `formats/generictiff/generic_test.go` or any *_test.go file in the package and append there. Verify the imports include `opentile "github.com/wsilabs/opentile-go"`.
 
 - [ ] **Step 3: Run + verify**
 

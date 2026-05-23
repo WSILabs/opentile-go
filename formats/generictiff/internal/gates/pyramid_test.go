@@ -13,7 +13,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // candidate is a tiled IFD that's a candidate pyramid level.

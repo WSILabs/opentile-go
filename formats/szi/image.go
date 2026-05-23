@@ -1,6 +1,6 @@
 package szi
 
-import opentile "github.com/cornish/opentile-go"
+import opentile "github.com/wsilabs/opentile-go"
 
 // image is the single-image opentile.Image implementation for SZI.
 // SZI files always carry exactly one image (no DZC collections per

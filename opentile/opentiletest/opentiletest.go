@@ -4,7 +4,7 @@
 // code paths.
 package opentiletest
 
-import opentile "github.com/cornish/opentile-go"
+import opentile "github.com/wsilabs/opentile-go"
 
 // NewConfig constructs an opentile.Config for use in tests. A non-zero
 // tileSize is treated as explicitly set (TileSize ok=true); a zero Size

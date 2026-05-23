@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/formats/ometiff"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/formats/ometiff"
 )
 
 // TestOMEAccessors exercises Image / Tiler accessors that the unit

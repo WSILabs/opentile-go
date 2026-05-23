@@ -3,7 +3,7 @@ package generictiff
 import (
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // stripped builds a non-tiled (TileWidth+TileLength = 0)

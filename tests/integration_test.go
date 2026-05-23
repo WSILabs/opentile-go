@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/tests"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/tests"
 )
 
 // slideCandidates lists SVS, NDPI, Philips, OME, BIF, IFE, and

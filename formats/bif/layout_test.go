@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // TestClassifyIFDPatterns covers every ImageDescription pattern

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cornish/opentile-go/formats/ife"
+	"github.com/wsilabs/opentile-go/formats/ife"
 )
 
 // TestT8ReaderSmoke confirms reader.go's exported parsers

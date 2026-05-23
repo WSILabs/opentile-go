@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // omeDescriptionSuffix is the substring `is_ome` looks for at the end

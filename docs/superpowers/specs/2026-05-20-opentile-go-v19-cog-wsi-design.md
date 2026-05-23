@@ -270,9 +270,9 @@ R21 in `docs/deferred.md §1` + §11 ("Cloud Optimized GeoTIFF (COG) first-class
 ## 10. References
 
 - COG-WSI spec v0.1 (vendored): `docs/specs/2026-05-20-cog-wsi-format.md`
-- COG-WSI spec source (canonical): `https://github.com/cornish/wsitools/blob/main/docs/superpowers/specs/2026-05-20-cog-wsi-format.md`
-- Issue #5: `https://github.com/cornish/opentile-go/issues/5` (generic-tiff WSI-tag awareness + mixed-ratio relax)
-- Issue #6: `https://github.com/cornish/opentile-go/issues/6` (dedicated cog-wsi reader)
+- COG-WSI spec source (canonical): `https://github.com/wsilabs/wsitools/blob/main/docs/superpowers/specs/2026-05-20-cog-wsi-format.md`
+- Issue #5: `https://github.com/wsilabs/opentile-go/issues/5` (generic-tiff WSI-tag awareness + mixed-ratio relax)
+- Issue #6: `https://github.com/wsilabs/opentile-go/issues/6` (dedicated cog-wsi reader)
 - GDAL COG spec: `https://gdal.org/en/stable/drivers/raster/cog.html`
 - OGC COG standard: `https://docs.ogc.org/is/21-026/21-026.html`
 

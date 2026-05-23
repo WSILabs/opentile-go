@@ -561,8 +561,8 @@ import (
 	"encoding/binary"
 	"io"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Factory implements opentile.FormatFactory for Smart Zoom Image
@@ -623,8 +623,8 @@ import (
 	"path"
 	"strings"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/dzi"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/dzi"
 )
 
 // Tiler is the SZI-format implementation of opentile.Tiler.
@@ -843,7 +843,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 func testdataDir(t *testing.T) string {
@@ -897,7 +897,7 @@ Edit `/Users/cornish/GitHub/opentile-go/formats/all/all.go`. Add the szi import 
 ```go
 import (
     // ... existing imports ...
-    "github.com/cornish/opentile-go/formats/szi"
+    "github.com/wsilabs/opentile-go/formats/szi"
 )
 
 func init() {
@@ -969,7 +969,7 @@ NOTE: opentile-go's level convention is **highest resolution at index 0** (per [
 ```go
 package szi
 
-import opentile "github.com/cornish/opentile-go"
+import opentile "github.com/wsilabs/opentile-go"
 
 // image is the single-image opentile.Image implementation for SZI.
 // SZI files always carry exactly one image (no DZC collections per
@@ -1010,8 +1010,8 @@ import (
 	"fmt"
 	"io"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/dzi"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/dzi"
 )
 
 // level is the opentile.Level implementation for one SZI/DZI
@@ -1209,7 +1209,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 func TestLevels_CMU1Geometry(t *testing.T) {
@@ -1352,7 +1352,7 @@ package szi
 import (
 	"archive/zip"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // associatedImage is the SZI-format opentile.AssociatedImage
@@ -1464,7 +1464,7 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // Metadata is the SZI format-specific scan metadata parsed from
@@ -1796,7 +1796,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 func TestAssociated_CMU1HasAllThree(t *testing.T) {
@@ -1936,8 +1936,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 type sziLevelExpect struct {

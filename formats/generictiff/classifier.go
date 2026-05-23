@@ -8,7 +8,7 @@
 package generictiff
 
 import (
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // AssociatedType values returned by [ClassifyAssociated]. Match the

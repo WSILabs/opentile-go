@@ -101,7 +101,7 @@ Files modified:
 // code paths.
 package opentiletest
 
-import opentile "github.com/cornish/opentile-go"
+import opentile "github.com/wsilabs/opentile-go"
 
 // NewConfig constructs an opentile.Config for use in tests. A non-zero
 // tileSize is treated as explicitly set (TileSize ok=true); a zero Size
@@ -126,8 +126,8 @@ package opentiletest_test
 import (
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/opentile/opentiletest"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/opentile/opentiletest"
 )
 
 func TestNewConfigZeroSizeUnset(t *testing.T) {
@@ -160,7 +160,7 @@ Expected: PASS, both tests.
 
 Run: `grep -rln "opentile.NewTestConfig" --include="*.go"` to find every test file using the old name. Replace each with:
 ```go
-import "github.com/cornish/opentile-go/opentile/opentiletest"
+import "github.com/wsilabs/opentile-go/opentile/opentiletest"
 // ...
 cfg := opentiletest.NewConfig(opentile.Size{}, opentile.CorruptTileError)
 ```
@@ -242,7 +242,7 @@ return nil, fmt.Errorf("internal/tiff: %w (cap=%d)", opentile.ErrTooManyIFDs, ma
 
 If `internal/tiff/ifd.go` doesn't already import `opentile`, add the import:
 ```go
-import opentile "github.com/cornish/opentile-go"
+import opentile "github.com/wsilabs/opentile-go"
 ```
 
 (If this creates a cycle — `opentile` → `internal/tiff` is the existing direction — instead define a local `ErrTooManyIFDs = errors.New(...)` in `internal/tiff` AND a re-export in `errors.go`. The simpler fix is to move the sentinel itself into `internal/tiff` and import-and-re-export from `opentile`. Do whichever doesn't introduce a cycle.)
@@ -618,7 +618,7 @@ func TestWithNDPISynthesizedLabelDefaultEnabled(t *testing.T) {
 }
 ```
 
-(Adjust imports: `"os"`, `"path/filepath"`, `"testing"`, `opentile "github.com/cornish/opentile-go"`, blank-import `_ "github.com/cornish/opentile-go/formats/all"`.)
+(Adjust imports: `"os"`, `"path/filepath"`, `"testing"`, `opentile "github.com/wsilabs/opentile-go"`, blank-import `_ "github.com/wsilabs/opentile-go/formats/all"`.)
 
 - [ ] **Step 4: Run the tests**
 
@@ -741,7 +741,7 @@ package tests
 import (
 	"fmt"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // SamplePosition is one tile position chosen for a sampled fixture, paired
@@ -819,7 +819,7 @@ package tests
 import (
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 func TestSamplePositionsDeduplicates(t *testing.T) {
@@ -1159,7 +1159,7 @@ package jpeg_test
 import (
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/jpeg"
+	"github.com/wsilabs/opentile-go/internal/jpeg"
 )
 
 // Synthesize a minimal JPEG header with a given SOF0 sampling factor byte
@@ -1788,7 +1788,7 @@ func TestSVSTileReaderMatchesTile(t *testing.T) {
 }
 ```
 
-(Imports: `"bytes"`, `"io"`, `"os"`, `"path/filepath"`, `opentile "github.com/cornish/opentile-go"`, `_ "github.com/cornish/opentile-go/formats/all"`.)
+(Imports: `"bytes"`, `"io"`, `"os"`, `"path/filepath"`, `opentile "github.com/wsilabs/opentile-go"`, `_ "github.com/wsilabs/opentile-go/formats/all"`.)
 
 - [ ] **Step 2: SVS — `TestTilesIterRowMajor`**
 
@@ -1983,7 +1983,7 @@ func TestWalkIFDsRejectsCycle(t *testing.T) {
 }
 ```
 
-(Imports: `"bytes"`, `"encoding/binary"`, `"errors"`, `opentile "github.com/cornish/opentile-go"`.)
+(Imports: `"bytes"`, `"encoding/binary"`, `"errors"`, `opentile "github.com/wsilabs/opentile-go"`.)
 
 - [ ] **Step 2: Run the test**
 
@@ -3919,7 +3919,7 @@ Test helpers (config builders, fixture types) live in the
 stdlib idiom (`httptest`, `iotest`):
 
 ```go
-import "github.com/cornish/opentile-go/opentile/opentiletest"
+import "github.com/wsilabs/opentile-go/opentile/opentiletest"
 
 cfg := opentiletest.NewConfig(opentile.Size{W: 512, H: 512}, opentile.CorruptTileError)
 ```

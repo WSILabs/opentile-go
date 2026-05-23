@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tifflzw"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tifflzw"
 )
 
 // errUnsupportedAssociatedShape is returned by [newAssociatedImage]

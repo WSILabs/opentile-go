@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // TestMultiZBIFOpens: synthetic 3-Z-plane BIF (1 near + nominal +

@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/formats/svs"
-	"github.com/cornish/opentile-go/internal/cog"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/formats/svs"
+	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Standard TIFF tag numbers consumed by buildMetadata. internal/tiff

@@ -2,11 +2,11 @@
 // package for its side effect (via a blank import) or call Register() once
 // from main for equivalent behavior without relying on import ordering.
 //
-//	import _ "github.com/cornish/opentile-go/formats/all"
+//	import _ "github.com/wsilabs/opentile-go/formats/all"
 //
 // Or:
 //
-//	import formats_all "github.com/cornish/opentile-go/formats/all"
+//	import formats_all "github.com/wsilabs/opentile-go/formats/all"
 //	...
 //	formats_all.Register()
 package all
@@ -14,17 +14,17 @@ package all
 import (
 	"sync"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/formats/bif"
-	"github.com/cornish/opentile-go/formats/cogwsi"
-	"github.com/cornish/opentile-go/formats/generictiff"
-	"github.com/cornish/opentile-go/formats/ife"
-	"github.com/cornish/opentile-go/formats/leicascn"
-	"github.com/cornish/opentile-go/formats/ndpi"
-	"github.com/cornish/opentile-go/formats/ometiff"
-	"github.com/cornish/opentile-go/formats/philipstiff"
-	"github.com/cornish/opentile-go/formats/svs"
-	"github.com/cornish/opentile-go/formats/szi"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/formats/bif"
+	"github.com/wsilabs/opentile-go/formats/cogwsi"
+	"github.com/wsilabs/opentile-go/formats/generictiff"
+	"github.com/wsilabs/opentile-go/formats/ife"
+	"github.com/wsilabs/opentile-go/formats/leicascn"
+	"github.com/wsilabs/opentile-go/formats/ndpi"
+	"github.com/wsilabs/opentile-go/formats/ometiff"
+	"github.com/wsilabs/opentile-go/formats/philipstiff"
+	"github.com/wsilabs/opentile-go/formats/svs"
+	"github.com/wsilabs/opentile-go/formats/szi"
 )
 
 var once sync.Once

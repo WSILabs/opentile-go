@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
-	"github.com/cornish/opentile-go/opentile/opentiletest"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/opentile/opentiletest"
 )
 
 // buildSVSTIFF builds a TIFF with one tiled page carrying tileCount*tileCount

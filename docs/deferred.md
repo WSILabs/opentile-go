@@ -35,7 +35,7 @@ shifts from byte-parity to pixel-equivalence with openslide on decoded
 tiles.
 
 R4 / R9 (SVS corrupt-edge reconstruct + JP2K decode/encode) remain
-parked at [#1](https://github.com/cornish/opentile-go/issues/1) until a
+parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) until a
 real slide motivates the work.
 
 | ID | Feature | Target | Status |
@@ -43,12 +43,12 @@ real slide motivates the work.
 | R1 | NDPI format support (Hamamatsu) | v0.2 | ✅ landed (Batches 2-7, parity verified) |
 | R2 | `internal/jpeg` marker package | v0.2 | ✅ landed (Batch 2) |
 | R3 | SVS associated images — label, overview, thumbnail | v0.2 (promoted from v0.3) | ✅ landed (Task 21, `9cd27cb`) |
-| R4 | Aperio SVS corrupt-edge reconstruct fix (currently returns `ErrCorruptTile`) | v0.5+ | deferred — see [#1](https://github.com/cornish/opentile-go/issues/1). Originally promoted to v0.4; demoted on 2026-04-26 because none of our local SVS slides exhibit corrupt edges and 12 tasks of cgo + Pillow-port work to deliver a synthetic-fixture-only feature isn't completeness, it's speculation. Issue captures the full upstream algorithm + Go-side dependency tree; trigger to take it on is a real slide that fails on us with `ErrCorruptTile`. |
+| R4 | Aperio SVS corrupt-edge reconstruct fix (currently returns `ErrCorruptTile`) | v0.5+ | deferred — see [#1](https://github.com/wsilabs/opentile-go/issues/1). Originally promoted to v0.4; demoted on 2026-04-26 because none of our local SVS slides exhibit corrupt edges and 12 tasks of cgo + Pillow-port work to deliver a synthetic-fixture-only feature isn't completeness, it's speculation. Issue captures the full upstream algorithm + Go-side dependency tree; trigger to take it on is a real slide that fails on us with `ErrCorruptTile`. |
 | R5 | Philips TIFF (sparse-tile filler) | v0.5 | ✅ landed (commits `1ad463c..7e7bde0`, parity verified across 4 fixtures) |
 | R6 | 3DHistech TIFF | parked | parked behind GH issue (TBD). MRXS conversion target produced by 3DHistech software; rare in practice. Trigger to take it on is a real slide. Upstream opentile has a ~200 LOC reader; cheap to revive if motivated. |
 | R7 | OME TIFF | v0.6 | ✅ landed. Closes the upstream-opentile format set; SubIFD-based pyramid + multi-image deviation + dual-reference parity (opentile-py + tifffile). |
 | R8 | BigTIFF support | v0.2 | ✅ landed (Batch 1) |
-| R9 | JPEG 2000 decode/encode (currently passes through native tiles; decode matters for associated-image re-encoding and corrupt-tile reconstruct) | v0.5+ | deferred — see [#1](https://github.com/cornish/opentile-go/issues/1). Only consumer is R4; deferred together. Native JP2K tile passthrough (the v0.1+ behaviour) continues to work — decode is only needed for the reconstruct chain. |
+| R9 | JPEG 2000 decode/encode (currently passes through native tiles; decode matters for associated-image re-encoding and corrupt-tile reconstruct) | v0.5+ | deferred — see [#1](https://github.com/wsilabs/opentile-go/issues/1). Only consumer is R4; deferred together. Native JP2K tile passthrough (the v0.1+ behaviour) continues to work — decode is only needed for the reconstruct chain. |
 | R10 | Remote I/O backends (S3, HTTP range, fsspec equivalents) | out-of-scope; consumers supply `io.ReaderAt` | permanent |
 | R11 | Python parity oracle under `//go:build parity` | v0.2 | ✅ landed (Task 25-26, Batch 7) |
 | R12 | CLI wrapper | out-of-scope for v1 | permanent |
@@ -771,11 +771,11 @@ the test that locks the change in.
 - **T1** — JP2K determinism gate (`c27d9f8`): byte-deterministic. R4's done-when bar (when it lands) is byte-parity with Python opentile.
 - **T2** — NDPI Map fixture audit (`e6bbcd5`): OS-2 + Hamamatsu-1 carry Map pages; tifffile classifies them, Python opentile chooses not to surface them. Validated the L6 / R13 path.
 - **T3** — L12 reproduction shape (`1b651bf`): Case D — control-flow bug in our Go-side dispatch (the plan offered Cases A/B/C; the actual finding was sharper). Drove the L12 fix above.
-- **T4** — R4 mechanism audit (`d2fe107`): port notes at `docs/superpowers/notes/2026-04-26-svs-reconstruct-port.md`. Identified that R4 pulls in 4 new pieces of cgo + Pillow-port infrastructure for a feature whose only test would be synthetic. Drove the v0.4 → v0.5+ deferral of R4 / R9 to issue [#1](https://github.com/cornish/opentile-go/issues/1).
+- **T4** — R4 mechanism audit (`d2fe107`): port notes at `docs/superpowers/notes/2026-04-26-svs-reconstruct-port.md`. Identified that R4 pulls in 4 new pieces of cgo + Pillow-port infrastructure for a feature whose only test would be synthetic. Drove the v0.4 → v0.5+ deferral of R4 / R9 to issue [#1](https://github.com/wsilabs/opentile-go/issues/1).
 
 **Deferred (not retired, but resolved by punting to a tracked issue):**
 
-- **R4** (SVS corrupt-edge reconstruct) and **R9** (JP2K decode/encode) — moved from v0.4 to v0.5+ on 2026-04-26. Filed as [#1](https://github.com/cornish/opentile-go/issues/1) with the full upstream algorithm, Go-side dependency tree, byte-parity bar, and trigger conditions for picking the work back up. Audit confirmed none of our 5 local SVS slides exhibit the corrupt-edge bug; 12 tasks of speculative cgo work for a synthetic-fixture-only feature didn't pass the project's "fix bugs we can demonstrate, don't write defensive code for hypothetical inputs" rule.
+- **R4** (SVS corrupt-edge reconstruct) and **R9** (JP2K decode/encode) — moved from v0.4 to v0.5+ on 2026-04-26. Filed as [#1](https://github.com/wsilabs/opentile-go/issues/1) with the full upstream algorithm, Go-side dependency tree, byte-parity bar, and trigger conditions for picking the work back up. Audit confirmed none of our 5 local SVS slides exhibit the corrupt-edge bug; 12 tasks of speculative cgo work for a synthetic-fixture-only feature didn't pass the project's "fix bugs we can demonstrate, don't write defensive code for hypothetical inputs" rule.
 
 ---
 
@@ -894,9 +894,9 @@ Properties keys for backward-compat at zero extra cost.
 ## 8m. Retired in v0.19
 
 v0.19 ships COG-WSI support — closes the user's two GH Issues
-[#5](https://github.com/cornish/opentile-go/issues/5) (generic-TIFF
+[#5](https://github.com/wsilabs/opentile-go/issues/5) (generic-TIFF
 WSI-tag awareness + integer-multiple pyramid ratio relaxation) and
-[#6](https://github.com/cornish/opentile-go/issues/6) (dedicated
+[#6](https://github.com/wsilabs/opentile-go/issues/6) (dedicated
 `cogwsi` reader). Pairs the GDAL Cloud Optimized GeoTIFF base
 structure with WSI-domain private tags 65080-87 and a
 `COG_WSI_VERSION` ghost-area marker. Also retires R21 fully — see
@@ -2460,10 +2460,10 @@ decisions, not deferred work.
 | **L20** — DP 600 unverified | BIF | Fixture-driven | v0.7 | First DP 600 fixture surfaces |
 | **L23** — IFE cross-tool parity vs `tile_server_iris` | IFE | Trigger-driven | v0.8 | First downstream divergence story |
 | **L25** — IFE ANNOTATIONS block parsing | IFE | Fixture-driven | v0.8 | First annotated IFE fixture surfaces |
-| **R4** — SVS corrupt-edge reconstruct | SVS | Trigger-driven | parked at [#1](https://github.com/cornish/opentile-go/issues/1) | First corrupt-edge SVS in our slate |
-| **R9** — JPEG 2000 decode/encode | SVS | Trigger-driven | parked at [#1](https://github.com/cornish/opentile-go/issues/1) | Same as R4 |
-| **R6** — 3DHistech TIFF support | (new) | Trigger-driven | parked at [#2](https://github.com/cornish/opentile-go/issues/2) | First 3DHistech TIFF in the wild |
-| **R15** — Sakura SVSlide support | (new) | Trigger-driven | parked at [#3](https://github.com/cornish/opentile-go/issues/3) | First SVSlide in the wild |
+| **R4** — SVS corrupt-edge reconstruct | SVS | Trigger-driven | parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) | First corrupt-edge SVS in our slate |
+| **R9** — JPEG 2000 decode/encode | SVS | Trigger-driven | parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) | Same as R4 |
+| **R6** — 3DHistech TIFF support | (new) | Trigger-driven | parked at [#2](https://github.com/wsilabs/opentile-go/issues/2) | First 3DHistech TIFF in the wild |
+| **R15** — Sakura SVSlide support | (new) | Trigger-driven | parked at [#3](https://github.com/wsilabs/opentile-go/issues/3) | First SVSlide in the wild |
 | **R16** — Leica SCN support | (new) | **Fixtures available**; v0.11 candidate | mentioned as v0.8 candidate, fixtures landed 2026-05-01 | Owner sign-off to schedule v0.11 |
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit. Its half-sibling `TilePrefix` shipped in v0.13; `TileBorrow` is on a different axis (allocation vs bandwidth) and remains parked. |
 | **Single-level tiled TIFF support** | generic | Fixture-driven; v0.11 candidate | called out 2026-05-05 | Owner sign-off to relax `MinLevels` for single-level files (Grundium fixture in hand) |
@@ -2482,9 +2482,9 @@ decisions, not deferred work.
 | **R20** — opentile.Metadata: add MicronsPerPixel + ImageDescription | core API | ✅ **landed in v0.17** (see §8k) | flagged 2026-05-09 in v0.16 T4; reader-wide expansion shipped 2026-05-09 | retired |
 
 **Closed by v0.19:** GH Issues
-[#5](https://github.com/cornish/opentile-go/issues/5) (generic-TIFF
+[#5](https://github.com/wsilabs/opentile-go/issues/5) (generic-TIFF
 WSI-tag awareness + integer-multiple pyramid ratio relaxation) and
-[#6](https://github.com/cornish/opentile-go/issues/6) (dedicated
+[#6](https://github.com/wsilabs/opentile-go/issues/6) (dedicated
 `cogwsi` reader). R21 (general COG first-class support) is also
 fully retired — the WSI-context portion shipped as COG-WSI in v0.19;
 plain geospatial COG is permanently YAGNI for opentile-go. See §8m.

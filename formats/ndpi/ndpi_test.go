@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
-	"github.com/cornish/opentile-go/opentile/opentiletest"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/opentile/opentiletest"
 )
 
 // buildNDPIStub returns a tiny NDPI-layout TIFF with:

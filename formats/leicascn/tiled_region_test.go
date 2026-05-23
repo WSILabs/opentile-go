@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // helperBuildRegionLevel0 builds a tiledRegion for the given fixture's

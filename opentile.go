@@ -8,7 +8,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // FormatFactory is implemented by format packages to register themselves with

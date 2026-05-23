@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/cornish/opentile-go/internal/cog"
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Expected ghost-area values per COG-WSI spec §3 (inherited from

@@ -1,7 +1,7 @@
 package ndpi
 
 import (
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // pageKind classifies an NDPI TIFF page by its semantic role.

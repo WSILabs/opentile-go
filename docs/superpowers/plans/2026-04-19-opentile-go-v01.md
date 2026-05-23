@@ -96,7 +96,7 @@ opentile-go/
 - [ ] **Step 1: Create `go.mod`**
 
 ```
-module github.com/cornish/opentile-go
+module github.com/wsilabs/opentile-go
 
 go 1.23
 ```
@@ -1992,7 +1992,7 @@ import (
     "errors"
     "testing"
 
-    "github.com/cornish/opentile-go/internal/tiff"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // fakeFactory is a test double that reports support when the tag
@@ -2115,7 +2115,7 @@ import (
     "os"
     "sync"
 
-    "github.com/cornish/opentile-go/internal/tiff"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // FormatFactory is implemented by format packages to register themselves with
@@ -2236,7 +2236,7 @@ import (
     "strings"
     "testing"
 
-    "github.com/cornish/opentile-go/internal/tiff"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 func TestSupportsAperio(t *testing.T) {
@@ -2312,8 +2312,8 @@ import (
     "fmt"
     "strings"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // aperioPrefix is the literal prefix on the ImageDescription tag of Aperio SVS
@@ -2481,7 +2481,7 @@ import (
     "strings"
     "time"
 
-    opentile "github.com/cornish/opentile-go"
+    opentile "github.com/wsilabs/opentile-go"
 )
 
 // Metadata is the SVS-specific slide metadata. It embeds opentile.Metadata so
@@ -2611,8 +2611,8 @@ import (
     "io"
     "testing"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // buildSVSTIFF builds a TIFF with one tiled page carrying tileCount*tileCount
@@ -2943,8 +2943,8 @@ import (
     "iter"
     "math"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // tiledImage is the SVS Level implementation for tiled pages. v0.1 passes
@@ -3147,7 +3147,7 @@ package all
 import (
     "testing"
 
-    opentile "github.com/cornish/opentile-go"
+    opentile "github.com/wsilabs/opentile-go"
 )
 
 func TestRegisterAllIncludesSVS(t *testing.T) {
@@ -3183,7 +3183,7 @@ Expected: PASS (one skipped).
 // package for its side effect (via a blank import) or call Register() once from
 // main for equivalent behavior without relying on import ordering.
 //
-//     import _ "github.com/cornish/opentile-go/formats/all"
+//     import _ "github.com/wsilabs/opentile-go/formats/all"
 //
 // Or:
 //
@@ -3193,8 +3193,8 @@ package all
 import (
     "sync"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/formats/svs"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/formats/svs"
 )
 
 var once sync.Once
@@ -3425,9 +3425,9 @@ import (
     "path/filepath"
     "testing"
 
-    opentile "github.com/cornish/opentile-go"
-    _ "github.com/cornish/opentile-go/formats/all"
-    "github.com/cornish/opentile-go/tests"
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
+    "github.com/wsilabs/opentile-go/tests"
 )
 
 // slideUnderTest is the fixture slide we expect in OPENTILE_TESTDIR.
@@ -3534,9 +3534,9 @@ import (
     "testing"
     "time"
 
-    opentile "github.com/cornish/opentile-go"
-    _ "github.com/cornish/opentile-go/formats/all"
-    "github.com/cornish/opentile-go/tests"
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
+    "github.com/wsilabs/opentile-go/tests"
 )
 
 var regenerate = flag.Bool("generate", false, "regenerate fixtures from live slides")
@@ -3699,7 +3699,7 @@ tiles from whole-slide imaging (WSI) TIFF files used in digital pathology.
 ## Install
 
 ```
-go get github.com/cornish/opentile-go
+go get github.com/wsilabs/opentile-go
 ```
 
 Requires Go 1.23+. No cgo, no C dependencies.
@@ -3713,8 +3713,8 @@ import (
     "fmt"
     "log"
 
-    opentile "github.com/cornish/opentile-go"
-    _ "github.com/cornish/opentile-go/formats/all"
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 func main() {
@@ -3776,4 +3776,4 @@ git commit -m "docs: expand README with install, usage, concurrency notes"
 - `go test ./... -race` passes with no skips on `OPENTILE_TESTDIR`-set runs.
 - `go vet ./...` clean.
 - `tests/fixtures/CMU-1-Small-Region.json` committed and `TestSVSParity` passes against it.
-- `go doc github.com/cornish/opentile-go` renders the public API with complete godoc comments.
+- `go doc github.com/wsilabs/opentile-go` renders the public API with complete godoc comments.

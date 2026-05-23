@@ -3,8 +3,8 @@ package opentiletest_test
 import (
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/opentile/opentiletest"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/opentile/opentiletest"
 )
 
 func TestNewConfigZeroSizeUnset(t *testing.T) {

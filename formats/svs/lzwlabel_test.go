@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/cornish/opentile-go/internal/tifflzw"
+	"github.com/wsilabs/opentile-go/internal/tifflzw"
 )
 
 func TestReconstructLZWLabelRoundTrip(t *testing.T) {

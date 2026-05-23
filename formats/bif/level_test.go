@@ -6,8 +6,8 @@ import (
 	"image"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // TestLevelGeometry: a 4x3-tile pyramid IFD reports correct

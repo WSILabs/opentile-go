@@ -681,8 +681,8 @@ package ndpi
 import (
     "io"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // mapPage is the NDPI Map page (Magnification tag value -2.0) exposed
@@ -747,8 +747,8 @@ import (
     "path/filepath"
     "testing"
 
-    opentile "github.com/cornish/opentile-go"
-    _ "github.com/cornish/opentile-go/formats/all"
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 func TestNDPIMapPagePresentOnOS2(t *testing.T) {

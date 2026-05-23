@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cornish/opentile-go/formats/leicascn"
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/formats/leicascn"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 func TestSCNFixtureGate(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"path"
 	"strings"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/dzi"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/dzi"
 )
 
 // ErrCorruptArchive is returned when an SZI archive violates the

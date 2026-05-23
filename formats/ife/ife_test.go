@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 func TestSupportsRaw(t *testing.T) {

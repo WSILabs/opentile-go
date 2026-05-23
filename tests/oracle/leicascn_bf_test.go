@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/formats/leicascn"
-	"github.com/cornish/opentile-go/tests/oracle"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/formats/leicascn"
+	"github.com/wsilabs/opentile-go/tests/oracle"
 )
 
 // TestBioFormatsParity_SCN compares opentile-go's structural reading

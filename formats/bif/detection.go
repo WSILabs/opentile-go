@@ -3,7 +3,7 @@ package bif
 import (
 	"bytes"
 
-	"github.com/cornish/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // iScanMarker is the substring opentile-go looks for in any IFD's XMP

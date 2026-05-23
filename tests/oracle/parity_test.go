@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	"github.com/cornish/opentile-go/tests"
-	"github.com/cornish/opentile-go/tests/oracle"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/tests"
+	"github.com/wsilabs/opentile-go/tests/oracle"
 )
 
 var fullParity = flag.Bool("parity-full", false, "walk every tile (slow) instead of sampling up to 10 positions per level")

@@ -9,10 +9,10 @@ import (
 	"iter"
 	"sync"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/jpeg"
-	"github.com/cornish/opentile-go/internal/jpegturbo"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/jpeg"
+	"github.com/wsilabs/opentile-go/internal/jpegturbo"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // strippedImage is an NDPI pyramid level whose source is a single giant JPEG

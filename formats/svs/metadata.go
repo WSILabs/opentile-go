@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // Metadata is the SVS-specific slide metadata. It embeds opentile.Metadata so

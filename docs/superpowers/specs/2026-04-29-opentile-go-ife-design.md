@@ -125,7 +125,7 @@ second non-TIFF.
 ## 4. Project naming + README framing
 
 opentile-go remains the import path
-(`github.com/cornish/opentile-go`). No package rename in v0.8/IFE.
+(`github.com/wsilabs/opentile-go`). No package rename in v0.8/IFE.
 
 **README updates** (small):
 

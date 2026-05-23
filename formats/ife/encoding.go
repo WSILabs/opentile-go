@@ -3,7 +3,7 @@ package ife
 import (
 	"fmt"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // IFE Encoding enum values per Iris-Headers/IrisCodecTypes.hpp:

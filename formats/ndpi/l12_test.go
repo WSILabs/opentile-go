@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 // TestL12OOBFillIsWhite locks in the L12 fix: NDPI edge tiles whose

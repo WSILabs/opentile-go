@@ -62,11 +62,11 @@ Mirrors `formats/generictiff/` and `formats/leicascn/` directory naming. Every d
 
 ```go
 // Before
-import "github.com/cornish/opentile-go/formats/philips"
+import "github.com/wsilabs/opentile-go/formats/philips"
 md, _ := philips.MetadataOf(t)
 
 // After
-import "github.com/cornish/opentile-go/formats/philipstiff"
+import "github.com/wsilabs/opentile-go/formats/philipstiff"
 md, _ := philipstiff.MetadataOf(t)
 ```
 

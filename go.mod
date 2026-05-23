@@ -1,4 +1,4 @@
-module github.com/cornish/opentile-go
+module github.com/wsilabs/opentile-go
 
 go 1.25.0
 

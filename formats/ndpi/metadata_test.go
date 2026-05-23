@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 func TestParseMetadataFromFields(t *testing.T) {

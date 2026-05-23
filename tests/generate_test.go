@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
-	svs "github.com/cornish/opentile-go/formats/svs"
-	"github.com/cornish/opentile-go/tests"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
+	svs "github.com/wsilabs/opentile-go/formats/svs"
+	"github.com/wsilabs/opentile-go/tests"
 )
 
 var regenerate = flag.Bool("generate", false, "regenerate fixtures from live slides")

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // Metadata is the Leica SCN-specific format metadata. Embeds

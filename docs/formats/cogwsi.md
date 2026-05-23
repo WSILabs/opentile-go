@@ -2,7 +2,7 @@
 
 Cloud Optimized GeoTIFF for Whole-Slide Imaging — a strict profile that layers WSI-domain semantics on top of the GDAL [Cloud Optimized GeoTIFF (COG)](https://www.cogeo.org/) structure. File extension `.tiff`. Spec v0.1 authored by the user as part of the wsi-tools converter pipeline; spec lives at [`docs/specs/2026-05-20-cog-wsi-format.md`](../specs/2026-05-20-cog-wsi-format.md).
 
-**v0.19 is the fifth opentile-go format beyond upstream Python opentile's coverage** (after BIF in v0.7, IFE in v0.8, generic-TIFF in v0.10, Leica SCN in v0.11, and SZI in v0.16). Closes GH issues [#5](https://github.com/cornish/opentile-go/issues/5) and [#6](https://github.com/cornish/opentile-go/issues/6).
+**v0.19 is the fifth opentile-go format beyond upstream Python opentile's coverage** (after BIF in v0.7, IFE in v0.8, generic-TIFF in v0.10, Leica SCN in v0.11, and SZI in v0.16). Closes GH issues [#5](https://github.com/wsilabs/opentile-go/issues/5) and [#6](https://github.com/wsilabs/opentile-go/issues/6).
 
 ## Format basics
 
@@ -208,7 +208,7 @@ Upstream Python opentile doesn't read COG-WSI, so the v0.19 reader is technicall
 ## Known issues + history
 
 - **R21 (general COG first-class support)** — **fully retired in v0.19**. The COG-WSI reader covers the WSI-context demand; plain COG awareness is permanently YAGNI for opentile-go (we're WSI-domain, not geospatial). Generic COG files continue to read via `generic-tiff` as structurally-valid pyramid TIFFs.
-- **Closes Issues [#5](https://github.com/cornish/opentile-go/issues/5) and [#6](https://github.com/cornish/opentile-go/issues/6)** — #5 was the integer-multiple pyramid ratio relaxation + WSI-tag awareness for generic-tiff; #6 was the dedicated cogwsi reader.
+- **Closes Issues [#5](https://github.com/wsilabs/opentile-go/issues/5) and [#6](https://github.com/wsilabs/opentile-go/issues/6)** — #5 was the integer-multiple pyramid ratio relaxation + WSI-tag awareness for generic-tiff; #6 was the dedicated cogwsi reader.
 - **scan_620_grundium_TIFF geometry catch-up** (v0.19 T3/T4) — the v0.10 expectation pinned 3 levels; the file actually has 4. Fixed during the integer-multiple ratio relaxation work.
 - **Stale-since-v0.17 fixture catch-ups** (v0.19 T3/T4) — `Hamamatsu-1.ndpi` + `OS-2.ndpi` gained `scanner_serial`; `Leica-1.ome.tiff` + `Leica-2.ome.tiff` gained `acquisition_rfc3339`. No reader-side regressions; the fixtures were just stale.
 

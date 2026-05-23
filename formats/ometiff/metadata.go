@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // OMEImage is one entry in the OME-XML <Image> list. Carries the

@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // aperioPrefix is the literal prefix on the ImageDescription tag of Aperio SVS

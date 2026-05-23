@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // metadataBuilder lays out a complete IFE file with a populated

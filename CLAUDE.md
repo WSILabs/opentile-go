@@ -47,9 +47,9 @@ Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/op
 ## Previous milestone — v0.19 (shipped 2026-05-20)
 
 COG-WSI support. Closed the user's two GH issues
-([#5](https://github.com/cornish/opentile-go/issues/5) generic-
+([#5](https://github.com/wsilabs/opentile-go/issues/5) generic-
 TIFF WSI-tag awareness + integer-multiple pyramid ratio
-relaxation; [#6](https://github.com/cornish/opentile-go/issues/6)
+relaxation; [#6](https://github.com/wsilabs/opentile-go/issues/6)
 dedicated `cogwsi` reader). New `formats/cogwsi/` package +
 `internal/cog/` ghost-area parser + 8 typed WSI private-tag
 accessors on `*tiff.Page` (tags 65080-65087). cogwsi wraps an
@@ -138,7 +138,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 
 ## Conventions
 
-- Module path: `github.com/cornish/opentile-go`
+- Module path: `github.com/wsilabs/opentile-go`
 - Go 1.23+ (for `iter.Seq2`)
 - `internal/tiff` and `internal/jpeg` are internal — both shaped for opentile's needs, not general-purpose libraries. `internal/jpegturbo` is the only cgo package in the module.
 - Format subpackages (`formats/svs/`, `formats/ndpi/`, …) are public; `formats/all` is the umbrella registration package

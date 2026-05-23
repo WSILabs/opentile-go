@@ -179,7 +179,7 @@ sweep, `make parity`, tag v0.5.0.
   needs a real fixture sourced (the `sample_files/mrxs/` zips are
   multi-file MRXS, a different format upstream doesn't support).
 - **R4 / R9** (SVS corrupt-edge reconstruct + JP2K decode/encode) —
-  parked at [#1](https://github.com/cornish/opentile-go/issues/1)
+  parked at [#1](https://github.com/wsilabs/opentile-go/issues/1)
   pending a real corrupt-edge slide.
 - **Map pages on Philips** — Philips doesn't have a Map-page
   equivalent (no upstream `_is_map_series` predicate). The

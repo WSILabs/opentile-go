@@ -1348,7 +1348,7 @@ callers see no change via the legacy `Levels()` shortcut. Three
 intentional deviations from upstream documented below.
 
 R4 / R9 (SVS corrupt-edge reconstruct + JP2K decode/encode) parked at
-[#1](https://github.com/cornish/opentile-go/issues/1); R6 / R15
+[#1](https://github.com/wsilabs/opentile-go/issues/1); R6 / R15
 (3DHistech, Sakura) parked at [#2](.../issues/2) / [#3](.../issues/3).
 
 Ventana BIF (R14) is next (v0.7); see

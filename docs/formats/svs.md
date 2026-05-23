@@ -15,7 +15,7 @@ Aperio's scanned-slide format, produced by Leica Aperio scanners (most common di
 | Capability | Status | Notes |
 |---|---|---|
 | Tiled levels (JPEG) | ✅ | JPEGTables spliced + Adobe APP14 prepended for Aperio's RGB-not-YCbCr colourspace; matches Python opentile byte-for-byte |
-| Tiled levels (JPEG 2000) | ✅ passthrough | We emit raw JP2K codestream bytes; downstream caller decodes. Decode/encode is parked at [#1](https://github.com/cornish/opentile-go/issues/1) |
+| Tiled levels (JPEG 2000) | ✅ passthrough | We emit raw JP2K codestream bytes; downstream caller decodes. Decode/encode is parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) |
 | Associated label | ✅ | LZW-compressed strip page; multi-strip decode → raster restitch → re-encode as single LZW stream (L10 fix in v0.3) |
 | Associated overview | ✅ | JPEG strip page; assembled via `internal/jpeg.ConcatenateScans` with restart-interval byte-equality vs Python |
 | Associated thumbnail | ✅ | Same shape as overview |
@@ -63,8 +63,8 @@ namespace ensures parsing doesn't break for unrecognized writers.
 
 | Capability | Status | Why |
 |---|---|---|
-| Corrupt-edge tile reconstruct | ❌ deferred → [#1](https://github.com/cornish/opentile-go/issues/1) | None of our local SVS fixtures exhibits the bug. Upstream's reconstruct chain is ~12 tasks of new cgo + a Pillow BILINEAR port; speculation without a real triggering slide. Tile() returns `ErrCorruptTile` for `TileByteCounts[idx] == 0`. |
-| JPEG 2000 decode/encode | ❌ deferred → [#1](https://github.com/cornish/opentile-go/issues/1) | Only consumer is the corrupt-edge reconstruct chain. Native JP2K passthrough (the v0.1+ behaviour) is unaffected. |
+| Corrupt-edge tile reconstruct | ❌ deferred → [#1](https://github.com/wsilabs/opentile-go/issues/1) | None of our local SVS fixtures exhibits the bug. Upstream's reconstruct chain is ~12 tasks of new cgo + a Pillow BILINEAR port; speculation without a real triggering slide. Tile() returns `ErrCorruptTile` for `TileByteCounts[idx] == 0`. |
+| JPEG 2000 decode/encode | ❌ deferred → [#1](https://github.com/wsilabs/opentile-go/issues/1) | Only consumer is the corrupt-edge reconstruct chain. Native JP2K passthrough (the v0.1+ behaviour) is unaffected. |
 
 ## Parity
 

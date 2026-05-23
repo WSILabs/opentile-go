@@ -3,7 +3,7 @@ package bif
 import (
 	"strings"
 
-	"github.com/cornish/opentile-go/internal/bifxml"
+	"github.com/wsilabs/opentile-go/internal/bifxml"
 )
 
 // Generation discriminates between BIF format generations. The

@@ -8,7 +8,7 @@ import (
 	"io"
 	"iter"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // compositeLevel is the public Level impl for Leica SCN. Wraps N

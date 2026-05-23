@@ -289,9 +289,9 @@ cd /Users/cornish/GitHub/opentile-go
 # Use protective placeholder dance to avoid double-renames if any
 # imports already mention philipstiff (none should yet, but defensive).
 find . -name '*.go' -not -path './sample_files/*' -exec sed -i '' \
-  -e 's|"github.com/cornish/opentile-go/formats/philipstiff"|XXX_FPT_XXX|g' \
-  -e 's|"github.com/cornish/opentile-go/formats/philips"|"github.com/cornish/opentile-go/formats/philipstiff"|g' \
-  -e 's|XXX_FPT_XXX|"github.com/cornish/opentile-go/formats/philipstiff"|g' \
+  -e 's|"github.com/wsilabs/opentile-go/formats/philipstiff"|XXX_FPT_XXX|g' \
+  -e 's|"github.com/wsilabs/opentile-go/formats/philips"|"github.com/wsilabs/opentile-go/formats/philipstiff"|g' \
+  -e 's|XXX_FPT_XXX|"github.com/wsilabs/opentile-go/formats/philipstiff"|g' \
   {} \;
 ```
 
@@ -414,9 +414,9 @@ Edit the package doc comment (`// Package ome ...` → `// Package ometiff ...`)
 
 ```bash
 find . -name '*.go' -not -path './sample_files/*' -exec sed -i '' \
-  -e 's|"github.com/cornish/opentile-go/formats/ometiff"|XXX_FOT_XXX|g' \
-  -e 's|"github.com/cornish/opentile-go/formats/ome"|"github.com/cornish/opentile-go/formats/ometiff"|g' \
-  -e 's|XXX_FOT_XXX|"github.com/cornish/opentile-go/formats/ometiff"|g' \
+  -e 's|"github.com/wsilabs/opentile-go/formats/ometiff"|XXX_FOT_XXX|g' \
+  -e 's|"github.com/wsilabs/opentile-go/formats/ome"|"github.com/wsilabs/opentile-go/formats/ometiff"|g' \
+  -e 's|XXX_FOT_XXX|"github.com/wsilabs/opentile-go/formats/ometiff"|g' \
   {} \;
 ```
 
@@ -842,8 +842,8 @@ OME-Zarr, OME-NGFF). The bare names were ambiguous.
 
 | v0.11 | v0.12 |
 |---|---|
-| `github.com/cornish/opentile-go/formats/philips` | `github.com/cornish/opentile-go/formats/philipstiff` |
-| `github.com/cornish/opentile-go/formats/ome` | `github.com/cornish/opentile-go/formats/ometiff` |
+| `github.com/wsilabs/opentile-go/formats/philips` | `github.com/wsilabs/opentile-go/formats/philipstiff` |
+| `github.com/wsilabs/opentile-go/formats/ome` | `github.com/wsilabs/opentile-go/formats/ometiff` |
 
 The package qualifier follows: `philips.MetadataOf` →
 `philipstiff.MetadataOf`; `ome.MetadataOf` → `ometiff.MetadataOf`.

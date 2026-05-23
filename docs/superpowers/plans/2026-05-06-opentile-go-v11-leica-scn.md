@@ -332,8 +332,8 @@ import (
     "path/filepath"
     "testing"
 
-    "github.com/cornish/opentile-go/formats/leicascn"
-    "github.com/cornish/opentile-go/internal/tiff"
+    "github.com/wsilabs/opentile-go/formats/leicascn"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 func TestSCNFixtureGate(t *testing.T) {
@@ -429,8 +429,8 @@ import (
     "errors"
     "strings"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Factory is the FormatFactory for Leica SCN. Registered BEFORE

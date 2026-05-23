@@ -1,6 +1,6 @@
 # SVS performance recommendations for opentile-go and its consumers
 
-**Audience.** Maintainers of [`opentile-go`](https://github.com/cornish/opentile-go) and authors of HTTP / desktop / pipeline consumers that read SVS pyramids through it.
+**Audience.** Maintainers of [`opentile-go`](https://github.com/wsilabs/opentile-go) and authors of HTTP / desktop / pipeline consumers that read SVS pyramids through it.
 
 **Scope.** Aperio SVS files specifically. Most ideas transfer to NDPI but NDPI's striped path has different concurrency characteristics (per-page mutex) and is called out where it matters.
 

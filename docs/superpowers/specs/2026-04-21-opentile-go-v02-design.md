@@ -48,7 +48,7 @@ Direct port of Python opentile's NDPI code with idiomatic-Go adaptations, plus a
 
 ## Module path and layout
 
-Module path unchanged: `github.com/cornish/opentile-go`.
+Module path unchanged: `github.com/wsilabs/opentile-go`.
 
 New directories and files (additions to the v0.1 tree):
 

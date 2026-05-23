@@ -8,8 +8,8 @@ import (
 	"io"
 	"iter"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/dzi"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/dzi"
 )
 
 // level is the opentile.Level implementation for one SZI/DZI

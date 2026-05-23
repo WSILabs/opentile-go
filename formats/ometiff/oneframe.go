@@ -4,9 +4,9 @@ import (
 	"io"
 	"math"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/oneframe"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/oneframe"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // newOneFrameImage constructs an OME Level backed by a single-strip

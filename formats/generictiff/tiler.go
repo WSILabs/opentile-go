@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Metadata is the generic-TIFF format-specific metadata. The shape is

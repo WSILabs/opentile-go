@@ -896,9 +896,9 @@ import (
 	"errors"
 	"io"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/cog"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Factory implements opentile.FormatFactory for COG-WSI files.
@@ -953,9 +953,9 @@ import (
 	"fmt"
 	"io"
 
-	opentile "github.com/cornish/opentile-go"
-	"github.com/cornish/opentile-go/internal/cog"
-	"github.com/cornish/opentile-go/internal/tiff"
+	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // ErrNotConformantCOGWSI is returned by Open when the file claims
@@ -1024,8 +1024,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
-	_ "github.com/cornish/opentile-go/formats/all"
+	opentile "github.com/wsilabs/opentile-go"
+	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 func TestOpen_CMU1SmallRegion(t *testing.T) {

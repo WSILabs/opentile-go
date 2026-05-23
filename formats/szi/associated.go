@@ -5,7 +5,7 @@ import (
 	stdimage "image"
 	_ "image/jpeg" // register JPEG decoder for stdimage.DecodeConfig
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // associatedImage is the SZI-format opentile.AssociatedImage

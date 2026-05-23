@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	opentile "github.com/cornish/opentile-go"
+	opentile "github.com/wsilabs/opentile-go"
 )
 
 // TestCervixEndToEnd exercises the IFE Tiler against the real

@@ -2453,7 +2453,7 @@ import (
     "bytes"
     "testing"
 
-    "github.com/cornish/opentile-go/internal/tiff"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // buildNDPIStub returns a tiny classic-TIFF with a SourceLens tag (65420).
@@ -2539,8 +2539,8 @@ package ndpi
 import (
     "fmt"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // ndpiSourceLensTag is the Hamamatsu vendor-private tag used for NDPI
@@ -2615,7 +2615,7 @@ import (
     "testing"
     "time"
 
-    "github.com/cornish/opentile-go/internal/tiff"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // These tests exercise the parse helpers directly; end-to-end parsing is
@@ -2692,8 +2692,8 @@ import (
     "fmt"
     "time"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Metadata is NDPI-specific slide metadata. Embeds opentile.Metadata for the
@@ -2902,7 +2902,7 @@ package ndpi
 import (
     "math"
 
-    opentile "github.com/cornish/opentile-go"
+    opentile "github.com/wsilabs/opentile-go"
 )
 
 // AdjustTileSize returns the output tile size to use for an NDPI tiler given
@@ -2981,9 +2981,9 @@ import (
     "io"
     "iter"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/jpeg"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/jpeg"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // stripedImage is an NDPI Level backed by a page of 8-pixel-tall horizontal
@@ -3217,10 +3217,10 @@ import (
     "io"
     "iter"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/jpeg"
-    "github.com/cornish/opentile-go/internal/jpegturbo"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/jpeg"
+    "github.com/wsilabs/opentile-go/internal/jpegturbo"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // oneFrameImage is an NDPI Level backed by a single JPEG per page (typical
@@ -3440,9 +3440,9 @@ import (
     "fmt"
     "io"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/jpegturbo"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/jpegturbo"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // overviewImage is an NDPI "Macro" page exposed as an AssociatedImage
@@ -3604,8 +3604,8 @@ import (
     "bytes"
     "testing"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 ```
 
@@ -3620,7 +3620,7 @@ Expected: FAIL — `"ndpi.Open: not yet implemented"`.
 package ndpi
 
 import (
-    opentile "github.com/cornish/opentile-go"
+    opentile "github.com/wsilabs/opentile-go"
 )
 
 // tiler satisfies opentile.Tiler. Declared in metadata.go; the method set
@@ -3795,9 +3795,9 @@ import (
     "fmt"
     "io"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/internal/jpeg"
-    "github.com/cornish/opentile-go/internal/tiff"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/internal/jpeg"
+    "github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // stripedAssociated is an SVS AssociatedImage for thumbnail / label / overview
@@ -4022,9 +4022,9 @@ Add the import:
 import (
     "sync"
 
-    opentile "github.com/cornish/opentile-go"
-    "github.com/cornish/opentile-go/formats/ndpi"
-    "github.com/cornish/opentile-go/formats/svs"
+    opentile "github.com/wsilabs/opentile-go"
+    "github.com/wsilabs/opentile-go/formats/ndpi"
+    "github.com/wsilabs/opentile-go/formats/svs"
 )
 ```
 
@@ -4394,10 +4394,10 @@ import (
     "path/filepath"
     "testing"
 
-    opentile "github.com/cornish/opentile-go"
-    _ "github.com/cornish/opentile-go/formats/all"
-    "github.com/cornish/opentile-go/tests"
-    "github.com/cornish/opentile-go/tests/oracle"
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
+    "github.com/wsilabs/opentile-go/tests"
+    "github.com/wsilabs/opentile-go/tests/oracle"
 )
 
 var fullParity = flag.Bool("parity-full", false, "walk every tile (slow) instead of sampling")
@@ -4570,7 +4570,7 @@ Add an NDPI example block:
 ### NDPI-specific metadata
 
 ```go
-import ndpi "github.com/cornish/opentile-go/formats/ndpi"
+import ndpi "github.com/wsilabs/opentile-go/formats/ndpi"
 
 if nm, ok := ndpi.MetadataOf(tiler); ok {
     fmt.Println("SourceLens:", nm.SourceLens)
@@ -4681,8 +4681,8 @@ Expected: top-line coverage ≥ the v0.1 baseline (≥75% overall, ≥80% format
 - [ ] **Step 4: Final doc cross-check**
 
 ```bash
-go doc github.com/cornish/opentile-go | head -60
-go doc github.com/cornish/opentile-go/formats/ndpi | head -40
+go doc github.com/wsilabs/opentile-go | head -60
+go doc github.com/wsilabs/opentile-go/formats/ndpi | head -40
 ```
 
 Expected: godoc renders the public surface (Tiler, Level, Metadata, Open, OpenFile, Compression, error sentinels, ndpi.Factory, ndpi.New, ndpi.MetadataOf) with usable comments.
