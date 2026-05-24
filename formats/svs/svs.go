@@ -7,42 +7,60 @@
 package svs
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
+
+// Compile-time assertion: *tiler satisfies format.Reader.
+var _ format.Reader = (*tiler)(nil)
+
+func init() {
+	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
+	opentile.Register(&Factory{})
+	format.Register("svs", matchSVS, openSVS)
+}
 
 // aperioPrefix is the literal prefix on the ImageDescription tag of Aperio SVS
 // files. Upstream opentile and openslide both key their detection off this.
 const aperioPrefix = "Aperio"
 
-// Factory is the FormatFactory implementation for SVS.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns an SVS factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatSVS }
-
-// Supports reports whether file looks like an SVS: its first page's
-// ImageDescription starts with "Aperio".
-func (f *Factory) Supports(file *tiff.File) bool {
+// matchSVS returns nil iff r is an SVS file (a TIFF whose first page's
+// ImageDescription starts with "Aperio"). Returns an error if it is not.
+func matchSVS(r io.ReaderAt, size int64) error {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return fmt.Errorf("svs: not a TIFF: %w", err)
+	}
 	pages := file.Pages()
 	if len(pages) == 0 {
-		return false
+		return errors.New("svs: TIFF has no pages")
 	}
 	desc, ok := pages[0].ImageDescription()
-	if !ok {
-		return false
+	if !ok || !strings.HasPrefix(desc, aperioPrefix) {
+		return errors.New("svs: ImageDescription does not start with Aperio")
 	}
-	return strings.HasPrefix(desc, aperioPrefix)
+	return nil
 }
 
-// Open constructs an SVS Tiler from a parsed TIFF file.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
+// openSVS constructs a format.Reader from a raw reader. It re-parses the TIFF
+// (matchSVS already parsed it once; the cost is negligible for header-only reads).
+func openSVS(r io.ReaderAt, size int64, cfg *format.Config) (format.Reader, error) {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("svs: %w", err)
+	}
+	return openFromTIFFFile(file, cfg)
+}
+
+// openFromTIFFFile is the shared construction path used by both openSVS and
+// Factory.Open. cfg carries the format-level configuration.
+func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error) {
 	pages := file.Pages()
 	if len(pages) == 0 {
 		return nil, fmt.Errorf("svs: file has no pages")
@@ -59,7 +77,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 
 	// Classify pages into Baseline / Thumbnail / Label / Macro series via
 	// the tifffile-style algorithm in classifyPages. Level indices in the
-	// returned Tiler are contiguous (0..N-1) in pyramid order and do not
+	// returned Reader are contiguous (0..N-1) in pyramid order and do not
 	// correspond to physical page indices in the TIFF. Associated images are
 	// emitted in tifffile's series order: Thumbnail, Label, Macro (any of
 	// which may be absent).
@@ -124,7 +142,54 @@ func pageSize(p *tiff.Page) (opentile.Size, error) {
 	return opentile.Size{W: int(iw), H: int(il)}, nil
 }
 
-// tiler is the SVS implementation of opentile.Tiler.
+// Factory is the FormatFactory implementation for SVS. Preserved for the
+// dual-registration transition period; removed once tiler.go deletion lands.
+type Factory struct{ opentile.RawUnsupported }
+
+// New returns an SVS factory. Safe to call once and register globally.
+func New() *Factory { return &Factory{} }
+
+// Format reports the format identifier used by opentile.Tiler.Format().
+func (f *Factory) Format() opentile.Format { return opentile.FormatSVS }
+
+// Supports reports whether file looks like an SVS: its first page's
+// ImageDescription starts with "Aperio".
+func (f *Factory) Supports(file *tiff.File) bool {
+	pages := file.Pages()
+	if len(pages) == 0 {
+		return false
+	}
+	desc, ok := pages[0].ImageDescription()
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(desc, aperioPrefix)
+}
+
+// Open constructs an SVS Tiler from a parsed TIFF file.
+func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
+	fcfg := opentileConfigToFormatConfig(cfg)
+	return openFromTIFFFile(file, fcfg)
+}
+
+// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
+// into a format.Config. Called from Factory.Open during the dual-registration
+// transition; the new openSVS path receives *format.Config directly.
+func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
+	if cfg == nil {
+		return &format.Config{}
+	}
+	ts, hasTS := cfg.TileSize()
+	return &format.Config{
+		TileSize:             ts,
+		HasTileSize:          hasTS,
+		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
+		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
+		Backing:              cfg.Backing(),
+	}
+}
+
+// tiler is the SVS implementation of format.Reader (and opentile.Tiler).
 type tiler struct {
 	md         Metadata
 	levels     []opentile.Level

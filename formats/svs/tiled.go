@@ -10,6 +10,7 @@ import (
 	"math"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
@@ -55,7 +56,7 @@ type tiledImage struct {
 	// path for backward compat.
 	splicePrefix []byte
 
-	cfg *opentile.Config
+	cfg *format.Config
 }
 
 func newTiledImage(
@@ -64,7 +65,7 @@ func newTiledImage(
 	baseSize opentile.Size,
 	baseMPP float64,
 	r io.ReaderAt,
-	cfg *opentile.Config,
+	cfg *format.Config,
 ) (*tiledImage, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
