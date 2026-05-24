@@ -19,68 +19,48 @@ package bif
 import (
 	"bytes"
 	"fmt"
+	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/bifxml"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
-// Factory is the FormatFactory implementation for Ventana BIF.
-type Factory struct{ opentile.RawUnsupported }
+// Compile-time assertion: *Tiler satisfies format.Reader.
+var _ format.Reader = (*Tiler)(nil)
 
-// New returns a BIF factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatBIF }
-
-// Supports reports whether file looks like a BIF: BigTIFF with at
-// least one IFD whose XMP packet contains the `<iScan` substring.
-// See Detect for the exact rule and detection-gate verification.
-func (f *Factory) Supports(file *tiff.File) bool {
-	return Detect(file)
+func init() {
+	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
+	opentile.Register(&Factory{})
+	format.Register("bif", matchBIF, openBIF)
 }
 
-// Tiler is the BIF implementation of opentile.Tiler. Built up across
-// v0.7 batches: T10 establishes the skeleton (factory wiring + Open
-// gate); T11 adds generation classification; T12 builds the IFD
-// inventory + pyramid level slice; T13 wires per-Level reads with
-// serpentine remap; T14 wires the empty-tile blank-fill path; T15
-// composes JPEGTables into per-tile bytes when the IFD has a shared
-// header. T16+ surface associated images, metadata, and ICC profile.
-type Tiler struct {
-	file *tiff.File
-	cfg  *opentile.Config
-
-	gen        Generation         // routing decision (T11)
-	iscan      *bifxml.IScan      // parsed IFD-0 metadata block; non-nil after Open
-	encodeInfo *bifxml.EncodeInfo // parsed level-0 IFD's XMP; nil if absent / parse failed
-
-	// IFD inventory (T12); built once at Open time.
-	levelIFDs     []classifiedIFD // pyramid IFDs sorted by parsed level=N
-	associatedIFD []classifiedIFD // label / probability / thumbnail IFDs
-
-	// Constructed Level objects, one per levelIFDs entry. Populated
-	// at Open time (T13); wrapped in a bifImage so Image.SizeZ() and
-	// ZPlaneFocus(z) can return BIF-specific values when the slide
-	// is volumetric (IMAGE_DEPTH > 1).
-	image *bifImage
-
-	// Associated images built from the associatedIFD inventory.
-	// Populated at Open time (T16); typically 2 entries (overview +
-	// {probability | thumbnail}).
-	associated []opentile.AssociatedImage
-
-	// cachedMetadata is built lazily on the first Metadata() /
-	// MetadataOf call (T17). Subsequent calls return the cached
-	// pointer; the struct itself is never mutated.
-	cachedMetadata *Metadata
+// matchBIF returns nil iff r is a BIF file (BigTIFF with at least one
+// IFD whose XMP contains the "<iScan" marker).
+func matchBIF(r io.ReaderAt, size int64) error {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return fmt.Errorf("bif: not a TIFF: %w", err)
+	}
+	if !Detect(file) {
+		return fmt.Errorf("bif: no IFD XMP contains %q marker", iScanMarker)
+	}
+	return nil
 }
 
-// Open constructs a BIF Tiler from a parsed TIFF file. v0.7 Batch C
-// in progress: this skeleton enforces the detection gate; subsequent
-// tasks (T11+) populate classification, levels, and metadata.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
+// openBIF constructs a format.Reader from a raw reader.
+func openBIF(r io.ReaderAt, size int64, cfg *format.Config) (format.Reader, error) {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("bif: %w", err)
+	}
+	return openFromTIFFFile(file, cfg)
+}
+
+// openFromTIFFFile is the shared construction path used by both openBIF and
+// Factory.Open.
+func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error) {
 	if !Detect(file) {
 		return nil, opentile.ErrUnsupportedFormat
 	}
@@ -92,13 +72,6 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	if err != nil {
 		return nil, err
 	}
-	// Spec §"IFD 2": EncodeInfo @Ver must be ≥ 2; lower versions
-	// don't carry enough information to reconstruct the image and
-	// the spec mandates rejecting them. bifxml.ParseEncodeInfo
-	// enforces this and returns (nil, error) for Ver < 2; we
-	// propagate that error verbatim. Missing XMP on the level-0 IFD
-	// (legacy iScan slides may not carry <EncodeInfo>) yields a
-	// non-error nil EncodeInfo and the slide opens normally.
 	encodeInfo, err := loadEncodeInfo(levelIFDs)
 	if err != nil {
 		return nil, err
@@ -137,7 +110,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	}
 	return &Tiler{
 		file:          file,
-		cfg:           cfg,
+		cfg:           nil, // format.Config not stored; cfg param reserved for future knobs
 		iscan:         iscan,
 		gen:           classifyGeneration(iscan),
 		encodeInfo:    encodeInfo,
@@ -146,6 +119,81 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 		image:         newBifImage(levels, levelZeroDepth, zSpacing),
 		associated:    associated,
 	}, nil
+}
+
+// Factory is the FormatFactory implementation for Ventana BIF.
+type Factory struct{ opentile.RawUnsupported }
+
+// New returns a BIF factory. Safe to call once and register globally.
+func New() *Factory { return &Factory{} }
+
+// Format reports the format identifier used by opentile.Tiler.Format().
+func (f *Factory) Format() opentile.Format { return opentile.FormatBIF }
+
+// Supports reports whether file looks like a BIF: BigTIFF with at
+// least one IFD whose XMP packet contains the `<iScan` substring.
+// See Detect for the exact rule and detection-gate verification.
+func (f *Factory) Supports(file *tiff.File) bool {
+	return Detect(file)
+}
+
+// Tiler is the BIF implementation of opentile.Tiler. Built up across
+// v0.7 batches: T10 establishes the skeleton (factory wiring + Open
+// gate); T11 adds generation classification; T12 builds the IFD
+// inventory + pyramid level slice; T13 wires per-Level reads with
+// serpentine remap; T14 wires the empty-tile blank-fill path; T15
+// composes JPEGTables into per-tile bytes when the IFD has a shared
+// header. T16+ surface associated images, metadata, and ICC profile.
+type Tiler struct {
+	file *tiff.File
+	cfg  *format.Config // reserved for future format-level knobs; currently unused
+
+	gen        Generation         // routing decision (T11)
+	iscan      *bifxml.IScan      // parsed IFD-0 metadata block; non-nil after Open
+	encodeInfo *bifxml.EncodeInfo // parsed level-0 IFD's XMP; nil if absent / parse failed
+
+	// IFD inventory (T12); built once at Open time.
+	levelIFDs     []classifiedIFD // pyramid IFDs sorted by parsed level=N
+	associatedIFD []classifiedIFD // label / probability / thumbnail IFDs
+
+	// Constructed Level objects, one per levelIFDs entry. Populated
+	// at Open time (T13); wrapped in a bifImage so Image.SizeZ() and
+	// ZPlaneFocus(z) can return BIF-specific values when the slide
+	// is volumetric (IMAGE_DEPTH > 1).
+	image *bifImage
+
+	// Associated images built from the associatedIFD inventory.
+	// Populated at Open time (T16); typically 2 entries (overview +
+	// {probability | thumbnail}).
+	associated []opentile.AssociatedImage
+
+	// cachedMetadata is built lazily on the first Metadata() /
+	// MetadataOf call (T17). Subsequent calls return the cached
+	// pointer; the struct itself is never mutated.
+	cachedMetadata *Metadata
+}
+
+// Open constructs a BIF Tiler from a parsed TIFF file.
+func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
+	fcfg := opentileConfigToFormatConfig(cfg)
+	return openFromTIFFFile(file, fcfg)
+}
+
+// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
+// into a format.Config. Called from Factory.Open during the dual-registration
+// transition; the new openBIF path receives *format.Config directly.
+func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
+	if cfg == nil {
+		return &format.Config{}
+	}
+	ts, hasTS := cfg.TileSize()
+	return &format.Config{
+		TileSize:             ts,
+		HasTileSize:          hasTS,
+		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
+		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
+		Backing:              cfg.Backing(),
+	}
 }
 
 // bifImage wraps opentile.SingleImage with BIF-specific multi-Z
