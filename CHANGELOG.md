@@ -11,6 +11,39 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-05-23
+
+Decoder + resample lift from wsitools. Adds the read-side codec layer
+that opentile-go v1.0's `*Slide` decoded-pixel methods will consume.
+Pure addition — no public API change, no behavior change for existing
+consumers.
+
+### Added
+
+- New `decoder/` package: public `Decoder` interface, `DecodeOptions`,
+  `Factory` interface, registry (`Register`, `Get`, `GetByCompressionTag`,
+  `Registered`), and `Image` + `PixelFormat` value types.
+- 9 codec subpackages registering against the registry at `init()`:
+  - Pure-Go: `decoder/none`, `decoder/lzw`, `decoder/deflate`.
+  - cgo: `decoder/jpeg` (libjpeg-turbo, with IDCT-time scale factor),
+    `decoder/jpeg2000` (openjp2), `decoder/jpegxl` (libjxl),
+    `decoder/avif` (libavif), `decoder/webp` (libwebp), `decoder/htj2k`
+    (openjph).
+- `decoder/all` — blanket side-effect import for "every codec
+  available."
+- `resample/` package: pure-Go Nearest, Bilinear, Lanczos, and Box
+  (area-averaging) resamplers operating on `decoder.Image`.
+- Per-codec build-tag opt-outs (`nojxl`, `noavif`, `nowebp`, `nohtj2k`)
+  + master `nocgo`. Disabled codecs register a stub that returns
+  `decoder.ErrCodecUnavailable` with a precise rebuild diagnostic.
+
+### Unchanged
+
+- All format readers (`formats/svs/`, `formats/philipstiff/`, etc.) and
+  the public `Tiler` interface.
+- `internal/jpegturbo/`, `internal/tifflzw/`, `internal/jpeg/` —
+  untouched.
+
 ## [0.21.0] — 2026-05-23
 
 Relocation release: repository moved from `github.com/cornish/opentile-go`
@@ -1632,7 +1665,8 @@ Initial functional milestone. Aperio SVS tiled-level passthrough.
 - Three real-slide fixtures: CMU-1-Small-Region.svs, CMU-1.svs (JPEG),
   JP2K-33003-1.svs (JP2K passthrough).
 
-[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.22.0
 [0.21.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.21.0
 [0.20.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.20.1
 [0.20.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.20.0
