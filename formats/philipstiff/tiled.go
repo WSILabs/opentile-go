@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/jpegturbo"
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -46,7 +47,7 @@ type tiledImage struct {
 	counts      []uint64
 	jpegTables  []byte
 	reader      io.ReaderAt
-	cfg         *opentile.Config
+	cfg         *format.Config
 	maxTileSize int // upper bound for Tile/TileInto output
 	// bodyMaxSize is the cached upper bound for on-disk tile bytes:
 	//   max(counts). Strictly less than maxTileSize when the level
@@ -72,7 +73,7 @@ func newTiledImage(
 	baseSize opentile.Size,
 	baseMPP opentile.SizeMm,
 	r io.ReaderAt,
-	cfg *opentile.Config,
+	cfg *format.Config,
 ) (*tiledImage, error) {
 	tw, ok := p.TileWidth()
 	if !ok || tw == 0 {
