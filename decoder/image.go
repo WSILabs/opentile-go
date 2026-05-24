@@ -20,3 +20,32 @@ type Image struct {
 	Format        PixelFormat
 	Pix           []byte // len(Pix) == Stride * Height
 }
+
+// NewImage returns a freshly-allocated Image with PixelFormatRGB and
+// Stride = w * 3. The Pix slice is zero-filled.
+func NewImage(w, h int) *Image {
+	return NewImageFormat(w, h, PixelFormatRGB)
+}
+
+// NewImageFormat returns a freshly-allocated Image with the requested
+// format. Stride is set to the format's bytes-per-pixel times w.
+func NewImageFormat(w, h int, fmt PixelFormat) *Image {
+	bpp := bytesPerPixel(fmt)
+	stride := w * bpp
+	return &Image{
+		Width:  w,
+		Height: h,
+		Stride: stride,
+		Format: fmt,
+		Pix:    make([]byte, stride*h),
+	}
+}
+
+func bytesPerPixel(fmt PixelFormat) int {
+	switch fmt {
+	case PixelFormatRGBA:
+		return 4
+	default:
+		return 3 // PixelFormatRGB
+	}
+}
