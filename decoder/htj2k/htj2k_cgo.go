@@ -3,107 +3,14 @@
 // Package htj2k implements the HTJ2K (High-Throughput JPEG 2000) decoder
 // via OpenJPH (https://github.com/aous72/OpenJPH).
 // TIFF Compression=60003 (wsi-tools private/experimental).
-//
-// NOTE: The cgo build path is a best-effort skeleton — it has NOT been
-// compiled or tested against an installed openjph library. Build with
-// -tags nohtj2k or CGO_ENABLED=0 to use the stub instead.
 package htj2k
 
 /*
 #cgo pkg-config: openjph
 #cgo CXXFLAGS: -std=c++17
-
-#include <stddef.h>
-#include <stdint.h>
+#cgo LDFLAGS: -lc++
 #include <stdlib.h>
-#include <string.h>
-#include <openjph/ojph_codestream.h>
-#include <openjph/ojph_params.h>
-#include <openjph/ojph_mem.h>
-#include <openjph/ojph_file.h>
-
-// NOTE: This shim is a best-effort skeleton based on the openjph API
-// (mirrored from wsitools' encoder shim). It has NOT been compiled or
-// run against an installed openjph library. The decode logic is
-// structurally correct; pixel-level correctness requires testing with
-// real HTJ2K codestreams once openjph is installed on the build host.
-
-// wsi_htj2k_dimensions reads only the codestream header and populates
-// *out_w and *out_h. Returns 0 on success, -1 on error.
-static int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
-                                 int *out_w, int *out_h) {
-    if (!src || src_len == 0 || !out_w || !out_h) return -1;
-    try {
-        using namespace ojph;
-        mem_infile in;
-        in.open(const_cast<uint8_t *>(src), src_len);
-
-        codestream cs;
-        cs.enable_resilience();
-        cs.read_headers(&in);
-
-        param_siz siz = cs.access_siz();
-        *out_w = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
-        *out_h = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
-        return 0;
-    } catch (...) {
-        return -1;
-    }
-}
-
-// wsi_htj2k_decode decodes a HTJ2K codestream into packed RGB888.
-// dst_rgb must be at least dst_stride * (*out_h) bytes; dst_stride >= *out_w * 3.
-// Returns 0 on success, -1 on error.
-static int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
-                              uint8_t *dst_rgb, size_t dst_stride,
-                              int *out_w, int *out_h) {
-    if (!src || src_len == 0 || !dst_rgb || !out_w || !out_h) return -1;
-    try {
-        using namespace ojph;
-        mem_infile in;
-        in.open(const_cast<uint8_t *>(src), src_len);
-
-        codestream cs;
-        cs.enable_resilience();
-        cs.read_headers(&in);
-
-        param_siz siz = cs.access_siz();
-        int w = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
-        int h = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
-        *out_w = w;
-        *out_h = h;
-
-        if (w <= 0 || h <= 0) return -1;
-        if (dst_stride < (size_t)(w * 3)) return -1;
-
-        // set_planar(false): component-interleaved exchange.
-        // For each row push component 0, then 1, then 2 (matching
-        // the encoder's set_planar(false) in wsitools/internal/codec/htj2k/shim.cpp).
-        cs.set_planar(false);
-        cs.create();
-
-        ui32 next_comp = 0;
-        line_buf *cur = cs.exchange(NULL, next_comp);
-        for (int y = 0; y < h; ++y) {
-            for (int c = 0; c < 3; ++c) {
-                if (!cur || !cur->i32) return -1;
-                const si32 *src_line = cur->i32;
-                uint8_t *row = dst_rgb + (size_t)y * dst_stride;
-                for (int x = 0; x < w; ++x) {
-                    int v = src_line[x];
-                    v = v < 0 ? 0 : (v > 255 ? 255 : v);
-                    row[x * 3 + c] = (uint8_t)v;
-                }
-                cur = cs.exchange(cur, next_comp);
-            }
-        }
-
-        cs.close();
-        return 0;
-    } catch (...) {
-        return -1;
-    }
-}
+#include "shim.h"
 */
 import "C"
 
@@ -191,4 +98,28 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 func (d *cgoDecoder) Close() error {
 	d.closed = true
 	return nil
+}
+
+// encodeTestLossless is a test helper that encodes packed RGB888 pixels as a
+// lossless HTJ2K codestream using wsi_htj2k_encode_test. Not part of the
+// public API — used only by htj2k_roundtrip_test.go.
+func encodeTestLossless(rgb []byte, w, h int) ([]byte, error) {
+	if len(rgb) < w*h*3 {
+		return nil, fmt.Errorf("decoder/htj2k: encodeTestLossless: buffer too small")
+	}
+	var outbuf *C.uint8_t
+	var outsize C.size_t
+	rc := C.wsi_htj2k_encode_test(
+		(*C.uint8_t)(unsafe.Pointer(&rgb[0])),
+		C.int(w), C.int(h),
+		&outbuf, &outsize,
+	)
+	runtime.KeepAlive(rgb)
+	if rc != 0 || outbuf == nil || outsize == 0 {
+		return nil, fmt.Errorf("decoder/htj2k: encodeTestLossless failed")
+	}
+	defer C.free(unsafe.Pointer(outbuf))
+	out := make([]byte, int(outsize))
+	copy(out, (*[1 << 30]byte)(unsafe.Pointer(outbuf))[:int(outsize)])
+	return out, nil
 }

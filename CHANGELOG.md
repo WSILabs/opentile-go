@@ -11,6 +11,19 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.22.1] — 2026-05-24
+
+Patch release fixing `decoder/htj2k` cgo compilation against openjph 0.27+.
+
+### Fixed
+
+- `decoder/htj2k` cgo path now properly compiles against openjph 0.27+. v0.22.0
+  inlined C++ headers in cgo's C preamble, which failed with "cstdlib not found"
+  when openjph was present. Moved C++ decode logic to a separate `shim.cpp` with
+  proper Go build constraint and `CXXFLAGS`/`LDFLAGS` configuration. Decode is now
+  real and pixel-correct (lossless round-trip tested). The `nocgo` and `nohtj2k`
+  opt-out stubs are unchanged.
+
 ## [0.22.0] — 2026-05-23
 
 Decoder + resample lift from wsitools. Adds the read-side codec layer
