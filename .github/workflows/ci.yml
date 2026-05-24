@@ -24,23 +24,22 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Install libjpeg-turbo (macOS)
+      - name: Install cgo deps (macOS)
         if: runner.os == 'macOS'
-        run: brew install jpeg-turbo
+        # v0.22+ decoder subpackages add jpeg2000 (openjp2), jpegxl (libjxl),
+        # avif (libavif), webp (libwebp), htj2k (openjph).
+        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
 
-      - name: Install libjpeg-turbo (Linux)
+      - name: Install cgo deps (Linux)
         if: runner.os == 'Linux'
-        # Wrap apt in a 3-attempt retry loop. The Azure-hosted Ubuntu
-        # mirror that GitHub Actions runners use occasionally has
-        # transient DNS resolution failures (observed 2026-05-02 on
-        # the v0.9 merge — 'Temporary failure resolving
-        # azure.archive.ubuntu.com'). The CI rerun succeeded
-        # without code changes, so the right fix is making the
-        # install resilient rather than treating these as code-side
-        # failures.
+        # Ubuntu apt has all the codec libs EXCEPT openjph (HTJ2K).
+        # Use -tags nohtj2k on Linux test/build steps to skip it.
+        # Wrap apt in a 3-attempt retry loop for transient mirror failures.
         run: |
           for i in 1 2 3; do
-            if sudo apt-get update && sudo apt-get install -y libturbojpeg0-dev pkg-config; then
+            if sudo apt-get update && sudo apt-get install -y \
+                libturbojpeg0-dev libopenjp2-7-dev libjxl-dev \
+                libavif-dev libwebp-dev pkg-config; then
               echo "apt install succeeded on attempt $i"
               exit 0
             fi
@@ -51,10 +50,23 @@ jobs:
           exit 1
 
       - name: go vet
+        if: runner.os == 'macOS'
         run: go vet ./...
 
-      - name: go test (cgo, with race)
+      - name: go vet (Linux, nohtj2k)
+        if: runner.os == 'Linux'
+        run: go vet -tags nohtj2k ./...
+
+      - name: go test (cgo, with race) — macOS
+        if: runner.os == 'macOS'
         run: go test ./... -race -count=1 -timeout 5m
+
+      - name: go test (cgo, with race, nohtj2k) — Linux
+        if: runner.os == 'Linux'
+        # openjph not packaged in Ubuntu apt; htj2k cgo path skipped via
+        # the per-codec opt-out tag. The stub still registers; only the
+        # cgo decoder bytes are excluded.
+        run: go test -tags nohtj2k ./... -race -count=1 -timeout 5m
 
       - name: go build (nocgo)
         env:
