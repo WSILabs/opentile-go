@@ -20,6 +20,18 @@ tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 
 `Tile(x, y)` returns the raw compressed bitstream as stored on disk — opentile-go is a tile-extraction library, not a decoder. Decode the returned bytes with whatever JPEG / JPEG 2000 / etc. library suits your downstream pipeline.
 
+**v0.22+ decoded-pixel access (preview):** A `decoder/` package and 9 codec subpackages are now available for callers that want decoded `image.RGBA`-equivalent pixels rather than raw bytes. Add a blanket side-effect import to opt in:
+
+```go
+import (
+    opentile "github.com/wsilabs/opentile-go"
+    _ "github.com/wsilabs/opentile-go/formats/all"
+    _ "github.com/wsilabs/opentile-go/decoder/all" // enables decoded-tile access in v1.0+
+)
+```
+
+The decoded-tile `*Slide` methods that consume this layer are planned for v1.0. See [`decoder/`](./decoder/) and [`resample/`](./resample/) for the current public API.
+
 ## Supported formats
 
 | Format | Extension | Levels | Associated | Compression | Parity bar | Detail |
