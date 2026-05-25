@@ -119,6 +119,12 @@ func (s *Slide) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
 	return s.r.ImageRawTile(image, level, tx, ty)
 }
 
+// ImageRawTileInto fills dst with the compressed tile bytes at the
+// given image, level, and tile coordinates. Returns the byte count written.
+func (s *Slide) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	return s.r.ImageRawTileInto(image, level, tx, ty, dst)
+}
+
 // ImageWarmLevel pre-warms the page cache for the given image + level.
 func (s *Slide) ImageWarmLevel(image, level int) error {
 	return s.r.WarmLevel(image, level)
@@ -130,10 +136,25 @@ func (s *Slide) TilePrefix(level int) []byte {
 	return s.r.ImageTilePrefix(0, level)
 }
 
+// ImageTilePrefix is the multi-image variant of TilePrefix.
+func (s *Slide) ImageTilePrefix(image, level int) []byte {
+	return s.r.ImageTilePrefix(image, level)
+}
+
+// ImageTileMaxSize is the multi-image variant of TileMaxSize.
+func (s *Slide) ImageTileMaxSize(image, level int) int {
+	return s.r.ImageTileMaxSize(image, level)
+}
+
 // TileBodyMaxSize returns the upper bound on tile-body (no prefix) bytes
 // at the given level within image 0.
 func (s *Slide) TileBodyMaxSize(level int) int {
 	return s.r.ImageTileBodyMaxSize(0, level)
+}
+
+// ImageTileBodyMaxSize is the multi-image variant of TileBodyMaxSize.
+func (s *Slide) ImageTileBodyMaxSize(image, level int) int {
+	return s.r.ImageTileBodyMaxSize(image, level)
 }
 
 // TileBodyInto fills dst with the tile body bytes at the given level and
@@ -142,14 +163,29 @@ func (s *Slide) TileBodyInto(level, tx, ty int, dst []byte) (int, error) {
 	return s.r.ImageTileBodyInto(0, level, tx, ty, dst)
 }
 
+// ImageTileBodyInto is the multi-image variant of TileBodyInto.
+func (s *Slide) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	return s.r.ImageTileBodyInto(image, level, tx, ty, dst)
+}
+
 // TileReader returns a streaming io.ReadCloser for the compressed tile
 // at the given level and tile coordinates within image 0.
 func (s *Slide) TileReader(level, tx, ty int) (io.ReadCloser, error) {
 	return s.r.ImageTileReader(0, level, tx, ty)
 }
 
+// ImageTileReader is the multi-image variant of TileReader.
+func (s *Slide) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	return s.r.ImageTileReader(image, level, tx, ty)
+}
+
 // RangeTiles returns a range-over-function iterator over all tiles in
 // the given level within image 0.
 func (s *Slide) RangeTiles(ctx context.Context, level int) iter.Seq2[TilePos, TileResult] {
 	return s.r.ImageRangeTiles(ctx, 0, level)
+}
+
+// ImageRangeTiles is the multi-image variant of RangeTiles.
+func (s *Slide) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[TilePos, TileResult] {
+	return s.r.ImageRangeTiles(ctx, image, level)
 }
