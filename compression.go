@@ -66,6 +66,38 @@ const (
 	CompressionPNG
 )
 
+// CompressionToTIFFTag returns the TIFF Compression tag value that
+// corresponds to c, or 0 if no standard mapping exists.
+// Used internally by *Slide.DecodedTile to dispatch through the
+// decoder package's GetByCompressionTag registry.
+//
+// CompressionIRIS and CompressionPNG return 0 because neither has
+// a TIFF-registered decoder; DecodedTile surfaces ErrCodecNotRegistered
+// for these.
+func CompressionToTIFFTag(c Compression) uint16 {
+	switch c {
+	case CompressionNone:
+		return 1
+	case CompressionLZW:
+		return 5
+	case CompressionJPEG:
+		return 7
+	case CompressionDeflate:
+		return 8
+	case CompressionJP2K:
+		return 33003
+	case CompressionWebP:
+		return 50001
+	case CompressionJPEGXL:
+		return 50002
+	case CompressionAVIF:
+		return 60001
+	case CompressionHTJ2K:
+		return 60003
+	}
+	return 0
+}
+
 func (c Compression) String() string {
 	switch c {
 	case CompressionUnknown:
