@@ -40,6 +40,16 @@ type Level struct {
 	// FocalPlane is the z-position in microns for multi-focal-plane
 	// sources. Zero value for 2D slides.
 	FocalPlane float64
+
+	// Downsample is the resolution factor from L0. 1.0 at level 0,
+	// 2.0 at half-resolution, 4.0 at quarter, etc. Computed at Open
+	// time from the level's Size relative to the image's L0 Size.
+	//
+	// Used by *Slide.BestLevelForDownsample and *Slide.ReadRegionScaled
+	// to translate L0 coords into level coords.
+	//
+	// Added in v0.25 alongside the ReadRegion family.
+	Downsample float64
 }
 
 // AssociatedImage is a non-pyramidal slide-level image (label, overview,

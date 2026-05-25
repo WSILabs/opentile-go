@@ -152,6 +152,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			Compression:  lvl.compression,
 			MPP:          lvl.mpp,
 			FocalPlane:   0,
+			Downsample:   float64(baseSize.W) / float64(lvl.size.W),
 		})
 	}
 
