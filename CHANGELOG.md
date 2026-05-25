@@ -11,6 +11,102 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-05-25
+
+**BREAKING:** Level and Image are now value-type structs. Tile reads
+moved to *Slide. New DecodedTile methods dispatch through the decoder/
+package.
+
+### Removed (BREAKING)
+
+- Level interface — replaced by value-type struct.
+  - `Level.Tile(tx, ty int) ([]byte, error)` — use `*Slide.RawTile`.
+  - `Level.TileInto(tx, ty int, dst []byte) (int, error)` — use `*Slide.RawTileInto`.
+  - `Level.TileAt(coord TileCoord) ([]byte, error)` — use `*Slide.RawTile`.
+  - `Level.Size() Size` — use field `level.Size`.
+  - `Level.TileSize() Size` — use field `level.TileSize`.
+  - `Level.Grid() Size` — use field `level.Grid`.
+  - `Level.Compression() Compression` — use field `level.Compression`.
+  - `Level.Index() int` — use field `level.Index`.
+  - `Level.PyramidIndex() int` — use field `level.PyramidIndex`.
+  - `Level.MPP() SizeMm` — use field `level.MPP`.
+  - `Level.FocalPlane() float64` — use field `level.FocalPlane`.
+  - `Level.TileOverlap() image.Point` — use field `level.TileOverlap`.
+  - `Level.TileMaxSize() int` — use `*Slide.TileMaxSize`.
+  - `Level.TilePrefix() []byte` — use `*Slide.TilePrefix`.
+  - `Level.TileBodyMaxSize() int` — use `*Slide.TileBodyMaxSize`.
+  - `Level.TileBodyInto(tx, ty int, dst []byte) (int, error)` — use `*Slide.TileBodyInto`.
+  - `Level.TileReader(tx, ty int) (io.ReadCloser, error)` — use `*Slide.TileReader`.
+  - `Level.Tiles(ctx context.Context) iter.Seq2[TilePos, TileResult]` — use `*Slide.RangeTiles`.
+- Image interface — replaced by value-type struct.
+  - `Image.Name() string` — use field `image.Name`.
+  - `Image.Index() int` — use field `image.Index`.
+  - `Image.Levels() []Level` — use field `image.Levels`.
+
+### Added
+
+- Value-type `opentile.Level` struct with inspection fields (Index,
+  PyramidIndex, Size, TileSize, Grid, Compression, MPP, FocalPlane,
+  TileOverlap).
+- Value-type `opentile.Image` struct (Name, Index, Levels).
+- `(*Slide).RawTile(level, tx, ty int) ([]byte, error)` — raw tile
+  bytes at the given level.
+- `(*Slide).RawTileInto(level, tx, ty int, dst []byte) (int, error)` —
+  fill caller-provided buffer with raw tile bytes.
+- `(*Slide).ImageRawTile(image, level, tx, ty int) ([]byte, error)` —
+  multi-image variant.
+- `(*Slide).ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error)` —
+  multi-image fill variant.
+- `(*Slide).DecodedTile(level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error)` —
+  raw tile → decoded RGB (or RGBA) pixels via the v0.22 decoder
+  registry. Requires a blank-import of one of the decoder subpackages
+  (e.g., `decoder/jpeg`) or `decoder/all`.
+- `(*Slide).DecodedTileInto(level, tx, ty int, dst *decoder.Image, opts ...DecodeOption) error` —
+  decode into caller-provided destination Image.
+- `(*Slide).ImageDecodedTile` and `(*Slide).ImageDecodedTileInto` —
+  multi-image variants.
+- `opentile.DecodeOption` functional-options type with `WithFormat` and
+  `WithScale` helpers.
+- `opentile.ErrCodecNotRegistered` sentinel error returned when
+  DecodedTile is called and no decoder is registered for the level's
+  Compression. Error message includes the rebuild diagnostic.
+
+### Migration guide
+
+| Before (v0.23)                              | After (v0.24)                            |
+|---------------------------------------------|------------------------------------------|
+| `slide.Levels()[i].Tile(tx, ty)`            | `slide.RawTile(i, tx, ty)`               |
+| `slide.Levels()[i].TileInto(tx, ty, dst)`   | `slide.RawTileInto(i, tx, ty, dst)`      |
+| `slide.Levels()[i].Size()`                  | `slide.Levels()[i].Size`                 |
+| `slide.Levels()[i].Compression()`           | `slide.Levels()[i].Compression`          |
+| (and similar for TileSize, Grid, MPP, etc.) | field access                             |
+| (no v0.23 equivalent)                       | `slide.DecodedTile(i, tx, ty)` — new     |
+
+To enable DecodedTile, blank-import a decoder subpackage:
+
+```go
+import _ "github.com/wsilabs/opentile-go/decoder/all"  // or specific codecs
+```
+
+### Unchanged
+
+- `*Slide` construction (OpenFile, Open).
+- Format detection and dispatch (no format-package public surface
+  change beyond the Reader interface in `internal/format`).
+- Raw tile bytes — byte-identical to v0.23 output (verified by parity
+  tests).
+- pre-v0.24 binaries continue to function; only source-level
+  migration is required.
+
+### Why this change
+
+Per the strategic-direction sketch (wsitools/docs/strategic-direction.md
+§1), Level-as-value-type lets *Slide grow new methods (DecodedTile,
+ReadRegion, ScaledStrips) without requiring every format package to
+implement them. This is the second installment of the v1.0 redesign;
+v0.25 will add ReadRegion, v0.26 ScaledStrips with parallel decode +
+cache + lookahead.
+
 ## [0.23.0] — 2026-05-24
 
 **BREAKING:** Replaced the public `Tiler` interface with a `*Slide` struct.
@@ -1759,7 +1855,8 @@ Initial functional milestone. Aperio SVS tiled-level passthrough.
 - Three real-slide fixtures: CMU-1-Small-Region.svs, CMU-1.svs (JPEG),
   JP2K-33003-1.svs (JP2K passthrough).
 
-[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/WSILabs/opentile-go/releases/tag/v0.24.0
 [0.23.0]: https://github.com/WSILabs/opentile-go/releases/tag/v0.23.0
 [0.22.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.22.1
 [0.22.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.22.0
