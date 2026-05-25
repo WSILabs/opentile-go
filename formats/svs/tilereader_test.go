@@ -10,13 +10,10 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
-	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
-// TestSVSTileReaderMatchesTile locks in that Level.TileReader returns the
-// same bytes as Level.Tile for every level of a real SVS slide. v0.2 had no
-// direct test for TileReader; correctness was inferred from the integration
-// suite via Tile-only checks.
+// TestSVSTileReaderMatchesTile locks in that TileReader returns the
+// same bytes as RawTile for every level of a real SVS slide.
 func TestSVSTileReaderMatchesTile(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -31,13 +28,13 @@ func TestSVSTileReaderMatchesTile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	for i, lvl := range tiler.Levels() {
-		direct, err := lvl.Tile(0, 0)
+	for i := range tiler.Levels() {
+		direct, err := tiler.RawTile(i, 0, 0)
 		if err != nil {
-			t.Errorf("Tile(0,0) level %d: %v", i, err)
+			t.Errorf("RawTile(0,0) level %d: %v", i, err)
 			continue
 		}
-		rc, err := lvl.TileReader(0, 0)
+		rc, err := tiler.TileReader(i, 0, 0)
 		if err != nil {
 			t.Errorf("TileReader(0,0) level %d: %v", i, err)
 			continue
@@ -49,14 +46,14 @@ func TestSVSTileReaderMatchesTile(t *testing.T) {
 			continue
 		}
 		if !bytes.Equal(direct, streamed) {
-			t.Errorf("level %d: TileReader bytes (%d) != Tile bytes (%d)",
+			t.Errorf("level %d: TileReader bytes (%d) != RawTile bytes (%d)",
 				i, len(streamed), len(direct))
 		}
 	}
 }
 
-// TestSVSTilesIterRowMajor locks in that Level.Tiles yields every (x,y)
-// position in row-major order with byte-identical content to Tile(x,y) at
+// TestSVSTilesIterRowMajor locks in that RangeTiles yields every (x,y)
+// position in row-major order with byte-identical content to RawTile(x,y) at
 // the same position. Exercised on L0 of CMU-1-Small-Region.svs (12 tiles —
 // small enough for a full walk).
 func TestSVSTilesIterRowMajor(t *testing.T) {
@@ -77,7 +74,7 @@ func TestSVSTilesIterRowMajor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := lvl.Grid()
+	g := lvl.Grid
 	want := make([]opentile.TilePos, 0, g.W*g.H)
 	for y := 0; y < g.H; y++ {
 		for x := 0; x < g.W; x++ {
@@ -85,18 +82,18 @@ func TestSVSTilesIterRowMajor(t *testing.T) {
 		}
 	}
 	got := make([]opentile.TilePos, 0, len(want))
-	for pos, res := range lvl.Tiles(context.Background()) {
+	for pos, res := range tiler.RangeTiles(context.Background(), 0) {
 		if res.Err != nil {
-			t.Errorf("Tiles iter at %v: %v", pos, res.Err)
+			t.Errorf("RangeTiles iter at %v: %v", pos, res.Err)
 			continue
 		}
-		direct, err := lvl.Tile(pos.X, pos.Y)
+		direct, err := tiler.RawTile(0, pos.X, pos.Y)
 		if err != nil {
-			t.Errorf("Tile(%d,%d): %v", pos.X, pos.Y, err)
+			t.Errorf("RawTile(%d,%d): %v", pos.X, pos.Y, err)
 			continue
 		}
 		if !bytes.Equal(direct, res.Bytes) {
-			t.Errorf("tile (%d,%d): iter bytes (%d) != Tile bytes (%d)",
+			t.Errorf("tile (%d,%d): iter bytes (%d) != RawTile bytes (%d)",
 				pos.X, pos.Y, len(res.Bytes), len(direct))
 		}
 		got = append(got, pos)
@@ -115,7 +112,7 @@ func firstN(s []opentile.TilePos, n int) []opentile.TilePos {
 }
 
 // TestSpliceReconstitutionInvariant verifies the v0.13 invariant:
-// SpliceJPEGTile(TilePrefix(), TileBodyInto(p)) ==byte== Tile(p)
+// SpliceJPEGTile(TilePrefix(li), TileBodyInto(li, p)) ==byte== RawTile(li, p)
 // for sampled positions on every pyramid level of CMU-1-Small-Region.svs.
 func TestSpliceReconstitutionInvariant(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
@@ -133,13 +130,13 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 	defer tiler.Close()
 
 	for li, lvl := range tiler.Levels() {
-		prefix := lvl.TilePrefix()
+		prefix := tiler.TilePrefix(li)
 		if len(prefix) == 0 {
 			t.Errorf("L%d: TilePrefix is empty (SVS pyramid levels always have shared JPEGTables)", li)
 			continue
 		}
-		bodyBuf := make([]byte, lvl.TileBodyMaxSize())
-		grid := lvl.Grid()
+		bodyBuf := make([]byte, tiler.TileBodyMaxSize(li))
+		grid := lvl.Grid
 		if grid.W == 0 || grid.H == 0 {
 			continue
 		}
@@ -153,11 +150,11 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 			positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
 		}
 		for _, p := range positions {
-			full, errFull := lvl.Tile(p.x, p.y)
+			full, errFull := tiler.RawTile(li, p.x, p.y)
 			if errFull != nil {
 				continue
 			}
-			n, errBody := lvl.TileBodyInto(p.x, p.y, bodyBuf)
+			n, errBody := tiler.TileBodyInto(li, p.x, p.y, bodyBuf)
 			if errBody != nil {
 				t.Errorf("L%d (%d,%d) TileBodyInto: %v", li, p.x, p.y, errBody)
 				continue
@@ -168,7 +165,7 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 				continue
 			}
 			if !bytes.Equal(full, reconstituted) {
-				t.Errorf("L%d (%d,%d): reconstituted (%d bytes) != Tile() (%d bytes)",
+				t.Errorf("L%d (%d,%d): reconstituted (%d bytes) != RawTile() (%d bytes)",
 					li, p.x, p.y, len(reconstituted), len(full))
 			}
 		}

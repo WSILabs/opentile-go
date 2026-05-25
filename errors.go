@@ -13,6 +13,7 @@ var (
 	ErrTileOutOfBounds        = errors.New("opentile: tile position out of bounds")
 	ErrCorruptTile            = errors.New("opentile: corrupt tile")
 	ErrLevelOutOfRange        = errors.New("opentile: level index out of range")
+	ErrImageIndexOutOfRange   = errors.New("opentile: image index out of range")
 	ErrInvalidTIFF            = errors.New("opentile: invalid TIFF structure")
 
 	// ErrTooManyIFDs is returned when a TIFF IFD chain exceeds the safety cap
