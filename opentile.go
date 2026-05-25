@@ -76,7 +76,7 @@ func Formats() []Format {
 	return out
 }
 
-// Open parses r as a WSI file and returns a Tiler for the matching format.
+// Open parses r as a WSI file and returns a *Slide for the matching format.
 // size is the total file size in bytes.
 //
 // Dispatch order: each registered factory's SupportsRaw is queried first
@@ -85,8 +85,19 @@ func Formats() []Format {
 // and each factory's Supports is queried against the parsed *tiff.File.
 // The first non-TIFF format using the SupportsRaw path is Iris IFE in
 // v0.8.
-func Open(r io.ReaderAt, size int64, opts ...Option) (Tiler, error) {
+func Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error) {
 	cfg := newConfig(opts)
+	tiler, err := openRaw(r, size, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Slide{r: tilerAsReader(tiler)}, nil
+}
+
+// openRaw is the internal dispatch that returns a Tiler from the
+// legacy FormatFactory registry. Kept separate so opentile_test.go
+// tests can keep exercising the old registry; T3.2 will collapse this.
+func openRaw(r io.ReaderAt, size int64, cfg *config) (Tiler, error) {
 	registryMu.RLock()
 	factories := append([]FormatFactory(nil), registry...)
 	registryMu.RUnlock()
@@ -139,7 +150,7 @@ func Open(r io.ReaderAt, size int64, opts ...Option) (Tiler, error) {
 //     Tile() calls into the truncated region raise SIGBUS in the
 //     calling thread. WSI files don't get truncated under normal
 //     use; if your storage allows it, use BackingPread.
-func OpenFile(path string, opts ...Option) (Tiler, error) {
+func OpenFile(path string, opts ...Option) (*Slide, error) {
 	cfg := newConfig(opts)
 	switch cfg.backing {
 	case BackingMmap:
@@ -154,7 +165,7 @@ func OpenFile(path string, opts ...Option) (Tiler, error) {
 // openFilePread is the v0.8 (and earlier) os.File + pread(2) path.
 // Active when WithBacking(BackingPread) is passed; also the
 // fallback target if a future mmap-backed code path wants to retry.
-func openFilePread(path string, opts []Option) (Tiler, error) {
+func openFilePread(path string, opts []Option) (*Slide, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opentile: open %q: %w", path, err)
@@ -164,29 +175,33 @@ func openFilePread(path string, opts []Option) (Tiler, error) {
 		f.Close()
 		return nil, fmt.Errorf("opentile: stat %q: %w", path, err)
 	}
-	t, err := Open(f, info.Size(), opts...)
+	cfg := newConfig(opts)
+	tiler, err := openRaw(f, info.Size(), cfg)
 	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("opentile: %s: %w", path, err)
 	}
-	return &fileCloser{Tiler: t, f: f}, nil
+	fc := &fileCloser{Tiler: tiler, f: f}
+	return &Slide{r: tilerAsReader(fc)}, nil
 }
 
 // openFileMmap is the v0.9 default path. Memory-maps the file and
 // passes the resulting *tiff.MmapFile (which implements io.ReaderAt
 // + io.Closer) to Open. The returned Tiler owns the mapping; Close
 // unmaps and releases the underlying file.
-func openFileMmap(path string, opts []Option) (Tiler, error) {
+func openFileMmap(path string, opts []Option) (*Slide, error) {
 	m, err := tiff.OpenMmap(path)
 	if err != nil {
 		return nil, fmt.Errorf("opentile: %s: %w: %v", path, ErrMmapUnavailable, err)
 	}
-	t, err := Open(m, m.Size(), opts...)
+	cfg := newConfig(opts)
+	tiler, err := openRaw(m, m.Size(), cfg)
 	if err != nil {
 		m.Close()
 		return nil, fmt.Errorf("opentile: %s: %w", path, err)
 	}
-	return &mmapCloser{Tiler: t, m: m}, nil
+	mc := &mmapCloser{Tiler: tiler, m: m}
+	return &Slide{r: tilerAsReader(mc)}, nil
 }
 
 // fileCloser overrides Close to also close the underlying file.
