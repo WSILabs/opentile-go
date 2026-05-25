@@ -16,7 +16,7 @@ import (
 // struct; BIF-specific fields (Generation, ScanRes, ScanWhitePoint,
 // AOIs, ImageDescription) live on the outer struct.
 //
-// Consumers read the common fields via opentile.Tiler.Metadata() as
+// Consumers read the common fields via opentile.Slide.Metadata() as
 // usual; to read the BIF-specific fields, pass the Tiler to
 // bif.MetadataOf.
 type Metadata struct {
@@ -80,36 +80,25 @@ type Metadata struct {
 	EncodeInfoVer int
 }
 
-// tilerUnwrapper matches the unexported wrapper interface returned
-// by opentile.OpenFile. Mirrors svs.tilerUnwrapper.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
+const maxUnwrapHops = 16
 
-// maxTilerUnwrapHops caps the number of UnwrapTiler calls MetadataOf
-// will make. The realistic chain length is 1 (just the file-closer
-// wrapper); 16 is ample headroom while still preventing infinite
-// loops on a wrapper that cycles.
-const maxTilerUnwrapHops = 16
-
-// MetadataOf returns the BIF-specific metadata if t is a BIF Tiler,
-// otherwise (nil, false). Walks any number of wrappers (e.g., the
-// file-closer wrapper returned by opentile.OpenFile) before
-// asserting on the concrete type. Mirrors svs.MetadataOf.
+// MetadataOf returns the BIF-specific metadata if v is (or wraps) a BIF
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-//	if md, ok := bif.MetadataOf(tiler); ok {
+//	if md, ok := bif.MetadataOf(slide); ok {
 //	    use md.Generation, md.ScanRes, ...
 //	}
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if bt, ok := t.(*Tiler); ok {
+func MetadataOf(v any) (*Metadata, bool) {
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if bt, ok := v.(*Tiler); ok {
 			return bt.metadata(), true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }

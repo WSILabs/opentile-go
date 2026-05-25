@@ -31,8 +31,6 @@ import (
 var _ format.Reader = (*Tiler)(nil)
 
 func init() {
-	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
-	opentile.Register(&Factory{})
 	format.Register("bif", matchBIF, openBIF)
 }
 
@@ -121,23 +119,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}, nil
 }
 
-// Factory is the FormatFactory implementation for Ventana BIF.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns a BIF factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatBIF }
-
-// Supports reports whether file looks like a BIF: BigTIFF with at
-// least one IFD whose XMP packet contains the `<iScan` substring.
-// See Detect for the exact rule and detection-gate verification.
-func (f *Factory) Supports(file *tiff.File) bool {
-	return Detect(file)
-}
-
-// Tiler is the BIF implementation of opentile.Tiler. Built up across
+// Tiler is the BIF implementation of format.Reader. Built up across
 // v0.7 batches: T10 establishes the skeleton (factory wiring + Open
 // gate); T11 adds generation classification; T12 builds the IFD
 // inventory + pyramid level slice; T13 wires per-Level reads with
@@ -173,28 +155,6 @@ type Tiler struct {
 	cachedMetadata *Metadata
 }
 
-// Open constructs a BIF Tiler from a parsed TIFF file.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	fcfg := opentileConfigToFormatConfig(cfg)
-	return openFromTIFFFile(file, fcfg)
-}
-
-// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
-// into a format.Config. Called from Factory.Open during the dual-registration
-// transition; the new openBIF path receives *format.Config directly.
-func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
-	if cfg == nil {
-		return &format.Config{}
-	}
-	ts, hasTS := cfg.TileSize()
-	return &format.Config{
-		TileSize:             ts,
-		HasTileSize:          hasTS,
-		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
-		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
-		Backing:              cfg.Backing(),
-	}
-}
 
 // bifImage wraps opentile.SingleImage with BIF-specific multi-Z
 // accessors. SingleImage carries the level chain + Index/Name/MPP

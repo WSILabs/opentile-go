@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/cog"
 	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -15,8 +14,6 @@ import (
 var _ format.Reader = (*Tiler)(nil)
 
 func init() {
-	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
-	opentile.Register(&Factory{})
 	format.Register("cogwsi", matchCOGWSI, openCOGWSIFormat)
 }
 
@@ -46,56 +43,12 @@ func openCOGWSIFormat(r io.ReaderAt, size int64, cfg *format.Config) (format.Rea
 	return openCOGWSIFromFile(file, cfg)
 }
 
-// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
-// into a format.Config. Called from Factory.Open during the dual-registration
-// transition; the new openCOGWSIFormat path receives *format.Config directly.
-func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
-	if cfg == nil {
-		return &format.Config{}
-	}
-	ts, hasTS := cfg.TileSize()
-	return &format.Config{
-		TileSize:             ts,
-		HasTileSize:          hasTS,
-		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
-		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
-		Backing:              cfg.Backing(),
-	}
-}
-
 // GhostAreaMaxBytes caps the number of bytes read from the
 // position immediately after the TIFF header when probing for a
 // GDAL ghost area. Real ghost areas are typically <200 bytes; this
 // generous upper bound protects against malformed files declaring
 // implausible sizes.
 const GhostAreaMaxBytes = 16384
-
-// Factory implements opentile.FormatFactory for COG-WSI files.
-type Factory struct{ opentile.RawUnsupported }
-
-// New constructs a COG-WSI Factory ready for registration.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier for COG-WSI files.
-func (f *Factory) Format() opentile.Format { return opentile.FormatCOGWSI }
-
-// Supports is the TIFF-path entry point. Reads the ghost area
-// (after the TIFF header) and returns true iff the COG_WSI_VERSION
-// key is present.
-func (f *Factory) Supports(tf *tiff.File) bool {
-	ghost, err := readGhostArea(tf)
-	if err != nil {
-		return false
-	}
-	return ghost.COGWSIVersion != ""
-}
-
-// Open parses a COG-WSI file. Validates spec conformance and
-// returns ErrNotConformantCOGWSI on violations.
-func (f *Factory) Open(tf *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	fcfg := opentileConfigToFormatConfig(cfg)
-	return openCOGWSIFromFile(tf, fcfg)
-}
 
 // readGhostArea reads the ghost-area bytes from the file. The
 // ghost area starts immediately after the TIFF header: offset 8

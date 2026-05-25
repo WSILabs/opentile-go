@@ -460,7 +460,7 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper := &testWrapper{Tiler: t1}
+	wrapper := &testWrapper{inner: t1}
 	md, ok := MetadataOf(wrapper)
 	if !ok {
 		t.Fatal("MetadataOf through wrapper: !ok")
@@ -469,11 +469,11 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 		t.Errorf("Mag(hdr) = %v", md.MagnificationFromHeader)
 	}
 
-	// Non-IFE Tiler returns false.
-	type notIFE struct{ opentile.Tiler }
+	// Non-IFE type returns false.
+	type notIFE struct{}
 	_, ok = MetadataOf(notIFE{})
 	if ok {
-		t.Error("MetadataOf on non-IFE Tiler returned true")
+		t.Error("MetadataOf on non-IFE type returned true")
 	}
 
 	// nil → false (don't panic).
@@ -483,10 +483,10 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 	}
 }
 
-// testWrapper satisfies the unwrap interface that fileCloser uses.
-type testWrapper struct{ opentile.Tiler }
+// testWrapper satisfies the unwrap interface that MetadataOf uses.
+type testWrapper struct{ inner any }
 
-func (w *testWrapper) UnwrapTiler() opentile.Tiler { return w.Tiler }
+func (w *testWrapper) UnwrapReader() any { return w.inner }
 
 // Smoke: errors propagate to compatible errors.Is targets; the
 // mismatch errors are bare strings (not wrapped sentinels) by design,

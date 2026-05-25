@@ -7,6 +7,7 @@ import (
 
 	opentile "github.com/wsilabs/opentile-go"
 	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/internal/format"
 )
 
 func TestOpenFileNonexistent(t *testing.T) {
@@ -17,15 +18,12 @@ func TestOpenFileNonexistent(t *testing.T) {
 }
 
 func TestOpenEmptyReader(t *testing.T) {
-	// An empty reader has no format magic bytes. The old factory dispatch
-	// path (preserved for the v0.23 transition) hands it to tiff.Open,
-	// which returns ErrInvalidTIFF. After T3.2 this will become
-	// ErrUnknownFormat via format.OpenAny.
+	// An empty reader has no format magic bytes; no format should claim it.
 	_, err := opentile.Open(bytes.NewReader(nil), 0)
 	if err == nil {
 		t.Fatalf("Open(empty): expected error, got nil")
 	}
-	if !errors.Is(err, opentile.ErrUnsupportedFormat) && !errors.Is(err, opentile.ErrInvalidTIFF) {
-		t.Errorf("Open(empty): got %v, want ErrUnsupportedFormat or ErrInvalidTIFF", err)
+	if !errors.Is(err, format.ErrUnknownFormat) {
+		t.Errorf("Open(empty): got %v, want format.ErrUnknownFormat", err)
 	}
 }

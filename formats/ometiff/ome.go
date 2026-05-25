@@ -9,7 +9,7 @@
 // (see docs/deferred.md §8f). One deliberate deviation: multi-image
 // OME files (where several main pyramids share a single TIFF
 // container — Leica-2.ome.tiff is one) expose every pyramid via the
-// new opentile.Tiler.Images() API. Upstream's base Tiler loop
+// new format.Reader.Images() API. Upstream's base Tiler loop
 // silently overwrites _level_series_index on each match and surfaces
 // only the last main pyramid; we treat that as an upstream oversight
 // rather than intentional behaviour.
@@ -18,7 +18,6 @@ package ometiff
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -32,69 +31,25 @@ import (
 //	return self.description[-10:].strip().endswith('OME>')
 const omeDescriptionSuffix = "OME>"
 
-// Factory is the FormatFactory implementation for OME TIFF.
-type Factory struct{ opentile.RawUnsupported }
+const maxUnwrapHops = 16
 
-// New returns an OME factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatOMETIFF }
-
-// Supports reports whether file looks like an OME TIFF: its first
-// page's ImageDescription's last 10 characters, after stripping
-// trailing whitespace, end with `OME>` (i.e. the closing tag of the
-// `<OME>` root element). Direct port of tifffile's `is_ome`
-// predicate.
-func (f *Factory) Supports(file *tiff.File) bool {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return false
-	}
-	desc, ok := pages[0].ImageDescription()
-	if !ok || desc == "" {
-		return false
-	}
-	tail := desc
-	if len(tail) > 10 {
-		tail = tail[len(tail)-10:]
-	}
-	return strings.HasSuffix(strings.TrimSpace(tail), omeDescriptionSuffix)
-}
-
-// Open constructs an OME Tiler from a parsed TIFF file. Delegates to
-// openFromTIFFFile which is shared with the new format.Register path.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	fcfg := opentileConfigToFormatConfig(cfg)
-	return openFromTIFFFile(file, fcfg)
-}
-
-// tilerUnwrapper is the same coordination interface SVS / NDPI / Philips
-// use to peel off opentile's *fileCloser wrapper before MetadataOf can
-// type-assert on the concrete *tiler.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
-
-const maxTilerUnwrapHops = 16
-
-// MetadataOf returns the OME-specific metadata if t is an OME Tiler,
-// otherwise (nil, false). Walks any number of wrappers before
-// asserting on the concrete type.
+// MetadataOf returns the OME-specific metadata if v is (or wraps) an OME
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-//	if md, ok := ometiff.MetadataOf(tiler); ok {
+//	if md, ok := ometiff.MetadataOf(slide); ok {
 //	    fmt.Println("OME images:", len(md.Images))
 //	}
-func MetadataOf(t opentile.Tiler) (*OMEMetadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if ot, ok := t.(*tiler); ok {
+func MetadataOf(v any) (*OMEMetadata, bool) {
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if ot, ok := v.(*tiler); ok {
 			return &ot.md, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }
@@ -106,7 +61,7 @@ func MetadataOf(t opentile.Tiler) (*OMEMetadata, bool) {
 // in OmeTiffTiler.get_level (ome_tiff_tiler.py:128) regardless of
 // the user's tile_size argument. We deliberately ignore cfg.TileSize
 // for OME; it's a no-op on this format.
-func defaultOneFrameTileSize(pages []*tiff.Page, levelImageIndices []int, _ *opentile.Config) (opentile.Size, error) {
+func defaultOneFrameTileSize(pages []*tiff.Page, levelImageIndices []int) (opentile.Size, error) {
 	if len(levelImageIndices) == 0 {
 		return opentile.Size{}, errors.New("ome: cannot derive tile size — no main pyramids")
 	}
@@ -241,7 +196,7 @@ func max1(n int) int {
 	return n
 }
 
-// tiler is the OME implementation of opentile.Tiler.
+// tiler is the OME implementation of format.Reader.
 type tiler struct {
 	md         OMEMetadata
 	cross      opentile.Metadata // v0.17 cross-format view; populated from md at Open time

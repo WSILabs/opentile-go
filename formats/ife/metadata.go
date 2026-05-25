@@ -617,33 +617,24 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 	return out, nil
 }
 
-// MetadataOf returns the IFE-specific metadata if t is an IFE Tiler,
-// otherwise (nil, false). Walks any number of opentile wrappers
-// (e.g. the *fileCloser returned by opentile.OpenFile) before
-// asserting on the concrete type.
+// MetadataOf returns the IFE-specific metadata if v is (or wraps) an IFE
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-//	if md, ok := ife.MetadataOf(tiler); ok {
+//	if md, ok := ife.MetadataOf(slide); ok {
 //	    fmt.Println(md.MicronsPerPixel, md.Attributes["aperio.AppMag"])
 //	}
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if ifeT, ok := t.(*tiler); ok {
+func MetadataOf(v any) (*Metadata, bool) {
+	const maxUnwrapHops = 16
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if ifeT, ok := v.(*tiler); ok {
 			return &ifeT.md, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }
-
-// tilerUnwrapper mirrors the unexported coordination interface from
-// the other format packages. opentile-go's *fileCloser implements it
-// so MetadataOf works whether the caller used Open or OpenFile.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
-
-const maxTilerUnwrapHops = 16

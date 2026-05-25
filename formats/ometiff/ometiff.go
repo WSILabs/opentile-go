@@ -14,8 +14,6 @@ import (
 var _ format.Reader = (*tiler)(nil)
 
 func init() {
-	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
-	opentile.Register(&Factory{})
 	format.Register("ometiff", matchOMETIFF, openOMETIFFFormat)
 }
 
@@ -168,19 +166,3 @@ func defaultOneFrameTileSizeFromFile(pages []*tiff.Page, levelImageIndices []int
 	return opentile.Size{W: int(tw), H: int(tl)}, nil
 }
 
-// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
-// into a format.Config. Called from Factory.Open during the dual-registration
-// transition; the new openOMETIFFFormat path receives *format.Config directly.
-func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
-	if cfg == nil {
-		return &format.Config{}
-	}
-	ts, hasTS := cfg.TileSize()
-	return &format.Config{
-		TileSize:             ts,
-		HasTileSize:          hasTS,
-		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
-		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
-		Backing:              cfg.Backing(),
-	}
-}

@@ -1,10 +1,10 @@
 package opentile
 
-// slideReader is an unexported interface with the same method set as
-// format.Reader. Slide uses this type for its field so that opentile
-// does not import internal/format (which imports opentile, creating a
-// cycle). Every format.Reader automatically satisfies slideReader
-// because the method sets are identical.
+// slideReader is the unexported interface with the same method set as
+// internal/format.Reader. Slide uses this type so that the opentile package
+// does not need to import internal/format (which imports opentile, creating a
+// cycle). Any format.Reader automatically satisfies slideReader because the
+// method sets are identical.
 type slideReader interface {
 	Format() Format
 	Images() []Image
@@ -22,9 +22,10 @@ type slideReader interface {
 // pre-v0.23 Tiler interface as the public return type of Open and
 // OpenFile.
 //
-// Concurrency contract: see Tiler for per-method threading promises.
-// Slide preserves them verbatim; it is a thin forwarder over the
-// format-specific reader.
+// Concurrency contract: all accessor methods (Format, Images, Levels,
+// Level, Associated, Metadata, ICCProfile) are safe to call concurrently.
+// Tile reads via Level.Tile and Level.TileInto are safe concurrently.
+// Close must not race with in-flight tile reads.
 type Slide struct {
 	r slideReader
 }
@@ -54,19 +55,8 @@ func (s *Slide) Metadata() Metadata { return s.r.Metadata() }
 // slide has none.
 func (s *Slide) ICCProfile() []byte { return s.r.ICCProfile() }
 
-// WarmLevel pre-warms the page cache for level i. Hint-only; see
-// Tiler.WarmLevel for semantics.
+// WarmLevel pre-warms the page cache for level i. Hint-only.
 func (s *Slide) WarmLevel(i int) error { return s.r.WarmLevel(i) }
 
 // Close releases resources held by the slide.
 func (s *Slide) Close() error { return s.r.Close() }
-
-// tilerAsReader converts an opentile.Tiler to a slideReader. Used
-// during the v0.23 transition where the old factory dispatch returns
-// Tiler but Slide wraps slideReader. Method sets are identical so
-// the type assertion always succeeds for every format package that has
-// been dual-registered in Phase 2.
-func tilerAsReader(t Tiler) slideReader {
-	return t
-}
-

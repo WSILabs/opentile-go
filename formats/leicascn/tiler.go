@@ -85,38 +85,25 @@ type ChannelInfo struct {
 	CCDGain            int
 }
 
-// tilerUnwrapper is the unexported wrapper interface implemented by
-// *fileCloser (returned by opentile.OpenFile). Mirrors the pattern
-// used in svs/bif/ome/philips/ndpi/generictiff.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
-
-// maxTilerUnwrapHops caps the unwrap walk in [MetadataOf]. The
-// realistic chain length is 1 (just *fileCloser); 16 is ample
-// headroom while still preventing infinite loops on a wrapper that
-// cycles.
-const maxTilerUnwrapHops = 16
-
-// MetadataOf returns the SCN-specific metadata if t is a Leica SCN
-// Tiler, otherwise (nil, false). Walks any number of wrappers
-// (e.g., the *fileCloser returned by opentile.OpenFile) before
-// asserting on the concrete type.
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if st, ok := t.(*tiler); ok {
+// MetadataOf returns the SCN-specific metadata if v is (or wraps) a Leica SCN
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
+func MetadataOf(v any) (*Metadata, bool) {
+	const maxUnwrapHops = 16
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if st, ok := v.(*tiler); ok {
 			return &st.md, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }
 
-// tiler is the Leica SCN implementation of opentile.Tiler.
+// tiler is the Leica SCN implementation of format.Reader.
 type tiler struct {
 	md         Metadata
 	levels     []opentile.Level

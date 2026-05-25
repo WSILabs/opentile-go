@@ -27,8 +27,6 @@ import (
 var _ format.Reader = (*tiler)(nil)
 
 func init() {
-	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
-	opentile.Register(&Factory{})
 	format.Register("ndpi", matchNDPI, openNDPI)
 }
 
@@ -181,52 +179,3 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	return &tiler{md: md, levels: levels, associated: associated}, nil
 }
 
-// Factory is the FormatFactory implementation for NDPI. Preserved for the
-// dual-registration transition period; removed once tiler.go deletion lands.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns an NDPI factory. Safe to register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatNDPI }
-
-// Supports reports whether file looks like an NDPI. Per tifffile line 10608:
-// NDPI requires BOTH FileFormat (65420) AND Make (271).
-func (f *Factory) Supports(file *tiff.File) bool {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return false
-	}
-	p := pages[0]
-	if _, ok := p.ScalarU32(tagFileFormat); !ok {
-		return false
-	}
-	if _, ok := p.ASCII(tagMake); !ok {
-		return false
-	}
-	return true
-}
-
-// Open constructs an NDPI Tiler from a parsed TIFF file.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	fcfg := opentileConfigToFormatConfig(cfg)
-	return openFromTIFFFile(file, fcfg)
-}
-
-// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
-// into a format.Config. Called from Factory.Open during the dual-registration
-// transition; the new openNDPI path receives *format.Config directly.
-func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
-	if cfg == nil {
-		return &format.Config{}
-	}
-	ts, hasTS := cfg.TileSize()
-	return &format.Config{
-		TileSize:             ts,
-		HasTileSize:          hasTS,
-		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
-		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
-		Backing:              cfg.Backing(),
-	}
-}

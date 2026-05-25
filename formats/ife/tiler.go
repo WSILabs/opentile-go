@@ -97,7 +97,7 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 	return t, nil
 }
 
-// tiler is the IFE implementation of opentile.Tiler. All fields are
+// tiler is the IFE implementation of format.Reader. All fields are
 // populated at Open time and immutable thereafter; Tile / TileAt
 // reads via the parent r are concurrency-safe (io.ReaderAt's
 // contract; *os.File satisfies it).

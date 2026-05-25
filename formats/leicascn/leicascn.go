@@ -15,8 +15,6 @@ import (
 var _ format.Reader = (*tiler)(nil)
 
 func init() {
-	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
-	opentile.Register(&Factory{})
 	format.Register("leicascn", matchLeicaSCN, openLeicaSCNFormat)
 }
 
@@ -133,63 +131,3 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}, nil
 }
 
-// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
-// into a format.Config. Called from Factory.Open during the dual-registration
-// transition; the new openLeicaSCNFormat path receives *format.Config directly.
-func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
-	if cfg == nil {
-		return &format.Config{}
-	}
-	ts, hasTS := cfg.TileSize()
-	return &format.Config{
-		TileSize:             ts,
-		HasTileSize:          hasTS,
-		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
-		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
-		Backing:              cfg.Backing(),
-	}
-}
-
-// Factory is the FormatFactory implementation for Leica SCN.
-// Registered BEFORE generictiff in formats/all so vendor detection
-// wins on any TIFF that smells like SCN.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns a Leica SCN factory. Safe to call once and register
-// globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier.
-func (f *Factory) Format() opentile.Format { return opentile.FormatLeicaSCN }
-
-// Supports reports whether file looks like a Leica SCN BigTIFF.
-// Discriminator (sealed Q1): IFD 0's ImageDescription contains the
-// SCN schema URN. Cheap substring search; full XML parse happens at
-// Open time.
-func (f *Factory) Supports(file *tiff.File) bool {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return false
-	}
-	desc, ok := pages[0].ImageDescription()
-	if !ok {
-		return false
-	}
-	return strings.Contains(desc, SchemaURN)
-}
-
-// Open constructs a Leica SCN Tiler. Parses IFD 0's SCN XML,
-// classifies <image> elements into auxiliaries (→ AssociatedImages)
-// and main scans (→ composite Image levels), validates the multi-
-// main composition invariants, and builds the Tiler.
-//
-// T6 leaves the Levels slice empty pending T7+ wiring; AssociatedImages
-// and Metadata are populated end-to-end so Tiler.Format() / .Associated()
-// / .Metadata() / .ICCProfile() are functional.
-//
-// cfg is currently unused (no SCN-specific knobs at v0.11); accepted
-// for interface symmetry with the other format factories.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	fcfg := opentileConfigToFormatConfig(cfg)
-	return openFromTIFFFile(file, fcfg)
-}

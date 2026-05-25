@@ -21,8 +21,6 @@ import (
 var _ format.Reader = (*tiler)(nil)
 
 func init() {
-	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
-	opentile.Register(&Factory{})
 	format.Register("svs", matchSVS, openSVS)
 }
 
@@ -142,54 +140,7 @@ func pageSize(p *tiff.Page) (opentile.Size, error) {
 	return opentile.Size{W: int(iw), H: int(il)}, nil
 }
 
-// Factory is the FormatFactory implementation for SVS. Preserved for the
-// dual-registration transition period; removed once tiler.go deletion lands.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns an SVS factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatSVS }
-
-// Supports reports whether file looks like an SVS: its first page's
-// ImageDescription starts with "Aperio".
-func (f *Factory) Supports(file *tiff.File) bool {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return false
-	}
-	desc, ok := pages[0].ImageDescription()
-	if !ok {
-		return false
-	}
-	return strings.HasPrefix(desc, aperioPrefix)
-}
-
-// Open constructs an SVS Tiler from a parsed TIFF file.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	fcfg := opentileConfigToFormatConfig(cfg)
-	return openFromTIFFFile(file, fcfg)
-}
-
-// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
-// into a format.Config. Called from Factory.Open during the dual-registration
-// transition; the new openSVS path receives *format.Config directly.
-func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
-	if cfg == nil {
-		return &format.Config{}
-	}
-	ts, hasTS := cfg.TileSize()
-	return &format.Config{
-		TileSize:             ts,
-		HasTileSize:          hasTS,
-		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
-		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
-		Backing:              cfg.Backing(),
-	}
-}
-
-// tiler is the SVS implementation of format.Reader (and opentile.Tiler).
+// tiler is the SVS implementation of format.Reader.
 type tiler struct {
 	md         Metadata
 	levels     []opentile.Level
@@ -229,35 +180,31 @@ func (t *tiler) WarmLevel(i int) error {
 	return nil
 }
 
-// tilerUnwrapper is implemented by opentile wrapper types (e.g., *fileCloser
-// returned by OpenFile) that hold an inner Tiler. Kept unexported because it
-// is a coordination interface between opentile and its format packages.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
+// readerUnwrapper is implemented by wrapper types that hold an inner reader.
+type readerUnwrapper interface {
+	UnwrapReader() any
 }
 
-// maxTilerUnwrapHops caps the number of UnwrapTiler calls MetadataOf will make.
-// The realistic chain length is 1 (just *fileCloser); 16 is ample headroom
-// while still preventing infinite loops on a wrapper that cycles.
-const maxTilerUnwrapHops = 16
+// maxUnwrapHops caps the number of UnwrapReader calls MetadataOf will make.
+const maxUnwrapHops = 16
 
-// MetadataOf returns the SVS-specific metadata if t is an SVS Tiler, otherwise
-// (nil, false). It walks any number of wrappers (e.g., the *fileCloser
-// returned by opentile.OpenFile) before asserting on the concrete type.
+// MetadataOf returns the SVS-specific metadata if v is (or wraps) an SVS
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-//	if md, ok := svs.MetadataOf(tiler); ok {
+//	if md, ok := svs.MetadataOf(slide); ok {
 //	    fmt.Println(md.MPP, md.SoftwareLine)
 //	}
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if svsT, ok := t.(*tiler); ok {
+func MetadataOf(v any) (*Metadata, bool) {
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if svsT, ok := v.(*tiler); ok {
 			return &svsT.md, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(readerUnwrapper)
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }

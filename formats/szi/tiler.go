@@ -24,7 +24,7 @@ import (
 // once a real sparse-SZI fixture surfaces.
 var ErrCorruptArchive = errors.New("szi: corrupt archive")
 
-// Tiler is the SZI-format implementation of opentile.Tiler.
+// Tiler is the SZI-format implementation of format.Reader.
 type Tiler struct {
 	r    io.ReaderAt
 	size int64
