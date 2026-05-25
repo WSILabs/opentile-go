@@ -23,9 +23,6 @@ import (
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
-// Compile-time assertion: *tiler satisfies format.Reader.
-var _ format.Reader = (*tiler)(nil)
-
 func init() {
 	format.Register("ndpi", matchNDPI, openNDPI)
 }
@@ -111,7 +108,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}
 	adjusted := AdjustTileSize(reqSize.W, smallestStrip)
 
-	var levels []opentile.Level
+	var levelImpls []ndpiLevel
 	var associated []opentile.AssociatedImage
 	var overview *overviewImage
 	levelIdx := 0
@@ -127,13 +124,13 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				if err != nil {
 					return nil, fmt.Errorf("ndpi: level %d: %w", levelIdx, err)
 				}
-				levels = append(levels, lvl)
+				levelImpls = append(levelImpls, lvl)
 			} else {
 				lvl, err := newOneFrameImage(levelIdx, p, adjusted, file.ReaderAt())
 				if err != nil {
 					return nil, fmt.Errorf("ndpi: level %d: %w", levelIdx, err)
 				}
-				levels = append(levels, lvl)
+				levelImpls = append(levelImpls, lvl)
 			}
 			levelIdx++
 		case pageMacro:
@@ -176,6 +173,11 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		// formats/ndpi/associated.go::newLabelImage for the rule.
 		associated = append(associated, newLabelImage(overview, 0.3, mcuW))
 	}
-	return &tiler{md: md, levels: levels, associated: associated}, nil
+	images := []opentile.Image{{
+		Name:   "",
+		Index:  0,
+		Levels: levelToValueSlice(levelImpls),
+	}}
+	return &tiler{md: md, images: images, levelImpls: levelImpls, associated: associated}, nil
 }
 

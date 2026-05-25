@@ -18,8 +18,10 @@ package bif
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/bifxml"
@@ -75,7 +77,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		return nil, err
 	}
 	scanWhite := scanWhitePointFor(iscan)
-	levels := make([]opentile.Level, 0, len(levelIFDs))
+	levelImpls := make([]*levelImpl, 0, len(levelIFDs))
+	valueLevels := make([]opentile.Level, 0, len(levelIFDs))
 	var levelZeroDepth int
 	for i, c := range levelIFDs {
 		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, encodeInfo, file.ReaderAt())
@@ -85,7 +88,18 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		if i == 0 {
 			levelZeroDepth = l.imageDepth
 		}
-		levels = append(levels, l)
+		levelImpls = append(levelImpls, l)
+		valueLevels = append(valueLevels, opentile.Level{
+			Index:        l.index,
+			PyramidIndex: l.pyrIndex,
+			Size:         l.size,
+			TileSize:     l.tileSize,
+			Grid:         l.grid,
+			Compression:  l.compression,
+			MPP:          l.mpp,
+			TileOverlap:  l.tileOverlap,
+			FocalPlane:   0,
+		})
 	}
 	if levelZeroDepth < 1 {
 		levelZeroDepth = 1
@@ -106,6 +120,11 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	if iscan != nil {
 		zSpacing = iscan.ZSpacing
 	}
+	images := []opentile.Image{{
+		Name:   "",
+		Index:  0,
+		Levels: valueLevels,
+	}}
 	return &Tiler{
 		file:          file,
 		cfg:           nil, // format.Config not stored; cfg param reserved for future knobs
@@ -114,7 +133,9 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		encodeInfo:    encodeInfo,
 		levelIFDs:     levelIFDs,
 		associatedIFD: associatedIFDs,
-		image:         newBifImage(levels, levelZeroDepth, zSpacing),
+		levelImpls:    levelImpls,
+		image:         newBifImage(levelZeroDepth, zSpacing),
+		images:        images,
 		associated:    associated,
 	}, nil
 }
@@ -126,6 +147,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 // serpentine remap; T14 wires the empty-tile blank-fill path; T15
 // composes JPEGTables into per-tile bytes when the IFD has a shared
 // header. T16+ surface associated images, metadata, and ICC profile.
+// v0.24: restructured to satisfy format.Reader with (image, level)
+// dispatch; value-type []opentile.Image populated eagerly at Open time.
 type Tiler struct {
 	file *tiff.File
 	cfg  *format.Config // reserved for future format-level knobs; currently unused
@@ -138,10 +161,17 @@ type Tiler struct {
 	levelIFDs     []classifiedIFD // pyramid IFDs sorted by parsed level=N
 	associatedIFD []classifiedIFD // label / probability / thumbnail IFDs
 
-	// Constructed Level objects, one per levelIFDs entry. Populated
-	// at Open time (T13); wrapped in a bifImage so Image.SizeZ() and
-	// ZPlaneFocus(z) can return BIF-specific values when the slide
-	// is volumetric (IMAGE_DEPTH > 1).
+	// levelImpls are the internal per-level tile-read helpers.
+	// Parallel to images[0].Levels; images carries value-type metadata,
+	// levelImpls carries the tile-read logic.
+	levelImpls []*levelImpl
+
+	// images is the value-type image slice returned by Images().
+	// BIF is single-image; always len == 1.
+	images []opentile.Image
+
+	// image holds BIF-specific Z-stack metadata (SizeZ, ZPlaneFocus).
+	// Not the opentile.Image — that's in images[0].
 	image *bifImage
 
 	// Associated images built from the associatedIFD inventory.
@@ -156,28 +186,26 @@ type Tiler struct {
 }
 
 
-// bifImage wraps opentile.SingleImage with BIF-specific multi-Z
-// accessors. SingleImage carries the level chain + Index/Name/MPP
-// defaults; bifImage overrides SizeZ() and ZPlaneFocus(z) when the
-// slide is volumetric (IMAGE_DEPTH > 1 on the level-0 IFD).
-//
-// SizeC + SizeT + ChannelName remain SingleImage's defaults (1 / 1 /
-// "") — BIF format has no fluorescence or time-series semantics.
+// bifImage holds BIF-specific multi-Z metadata for the level-0 IFD.
+// The v0.24 opentile.Image value-type struct doesn't carry SizeZ or
+// ZPlaneFocus; bifImage keeps those fields internally so that the
+// Tiler and its tests can access BIF-specific Z-stack metadata without
+// going through the public opentile.Image.
 type bifImage struct {
-	*opentile.SingleImage
 	imageDepth  int
 	zPlaneFocus []float64 // index z → microns from nominal; len == imageDepth
 }
 
-func newBifImage(levels []opentile.Level, imageDepth int, zSpacing float64) *bifImage {
+func newBifImage(imageDepth int, zSpacing float64) *bifImage {
 	return &bifImage{
-		SingleImage: opentile.NewSingleImage(levels),
 		imageDepth:  imageDepth,
 		zPlaneFocus: computeZPlaneFocusTable(imageDepth, zSpacing),
 	}
 }
 
 func (i *bifImage) SizeZ() int { return i.imageDepth }
+func (i *bifImage) SizeC() int { return 1 }
+func (i *bifImage) SizeT() int { return 1 }
 
 func (i *bifImage) ZPlaneFocus(z int) float64 {
 	if z < 0 || z >= len(i.zPlaneFocus) {
@@ -289,24 +317,94 @@ func (t *Tiler) Format() opentile.Format { return opentile.FormatBIF }
 
 // Images returns the main pyramids carried by this file. BIF is a
 // single-image format — always one Image regardless of AOI count.
-func (t *Tiler) Images() []opentile.Image {
-	return []opentile.Image{t.image}
+func (t *Tiler) Images() []opentile.Image { return t.images }
+
+func (t *Tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.images[image].Levels[level], nil
 }
 
-// Levels is a shortcut for Images()[0].Levels().
-func (t *Tiler) Levels() []opentile.Level { return t.image.Levels() }
+func (t *Tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].warm()
+}
 
-// Level is a shortcut for Images()[0].Level(i).
-func (t *Tiler) Level(i int) (opentile.Level, error) { return t.image.Level(i) }
-func (t *Tiler) WarmLevel(i int) error {
-	lvl, err := t.image.Level(i)
-	if err != nil {
-		return err
+func (t *Tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
 	}
-	if w, ok := lvl.(interface{ warm() error }); ok {
-		return w.warm()
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
 	}
-	return nil
+	return t.levelImpls[level].Tile(tx, ty)
+}
+
+func (t *Tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileInto(tx, ty, dst)
+}
+
+func (t *Tiler) ImageTileMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileMaxSize()
+}
+
+func (t *Tiler) ImageTilePrefix(image, level int) []byte {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return nil
+	}
+	return t.levelImpls[level].TilePrefix()
+}
+
+func (t *Tiler) ImageTileBodyMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileBodyMaxSize()
+}
+
+func (t *Tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileBodyInto(tx, ty, dst)
+}
+
+func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileReader(tx, ty)
+}
+
+func (t *Tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return t.levelImpls[level].Tiles(ctx)
 }
 
 // Associated returns the slide's associated images: every BIF has

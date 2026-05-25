@@ -7,9 +7,11 @@
 package svs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -97,14 +99,30 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	if err != nil {
 		return nil, err
 	}
-	levels := make([]opentile.Level, 0, len(class.Levels))
+	tiledLevels := make([]*tiledImage, 0, len(class.Levels))
+	valueLevels := make([]opentile.Level, 0, len(class.Levels))
 	for levelIdx, pageIdx := range class.Levels {
 		lvl, err := newTiledImage(levelIdx, pages[pageIdx], baseSize, md.MPP, file.ReaderAt(), cfg)
 		if err != nil {
 			return nil, fmt.Errorf("svs: page %d (level %d): %w", pageIdx, levelIdx, err)
 		}
-		levels = append(levels, lvl)
+		tiledLevels = append(tiledLevels, lvl)
+		valueLevels = append(valueLevels, opentile.Level{
+			Index:        lvl.index,
+			PyramidIndex: lvl.pyrIndex,
+			Size:         lvl.size,
+			TileSize:     lvl.tileSize,
+			Grid:         lvl.grid,
+			Compression:  lvl.compression,
+			MPP:          lvl.mpp,
+			FocalPlane:   0,
+		})
 	}
+	images := []opentile.Image{{
+		Name:   "",
+		Index:  0,
+		Levels: valueLevels,
+	}}
 	var associated []opentile.AssociatedImage
 	for _, spec := range []struct {
 		kind    string
@@ -124,7 +142,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		associated = append(associated, a)
 	}
 	icc, _ := basePage.ICCProfile()
-	return &tiler{md: md, levels: levels, associated: associated, icc: icc}, nil
+	return &tiler{md: md, levels: tiledLevels, images: images, associated: associated, icc: icc}, nil
 }
 
 // pageSize returns the (ImageWidth, ImageLength) as opentile.Size.
@@ -143,41 +161,105 @@ func pageSize(p *tiff.Page) (opentile.Size, error) {
 // tiler is the SVS implementation of format.Reader.
 type tiler struct {
 	md         Metadata
-	levels     []opentile.Level
+	levels     []*tiledImage
+	images     []opentile.Image
 	associated []opentile.AssociatedImage
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatSVS }
-func (t *tiler) Images() []opentile.Image {
-	return []opentile.Image{opentile.NewSingleImage(t.levels)}
-}
-func (t *tiler) Levels() []opentile.Level {
-	// Return a fresh slice so callers cannot mutate the immutable internal
-	// state. The underlying Level pointers are shared; only the slice header
-	// is copied.
-	out := make([]opentile.Level, len(t.levels))
-	copy(out, t.levels)
-	return out
-}
+func (t *tiler) Format() opentile.Format      { return opentile.FormatSVS }
+func (t *tiler) Images() []opentile.Image     { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
-func (t *tiler) Level(i int) (opentile.Level, error) {
-	if i < 0 || i >= len(t.levels) {
-		return nil, opentile.ErrLevelOutOfRange
+
+func (t *tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
 	}
-	return t.levels[i], nil
+	if level < 0 || level >= len(t.levels) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.images[image].Levels[level], nil
 }
-func (t *tiler) WarmLevel(i int) error {
-	if i < 0 || i >= len(t.levels) {
+
+func (t *tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levels) {
 		return opentile.ErrLevelOutOfRange
 	}
-	if w, ok := t.levels[i].(interface{ warm() error }); ok {
-		return w.warm()
+	return t.levels[level].warm()
+}
+
+func (t *tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
 	}
-	return nil
+	if level < 0 || level >= len(t.levels) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levels[level].Tile(tx, ty)
+}
+
+func (t *tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levels) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levels[level].TileInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levels) {
+		return 0
+	}
+	return t.levels[level].TileMaxSize()
+}
+
+func (t *tiler) ImageTilePrefix(image, level int) []byte {
+	if image != 0 || level < 0 || level >= len(t.levels) {
+		return nil
+	}
+	return t.levels[level].TilePrefix()
+}
+
+func (t *tiler) ImageTileBodyMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levels) {
+		return 0
+	}
+	return t.levels[level].TileBodyMaxSize()
+}
+
+func (t *tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levels) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levels[level].TileBodyInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levels) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levels[level].TileReader(tx, ty)
+}
+
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	if image != 0 || level < 0 || level >= len(t.levels) {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return t.levels[level].Tiles(ctx)
 }
 
 // readerUnwrapper is implemented by wrapper types that hold an inner reader.

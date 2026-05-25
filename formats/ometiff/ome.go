@@ -16,12 +16,36 @@
 package ometiff
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
+	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
+
+// omeLevel is an internal interface for tile-read dispatch. Both
+// *tiledImage and *oneframe.Image satisfy it. Stored in tiler.levels
+// as [image][level] for (image, level, tx, ty) dispatch.
+type omeLevel interface {
+	Tile(x, y int) ([]byte, error)
+	TileInto(x, y int, dst []byte) (int, error)
+	TileMaxSize() int
+	TilePrefix() []byte
+	TileBodyMaxSize() int
+	TileBodyInto(x, y int, dst []byte) (int, error)
+	TileReader(x, y int) (io.ReadCloser, error)
+	Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult]
+}
+
+// omeWarmer is optionally implemented by omeLevel types that support page
+// pre-warming. warm() is unexported, so only same-package types (*tiledImage)
+// can satisfy this; oneframe.Image (external package) is silently skipped.
+type omeWarmer interface {
+	warm() error
+}
 
 // omeDescriptionSuffix is the substring `is_ome` looks for at the end
 // of the first page's ImageDescription. tifffile.py:10125-10129:
@@ -91,7 +115,8 @@ func pageDims(p *tiff.Page) (opentile.Size, error) {
 }
 
 // buildLevels walks an OME main pyramid's SubIFD chain and returns
-// the level list (top-level page L0 + each SubIFD as L1..Ln).
+// both the value-type level metadata slice and the internal tile-read
+// engine slice (top-level page L0 + each SubIFD as L1..Ln).
 // Dispatches per-page on TileWidth: tiled pages → tiledImage,
 // non-tiled pages → oneframe.Image.
 func buildLevels(
@@ -100,140 +125,171 @@ func buildLevels(
 	baseSize opentile.Size,
 	baseMPP opentile.SizeMm,
 	oneFrameTileSize opentile.Size,
-) ([]opentile.Level, error) {
+) ([]opentile.Level, []omeLevel, error) {
 	pages := []*tiff.Page{basePage}
 	if subOffsets, ok := basePage.SubIFDOffsets(); ok {
 		for _, off := range subOffsets {
 			sub, err := file.PageAtOffset(off)
 			if err != nil {
-				return nil, fmt.Errorf("read SubIFD at %d: %w", off, err)
+				return nil, nil, fmt.Errorf("read SubIFD at %d: %w", off, err)
 			}
 			pages = append(pages, sub)
 		}
 	}
-	out := make([]opentile.Level, 0, len(pages))
+	valueLevels := make([]opentile.Level, 0, len(pages))
+	engines := make([]omeLevel, 0, len(pages))
 	for li, p := range pages {
 		tw, _ := p.TileWidth()
-		var lvl opentile.Level
 		if tw > 0 {
-			t, err := newTiledImage(li, p, baseSize, baseMPP, file.ReaderAt())
+			ti, err := newTiledImage(li, p, baseSize, baseMPP, file.ReaderAt())
 			if err != nil {
-				return nil, fmt.Errorf("level %d (tiled): %w", li, err)
+				return nil, nil, fmt.Errorf("level %d (tiled): %w", li, err)
 			}
-			lvl = t
+			valueLevels = append(valueLevels, opentile.Level{
+				Index:        ti.index,
+				PyramidIndex: ti.pyrIndex,
+				Size:         ti.size,
+				TileSize:     ti.tileSize,
+				Grid:         ti.grid,
+				Compression:  ti.compression,
+				MPP:          ti.mpp,
+			})
+			engines = append(engines, ti)
 		} else {
 			of, err := newOneFrameImage(li, p, oneFrameTileSize, baseSize, baseMPP, file.ReaderAt())
 			if err != nil {
-				return nil, fmt.Errorf("level %d (oneframe): %w", li, err)
+				return nil, nil, fmt.Errorf("level %d (oneframe): %w", li, err)
 			}
-			lvl = of
+			valueLevels = append(valueLevels, opentile.Level{
+				Index:        of.Index(),
+				PyramidIndex: of.PyramidIndex(),
+				Size:         of.Size(),
+				TileSize:     of.TileSize(),
+				Grid:         of.Grid(),
+				Compression:  of.Compression(),
+				MPP:          of.MPP(),
+			})
+			engines = append(engines, of)
 		}
-		out = append(out, lvl)
 	}
-	return out, nil
-}
-
-// pyramidImage is the OME-specific opentile.Image implementation.
-// Multi-image files expose multiple instances via Tiler.Images().
-//
-// Multi-dim accessors (added v0.7): every Leica fixture in our suite
-// has SizeZ=SizeC=SizeT=1 (verified via the T2 OME-XML probe). For
-// future multi-Z OME slides, these accessors get populated from
-// <Pixels>/<Channel> in T12; the actual TileAt(z != 0) read path
-// remains deferred (OME multi-Z reading is its own milestone).
-type pyramidImage struct {
-	index  int
-	name   string
-	levels []opentile.Level
-	mpp    opentile.SizeMm
-
-	// Multi-dim dimensions (v0.7). Populated by T12 from
-	// OME-XML <Pixels SizeZ/SizeC/SizeT> + <Channel> element count.
-	// All default to 1 for now (SingleImage-equivalent semantics);
-	// T12 wires real values.
-	sizeZ, sizeC, sizeT int
-	channelNames        []string
-}
-
-func (i *pyramidImage) Index() int           { return i.index }
-func (i *pyramidImage) Name() string         { return i.name }
-func (i *pyramidImage) MPP() opentile.SizeMm { return i.mpp }
-func (i *pyramidImage) Levels() []opentile.Level {
-	out := make([]opentile.Level, len(i.levels))
-	copy(out, i.levels)
-	return out
-}
-func (i *pyramidImage) Level(k int) (opentile.Level, error) {
-	if k < 0 || k >= len(i.levels) {
-		return nil, opentile.ErrLevelOutOfRange
-	}
-	return i.levels[k], nil
-}
-func (i *pyramidImage) SizeZ() int { return max1(i.sizeZ) }
-func (i *pyramidImage) SizeC() int { return max1(i.sizeC) }
-func (i *pyramidImage) SizeT() int { return max1(i.sizeT) }
-func (i *pyramidImage) ChannelName(c int) string {
-	if c < 0 || c >= len(i.channelNames) {
-		return ""
-	}
-	return i.channelNames[c]
-}
-func (i *pyramidImage) ZPlaneFocus(z int) float64 {
-	// OME-XML <Plane PositionZ> exists but isn't parsed in v0.7;
-	// even a multi-Z OME would report 0 for every plane until
-	// the future multi-Z reader lands.
-	return 0
-}
-
-// max1 normalises a possibly-zero count (parser default before
-// T12) to 1 so legacy 2D OME callers get the SingleImage-equivalent
-// answer. Once T12 wires Size{Z,C,T} from the parser, the values
-// will be ≥ 1 by construction and this helper becomes a passthrough.
-func max1(n int) int {
-	if n < 1 {
-		return 1
-	}
-	return n
+	return valueLevels, engines, nil
 }
 
 // tiler is the OME implementation of format.Reader.
+//
+// images holds the value-type opentile.Image slice (public surface).
+// levels holds the per-(image, level) tile-read engines (private
+// dispatch table): levels[imageIdx][levelIdx] → omeLevel.
 type tiler struct {
 	md         OMEMetadata
 	cross      opentile.Metadata // v0.17 cross-format view; populated from md at Open time
 	images     []opentile.Image
+	levels     [][]omeLevel // [imageIdx][levelIdx]
 	associated []opentile.AssociatedImage
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatOMETIFF }
-func (t *tiler) Images() []opentile.Image {
-	out := make([]opentile.Image, len(t.images))
-	copy(out, t.images)
-	return out
-}
-func (t *tiler) Levels() []opentile.Level {
-	if len(t.images) == 0 {
-		return nil
-	}
-	return t.images[0].Levels()
-}
-func (t *tiler) Level(i int) (opentile.Level, error) {
-	if len(t.images) == 0 {
-		return nil, opentile.ErrLevelOutOfRange
-	}
-	return t.images[0].Level(i)
-}
-func (t *tiler) WarmLevel(i int) error {
-	lvl, err := t.Level(i)
-	if err != nil {
-		return err
-	}
-	if w, ok := lvl.(interface{ warm() error }); ok {
-		return w.warm()
-	}
-	return nil
-}
+func (t *tiler) Format() opentile.Format    { return opentile.FormatOMETIFF }
+func (t *tiler) Images() []opentile.Image   { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.cross }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
+
+func (t *tiler) Level(image, level int) (opentile.Level, error) {
+	if image < 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
+	}
+	lvls := t.images[image].Levels
+	if level < 0 || level >= len(lvls) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return lvls[level], nil
+}
+
+func (t *tiler) WarmLevel(image, level int) error {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return err
+	}
+	if w, ok := eng.(omeWarmer); ok {
+		return w.warm()
+	}
+	return nil
+}
+
+// engine returns the tile-read engine for (image, level), validating
+// bounds and returning ErrImageIndexOutOfRange / ErrLevelOutOfRange.
+func (t *tiler) engine(image, level int) (omeLevel, error) {
+	if image < 0 || image >= len(t.levels) {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levels[image]) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levels[image][level], nil
+}
+
+func (t *tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return nil, err
+	}
+	return eng.Tile(tx, ty)
+}
+
+func (t *tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return 0, err
+	}
+	return eng.TileInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileMaxSize(image, level int) int {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return 0
+	}
+	return eng.TileMaxSize()
+}
+
+func (t *tiler) ImageTilePrefix(image, level int) []byte {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return nil
+	}
+	return eng.TilePrefix()
+}
+
+func (t *tiler) ImageTileBodyMaxSize(image, level int) int {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return 0
+	}
+	return eng.TileBodyMaxSize()
+}
+
+func (t *tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return 0, err
+	}
+	return eng.TileBodyInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return nil, err
+	}
+	return eng.TileReader(tx, ty)
+}
+
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return eng.Tiles(ctx)
+}

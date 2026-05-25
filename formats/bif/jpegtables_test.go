@@ -56,7 +56,7 @@ func TestTileJPEGTablesSpliced(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	got, err := lvl.Tile(0, 0)
 	if err != nil {
 		t.Fatalf("Tile: %v", err)
@@ -105,7 +105,7 @@ func TestTileNoJPEGTablesPassthrough(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	got, err := lvl.Tile(0, 0)
 	if err != nil {
 		t.Fatalf("Tile: %v", err)
@@ -130,7 +130,7 @@ func TestTileReaderJPEGTablesSpliced(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	want, err := lvl.Tile(0, 0)
 	if err != nil {
 		t.Fatalf("Tile: %v", err)

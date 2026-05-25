@@ -159,20 +159,20 @@ func checkSlideAgainstFixture(t *testing.T, slide, fixturePath string) {
 		}
 		for ii, img := range images {
 			fixImg := fix.Images[ii]
-			if img.Index() != fixImg.Index {
-				t.Errorf("image %d Index: got %d, want %d", ii, img.Index(), fixImg.Index)
+			if img.Index != fixImg.Index {
+				t.Errorf("image %d Index: got %d, want %d", ii, img.Index, fixImg.Index)
 			}
-			if img.Name() != fixImg.Name {
-				t.Errorf("image %d Name: got %q, want %q", ii, img.Name(), fixImg.Name)
+			if img.Name != fixImg.Name {
+				t.Errorf("image %d Name: got %q, want %q", ii, img.Name, fixImg.Name)
 			}
-			checkLevels(t, img.Levels(), fixImg.Levels, fixImg.TileSHA256, fixImg.SampledTileSHA256, fmt.Sprintf("image %d ", ii))
+			checkLevels(t, img.Levels, fixImg.Levels, fixImg.TileSHA256, fixImg.SampledTileSHA256, fmt.Sprintf("image %d ", ii), tiler, ii)
 		}
 	} else {
 		levels := tiler.Levels()
 		if len(levels) != len(fix.Levels) {
 			t.Fatalf("level count: got %d, want %d", len(levels), len(fix.Levels))
 		}
-		checkLevels(t, levels, fix.Levels, fix.TileSHA256, fix.SampledTileSHA256, "")
+		checkLevels(t, levels, fix.Levels, fix.TileSHA256, fix.SampledTileSHA256, "", tiler, 0)
 	}
 
 	// ICCProfile: a non-nil slice must have non-zero length. Some slides
@@ -229,6 +229,8 @@ func checkLevels(
 	fixTileSHA map[string]string,
 	fixSampledSHA map[string]tests.SampledTile,
 	labelPrefix string,
+	tiler *opentile.Slide,
+	imageIdx int,
 ) {
 	t.Helper()
 	if len(levels) != len(fixLevels) {
@@ -236,37 +238,37 @@ func checkLevels(
 	}
 	for i, lvl := range levels {
 		exp := fixLevels[i]
-		if lvl.Index() != i {
-			t.Errorf("%slevel %d: Index()=%d, want %d", labelPrefix, i, lvl.Index(), i)
+		if lvl.Index != i {
+			t.Errorf("%slevel %d: Index=%d, want %d", labelPrefix, i, lvl.Index, i)
 		}
-		if lvl.PyramidIndex() != exp.PyramidIdx {
-			t.Errorf("%slevel %d: PyramidIndex()=%d, want %d", labelPrefix, i, lvl.PyramidIndex(), exp.PyramidIdx)
+		if lvl.PyramidIndex != exp.PyramidIdx {
+			t.Errorf("%slevel %d: PyramidIndex=%d, want %d", labelPrefix, i, lvl.PyramidIndex, exp.PyramidIdx)
 		}
-		if mpp := lvl.MPP(); mpp.W < 0 || mpp.H < 0 {
+		if mpp := lvl.MPP; mpp.W < 0 || mpp.H < 0 {
 			t.Errorf("%slevel %d: MPP negative %v", labelPrefix, i, mpp)
 		}
-		if fp := lvl.FocalPlane(); fp < 0 {
+		if fp := lvl.FocalPlane; fp < 0 {
 			t.Errorf("%slevel %d: FocalPlane negative %v", labelPrefix, i, fp)
 		}
-		if lvl.Size().W != exp.Size[0] || lvl.Size().H != exp.Size[1] {
-			t.Errorf("%slevel %d size: got %v, want %v", labelPrefix, i, lvl.Size(), exp.Size)
+		if lvl.Size.W != exp.Size[0] || lvl.Size.H != exp.Size[1] {
+			t.Errorf("%slevel %d size: got %v, want %v", labelPrefix, i, lvl.Size, exp.Size)
 		}
-		if lvl.TileSize().W != exp.TileSize[0] || lvl.TileSize().H != exp.TileSize[1] {
-			t.Errorf("%slevel %d tile size: got %v, want %v", labelPrefix, i, lvl.TileSize(), exp.TileSize)
+		if lvl.TileSize.W != exp.TileSize[0] || lvl.TileSize.H != exp.TileSize[1] {
+			t.Errorf("%slevel %d tile size: got %v, want %v", labelPrefix, i, lvl.TileSize, exp.TileSize)
 		}
-		if lvl.Grid().W != exp.Grid[0] || lvl.Grid().H != exp.Grid[1] {
-			t.Errorf("%slevel %d grid: got %v, want %v", labelPrefix, i, lvl.Grid(), exp.Grid)
+		if lvl.Grid.W != exp.Grid[0] || lvl.Grid.H != exp.Grid[1] {
+			t.Errorf("%slevel %d grid: got %v, want %v", labelPrefix, i, lvl.Grid, exp.Grid)
 		}
-		if lvl.Compression().String() != exp.Compression {
-			t.Errorf("%slevel %d compression: got %q, want %q", labelPrefix, i, lvl.Compression(), exp.Compression)
+		if lvl.Compression.String() != exp.Compression {
+			t.Errorf("%slevel %d compression: got %q, want %q", labelPrefix, i, lvl.Compression, exp.Compression)
 		}
 		// Full-walk tile hashes
 		if len(fixTileSHA) > 0 {
-			for y := 0; y < lvl.Grid().H; y++ {
-				for x := 0; x < lvl.Grid().W; x++ {
-					b, err := lvl.Tile(x, y)
+			for y := 0; y < lvl.Grid.H; y++ {
+				for x := 0; x < lvl.Grid.W; x++ {
+					b, err := tiler.ImageRawTile(imageIdx, i, x, y)
 					if err != nil {
-						t.Errorf("%sTile(%d,%d) level %d: %v", labelPrefix, x, y, i, err)
+						t.Errorf("%sImageRawTile(%d,%d) level %d: %v", labelPrefix, x, y, i, err)
 						continue
 					}
 					sum := sha256.Sum256(b)
@@ -287,11 +289,11 @@ func checkLevels(
 	// Sampled-walk hashes.
 	if len(fixSampledSHA) > 0 {
 		for i, lvl := range levels {
-			positions := tests.SamplePositions(lvl.Grid(), lvl.Size(), lvl.TileSize())
+			positions := tests.SamplePositions(lvl.Grid, lvl.Size, lvl.TileSize)
 			for _, p := range positions {
-				b, err := lvl.Tile(p.X, p.Y)
+				b, err := tiler.ImageRawTile(imageIdx, i, p.X, p.Y)
 				if err != nil {
-					t.Errorf("%ssampled Tile(%d,%d) level %d: %v", labelPrefix, p.X, p.Y, i, err)
+					t.Errorf("%ssampled ImageRawTile(%d,%d) level %d: %v", labelPrefix, p.X, p.Y, i, err)
 					continue
 				}
 				key := tests.SampleKey(i, p)

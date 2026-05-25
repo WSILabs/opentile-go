@@ -101,12 +101,20 @@ func TestFactoryOpen_CMU1(t *testing.T) {
 	if got := tlr.Format(); got != opentile.FormatGenericTIFF {
 		t.Errorf("Format() = %v, want %v", got, opentile.FormatGenericTIFF)
 	}
-	if got := len(tlr.Levels()); got != 9 {
-		t.Errorf("len(Levels()) = %d, want 9", got)
+	imgs := tlr.Images()
+	if len(imgs) == 0 || len(imgs[0].Levels) != 9 {
+		t.Errorf("len(Images[0].Levels) = %d, want 9", func() int {
+			if len(imgs) > 0 {
+				return len(imgs[0].Levels)
+			}
+			return 0
+		}())
 	}
-	l0 := tlr.Levels()[0]
-	if l0.Size().W != 46000 || l0.Size().H != 32914 {
-		t.Errorf("L0 size = %v, want 46000×32914", l0.Size())
+	if len(imgs) > 0 && len(imgs[0].Levels) > 0 {
+		l0 := imgs[0].Levels[0]
+		if l0.Size.W != 46000 || l0.Size.H != 32914 {
+			t.Errorf("L0 size = %v, want 46000×32914", l0.Size)
+		}
 	}
 	if got := len(tlr.Associated()); got != 0 {
 		t.Errorf("len(Associated()) = %d, want 0 (CMU-1.tiff has no associated images)", got)
@@ -412,11 +420,15 @@ func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Open: %v", err)
 			}
-			levels := tiler.Levels()
+			imgs := tiler.Images()
+			if len(imgs) == 0 {
+				t.Fatalf("Images() returned empty slice")
+			}
+			levels := imgs[0].Levels
 			if len(levels) != tc.wantLevels {
 				t.Fatalf("levels = %d, want %d", len(levels), tc.wantLevels)
 			}
-			if sz := levels[0].Size(); uint32(sz.W) != tc.wantBaselineW || uint32(sz.H) != tc.wantBaselineH {
+			if sz := levels[0].Size; uint32(sz.W) != tc.wantBaselineW || uint32(sz.H) != tc.wantBaselineH {
 				t.Errorf("baseline = %dx%d, want %dx%d", sz.W, sz.H, tc.wantBaselineW, tc.wantBaselineH)
 			}
 			got := make([]string, 0, len(tiler.Associated()))

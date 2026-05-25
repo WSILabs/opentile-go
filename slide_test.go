@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
-	_ "github.com/wsilabs/opentile-go/formats/all"
 	"github.com/wsilabs/opentile-go/internal/format"
 )
 

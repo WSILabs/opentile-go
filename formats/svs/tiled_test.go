@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"iter"
 	"testing"
 	"time"
 
@@ -116,35 +117,41 @@ func TestSvsTilerOpenAndLevel(t *testing.T) {
 	}
 	defer tiler.Close()
 
-	levels := tiler.Levels()
-	if len(levels) != 1 {
-		t.Fatalf("levels: got %d, want 1", len(levels))
+	imgs := tiler.Images()
+	if len(imgs) != 1 || len(imgs[0].Levels) != 1 {
+		t.Fatalf("images/levels: got %d images, %d levels; want 1 image, 1 level",
+			len(imgs), func() int {
+				if len(imgs) > 0 {
+					return len(imgs[0].Levels)
+				}
+				return 0
+			}())
 	}
-	lvl, err := tiler.Level(0)
+	lvl, err := tiler.Level(0, 0)
 	if err != nil {
-		t.Fatalf("Level(0): %v", err)
+		t.Fatalf("Level(0,0): %v", err)
 	}
-	if got := lvl.TileSize(); got.W != 16 || got.H != 16 {
-		t.Errorf("TileSize: got %v, want 16x16", got)
+	if lvl.TileSize.W != 16 || lvl.TileSize.H != 16 {
+		t.Errorf("TileSize: got %v, want 16x16", lvl.TileSize)
 	}
-	if got := lvl.Grid(); got.W != 3 || got.H != 2 {
-		t.Errorf("Grid: got %v, want 3x2", got)
+	if lvl.Grid.W != 3 || lvl.Grid.H != 2 {
+		t.Errorf("Grid: got %v, want 3x2", lvl.Grid)
 	}
 	// Tile (0,0) → first tile payload
-	b, err := lvl.Tile(0, 0)
+	b, err := tiler.ImageRawTile(0, 0, 0, 0)
 	if err != nil {
-		t.Fatalf("Tile(0,0): %v", err)
+		t.Fatalf("ImageRawTile(0,0,0,0): %v", err)
 	}
 	if !bytes.Equal(b, tiles[0]) {
-		t.Fatalf("Tile(0,0) bytes mismatch")
+		t.Fatalf("ImageRawTile(0,0,0,0) bytes mismatch")
 	}
 	// Tile (2,1) → last tile (index 5)
-	b, err = lvl.Tile(2, 1)
+	b, err = tiler.ImageRawTile(0, 0, 2, 1)
 	if err != nil {
-		t.Fatalf("Tile(2,1): %v", err)
+		t.Fatalf("ImageRawTile(0,0,2,1): %v", err)
 	}
 	if !bytes.Equal(b, tiles[5]) {
-		t.Fatalf("Tile(2,1) bytes mismatch")
+		t.Fatalf("ImageRawTile(0,0,2,1) bytes mismatch")
 	}
 }
 
@@ -153,8 +160,7 @@ func TestSvsLevelTileOutOfBounds(t *testing.T) {
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	cfg := opentiletest.NewConfig(opentile.Size{}, opentile.CorruptTileError)
 	tiler, _ := New().Open(f, cfg)
-	lvl, _ := tiler.Level(0)
-	_, err := lvl.Tile(99, 99)
+	_, err := tiler.ImageRawTile(0, 0, 99, 99)
 	if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 		t.Fatalf("expected ErrTileOutOfBounds, got %v", err)
 	}
@@ -172,13 +178,12 @@ func TestSvsLevelTilesIterator(t *testing.T) {
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	cfg := opentiletest.NewConfig(opentile.Size{}, opentile.CorruptTileError)
 	tiler, _ := New().Open(f, cfg)
-	lvl, _ := tiler.Level(0)
 
 	ctx := context.Background()
 	count := 0
-	for pos, res := range lvl.Tiles(ctx) {
+	for pos, res := range tiler.ImageRangeTiles(ctx, 0, 0) {
 		if res.Err != nil {
-			t.Fatalf("Tiles err at %v: %v", pos, res.Err)
+			t.Fatalf("ImageRangeTiles err at %v: %v", pos, res.Err)
 		}
 		idx := pos.Y*2 + pos.X
 		if !bytes.Equal(res.Bytes, tiles[idx]) {
@@ -196,10 +201,9 @@ func TestSvsLevelTileReader(t *testing.T) {
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	cfg := opentiletest.NewConfig(opentile.Size{}, opentile.CorruptTileError)
 	tiler, _ := New().Open(f, cfg)
-	lvl, _ := tiler.Level(0)
-	rc, err := lvl.TileReader(1, 1)
+	rc, err := tiler.ImageTileReader(0, 0, 1, 1)
 	if err != nil {
-		t.Fatalf("TileReader: %v", err)
+		t.Fatalf("ImageTileReader: %v", err)
 	}
 	defer rc.Close()
 	got, err := io.ReadAll(rc)
@@ -207,7 +211,7 @@ func TestSvsLevelTileReader(t *testing.T) {
 		t.Fatalf("ReadAll: %v", err)
 	}
 	if !bytes.Equal(got, tiles[3]) {
-		t.Fatalf("TileReader(1,1) bytes mismatch")
+		t.Fatalf("ImageTileReader(0,0,1,1) bytes mismatch")
 	}
 }
 
@@ -246,11 +250,10 @@ func TestSvsLevelTileBenignEOF(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 	defer tiler.Close()
-	lvl, _ := tiler.Level(0)
 	// Tile (1,0) is the last tile and lands exactly at end-of-file.
-	got, err := lvl.Tile(1, 0)
+	got, err := tiler.ImageRawTile(0, 0, 1, 0)
 	if err != nil {
-		t.Fatalf("Tile: unexpected error (likely benign-EOF bug): %v", err)
+		t.Fatalf("ImageRawTile: unexpected error (likely benign-EOF bug): %v", err)
 	}
 	if !bytes.Equal(got, tiles[1]) {
 		t.Fatal("tile bytes mismatch on benign-EOF path")
@@ -294,19 +297,24 @@ func TestMetadataOfRejectsNonSVSTiler(t *testing.T) {
 
 type fakeNonSVSTiler struct{}
 
-func (f *fakeNonSVSTiler) Format() opentile.Format { return opentile.Format("fake") }
-func (f *fakeNonSVSTiler) Images() []opentile.Image {
-	return []opentile.Image{opentile.NewSingleImage(nil)}
-}
-func (f *fakeNonSVSTiler) Levels() []opentile.Level { return nil }
-func (f *fakeNonSVSTiler) Level(i int) (opentile.Level, error) {
-	return nil, opentile.ErrLevelOutOfRange
-}
+func (f *fakeNonSVSTiler) Format() opentile.Format                { return opentile.Format("fake") }
+func (f *fakeNonSVSTiler) Images() []opentile.Image               { return nil }
+func (f *fakeNonSVSTiler) Level(_, _ int) (opentile.Level, error) { return opentile.Level{}, opentile.ErrLevelOutOfRange }
 func (f *fakeNonSVSTiler) Associated() []opentile.AssociatedImage { return nil }
 func (f *fakeNonSVSTiler) Metadata() opentile.Metadata            { return opentile.Metadata{} }
 func (f *fakeNonSVSTiler) ICCProfile() []byte                     { return nil }
 func (f *fakeNonSVSTiler) Close() error                           { return nil }
-func (f *fakeNonSVSTiler) WarmLevel(int) error                    { return nil }
+func (f *fakeNonSVSTiler) WarmLevel(_, _ int) error               { return nil }
+func (f *fakeNonSVSTiler) ImageRawTile(_, _, _, _ int) ([]byte, error) { return nil, nil }
+func (f *fakeNonSVSTiler) ImageRawTileInto(_, _, _, _ int, _ []byte) (int, error) { return 0, nil }
+func (f *fakeNonSVSTiler) ImageTileMaxSize(_, _ int) int          { return 0 }
+func (f *fakeNonSVSTiler) ImageTilePrefix(_, _ int) []byte        { return nil }
+func (f *fakeNonSVSTiler) ImageTileBodyMaxSize(_, _ int) int      { return 0 }
+func (f *fakeNonSVSTiler) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) { return 0, nil }
+func (f *fakeNonSVSTiler) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error)   { return nil, nil }
+func (f *fakeNonSVSTiler) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	return nil
+}
 
 // buildSVSTIFFWithStrippedPage builds a 2-page SVS-like TIFF where page 0 is
 // tiled (a normal level) and page 1 is non-tiled (simulates a thumbnail /
@@ -431,17 +439,23 @@ func TestSvsTilerSkipsNonTiledPages(t *testing.T) {
 		t.Fatalf("Open: non-tiled page should not cause Open to fail: %v", err)
 	}
 	defer tiler.Close()
-	levels := tiler.Levels()
-	if len(levels) != 1 {
-		t.Fatalf("levels: got %d, want 1 (non-tiled page should be skipped)", len(levels))
+	imgs := tiler.Images()
+	if len(imgs) != 1 || len(imgs[0].Levels) != 1 {
+		t.Fatalf("images/levels: got %d images with %d levels; want 1 image, 1 level (non-tiled page should be skipped)",
+			len(imgs), func() int {
+				if len(imgs) > 0 {
+					return len(imgs[0].Levels)
+				}
+				return 0
+			}())
 	}
-	lvl := levels[0]
-	if lvl.Index() != 0 {
-		t.Errorf("level Index: got %d, want 0 (contiguous level indexing)", lvl.Index())
+	lvl := imgs[0].Levels[0]
+	if lvl.Index != 0 {
+		t.Errorf("level Index: got %d, want 0 (contiguous level indexing)", lvl.Index)
 	}
-	got, err := lvl.Tile(0, 0)
+	got, err := tiler.ImageRawTile(0, 0, 0, 0)
 	if err != nil {
-		t.Fatalf("Tile: %v", err)
+		t.Fatalf("ImageRawTile: %v", err)
 	}
 	if !bytes.Equal(got, tiles[0]) {
 		t.Fatal("tile bytes mismatch on level 0 of mixed-page TIFF")
@@ -581,19 +595,19 @@ func TestSVSTileReturnsRawForUnknownCompression(t *testing.T) {
 	}
 	defer tiler.Close()
 
-	lvl, err := tiler.Level(0)
+	lvl, err := tiler.Level(0, 0)
 	if err != nil {
-		t.Fatalf("Level(0): %v", err)
+		t.Fatalf("Level(0,0): %v", err)
 	}
-	if got := lvl.Compression(); got != opentile.CompressionUnknown {
+	if got := lvl.Compression; got != opentile.CompressionUnknown {
 		t.Errorf("Compression: got %v, want CompressionUnknown", got)
 	}
-	b, err := lvl.Tile(0, 0)
+	b, err := tiler.ImageRawTile(0, 0, 0, 0)
 	if err != nil {
-		t.Fatalf("Tile(0,0): %v", err)
+		t.Fatalf("ImageRawTile(0,0,0,0): %v", err)
 	}
 	if !bytes.Equal(b, tiles[0]) {
-		t.Errorf("Tile(0,0): unknown compression should passthrough; got %d bytes (first 8: %x), want %d (first 8: %x)",
+		t.Errorf("ImageRawTile(0,0,0,0): unknown compression should passthrough; got %d bytes (first 8: %x), want %d (first 8: %x)",
 			len(b), b[:min(8, len(b))], len(tiles[0]), tiles[0][:min(8, len(tiles[0]))])
 	}
 }

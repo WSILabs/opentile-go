@@ -13,9 +13,9 @@ import (
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
-// TestTileEqualsTileInto pins the v0.9 contract that Tile() and
-// TileInto() return byte-identical output for every fixture across
-// every level. If they ever diverge the TileInto impl has a bug;
+// TestTileEqualsTileInto pins the v0.9 contract that RawTile() and
+// RawTileInto() return byte-identical output for every fixture across
+// every level. If they ever diverge the RawTileInto impl has a bug;
 // revert rather than reconcile.
 func TestTileEqualsTileInto(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
@@ -47,11 +47,11 @@ func TestTileEqualsTileInto(t *testing.T) {
 
 			rng := rand.New(rand.NewSource(0))
 			for li, lvl := range tiler.Levels() {
-				grid := lvl.Grid()
+				grid := lvl.Grid
 				if grid.W == 0 || grid.H == 0 {
 					continue
 				}
-				maxSize := lvl.TileMaxSize()
+				maxSize := tiler.TileMaxSize(li)
 				if maxSize <= 0 {
 					t.Errorf("L%d TileMaxSize = %d, want > 0", li, maxSize)
 					continue
@@ -67,17 +67,17 @@ func TestTileEqualsTileInto(t *testing.T) {
 
 				buf := make([]byte, maxSize)
 				for _, p := range positions {
-					a, errA := lvl.Tile(p.x, p.y)
-					n, errB := lvl.TileInto(p.x, p.y, buf)
+					a, errA := tiler.RawTile(li, p.x, p.y)
+					n, errB := tiler.RawTileInto(li, p.x, p.y, buf)
 					if (errA == nil) != (errB == nil) {
-						t.Errorf("L%d (%d,%d): Tile err=%v TileInto err=%v", li, p.x, p.y, errA, errB)
+						t.Errorf("L%d (%d,%d): RawTile err=%v RawTileInto err=%v", li, p.x, p.y, errA, errB)
 						continue
 					}
 					if errA != nil {
 						continue
 					}
 					if !bytes.Equal(a, buf[:n]) {
-						t.Errorf("L%d (%d,%d): Tile %d bytes != TileInto %d bytes",
+						t.Errorf("L%d (%d,%d): RawTile %d bytes != RawTileInto %d bytes",
 							li, p.x, p.y, len(a), n)
 					}
 				}
@@ -87,7 +87,7 @@ func TestTileEqualsTileInto(t *testing.T) {
 }
 
 // TestTileIntoShortBuffer pins io.ErrShortBuffer behavior across
-// formats. Calling TileInto with a tiny dst must error rather than
+// formats. Calling RawTileInto with a tiny dst must error rather than
 // truncate output silently.
 func TestTileIntoShortBuffer(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
@@ -106,11 +106,10 @@ func TestTileIntoShortBuffer(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer tiler.Close()
-	lvl, _ := tiler.Level(0)
 
 	tiny := make([]byte, 1)
-	_, err = lvl.TileInto(0, 0, tiny)
+	_, err = tiler.RawTileInto(0, 0, 0, tiny)
 	if !errors.Is(err, io.ErrShortBuffer) {
-		t.Errorf("TileInto with len(dst)=1: got %v, want io.ErrShortBuffer", err)
+		t.Errorf("RawTileInto with len(dst)=1: got %v, want io.ErrShortBuffer", err)
 	}
 }

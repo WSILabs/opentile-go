@@ -13,8 +13,8 @@ import (
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
-// TestNDPITileReaderMatchesTile locks in that Level.TileReader returns the
-// same bytes as Level.Tile for every level of a real NDPI slide. NDPI's
+// TestNDPITileReaderMatchesTile locks in that TileReader returns the
+// same bytes as RawTile for every level of a real NDPI slide. NDPI's
 // stripped path assembles tiles from JPEG restart markers; this confirms the
 // streamed and one-shot paths produce byte-identical output even on the
 // non-trivial tile-assembly code path.
@@ -32,13 +32,13 @@ func TestNDPITileReaderMatchesTile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	for i, lvl := range tiler.Levels() {
-		direct, err := lvl.Tile(0, 0)
+	for i := range tiler.Levels() {
+		direct, err := tiler.RawTile(i, 0, 0)
 		if err != nil {
-			t.Errorf("Tile(0,0) level %d: %v", i, err)
+			t.Errorf("RawTile(0,0) level %d: %v", i, err)
 			continue
 		}
-		rc, err := lvl.TileReader(0, 0)
+		rc, err := tiler.TileReader(i, 0, 0)
 		if err != nil {
 			t.Errorf("TileReader(0,0) level %d: %v", i, err)
 			continue
@@ -50,14 +50,14 @@ func TestNDPITileReaderMatchesTile(t *testing.T) {
 			continue
 		}
 		if !bytes.Equal(direct, streamed) {
-			t.Errorf("level %d: TileReader bytes (%d) != Tile bytes (%d)",
+			t.Errorf("level %d: TileReader bytes (%d) != RawTile bytes (%d)",
 				i, len(streamed), len(direct))
 		}
 	}
 }
 
-// TestNDPITilesIterRowMajor locks in that Level.Tiles yields every (x,y)
-// position in row-major order with byte-identical content to Tile(x,y) at
+// TestNDPITilesIterRowMajor locks in that RangeTiles yields every (x,y)
+// position in row-major order with byte-identical content to RawTile(i,x,y) at
 // the same position. Exercised on L3 of CMU-1.ndpi (the smallest grid —
 // 2x2 = 4 tiles); L0 would be 7,500 tiles which is unreasonable for a unit
 // test budget.
@@ -75,11 +75,12 @@ func TestNDPITilesIterRowMajor(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	lvl, err := tiler.Level(3)
+	const levelIdx = 3
+	lvl, err := tiler.Level(levelIdx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := lvl.Grid()
+	g := lvl.Grid
 	want := make([]opentile.TilePos, 0, g.W*g.H)
 	for y := 0; y < g.H; y++ {
 		for x := 0; x < g.W; x++ {
@@ -87,18 +88,18 @@ func TestNDPITilesIterRowMajor(t *testing.T) {
 		}
 	}
 	got := make([]opentile.TilePos, 0, len(want))
-	for pos, res := range lvl.Tiles(context.Background()) {
+	for pos, res := range tiler.RangeTiles(context.Background(), levelIdx) {
 		if res.Err != nil {
-			t.Errorf("Tiles iter at %v: %v", pos, res.Err)
+			t.Errorf("RangeTiles iter at %v: %v", pos, res.Err)
 			continue
 		}
-		direct, err := lvl.Tile(pos.X, pos.Y)
+		direct, err := tiler.RawTile(levelIdx, pos.X, pos.Y)
 		if err != nil {
-			t.Errorf("Tile(%d,%d): %v", pos.X, pos.Y, err)
+			t.Errorf("RawTile(%d,%d): %v", pos.X, pos.Y, err)
 			continue
 		}
 		if !bytes.Equal(direct, res.Bytes) {
-			t.Errorf("tile (%d,%d): iter bytes (%d) != Tile bytes (%d)",
+			t.Errorf("tile (%d,%d): iter bytes (%d) != RawTile bytes (%d)",
 				pos.X, pos.Y, len(res.Bytes), len(direct))
 		}
 		got = append(got, pos)

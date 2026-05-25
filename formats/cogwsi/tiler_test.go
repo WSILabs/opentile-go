@@ -63,10 +63,10 @@ func TestTiler_CMU1SmallRegion_FullPyramid(t *testing.T) {
 	if len(levels) == 0 {
 		t.Fatal("Levels(): empty")
 	}
-	for i, lvl := range levels {
-		b, err := lvl.Tile(0, 0)
+	for i := range levels {
+		b, err := tlr.RawTile(i, 0, 0)
 		if err != nil {
-			t.Fatalf("level %d Tile(0,0): %v", i, err)
+			t.Fatalf("level %d RawTile(0,0): %v", i, err)
 		}
 		if len(b) < 3 || b[0] != 0xFF || b[1] != 0xD8 || b[2] != 0xFF {
 			t.Errorf("level %d first tile lacks JPEG SOI: %x", i, b[:min(8, len(b))])
@@ -224,9 +224,6 @@ func TestTiler_Level(t *testing.T) {
 	lvl, err := tlr.Level(0)
 	if err != nil {
 		t.Fatalf("Level(0): %v", err)
-	}
-	if lvl == nil {
-		t.Fatal("Level(0): got nil")
 	}
 
 	// Verify it matches Levels()[0]

@@ -12,7 +12,6 @@ import (
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/formats/bif"
-	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
 // TestBIFAccessors exercises Image / Tiler accessors on real BIF
@@ -20,7 +19,7 @@ import (
 // without integration data.
 //
 // Both fixtures must Open cleanly, expose at least one Image with
-// non-empty Levels, return decodable JPEG bytes from Tile(0, 0),
+// non-empty Levels, return decodable JPEG bytes from RawTile(0,0,0),
 // expose the expected associated-image kinds for their generation,
 // and surface MetadataOf with the right Generation.
 func TestBIFAccessors(t *testing.T) {
@@ -80,58 +79,55 @@ func TestBIFAccessors(t *testing.T) {
 				t.Errorf("Level(-1): want ErrLevelOutOfRange, got %v", err)
 			}
 
-			// Image-level
+			// Image-level (value-type fields)
 			imgs := tiler.Images()
 			if len(imgs) != 1 {
 				t.Fatalf("Images: got %d, want 1 (BIF is single-image)", len(imgs))
 			}
 			img := imgs[0]
-			if img.Index() != 0 {
-				t.Errorf("Image.Index: got %d, want 0", img.Index())
+			if img.Index != 0 {
+				t.Errorf("Image.Index: got %d, want 0", img.Index)
 			}
-			if img.MPP().W == 0 {
-				t.Error("Image.MPP: zero (expected base ScanRes / 1000)")
+			if len(img.Levels) == 0 {
+				t.Fatal("Image.Levels: empty")
 			}
 
-			// Tile(0, 0) decodes to a tile-sized JPEG.
-			lvl0 := imgs[0].Levels()[0]
-			tile, err := lvl0.Tile(0, 0)
+			// RawTile(0, 0, 0) decodes to a tile-sized JPEG.
+			tile, err := tiler.RawTile(0, 0, 0)
 			if err != nil {
-				t.Fatalf("Tile(0,0): %v", err)
+				t.Fatalf("RawTile(0,0,0): %v", err)
 			}
 			decoded, err := jpeg.Decode(bytes.NewReader(tile))
 			if err != nil {
 				t.Fatalf("jpeg.Decode: %v", err)
 			}
 			db := decoded.Bounds()
-			ts := lvl0.TileSize()
+			ts := img.Levels[0].TileSize
 			if db.Dx() != ts.W || db.Dy() != ts.H {
 				t.Errorf("decoded tile dims: got %dx%d, want %dx%d", db.Dx(), db.Dy(), ts.W, ts.H)
 			}
 
-			// TileReader matches Tile.
-			rc, err := lvl0.TileReader(0, 0)
+			// TileReader matches RawTile.
+			rc, err := tiler.TileReader(0, 0, 0)
 			if err != nil {
 				t.Fatalf("TileReader: %v", err)
 			}
 			rcBytes, _ := io.ReadAll(rc)
 			rc.Close()
 			if !bytes.Equal(rcBytes, tile) {
-				t.Errorf("TileReader bytes != Tile bytes (lengths %d vs %d)", len(rcBytes), len(tile))
+				t.Errorf("TileReader bytes != RawTile bytes (lengths %d vs %d)", len(rcBytes), len(tile))
 			}
 
-			// Tiles iterator yields grid.W * grid.H entries.
-			grid := lvl0.Grid()
-			expected := grid.W * grid.H
+			// RangeTiles iterator yields at least 1 entry.
 			seen := 0
-			for range lvl0.Tiles(context.Background()) {
+			for range tiler.RangeTiles(context.Background(), 0) {
 				seen++
 				if seen >= 4 { // sample only — full iteration is 8000+ tiles
 					break
 				}
 			}
 			if seen == 0 {
-				t.Errorf("Tiles iterator yielded zero entries (expected up to %d)", expected)
+				t.Error("RangeTiles iterator yielded zero entries")
 			}
 
 			// Associated kinds match expectation.

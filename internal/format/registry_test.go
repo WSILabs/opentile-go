@@ -1,8 +1,10 @@
 package format
 
 import (
+	"context"
 	"errors"
 	"io"
+	"iter"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -11,15 +13,24 @@ import (
 // fakeReader satisfies format.Reader for registry tests.
 type fakeReader struct{ name string }
 
-func (r *fakeReader) Format() opentile.Format              { return opentile.Format(r.name) }
-func (r *fakeReader) Images() []opentile.Image             { return nil }
-func (r *fakeReader) Levels() []opentile.Level             { return nil }
-func (r *fakeReader) Level(i int) (opentile.Level, error)  { return nil, nil }
-func (r *fakeReader) Associated() []opentile.AssociatedImage { return nil }
-func (r *fakeReader) Metadata() opentile.Metadata          { return opentile.Metadata{} }
-func (r *fakeReader) ICCProfile() []byte                   { return nil }
-func (r *fakeReader) WarmLevel(i int) error                { return nil }
-func (r *fakeReader) Close() error                         { return nil }
+func (r *fakeReader) Format() opentile.Format                                 { return opentile.Format(r.name) }
+func (r *fakeReader) Images() []opentile.Image                                { return nil }
+func (r *fakeReader) Level(_, _ int) (opentile.Level, error)                  { return opentile.Level{}, nil }
+func (r *fakeReader) Associated() []opentile.AssociatedImage                  { return nil }
+func (r *fakeReader) Metadata() opentile.Metadata                             { return opentile.Metadata{} }
+func (r *fakeReader) ICCProfile() []byte                                      { return nil }
+func (r *fakeReader) WarmLevel(_, _ int) error                                { return nil }
+func (r *fakeReader) ImageRawTile(_, _, _, _ int) ([]byte, error)             { return nil, nil }
+func (r *fakeReader) ImageRawTileInto(_, _, _, _ int, _ []byte) (int, error)  { return 0, nil }
+func (r *fakeReader) ImageTileMaxSize(_, _ int) int                           { return 0 }
+func (r *fakeReader) ImageTilePrefix(_, _ int) []byte                         { return nil }
+func (r *fakeReader) ImageTileBodyMaxSize(_, _ int) int                       { return 0 }
+func (r *fakeReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) { return 0, nil }
+func (r *fakeReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error)   { return nil, nil }
+func (r *fakeReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	return nil
+}
+func (r *fakeReader) Close() error { return nil }
 
 func TestRegisterAndOpenAny(t *testing.T) {
 	original := snapshot()

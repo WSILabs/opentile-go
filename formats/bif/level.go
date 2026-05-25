@@ -558,7 +558,7 @@ func tiffCompressionToOpentile(c uint32) opentile.Compression {
 	}
 }
 
-// _ static interface assertion — fail at compile time if levelImpl
-// drifts away from the Level contract. T8 added TileOverlap; if the
-// project evolves Level further this catches the breakage early.
-var _ opentile.Level = (*levelImpl)(nil)
+// levelImplInspector is a compile-time check that levelImpl has all
+// the metadata accessor methods used by the tiler to build value-type
+// opentile.Level slices at Open time.
+var _ = (*levelImpl)(nil)

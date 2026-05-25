@@ -27,9 +27,13 @@ func (f *Factory) SupportsRaw(r io.ReaderAt, size int64) bool {
 	return matchIFE(r, size) == nil
 }
 
-// OpenRaw constructs a format.Reader from a raw reader.
-func (f *Factory) OpenRaw(r io.ReaderAt, size int64, cfg *opentile.Config) (format.Reader, error) {
-	return openIFEFormat(r, size, opentileConfigToFormatConfig(cfg))
+// OpenRaw constructs a *tiler from a raw reader.
+func (f *Factory) OpenRaw(r io.ReaderAt, size int64, cfg *opentile.Config) (*tiler, error) {
+	reader, err := openIFEFormat(r, size, opentileConfigToFormatConfig(cfg))
+	if err != nil {
+		return nil, err
+	}
+	return reader.(*tiler), nil
 }
 
 func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {

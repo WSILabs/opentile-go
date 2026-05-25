@@ -13,6 +13,7 @@ var (
 	ErrTileOutOfBounds        = errors.New("opentile: tile position out of bounds")
 	ErrCorruptTile            = errors.New("opentile: corrupt tile")
 	ErrLevelOutOfRange        = errors.New("opentile: level index out of range")
+	ErrImageIndexOutOfRange   = errors.New("opentile: image index out of range")
 	ErrInvalidTIFF            = errors.New("opentile: invalid TIFF structure")
 
 	// ErrTooManyIFDs is returned when a TIFF IFD chain exceeds the safety cap
@@ -76,6 +77,14 @@ var (
 	//
 	// Added in v0.9 alongside the mmap-default OpenFile change.
 	ErrMmapUnavailable = errors.New("opentile: memory-map unavailable for this file")
+
+	// ErrCodecNotRegistered is returned by *Slide.DecodedTile and friends
+	// when no decoder is registered for the level's Compression. The
+	// wrapping error message names the compression and the suggested
+	// blank-import that fixes it.
+	//
+	// Added in v0.24 alongside the DecodedTile family.
+	ErrCodecNotRegistered = errors.New("opentile: codec not registered for this slide's tile compression")
 )
 
 // TileError wraps a per-tile failure with the (level, x, y) that produced it.

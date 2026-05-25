@@ -148,10 +148,20 @@ func (sb *synthBuilder) build() (data []byte, totalTiles uint32) {
 	return out, totalTiles
 }
 
+// openIFETiler opens a synthetic IFE buffer and returns the concrete *tiler.
+func openIFETiler(t *testing.T, data []byte) *tiler {
+	t.Helper()
+	r, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
+	if err != nil {
+		t.Fatalf("openIFE: %v", err)
+	}
+	return r.(*tiler)
+}
+
 // TestSynthLayerInversion verifies that a 3-layer synthetic IFE with
 // distinguishable per-layer tile bytes round-trips correctly through
-// the layer-inversion logic. Levels()[0] is native (highest scale in
-// storage = last entry); Levels()[N-1] is coarsest.
+// the layer-inversion logic. Images()[0].Levels[0] is native (highest
+// scale in storage = last entry); Levels[N-1] is coarsest.
 func TestSynthLayerInversion(t *testing.T) {
 	// File-storage order is COARSEST-FIRST, scales must strictly
 	// increase. So storage[0] = coarsest (scale=1), storage[2] =
@@ -174,35 +184,31 @@ func TestSynthLayerInversion(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
-	if err != nil {
-		t.Fatalf("openIFE: %v", err)
-	}
+	tiler := openIFETiler(t, data)
 	defer tiler.Close()
 
-	levels := tiler.Levels()
+	levels := tiler.Images()[0].Levels
 	if len(levels) != 3 {
 		t.Fatalf("level count = %d, want 3", len(levels))
 	}
 
-	// Levels()[0] is native (scale=4 in storage).
-	if got, want := levels[0].Grid(), (opentile.Size{W: 2, H: 2}); got != want {
+	// Levels[0] is native (scale=4 in storage).
+	if got, want := levels[0].Grid, (opentile.Size{W: 2, H: 2}); got != want {
 		t.Errorf("L0 (native) Grid = %v, want %v", got, want)
 	}
-	if got, want := levels[2].Grid(), (opentile.Size{W: 1, H: 1}); got != want {
+	if got, want := levels[2].Grid, (opentile.Size{W: 1, H: 1}); got != want {
 		t.Errorf("L2 (coarsest) Grid = %v, want %v", got, want)
 	}
 
 	// Read tile bytes and confirm they're the native layer's bytes.
-	b00, err := levels[0].Tile(0, 0)
+	b00, err := tiler.levelImpls[0].Tile(0, 0)
 	if err != nil {
 		t.Fatalf("L0 Tile(0,0): %v", err)
 	}
 	if string(b00) != "NATIVE_LAYER_TILE_0_0" {
 		t.Errorf("L0 (0,0) bytes = %q, want NATIVE_LAYER_TILE_0_0", b00)
 	}
-	b11, err := levels[0].Tile(1, 1)
+	b11, err := tiler.levelImpls[0].Tile(1, 1)
 	if err != nil {
 		t.Fatalf("L0 Tile(1,1): %v", err)
 	}
@@ -211,7 +217,7 @@ func TestSynthLayerInversion(t *testing.T) {
 	}
 
 	// Coarsest single tile.
-	bC, err := levels[2].Tile(0, 0)
+	bC, err := tiler.levelImpls[2].Tile(0, 0)
 	if err != nil {
 		t.Fatalf("L2 Tile: %v", err)
 	}
@@ -220,11 +226,11 @@ func TestSynthLayerInversion(t *testing.T) {
 	}
 
 	// Mid layer 1×2 grid.
-	bM0, _ := levels[1].Tile(0, 0)
+	bM0, _ := tiler.levelImpls[1].Tile(0, 0)
 	if string(bM0) != "MID_LAYER_TILE_0" {
 		t.Errorf("L1 (0,0) bytes = %q", bM0)
 	}
-	bM1, _ := levels[1].Tile(1, 0)
+	bM1, _ := tiler.levelImpls[1].Tile(1, 0)
 	if string(bM1) != "MID_LAYER_TILE_1" {
 		t.Errorf("L1 (1,0) bytes = %q", bM1)
 	}
@@ -244,15 +250,12 @@ func TestSynthSparse(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
-	if err != nil {
-		t.Fatalf("openIFE: %v", err)
-	}
+	tiler := openIFETiler(t, data)
 	defer tiler.Close()
 
 	// Native level (scale=2 in storage = API L0) has the sparse tile
 	// at (1, 0).
-	l0 := tiler.Levels()[0]
+	l0 := tiler.levelImpls[0]
 	bp, err := l0.Tile(0, 0)
 	if err != nil {
 		t.Fatalf("present tile err: %v", err)
@@ -283,12 +286,9 @@ func TestSynthIrisEncoding(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
-	if err != nil {
-		t.Fatalf("openIFE: %v", err)
-	}
+	tiler := openIFETiler(t, data)
 	defer tiler.Close()
-	if got := tiler.Levels()[0].Compression(); got != opentile.CompressionIRIS {
+	if got := tiler.Images()[0].Levels[0].Compression; got != opentile.CompressionIRIS {
 		t.Errorf("compression = %v, want CompressionIRIS", got)
 	}
 }
@@ -303,12 +303,9 @@ func TestSynthAvifEncoding(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
-	if err != nil {
-		t.Fatalf("openIFE: %v", err)
-	}
+	tiler := openIFETiler(t, data)
 	defer tiler.Close()
-	if got := tiler.Levels()[0].Compression(); got != opentile.CompressionAVIF {
+	if got := tiler.Images()[0].Levels[0].Compression; got != opentile.CompressionAVIF {
 		t.Errorf("compression = %v, want CompressionAVIF", got)
 	}
 }
@@ -326,15 +323,12 @@ func TestSynthTilesIterator(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
-	if err != nil {
-		t.Fatalf("openIFE: %v", err)
-	}
+	tiler := openIFETiler(t, data)
 	defer tiler.Close()
 
 	var positions []opentile.TilePos
 	var bodies []string
-	for pos, res := range tiler.Levels()[0].Tiles(context.Background()) {
+	for pos, res := range tiler.levelImpls[0].Tiles(context.Background()) {
 		if res.Err != nil {
 			t.Errorf("iter err at %v: %v", pos, res.Err)
 			break
@@ -436,7 +430,7 @@ func TestSyntheticFactoryRoundtrip(t *testing.T) {
 		t.Fatalf("OpenRaw: %v", err)
 	}
 	defer tiler.Close()
-	b, err := tiler.Levels()[0].Tile(0, 0)
+	b, err := tiler.levelImpls[0].Tile(0, 0)
 	if err != nil {
 		t.Fatalf("Tile: %v", err)
 	}

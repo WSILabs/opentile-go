@@ -1,8 +1,11 @@
 package cogwsi
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
+	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/formats/generictiff"
@@ -99,12 +102,10 @@ func (t *Tiler) Close() error {
 // Tiler; COG-WSI files always carry a single pyramid (spec §5.2).
 func (t *Tiler) Images() []opentile.Image { return t.inner.Images() }
 
-// Levels returns the main pyramid levels (shortcut for Images()[0].
-// Levels()).
-func (t *Tiler) Levels() []opentile.Level { return t.inner.Levels() }
-
-// Level returns the pyramid level at index i.
-func (t *Tiler) Level(i int) (opentile.Level, error) { return t.inner.Level(i) }
+// Level returns the pyramid level at (image, level). Delegates to inner.
+func (t *Tiler) Level(image, level int) (opentile.Level, error) {
+	return t.inner.Level(image, level)
+}
 
 // Associated returns associated images (label / overview / thumbnail
 // per v0.15 canonical naming; the WSIImageType=macro tag maps to
@@ -121,9 +122,49 @@ func (t *Tiler) Metadata() opentile.Metadata { return t.md }
 // ICCProfile returns the ICC profile bytes from L0, if present.
 func (t *Tiler) ICCProfile() []byte { return t.inner.ICCProfile() }
 
-// WarmLevel pre-warms the OS page cache for level i. Delegates to
-// the inner Tiler (which implements the v0.9 mmap-aware warm path).
-func (t *Tiler) WarmLevel(i int) error { return t.inner.WarmLevel(i) }
+// WarmLevel pre-warms the OS page cache for (image, level). Delegates
+// to the inner Tiler (which implements the v0.9 mmap-aware warm path).
+func (t *Tiler) WarmLevel(image, level int) error { return t.inner.WarmLevel(image, level) }
+
+// ImageRawTile returns compressed tile bytes. Delegates to inner.
+func (t *Tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	return t.inner.ImageRawTile(image, level, tx, ty)
+}
+
+// ImageRawTileInto fills dst with compressed tile bytes. Delegates to inner.
+func (t *Tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	return t.inner.ImageRawTileInto(image, level, tx, ty, dst)
+}
+
+// ImageTileMaxSize returns tile byte upper bound. Delegates to inner.
+func (t *Tiler) ImageTileMaxSize(image, level int) int {
+	return t.inner.ImageTileMaxSize(image, level)
+}
+
+// ImageTilePrefix returns the shared tile prefix. Delegates to inner.
+func (t *Tiler) ImageTilePrefix(image, level int) []byte {
+	return t.inner.ImageTilePrefix(image, level)
+}
+
+// ImageTileBodyMaxSize returns tile body upper bound. Delegates to inner.
+func (t *Tiler) ImageTileBodyMaxSize(image, level int) int {
+	return t.inner.ImageTileBodyMaxSize(image, level)
+}
+
+// ImageTileBodyInto fills dst with tile body bytes. Delegates to inner.
+func (t *Tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	return t.inner.ImageTileBodyInto(image, level, tx, ty, dst)
+}
+
+// ImageTileReader returns a streaming tile reader. Delegates to inner.
+func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	return t.inner.ImageTileReader(image, level, tx, ty)
+}
+
+// ImageRangeTiles returns a range-over-function tile iterator. Delegates to inner.
+func (t *Tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	return t.inner.ImageRangeTiles(ctx, image, level)
+}
 
 // UnwrapReader exposes the inner generic-TIFF reader so callers that
 // hold a *cogwsi.Tiler can reach the generic-TIFF-format-specific

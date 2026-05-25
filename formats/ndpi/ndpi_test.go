@@ -189,8 +189,15 @@ func TestNdpiOpenClassifiesPages(t *testing.T) {
 	if tiler.Format() != opentile.FormatNDPI {
 		t.Errorf("Format: got %q, want %q", tiler.Format(), opentile.FormatNDPI)
 	}
-	if got := len(tiler.Levels()); got != 1 {
-		t.Errorf("levels: got %d, want 1", got)
+	imgs := tiler.Images()
+	if len(imgs) != 1 || len(imgs[0].Levels) != 1 {
+		t.Errorf("images/levels: got %d images, want 1; levels[0]=%d, want 1",
+			len(imgs), func() int {
+				if len(imgs) > 0 {
+					return len(imgs[0].Levels)
+				}
+				return 0
+			}())
 	}
 	if got := len(tiler.Associated()); got != 0 {
 		t.Errorf("associated: got %d, want 0", got)

@@ -41,10 +41,7 @@ func TestEmptyTilePathReturnsBlank(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, err := tiler.Level(0)
-	if err != nil {
-		t.Fatalf("Level(0): %v", err)
-	}
+	lvl := tiler.levelImpls[0]
 
 	// Map serpentine index 1 to image-space (col, row).
 	emptyCol, emptyRow := serpentineToImage(1, gridW, gridH)
@@ -94,7 +91,7 @@ func TestEmptyTileFallsBackTo255WhenScanWhitePointAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 
 	emptyCol, emptyRow := serpentineToImage(0, gridW, gridH)
 	tile, err := lvl.Tile(emptyCol, emptyRow)
@@ -132,7 +129,7 @@ func TestEmptyTileReaderReturnsBlank(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	emptyCol, emptyRow := serpentineToImage(2, gridW, gridH)
 
 	want, err := lvl.Tile(emptyCol, emptyRow)

@@ -80,6 +80,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}
 
 	images := make([]opentile.Image, 0, len(cls.LevelImages))
+	allEngines := make([][]omeLevel, 0, len(cls.LevelImages))
 	for k, omeIdx := range cls.LevelImages {
 		if omeIdx >= len(pages) {
 			return nil, fmt.Errorf("ome: OME Image %d has no corresponding TIFF page (only %d top-level pages)", omeIdx, len(pages))
@@ -93,25 +94,16 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			W: md.Images[omeIdx].PhysicalSizeX,
 			H: md.Images[omeIdx].PhysicalSizeY,
 		}
-		levels, err := buildLevels(file, basePage, baseSize, baseMPP, oneFrameTileSize)
+		valueLevels, engines, err := buildLevels(file, basePage, baseSize, baseMPP, oneFrameTileSize)
 		if err != nil {
 			return nil, fmt.Errorf("ome: image %d: %w", omeIdx, err)
 		}
-		omeImg := md.Images[omeIdx]
-		sizeC := omeImg.Channels
-		if sizeC < 1 {
-			sizeC = 1
-		}
-		images = append(images, &pyramidImage{
-			index:        k,
-			name:         omeImg.Name,
-			levels:       levels,
-			mpp:          baseMPP,
-			sizeZ:        omeImg.SizeZ,
-			sizeC:        sizeC,
-			sizeT:        omeImg.SizeT,
-			channelNames: append([]string(nil), omeImg.ChannelNames...),
+		images = append(images, opentile.Image{
+			Index:  k,
+			Name:   md.Images[omeIdx].Name,
+			Levels: valueLevels,
 		})
+		allEngines = append(allEngines, engines)
 	}
 
 	var associated []opentile.AssociatedImage
@@ -142,6 +134,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		md:         md,
 		cross:      cross,
 		images:     images,
+		levels:     allEngines,
 		associated: associated,
 		icc:        icc,
 	}, nil

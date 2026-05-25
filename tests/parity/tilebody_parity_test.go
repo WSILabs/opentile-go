@@ -14,10 +14,10 @@ import (
 // per format, reads 5 sampled tiles per L0, and confirms the v0.13
 // invariant:
 //
-//	SpliceJPEGTile(Level.TilePrefix(), Level.TileBodyInto(p)) ==byte== Level.Tile(p)
+//	SpliceJPEGTile(TilePrefix(0), TileBodyInto(0, p)) ==byte== RawTile(0, p)
 //
 // Catches any format that implements TilePrefix/TileBodyInto
-// inconsistently with what the existing Tile() output is.
+// inconsistently with what the existing RawTile() output is.
 //
 // Skipped cleanly when OPENTILE_TESTDIR is unset OR the slide isn't
 // on disk.
@@ -51,13 +51,17 @@ func TestTileBodyReconstitutionInvariant_AllFormats(t *testing.T) {
 			}
 			defer tiler.Close()
 
-			lvl := tiler.Levels()[0]
-			grid := lvl.Grid()
+			levels := tiler.Levels()
+			if len(levels) == 0 {
+				t.Skip("no levels")
+			}
+			lvl := levels[0]
+			grid := lvl.Grid
 			if grid.W == 0 || grid.H == 0 {
 				t.Skip("L0 has empty grid")
 			}
-			prefix := lvl.TilePrefix()
-			bodyBuf := make([]byte, lvl.TileBodyMaxSize())
+			prefix := tiler.TilePrefix(0)
+			bodyBuf := make([]byte, tiler.TileBodyMaxSize(0))
 
 			positions := []struct{ x, y int }{
 				{0, 0},
@@ -67,10 +71,10 @@ func TestTileBodyReconstitutionInvariant_AllFormats(t *testing.T) {
 				{grid.W / 2, grid.H / 2},
 			}
 			for _, p := range positions {
-				full, errFull := lvl.Tile(p.x, p.y)
-				n, errBody := lvl.TileBodyInto(p.x, p.y, bodyBuf)
+				full, errFull := tiler.RawTile(0, p.x, p.y)
+				n, errBody := tiler.TileBodyInto(0, p.x, p.y, bodyBuf)
 				if (errFull == nil) != (errBody == nil) {
-					t.Errorf("(%d,%d): Tile err=%v, TileBodyInto err=%v", p.x, p.y, errFull, errBody)
+					t.Errorf("(%d,%d): RawTile err=%v, TileBodyInto err=%v", p.x, p.y, errFull, errBody)
 					continue
 				}
 				if errFull != nil {
@@ -82,7 +86,7 @@ func TestTileBodyReconstitutionInvariant_AllFormats(t *testing.T) {
 					continue
 				}
 				if !bytes.Equal(full, reconstituted) {
-					t.Errorf("(%d,%d): reconstituted (%d bytes) != Tile() (%d bytes)",
+					t.Errorf("(%d,%d): reconstituted (%d bytes) != RawTile() (%d bytes)",
 						p.x, p.y, len(reconstituted), len(full))
 				}
 			}

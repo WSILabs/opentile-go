@@ -19,11 +19,10 @@ import (
 //
 //   - Magic detection + Open round-trip via the Factory.
 //   - Level count and per-level dimensions match the T3 gate findings.
-//   - Tile(0, 0) returns a JPEG bytestream (SOI marker FFD8).
-//   - TileAt({X:0, Y:0}) byte-identical to Tile(0, 0).
+//   - ImageRawTile(0, 0, 0, 0) returns a JPEG bytestream (SOI marker FFD8).
 //   - Out-of-bounds (col, row) returns ErrTileOutOfBounds.
-//   - Non-zero Z/C/T returns ErrDimensionUnavailable.
-//   - TileReader streams the same bytes Tile returns.
+//   - Non-zero Z/C/T via TileAt returns ErrDimensionUnavailable.
+//   - ImageTileReader streams the same bytes ImageRawTile returns.
 func TestCervixEndToEnd(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -55,7 +54,11 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Errorf("Format = %v, want %v", got, opentile.FormatIFE)
 	}
 
-	levels := tiler.Levels()
+	imgs := tiler.Images()
+	if len(imgs) != 1 {
+		t.Fatalf("Images count = %d, want 1", len(imgs))
+	}
+	levels := imgs[0].Levels
 	if len(levels) != 9 {
 		t.Errorf("level count = %d, want 9", len(levels))
 	}
@@ -73,46 +76,49 @@ func TestCervixEndToEnd(t *testing.T) {
 		{W: 512, H: 512},
 	}
 	for i, want := range wantSizes {
-		if got := levels[i].Size(); got != want {
+		if got := levels[i].Size; got != want {
 			t.Errorf("L%d Size = %v, want %v", i, got, want)
 		}
 	}
 
 	// All levels share 256×256 tiles, JPEG-compressed.
 	for i, lvl := range levels {
-		if got := lvl.TileSize(); got != (opentile.Size{W: 256, H: 256}) {
+		if got := lvl.TileSize; got != (opentile.Size{W: 256, H: 256}) {
 			t.Errorf("L%d TileSize = %v, want 256×256", i, got)
 		}
-		if got := lvl.Compression(); got != opentile.CompressionJPEG {
+		if got := lvl.Compression; got != opentile.CompressionJPEG {
 			t.Errorf("L%d Compression = %v, want jpeg", i, got)
 		}
 	}
 
-	l0 := levels[0]
-	a, err := l0.Tile(0, 0)
+	// ImageRawTile(0, 0, 0, 0) returns a JPEG SOI marker.
+	a, err := tiler.ImageRawTile(0, 0, 0, 0)
 	if err != nil {
-		t.Fatalf("L0 Tile(0,0): %v", err)
+		t.Fatalf("L0 ImageRawTile(0,0,0,0): %v", err)
 	}
 	if len(a) < 2 || a[0] != 0xFF || a[1] != 0xD8 {
-		t.Errorf("L0 Tile(0,0): missing JPEG SOI marker; first 4 bytes = % x", a[:min(4, len(a))])
+		t.Errorf("L0 tile: missing JPEG SOI marker; first 4 bytes = % x", a[:min(4, len(a))])
 	}
 
-	b, err := l0.TileAt(opentile.TileCoord{X: 0, Y: 0})
+	// TileAt with Z/C/T non-zero → ErrDimensionUnavailable via levelImpl.
+	lvl0 := tiler.levelImpls[0]
+
+	b, err := lvl0.TileAt(opentile.TileCoord{X: 0, Y: 0})
 	if err != nil {
 		t.Fatalf("L0 TileAt: %v", err)
 	}
 	if !bytes.Equal(a, b) {
-		t.Errorf("Tile(0,0) and TileAt({X:0,Y:0}) bytes differ (lengths %d/%d)", len(a), len(b))
+		t.Errorf("ImageRawTile and TileAt({X:0,Y:0}) bytes differ (lengths %d/%d)", len(a), len(b))
 	}
 
 	// Out-of-bounds.
-	_, err = l0.Tile(-1, 0)
+	_, err = tiler.ImageRawTile(0, 0, -1, 0)
 	if !errors.Is(err, opentile.ErrTileOutOfBounds) {
-		t.Errorf("Tile(-1, 0): got %v, want ErrTileOutOfBounds", err)
+		t.Errorf("ImageRawTile(0,0,-1,0): got %v, want ErrTileOutOfBounds", err)
 	}
-	_, err = l0.Tile(496, 0)
+	_, err = tiler.ImageRawTile(0, 0, 496, 0)
 	if !errors.Is(err, opentile.ErrTileOutOfBounds) {
-		t.Errorf("Tile(496, 0): got %v, want ErrTileOutOfBounds", err)
+		t.Errorf("ImageRawTile(0,0,496,0): got %v, want ErrTileOutOfBounds", err)
 	}
 
 	// Non-zero Z/C/T → ErrDimensionUnavailable (2D-only format).
@@ -121,16 +127,16 @@ func TestCervixEndToEnd(t *testing.T) {
 		{X: 0, Y: 0, C: 1},
 		{X: 0, Y: 0, T: 1},
 	} {
-		_, err := l0.TileAt(coord)
+		_, err := lvl0.TileAt(coord)
 		if !errors.Is(err, opentile.ErrDimensionUnavailable) {
 			t.Errorf("TileAt(%+v): got %v, want ErrDimensionUnavailable", coord, err)
 		}
 	}
 
-	// TileReader returns same bytes.
-	rc, err := l0.TileReader(0, 0)
+	// ImageTileReader returns same bytes.
+	rc, err := tiler.ImageTileReader(0, 0, 0, 0)
 	if err != nil {
-		t.Fatalf("TileReader(0,0): %v", err)
+		t.Fatalf("ImageTileReader(0,0,0,0): %v", err)
 	}
 	defer rc.Close()
 	got, err := io.ReadAll(rc)
@@ -138,19 +144,7 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Fatalf("ReadAll: %v", err)
 	}
 	if !bytes.Equal(got, a) {
-		t.Errorf("TileReader bytes differ from Tile (lengths %d/%d)", len(got), len(a))
-	}
-
-	// 2D dimensions reported through Image accessors.
-	img := tiler.Images()[0]
-	if got := img.SizeZ(); got != 1 {
-		t.Errorf("SizeZ = %d, want 1", got)
-	}
-	if got := img.SizeC(); got != 1 {
-		t.Errorf("SizeC = %d, want 1", got)
-	}
-	if got := img.SizeT(); got != 1 {
-		t.Errorf("SizeT = %d, want 1", got)
+		t.Errorf("ImageTileReader bytes differ from ImageRawTile (lengths %d/%d)", len(got), len(a))
 	}
 
 	// Metadata extraction (since v0.8 metadata closeout).
@@ -248,11 +242,10 @@ func TestCervixEndToEnd(t *testing.T) {
 	}
 
 	// Tiles iterator on the coarsest level (a 2×2 grid → 4 tiles).
-	lTop := levels[len(levels)-1]
 	count := 0
-	for _, res := range lTop.Tiles(context.Background()) {
+	for _, res := range tiler.ImageRangeTiles(context.Background(), 0, len(levels)-1) {
 		if res.Err != nil {
-			t.Errorf("Tiles err on coarsest: %v", res.Err)
+			t.Errorf("ImageRangeTiles err on coarsest: %v", res.Err)
 			break
 		}
 		if len(res.Bytes) < 2 || res.Bytes[0] != 0xFF || res.Bytes[1] != 0xD8 {
@@ -264,4 +257,11 @@ func TestCervixEndToEnd(t *testing.T) {
 	if count != 4 {
 		t.Errorf("Tiles count = %d, want 4 (2×2 grid)", count)
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

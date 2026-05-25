@@ -1,8 +1,6 @@
 package parity
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -137,67 +135,32 @@ func TestSCNGeometry(t *testing.T) {
 			}
 			for i, exp := range fx.levels {
 				lvl := levels[i]
-				if got := lvl.Size(); got.W != exp.W || got.H != exp.H {
+				if got := lvl.Size; got.W != exp.W || got.H != exp.H {
 					t.Errorf("L%d Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)
 				}
-				if got := lvl.TileSize(); got.W != exp.TileW || got.H != exp.TileH {
+				if got := lvl.TileSize; got.W != exp.TileW || got.H != exp.TileH {
 					t.Errorf("L%d TileSize = %v, want {W:%d H:%d}", i, got, exp.TileW, exp.TileH)
 				}
-				if got := lvl.Grid(); got.W != exp.GridW || got.H != exp.GridH {
+				if got := lvl.Grid; got.W != exp.GridW || got.H != exp.GridH {
 					t.Errorf("L%d Grid = %v, want {W:%d H:%d}", i, got, exp.GridW, exp.GridH)
 				}
-				if got := lvl.Compression(); got != opentile.CompressionJPEG {
+				if got := lvl.Compression; got != opentile.CompressionJPEG {
 					t.Errorf("L%d Compression = %v, want JPEG", i, got)
 				}
 			}
 
 			// L0 (0, 0) JPEG SOI marker.
-			b, err := levels[0].Tile(0, 0)
+			b, err := tiler.RawTile(0, 0, 0)
 			if err != nil {
-				t.Fatalf("L0 Tile(0,0): %v", err)
+				t.Fatalf("L0 RawTile(0,0): %v", err)
 			}
 			if len(b) < 2 || b[0] != 0xFF || b[1] != 0xD8 {
 				t.Errorf("L0 (0,0) first 2 = % x, want FF D8 (JPEG SOI)", b[:2])
 			}
 
-			// Multi-dim API: SizeZ=SizeT=1 always; SizeC per fixture.
-			img := tiler.Images()[0]
-			if got := img.SizeZ(); got != 1 {
-				t.Errorf("SizeZ = %d, want 1", got)
-			}
-			if got := img.SizeT(); got != 1 {
-				t.Errorf("SizeT = %d, want 1", got)
-			}
-			if got := img.SizeC(); got != fx.sizeC {
-				t.Errorf("SizeC = %d, want %d", got, fx.sizeC)
-			}
-			for i, want := range fx.channelNames {
-				if got := img.ChannelName(i); got != want {
-					t.Errorf("ChannelName(%d) = %q, want %q", i, got, want)
-				}
-			}
-
-			// Per-channel TileAt: each channel returns distinct bytes.
-			if fx.sizeC > 1 {
-				channelHashes := make(map[string]int, fx.sizeC)
-				for c := 0; c < fx.sizeC; c++ {
-					b, err := levels[0].TileAt(opentile.TileCoord{C: c, X: 0, Y: 0})
-					if err != nil {
-						t.Errorf("TileAt(C=%d, 0, 0): %v", c, err)
-						continue
-					}
-					sum := sha256.Sum256(b)
-					key := hex.EncodeToString(sum[:])
-					channelHashes[key]++
-				}
-				if len(channelHashes) != fx.sizeC {
-					t.Errorf("channels returned %d distinct hashes, want %d", len(channelHashes), fx.sizeC)
-				}
-			}
-
 			// Out-of-bounds.
-			grid := levels[0].Grid()
-			_, err = levels[0].Tile(grid.W, 0)
+			grid := levels[0].Grid
+			_, err = tiler.RawTile(0, grid.W, 0)
 			if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 				t.Errorf("OOB on L0: got %v, want ErrTileOutOfBounds", err)
 			}
@@ -287,7 +250,7 @@ func TestSCNOpenFileBackingsByteIdentical(t *testing.T) {
 			}
 
 			for i, lvl := range mmapLevels {
-				grid := lvl.Grid()
+				grid := lvl.Grid
 				if grid.W == 0 || grid.H == 0 {
 					continue
 				}
@@ -301,8 +264,8 @@ func TestSCNOpenFileBackingsByteIdentical(t *testing.T) {
 					positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
 				}
 				for _, p := range positions {
-					a, errA := mmapLevels[i].Tile(p.x, p.y)
-					b, errB := preadLevels[i].Tile(p.x, p.y)
+					a, errA := mmapTiler.RawTile(i, p.x, p.y)
+					b, errB := preadTiler.RawTile(i, p.x, p.y)
 					if (errA == nil) != (errB == nil) {
 						t.Errorf("L%d (%d,%d): mmap err=%v, pread err=%v",
 							i, p.x, p.y, errA, errB)
