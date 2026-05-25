@@ -60,3 +60,9 @@ func (s *Slide) WarmLevel(i int) error { return s.r.WarmLevel(i) }
 
 // Close releases resources held by the slide.
 func (s *Slide) Close() error { return s.r.Close() }
+
+// UnwrapReader returns the underlying format-specific reader.
+// Format packages use this to chain-walk through *Slide to their
+// own concrete reader type (e.g., bif.MetadataOf(slide) walks the
+// chain to find the BIF *Tiler).
+func (s *Slide) UnwrapReader() any { return s.r }
