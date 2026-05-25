@@ -15,9 +15,9 @@ import (
 var _ format.Reader = (*tiler)(nil)
 
 func init() {
-	// generictiff is the catch-all — registered last so vendor detectors
-	// get first crack at any TIFF.
-	format.Register("generictiff", matchGenericTIFF, openGenericTIFF)
+	// generictiff is the catch-all — registered as a fallback so vendor
+	// detectors win regardless of import order.
+	format.RegisterFallback("generictiff", matchGenericTIFF, openGenericTIFF)
 }
 
 // matchGenericTIFF returns nil iff r is a generic pyramidal TIFF per the
