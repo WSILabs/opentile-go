@@ -85,6 +85,12 @@ var (
 	//
 	// Added in v0.24 alongside the DecodedTile family.
 	ErrCodecNotRegistered = errors.New("opentile: codec not registered for this slide's tile compression")
+
+	// ErrRegionEmpty is returned by *Slide.ReadRegion / ReadRegionScaled
+	// when the requested rectangle has no in-bounds pixels.
+	//
+	// Added in v0.25 alongside the ReadRegion family.
+	ErrRegionEmpty = errors.New("opentile: region has no in-bounds pixels")
 )
 
 // TileError wraps a per-tile failure with the (level, x, y) that produced it.

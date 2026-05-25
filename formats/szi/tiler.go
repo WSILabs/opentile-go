@@ -142,6 +142,8 @@ func (t *Tiler) buildLevels() error {
 
 	valueLevels := make([]opentile.Level, maxLevel+1)
 	engines := make([]*level, maxLevel+1)
+	// L0 (i==0) maps to DZI MaxLevel; compute its width up front for Downsample.
+	l0W, _ := dzi.LevelDims(t.manifest.Width, t.manifest.Height, maxLevel)
 	for i := 0; i <= maxLevel; i++ {
 		dziL := maxLevel - i
 		w, h := dzi.LevelDims(t.manifest.Width, t.manifest.Height, dziL)
@@ -166,6 +168,7 @@ func (t *Tiler) buildLevels() error {
 			TileSize:     opentile.Size{W: t.manifest.TileSize, H: t.manifest.TileSize},
 			Grid:         opentile.Size{W: cols, H: rows},
 			Compression:  comp,
+			Downsample:   float64(l0W) / float64(w),
 		}
 	}
 	t.sziImage = opentile.Image{

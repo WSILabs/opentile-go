@@ -153,6 +153,7 @@ func buildLevels(
 				Grid:         ti.grid,
 				Compression:  ti.compression,
 				MPP:          ti.mpp,
+				Downsample:   float64(baseSize.W) / float64(ti.size.W),
 			})
 			engines = append(engines, ti)
 		} else {
@@ -160,14 +161,16 @@ func buildLevels(
 			if err != nil {
 				return nil, nil, fmt.Errorf("level %d (oneframe): %w", li, err)
 			}
+			sz := of.Size()
 			valueLevels = append(valueLevels, opentile.Level{
 				Index:        of.Index(),
 				PyramidIndex: of.PyramidIndex(),
-				Size:         of.Size(),
+				Size:         sz,
 				TileSize:     of.TileSize(),
 				Grid:         of.Grid(),
 				Compression:  of.Compression(),
 				MPP:          of.MPP(),
+				Downsample:   float64(baseSize.W) / float64(sz.W),
 			})
 			engines = append(engines, of)
 		}

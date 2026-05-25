@@ -143,8 +143,9 @@ func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2
 
 // levelAsValueType converts an ndpiLevel to its opentile.Level metadata.
 // Called at Open time to build the value-type slice; after that, metadata
-// is read from t.images[0].Levels.
-func levelAsValueType(idx int, l ndpiLevel) opentile.Level {
+// is read from t.images[0].Levels. l0Width is the base level's pixel width,
+// used to compute the Downsample ratio.
+func levelAsValueType(idx int, l ndpiLevel, l0Width int) opentile.Level {
 	// Use a type switch to extract metadata fields from the concrete types.
 	type inspector interface {
 		Index() int
@@ -157,26 +158,36 @@ func levelAsValueType(idx int, l ndpiLevel) opentile.Level {
 		FocalPlane() float64
 	}
 	if ins, ok := l.(inspector); ok {
+		sz := ins.Size()
 		return opentile.Level{
 			Index:        ins.Index(),
 			PyramidIndex: ins.PyramidIndex(),
-			Size:         ins.Size(),
+			Size:         sz,
 			TileSize:     ins.TileSize(),
 			Grid:         ins.Grid(),
 			Compression:  ins.Compression(),
 			MPP:          ins.MPP(),
 			FocalPlane:   ins.FocalPlane(),
+			Downsample:   float64(l0Width) / float64(sz.W),
 		}
 	}
 	// Fallback — should not happen; concrete types always implement inspector.
-	return opentile.Level{Index: idx}
+	return opentile.Level{Index: idx, Downsample: 1.0}
 }
 
 // levelToValueSlice builds the value-type []opentile.Level from ndpiLevels.
 func levelToValueSlice(impls []ndpiLevel) []opentile.Level {
 	out := make([]opentile.Level, len(impls))
+	// Determine L0 width from the first level's inspector interface.
+	var l0Width int
+	type sizer interface{ Size() opentile.Size }
+	if len(impls) > 0 {
+		if s, ok := impls[0].(sizer); ok {
+			l0Width = s.Size().W
+		}
+	}
 	for i, l := range impls {
-		out[i] = levelAsValueType(i, l)
+		out[i] = levelAsValueType(i, l, l0Width)
 	}
 	return out
 }

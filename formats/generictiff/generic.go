@@ -85,10 +85,14 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	r := file.ReaderAt()
 	tiledLevels := make([]*tiledImage, 0, len(res.Pyramid))
 	valueLevels := make([]opentile.Level, 0, len(res.Pyramid))
+	var l0Width int
 	for i, info := range res.Pyramid {
 		lvl, err := newTiledImage(i, i, pages[info.Index], r)
 		if err != nil {
 			return nil, fmt.Errorf("generic: level %d (page %d): %w", i, info.Index, err)
+		}
+		if i == 0 {
+			l0Width = lvl.size.W
 		}
 		tiledLevels = append(tiledLevels, lvl)
 		valueLevels = append(valueLevels, opentile.Level{
@@ -100,6 +104,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			Compression:  lvl.compression,
 			MPP:          opentile.SizeMm{},
 			FocalPlane:   0,
+			Downsample:   float64(l0Width) / float64(lvl.size.W),
 		})
 	}
 

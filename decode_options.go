@@ -1,22 +1,28 @@
 package opentile
 
-import "github.com/wsilabs/opentile-go/decoder"
+import (
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/resample"
+)
 
-// DecodeOption configures a *Slide.DecodedTile / DecodedTileInto call.
-// See WithFormat, WithScale.
+// DecodeOption configures a *Slide.DecodedTile / DecodedTileInto /
+// ReadRegion / ReadRegionScaled call. See WithFormat, WithScale,
+// WithResampleKernel.
 type DecodeOption func(*decodeConfig)
 
 // decodeConfig is the resolved option set. Defaults: PixelFormatRGB,
-// scale=1.
+// scale=1, kernel=Lanczos.
 type decodeConfig struct {
 	format decoder.PixelFormat
 	scale  int
+	kernel resample.Kernel
 }
 
 func newDecodeConfig(opts []DecodeOption) decodeConfig {
 	c := decodeConfig{
 		format: decoder.PixelFormatRGB,
 		scale:  1,
+		kernel: resample.Lanczos,
 	}
 	for _, o := range opts {
 		o(&c)
@@ -36,4 +42,15 @@ func WithFormat(f decoder.PixelFormat) DecodeOption {
 // from the underlying decoder if Scale != 1.
 func WithScale(s int) DecodeOption {
 	return func(c *decodeConfig) { c.scale = s }
+}
+
+// WithResampleKernel chooses the resample kernel for ReadRegionScaled.
+// Has no effect on ReadRegion (no resampling step).
+//
+//	resample.Lanczos  — best perceptual quality (default)
+//	resample.Box      — fast integer-ratio downsampling, sharp
+//	resample.Bilinear — fast, decent quality
+//	resample.Nearest  — fastest, ugly under downsampling
+func WithResampleKernel(k resample.Kernel) DecodeOption {
+	return func(c *decodeConfig) { c.kernel = k }
 }

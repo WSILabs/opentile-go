@@ -11,6 +11,69 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-05-25
+
+Adds arbitrary-rectangle region reads to `*Slide`. The
+openslide-equivalent decoded-pixel surface most pathology consumers
+expect. Purely additive over v0.24 — no breaking changes.
+
+### Added
+
+- `(*Slide).ReadRegion(level, x, y, w, h int, opts ...DecodeOption) (*decoder.Image, error)` —
+  decoded pixels for an arbitrary rectangle at the given level. ALL
+  FOUR coords/dims at the level's own resolution. Out-of-bounds areas
+  filled with white (0xFF, 0xFF, 0xFF).
+- `(*Slide).ReadRegionInto(level, x, y int, dst *decoder.Image, opts ...DecodeOption) error` —
+  fill caller-provided Image.
+- `(*Slide).ImageReadRegion`, `(*Slide).ImageReadRegionInto` —
+  multi-image variants for OME-TIFF.
+- `(*Slide).ReadRegionScaled(l0x, l0y, l0w, l0h, outW, outH int, opts ...DecodeOption) (*decoder.Image, error)` —
+  read an L0 rectangle and resample to target output dimensions.
+  Picks the best source pyramid level automatically.
+- `(*Slide).ReadRegionScaledInto`, `(*Slide).ImageReadRegionScaled`,
+  `(*Slide).ImageReadRegionScaledInto` — variants.
+- `(*Slide).BestLevelForDownsample(downsample float64) int` —
+  level selection helper matching openslide.best_level_for_downsample
+  semantics.
+- `(*Slide).ImageBestLevelForDownsample` — multi-image variant.
+- `WithResampleKernel(k resample.Kernel) DecodeOption` — kernel
+  selection for ReadRegionScaled (default Lanczos). No-op on
+  ReadRegion.
+- `ErrRegionEmpty` sentinel — returned when the requested rectangle
+  has no in-bounds pixels.
+- `Level.Downsample float64` field — populated at Open time as L0
+  Size.W / level Size.W. Used by BestLevelForDownsample and
+  ReadRegionScaled.
+
+### Coordinate convention
+
+opentile-go diverges from openslide.read_region's mixed-coord
+convention (L0 origin + level-resolution size). Instead:
+
+- `ReadRegion` uses **uniform level coords**: all four args at the
+  requested level's resolution.
+- `ReadRegionScaled` uses **uniform L0 coords + arbitrary output
+  resolution**: the actual openslide use case in cleaner shape.
+
+Translating from openslide-python:
+
+```python
+# Old: slide.read_region((l0_x, l0_y), level, (w, h))
+# New (opentile-go):
+slide.ReadRegion(level, l0_x // int(level.Downsample), l0_y // int(level.Downsample), w, h)
+```
+
+The division is intentional — explicit at the call site rather than
+buried in mixed-convention parameters.
+
+### Unchanged
+
+- All v0.24 APIs (RawTile, DecodedTile, splice-prefix family).
+- Format readers (no changes — region reads compose over DecodedTile).
+- File output bytes from format readers — region reads are decode-only.
+
+[0.25.0]: https://github.com/WSILabs/opentile-go/releases/tag/v0.25.0
+
 ## [0.24.0] — 2026-05-25
 
 **BREAKING:** Level and Image are now value-type structs. Tile reads

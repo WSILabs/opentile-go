@@ -80,6 +80,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	levelImpls := make([]*levelImpl, 0, len(levelIFDs))
 	valueLevels := make([]opentile.Level, 0, len(levelIFDs))
 	var levelZeroDepth int
+	var l0Width int
 	for i, c := range levelIFDs {
 		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, encodeInfo, file.ReaderAt())
 		if err != nil {
@@ -87,6 +88,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		}
 		if i == 0 {
 			levelZeroDepth = l.imageDepth
+			l0Width = l.size.W
 		}
 		levelImpls = append(levelImpls, l)
 		valueLevels = append(valueLevels, opentile.Level{
@@ -99,6 +101,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			MPP:          l.mpp,
 			TileOverlap:  l.tileOverlap,
 			FocalPlane:   0,
+			Downsample:   float64(l0Width) / float64(l.size.W),
 		})
 	}
 	if levelZeroDepth < 1 {
