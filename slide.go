@@ -99,6 +99,31 @@ func (s *Slide) RawTile(level, tx, ty int) ([]byte, error) {
 	return s.r.ImageRawTile(0, level, tx, ty)
 }
 
+// RawTileInto fills dst with the compressed tile bytes at the given level
+// and tile coordinates within image 0. Returns the byte count written.
+func (s *Slide) RawTileInto(level, tx, ty int, dst []byte) (int, error) {
+	return s.r.ImageRawTileInto(0, level, tx, ty, dst)
+}
+
+// TileMaxSize returns the upper bound on tile byte size at the given
+// level within image 0. Used for sizing caller-provided destination
+// buffers passed to RawTileInto.
+func (s *Slide) TileMaxSize(level int) int {
+	return s.r.ImageTileMaxSize(0, level)
+}
+
+// ImageRawTile returns the compressed tile bytes at the given image,
+// level, and tile coordinates. Required for multi-image formats
+// (OME-TIFF); single-image formats accept only image=0.
+func (s *Slide) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	return s.r.ImageRawTile(image, level, tx, ty)
+}
+
+// ImageWarmLevel pre-warms the page cache for the given image + level.
+func (s *Slide) ImageWarmLevel(image, level int) error {
+	return s.r.WarmLevel(image, level)
+}
+
 // TilePrefix returns the JPEG-tables prefix bytes shared across all
 // tiles at the given level within image 0. nil if the codec has no prefix.
 func (s *Slide) TilePrefix(level int) []byte {

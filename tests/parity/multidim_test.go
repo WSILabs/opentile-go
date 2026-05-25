@@ -1,8 +1,6 @@
 package parity
 
 import (
-	"bytes"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,10 +10,8 @@ import (
 )
 
 // slideCandidates2D lists every fixture in our local sample set
-// that should report SizeZ/SizeC/SizeT == 1 — i.e., 2D pathology
-// slides. Inlined here rather than imported from tests_test (a
-// separate package) because the duplication is small and avoids a
-// public-helper refactor that no third consumer needs yet.
+// that should have at least one Image with at least one Level — i.e.,
+// standard 2D pathology slides.
 var slideCandidates2D = []struct {
 	subdir string
 	name   string
@@ -38,16 +34,12 @@ var slideCandidates2D = []struct {
 	{"bif", "OS-1.bif"},
 }
 
-// TestMultiDimCompat2D pins the v0.7 multi-dim API's backward-
-// compatibility contract: every existing 2D fixture reports
-// SizeZ/SizeC/SizeT == 1, and Tile(x, y) ≡ TileAt(TileCoord{X: x,
-// Y: y}) byte-identically on the level-0 (0, 0) tile of every
-// Image.
+// TestMultiDimCompat2D pins the v0.24 Images()/Levels field API:
+// every existing 2D fixture reports at least one Image with at least
+// one Level, and level 0 (0,0) is readable via ImageRawTile.
 //
-// A failure here is a regression in the v0.7 multi-dim work — not
-// a fixture-update opportunity. Existing TestSlideParity hashes
-// stay green because they hash Tile(x, y) output and Tile is
-// unchanged behaviorally.
+// This replaces the v0.7 SizeZ/SizeC/SizeT/TileAt contract which was
+// removed when Image became a value-type struct in v0.24.
 func TestMultiDimCompat2D(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -70,51 +62,19 @@ func TestMultiDimCompat2D(t *testing.T) {
 				t.Fatal("Images: empty slice")
 			}
 			for ii, img := range imgs {
-				// 2D-format invariants: every dimension is 1.
-				if got := img.SizeZ(); got != 1 {
-					t.Errorf("image %d SizeZ: got %d, want 1 (2D fixture)", ii, got)
+				if len(img.Levels) == 0 {
+					t.Errorf("image %d has no levels", ii)
+					continue
 				}
-				if got := img.SizeC(); got != 1 {
-					t.Errorf("image %d SizeC: got %d, want 1 (no fluorescence in v0.7 fixture set)", ii, got)
+				// Exercise level 0 tile (0,0) for each image — confirms
+				// the ImageRawTile dispatch through the full stack.
+				b, err := tiler.ImageRawTile(img.Index, 0, 0, 0)
+				if err != nil {
+					t.Errorf("image %d ImageRawTile(0,0,0): %v", ii, err)
+					continue
 				}
-				if got := img.SizeT(); got != 1 {
-					t.Errorf("image %d SizeT: got %d, want 1 (no time series in v0.7 fixture set)", ii, got)
-				}
-				if got := img.ChannelName(0); got != "" {
-					t.Errorf("image %d ChannelName(0): got %q, want \"\" (brightfield)", ii, got)
-				}
-				if got := img.ZPlaneFocus(0); got != 0 {
-					t.Errorf("image %d ZPlaneFocus(0): got %v, want 0 (nominal)", ii, got)
-				}
-
-				// Exercise every level of the image so the
-				// 2D-delegate Level.TileAt impl is covered for all
-				// concrete level types (OME OneFrame L2+, NDPI
-				// striped, Philips tiled, etc.) — not just L0.
-				for li, lvl := range img.Levels() {
-					a, errA := lvl.Tile(0, 0)
-					b, errB := lvl.TileAt(opentile.TileCoord{X: 0, Y: 0})
-					if errA != nil || errB != nil {
-						t.Errorf("image %d L%d: Tile err=%v, TileAt err=%v", ii, li, errA, errB)
-						continue
-					}
-					if !bytes.Equal(a, b) {
-						t.Errorf("image %d L%d: Tile(0,0) and TileAt({X:0,Y:0}) bytes differ (lengths %d/%d)",
-							ii, li, len(a), len(b))
-					}
-					// Non-zero Z/C/T on a 2D Image: ErrDimensionUnavailable.
-					_, err := lvl.TileAt(opentile.TileCoord{X: 0, Y: 0, Z: 1})
-					if !errors.Is(err, opentile.ErrDimensionUnavailable) {
-						t.Errorf("image %d L%d TileAt(Z=1): got %v, want errors.Is(ErrDimensionUnavailable)", ii, li, err)
-					}
-					_, err = lvl.TileAt(opentile.TileCoord{X: 0, Y: 0, C: 1})
-					if !errors.Is(err, opentile.ErrDimensionUnavailable) {
-						t.Errorf("image %d L%d TileAt(C=1): got %v, want errors.Is(ErrDimensionUnavailable)", ii, li, err)
-					}
-					_, err = lvl.TileAt(opentile.TileCoord{X: 0, Y: 0, T: 1})
-					if !errors.Is(err, opentile.ErrDimensionUnavailable) {
-						t.Errorf("image %d L%d TileAt(T=1): got %v, want errors.Is(ErrDimensionUnavailable)", ii, li, err)
-					}
+				if len(b) < 2 {
+					t.Errorf("image %d L0 (0,0): got %d bytes, want >= 2", ii, len(b))
 				}
 			}
 		})

@@ -111,16 +111,16 @@ func TestBIFGeometry(t *testing.T) {
 			}
 			for i, want := range fx.levels {
 				lvl := levels[i]
-				if got := lvl.Size(); got.W != want.W || got.H != want.H {
+				if got := lvl.Size; got.W != want.W || got.H != want.H {
 					t.Errorf("L%d Size: got %dx%d, want %dx%d", i, got.W, got.H, want.W, want.H)
 				}
-				if got := lvl.TileSize(); got.W != want.TileW || got.H != want.TileH {
+				if got := lvl.TileSize; got.W != want.TileW || got.H != want.TileH {
 					t.Errorf("L%d TileSize: got %dx%d, want %dx%d", i, got.W, got.H, want.TileW, want.TileH)
 				}
-				if got := lvl.Grid(); got.W != want.GridW || got.H != want.GridH {
+				if got := lvl.Grid; got.W != want.GridW || got.H != want.GridH {
 					t.Errorf("L%d Grid: got %dx%d, want %dx%d", i, got.W, got.H, want.GridW, want.GridH)
 				}
-				if got := lvl.TileOverlap(); got.X != want.OverlapX || got.Y != want.OverlapY {
+				if got := lvl.TileOverlap; got.X != want.OverlapX || got.Y != want.OverlapY {
 					t.Errorf("L%d TileOverlap: got %v, want (%d,%d)", i, got, want.OverlapX, want.OverlapY)
 				}
 				// Per-level dimensions in the table above are the
@@ -134,25 +134,25 @@ func TestBIFGeometry(t *testing.T) {
 
 			// JPEG marker validity on the level-0 (0,0) tile —
 			// every BIF pyramid level is JPEG-compressed; output
-			// after Tile() should be a self-decodable JPEG.
-			tile, err := levels[0].Tile(0, 0)
+			// after RawTile() should be a self-decodable JPEG.
+			tile, err := tiler.RawTile(0, 0, 0)
 			if err != nil {
-				t.Fatalf("Tile(0,0): %v", err)
+				t.Fatalf("RawTile(0,0,0): %v", err)
 			}
 			if len(tile) < 4 || tile[0] != 0xFF || tile[1] != 0xD8 {
-				t.Errorf("Tile(0,0) missing SOI: %x", tile[:min(8, len(tile))])
+				t.Errorf("RawTile(0,0,0) missing SOI: %x", tile[:min(8, len(tile))])
 			}
 			if tile[len(tile)-2] != 0xFF || tile[len(tile)-1] != 0xD9 {
-				t.Errorf("Tile(0,0) missing EOI: %x", tile[len(tile)-min(8, len(tile)):])
+				t.Errorf("RawTile(0,0,0) missing EOI: %x", tile[len(tile)-min(8, len(tile)):])
 			}
-			// Tiles iterator yields >= one entry on a >=1×1 grid.
+			// RangeTiles iterator yields >= one entry on a >=1×1 grid.
 			seen := 0
-			for range levels[0].Tiles(context.Background()) {
+			for range tiler.RangeTiles(context.Background(), 0) {
 				seen++
 				break
 			}
 			if seen == 0 {
-				t.Error("Tiles iterator yielded zero entries")
+				t.Error("RangeTiles iterator yielded zero entries")
 			}
 
 			// ICC presence per fixture.
@@ -183,8 +183,8 @@ func TestBIFGeometry(t *testing.T) {
 			}
 
 			// AOI origins (when present) tile-aligned.
-			tw := levels[0].TileSize().W
-			th := levels[0].TileSize().H
+			tw := levels[0].TileSize.W
+			th := levels[0].TileSize.H
 			for i, ao := range bm.AOIOrigins {
 				if ao.OriginX%tw != 0 {
 					t.Errorf("AOIOrigin[%d].OriginX=%d not a multiple of TileW=%d", i, ao.OriginX, tw)

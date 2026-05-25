@@ -192,10 +192,9 @@ func TestOpenRaw_MissingTilesInGrid(t *testing.T) {
 	}
 
 	// However, fetching a tile should fail.
-	level := tlr.Levels()[0]
-	_, err = level.Tile(0, 0)
+	_, err = tlr.ImageRawTile(0, 0, 0, 0)
 	if err == nil {
-		t.Errorf("Tile(0, 0) with missing entry: got nil error, want error")
+		t.Errorf("ImageRawTile(0, 0, 0, 0) with missing entry: got nil error, want error")
 	}
 }
 

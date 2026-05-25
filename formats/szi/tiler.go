@@ -2,9 +2,11 @@ package szi
 
 import (
 	"archive/zip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"path"
 	"strings"
 
@@ -49,10 +51,13 @@ type Tiler struct {
 	// for fast tile lookup.
 	entries map[string]*zip.File
 
-	// image is the single-image pyramid built in buildLevels. SZI
-	// spec mandates exactly one image per archive (no DZC
-	// collections); see Q-decisions in the v0.16 spec.
-	image *image
+	// sziImage holds the single value-type opentile.Image built in
+	// buildLevels. SZI spec mandates exactly one image per archive.
+	sziImage opentile.Image
+
+	// levelEngines holds the per-level tile-read engines, parallel to
+	// sziImage.Levels. Used for (image, level, tx, ty) dispatch.
+	levelEngines []*level
 
 	// associated holds the optional associated_images/ entries
 	// (label / overview / thumbnail) populated by buildAssociated.
@@ -119,9 +124,9 @@ func openSZI(r io.ReaderAt, size int64, cfg *format.Config) (*Tiler, error) {
 	return t, nil
 }
 
-// buildLevels populates t.image with one *level per DZI pyramid
-// level. opentile-go's index 0 = highest resolution; DZI's MaxLevel
-// = highest resolution; so opentile L_i = DZI (MaxLevel - i).
+// buildLevels populates t.sziImage and t.levelEngines with one entry
+// per DZI pyramid level. opentile-go's index 0 = highest resolution;
+// DZI's MaxLevel = highest resolution; so opentile L_i = DZI (MaxLevel - i).
 func (t *Tiler) buildLevels() error {
 	maxLevel := dzi.MaxLevel(t.manifest.Width, t.manifest.Height)
 
@@ -135,12 +140,13 @@ func (t *Tiler) buildLevels() error {
 		comp = opentile.CompressionUnknown
 	}
 
-	levels := make([]opentile.Level, maxLevel+1)
+	valueLevels := make([]opentile.Level, maxLevel+1)
+	engines := make([]*level, maxLevel+1)
 	for i := 0; i <= maxLevel; i++ {
 		dziL := maxLevel - i
 		w, h := dzi.LevelDims(t.manifest.Width, t.manifest.Height, dziL)
 		cols, rows := dzi.GridDims(w, h, t.manifest.TileSize)
-		levels[i] = &level{
+		eng := &level{
 			t:           t,
 			dziLevel:    dziL,
 			openTileIdx: i,
@@ -152,8 +158,22 @@ func (t *Tiler) buildLevels() error {
 			tileSize:    t.manifest.TileSize,
 			compression: comp,
 		}
+		engines[i] = eng
+		valueLevels[i] = opentile.Level{
+			Index:        i,
+			PyramidIndex: i,
+			Size:         opentile.Size{W: w, H: h},
+			TileSize:     opentile.Size{W: t.manifest.TileSize, H: t.manifest.TileSize},
+			Grid:         opentile.Size{W: cols, H: rows},
+			Compression:  comp,
+		}
 	}
-	t.image = &image{t: t, levels: levels}
+	t.sziImage = opentile.Image{
+		Name:   "",
+		Index:  0,
+		Levels: valueLevels,
+	}
+	t.levelEngines = engines
 	return nil
 }
 
@@ -288,31 +308,25 @@ func (t *Tiler) Close() error {
 	return nil
 }
 
-// Levels is the legacy single-image shortcut accessor; SZI files
-// always carry exactly one image, so this delegates to Images()[0].
-func (t *Tiler) Levels() []opentile.Level {
-	if t.image == nil {
-		return nil
-	}
-	return t.image.Levels()
-}
-
-// Level returns Levels()[i]. Equivalent to Images()[0].Level(i).
-func (t *Tiler) Level(i int) (opentile.Level, error) {
-	if t.image == nil {
-		return nil, opentile.ErrLevelOutOfRange
-	}
-	return t.image.Level(i)
-}
-
 // Images returns the single Image carried by the SZI file. The
 // returned slice has exactly one element per the SZI spec (no
 // DZC collections in SZI).
 func (t *Tiler) Images() []opentile.Image {
-	if t.image == nil {
+	if t.levelEngines == nil {
 		return nil
 	}
-	return []opentile.Image{t.image}
+	return []opentile.Image{t.sziImage}
+}
+
+// Level returns the value-type Level for the given (image, level) pair.
+func (t *Tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelEngines) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.sziImage.Levels[level], nil
 }
 
 // Associated returns the optional associated_images/ entries
@@ -333,21 +347,94 @@ func (t *Tiler) Metadata() opentile.Metadata { return t.cross }
 // ICCProfile returns nil — SZI does not surface ICC profiles in v0.16.
 func (t *Tiler) ICCProfile() []byte { return nil }
 
-// WarmLevel pre-warms the page cache for level i.
+// WarmLevel pre-warms the page cache for the given (image, level).
 //
-// T3 implementation: validates i and returns nil. SZI tile lookup
-// is via stored ZIP entries (no inflate); a future optimization
-// could touch each tile entry's data range to populate the OS
-// page cache. Warming is a hint, not a correctness requirement
-// (per Q-decisions in the v0.16 spec); the no-op preserves the
-// interface contract while leaving the actual page-touch work for
-// a follow-up milestone driven by consumer signal.
-func (t *Tiler) WarmLevel(i int) error {
-	if t.image == nil {
-		return opentile.ErrLevelOutOfRange
+// SZI tile lookup is via stored ZIP entries (no inflate); this is
+// a no-op hint that validates bounds. Warming is a hint, not a
+// correctness requirement (per Q-decisions in the v0.16 spec).
+func (t *Tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
 	}
-	if i < 0 || i >= len(t.image.levels) {
+	if level < 0 || level >= len(t.levelEngines) {
 		return opentile.ErrLevelOutOfRange
 	}
 	return nil
+}
+
+// engine returns the *level engine for (image, level), validating bounds.
+func (t *Tiler) engine(image, level int) (*level, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelEngines) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelEngines[level], nil
+}
+
+// ImageRawTile returns the raw tile bytes at (image, level, tx, ty).
+func (t *Tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return nil, err
+	}
+	return eng.Tile(tx, ty)
+}
+
+// ImageRawTileInto fills dst with raw tile bytes.
+func (t *Tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return 0, err
+	}
+	return eng.TileInto(tx, ty, dst)
+}
+
+// ImageTileMaxSize returns the upper bound on tile byte size.
+func (t *Tiler) ImageTileMaxSize(image, level int) int {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return 0
+	}
+	return eng.TileMaxSize()
+}
+
+// ImageTilePrefix returns nil — SZI tiles carry no shared prefix.
+func (t *Tiler) ImageTilePrefix(image, level int) []byte {
+	_, err := t.engine(image, level)
+	if err != nil {
+		return nil
+	}
+	return nil
+}
+
+// ImageTileBodyMaxSize returns the upper bound on tile body bytes.
+func (t *Tiler) ImageTileBodyMaxSize(image, level int) int {
+	return t.ImageTileMaxSize(image, level)
+}
+
+// ImageTileBodyInto fills dst with tile body bytes (identical to
+// ImageRawTileInto for SZI since TilePrefix is nil).
+func (t *Tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	return t.ImageRawTileInto(image, level, tx, ty, dst)
+}
+
+// ImageTileReader returns a streaming reader for the tile at (image, level, tx, ty).
+func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return nil, err
+	}
+	return eng.TileReader(tx, ty)
+}
+
+// ImageRangeTiles returns a range-over-function iterator for all tiles
+// at (image, level) in raster order.
+func (t *Tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	eng, err := t.engine(image, level)
+	if err != nil {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return eng.Tiles(ctx)
 }

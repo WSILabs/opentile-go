@@ -29,7 +29,7 @@ func TestNDPISmokeAllLevels(t *testing.T) {
 	defer tiler.Close()
 
 	for i, lvl := range tiler.Levels() {
-		grid := lvl.Grid()
+		grid := lvl.Grid
 		// Sample four positions: (0,0), interior, right edge row, bottom edge col.
 		positions := [][2]int{
 			{0, 0},
@@ -41,7 +41,7 @@ func TestNDPISmokeAllLevels(t *testing.T) {
 			if time.Now().After(deadline) {
 				t.Fatalf("smoke test exceeded 30s deadline at level %d tile %v", i, p)
 			}
-			b, err := lvl.Tile(p[0], p[1])
+			b, err := tiler.RawTile(i, p[0], p[1])
 			if err != nil {
 				t.Fatalf("level %d tile %v: %v", i, p, err)
 			}
@@ -73,18 +73,18 @@ func BenchmarkNDPITileAllLevels(b *testing.B) {
 	defer tiler.Close()
 
 	for i, lvl := range tiler.Levels() {
-		grid := lvl.Grid()
+		grid := lvl.Grid
 		// Deterministic interior tile (avoid edge-case overhead in the headline
 		// number; edge tiles are exercised by the smoke test).
 		x := grid.W / 2
 		y := grid.H / 2
-		name := fmt.Sprintf("L%d_%dx%d_tile_%dx%d", i, grid.W, grid.H, lvl.TileSize().W, lvl.TileSize().H)
+		name := fmt.Sprintf("L%d_%dx%d_tile_%dx%d", i, grid.W, grid.H, lvl.TileSize.W, lvl.TileSize.H)
 		b.Run(name, func(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				bytes, err := lvl.Tile(x, y)
+				bytes, err := tiler.RawTile(i, x, y)
 				if err != nil {
-					b.Fatalf("Tile(%d,%d): %v", x, y, err)
+					b.Fatalf("RawTile(%d,%d): %v", x, y, err)
 				}
 				if len(bytes) == 0 {
 					b.Fatalf("empty tile bytes")

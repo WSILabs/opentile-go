@@ -41,13 +41,13 @@ func TestL12OOBFillIsWhite(t *testing.T) {
 		t.Fatalf("OpenFile: %v", err)
 	}
 	defer tiler.Close()
-	lvl, err := tiler.Level(5)
+	_, err = tiler.Level(5)
 	if err != nil {
 		t.Fatalf("Level(5): %v", err)
 	}
-	jpegBytes, err := lvl.Tile(3, 0)
+	jpegBytes, err := tiler.RawTile(5, 3, 0)
 	if err != nil {
-		t.Fatalf("Tile(3, 0): %v", err)
+		t.Fatalf("RawTile(5, 3, 0): %v", err)
 	}
 	img, err := jpeg.Decode(bytes.NewReader(jpegBytes))
 	if err != nil {

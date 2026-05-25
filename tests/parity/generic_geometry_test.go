@@ -226,24 +226,24 @@ func TestGenericGeometry(t *testing.T) {
 			}
 			for i, exp := range fx.levels {
 				lvl := levels[i]
-				if got := lvl.Size(); got.W != exp.W || got.H != exp.H {
+				if got := lvl.Size; got.W != exp.W || got.H != exp.H {
 					t.Errorf("L%d Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)
 				}
-				if got := lvl.TileSize(); got.W != exp.TileW || got.H != exp.TileH {
+				if got := lvl.TileSize; got.W != exp.TileW || got.H != exp.TileH {
 					t.Errorf("L%d TileSize = %v, want {W:%d H:%d}", i, got, exp.TileW, exp.TileH)
 				}
-				if got := lvl.Grid(); got.W != exp.GridW || got.H != exp.GridH {
+				if got := lvl.Grid; got.W != exp.GridW || got.H != exp.GridH {
 					t.Errorf("L%d Grid = %v, want {W:%d H:%d}", i, got, exp.GridW, exp.GridH)
 				}
-				if got := lvl.Compression(); got != exp.Compression {
+				if got := lvl.Compression; got != exp.Compression {
 					t.Errorf("L%d Compression = %v, want %v", i, got, exp.Compression)
 				}
 			}
 
 			// L0 (0,0) — encoding magic check.
-			b, err := levels[0].Tile(0, 0)
+			b, err := tiler.RawTile(0, 0, 0)
 			if err != nil {
-				t.Fatalf("L0 Tile(0,0): %v", err)
+				t.Fatalf("L0 RawTile(0,0): %v", err)
 			}
 			if len(b) < len(fx.tileMagic) {
 				t.Fatalf("L0 (0,0): %d bytes returned; want at least %d", len(b), len(fx.tileMagic))
@@ -254,21 +254,9 @@ func TestGenericGeometry(t *testing.T) {
 				}
 			}
 
-			// 2D dimensions — generic TIFF is single-image, single-Z/C/T.
-			img := tiler.Images()[0]
-			if got := img.SizeZ(); got != 1 {
-				t.Errorf("SizeZ = %d, want 1", got)
-			}
-			if got := img.SizeC(); got != 1 {
-				t.Errorf("SizeC = %d, want 1", got)
-			}
-			if got := img.SizeT(); got != 1 {
-				t.Errorf("SizeT = %d, want 1", got)
-			}
-
 			// Out-of-bounds on level 0 surfaces ErrTileOutOfBounds.
-			grid := levels[0].Grid()
-			_, err = levels[0].Tile(grid.W, 0)
+			grid := levels[0].Grid
+			_, err = tiler.RawTile(0, grid.W, 0)
 			if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 				t.Errorf("OOB on L0: got %v, want ErrTileOutOfBounds", err)
 			}
@@ -339,7 +327,7 @@ func TestGenericOpenFileBackingsByteIdentical(t *testing.T) {
 			// Sample 4 deterministic positions per level (corners +
 			// center) — full-walk parity is covered by TestSlideParity.
 			for i, lvl := range mmapLevels {
-				grid := lvl.Grid()
+				grid := lvl.Grid
 				if grid.W == 0 || grid.H == 0 {
 					continue
 				}
@@ -353,8 +341,8 @@ func TestGenericOpenFileBackingsByteIdentical(t *testing.T) {
 					positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
 				}
 				for _, p := range positions {
-					a, errA := mmapLevels[i].Tile(p.x, p.y)
-					b, errB := preadLevels[i].Tile(p.x, p.y)
+					a, errA := mmapTiler.RawTile(i, p.x, p.y)
+					b, errB := preadTiler.RawTile(i, p.x, p.y)
 					if (errA == nil) != (errB == nil) {
 						t.Errorf("L%d (%d,%d): mmap err=%v, pread err=%v", i, p.x, p.y, errA, errB)
 						continue

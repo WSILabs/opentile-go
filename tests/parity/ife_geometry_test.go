@@ -79,21 +79,21 @@ func TestIFEGeometry(t *testing.T) {
 			}
 			for i, exp := range fx.levels {
 				lvl := levels[i]
-				if got := lvl.Size(); got.W != exp.W || got.H != exp.H {
+				if got := lvl.Size; got.W != exp.W || got.H != exp.H {
 					t.Errorf("L%d Size = %v, want {W:%d H:%d}", i, got, exp.W, exp.H)
 				}
-				if got := lvl.TileSize(); got.W != exp.TileW || got.H != exp.TileH {
+				if got := lvl.TileSize; got.W != exp.TileW || got.H != exp.TileH {
 					t.Errorf("L%d TileSize = %v, want {W:%d H:%d}", i, got, exp.TileW, exp.TileH)
 				}
-				if got := lvl.Grid(); got.W != exp.GridW || got.H != exp.GridH {
+				if got := lvl.Grid; got.W != exp.GridW || got.H != exp.GridH {
 					t.Errorf("L%d Grid = %v, want {W:%d H:%d}", i, got, exp.GridW, exp.GridH)
 				}
 			}
 
 			// L0 (0,0) — encoding magic check.
-			b, err := levels[0].Tile(0, 0)
+			b, err := tiler.RawTile(0, 0, 0)
 			if err != nil {
-				t.Fatalf("L0 Tile(0,0): %v", err)
+				t.Fatalf("L0 RawTile(0,0): %v", err)
 			}
 			if len(b) < len(fx.tileMagic) {
 				t.Fatalf("L0 (0,0): %d bytes returned; want at least %d", len(b), len(fx.tileMagic))
@@ -104,22 +104,9 @@ func TestIFEGeometry(t *testing.T) {
 				}
 			}
 
-			// 2D dimensions.
-			img := tiler.Images()[0]
-			if got := img.SizeZ(); got != 1 {
-				t.Errorf("SizeZ = %d, want 1", got)
-			}
-			if got := img.SizeC(); got != 1 {
-				t.Errorf("SizeC = %d, want 1", got)
-			}
-			if got := img.SizeT(); got != 1 {
-				t.Errorf("SizeT = %d, want 1", got)
-			}
-
 			// Out-of-bounds on the native level surfaces ErrTileOutOfBounds.
-			lastLvl := levels[0]
-			lastGrid := lastLvl.Grid()
-			_, err = lastLvl.Tile(lastGrid.W, 0)
+			lastGrid := levels[0].Grid
+			_, err = tiler.RawTile(0, lastGrid.W, 0)
 			if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 				t.Errorf("OOB on L0: got %v, want ErrTileOutOfBounds", err)
 			}
