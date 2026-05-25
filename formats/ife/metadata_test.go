@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 )
 
 // metadataBuilder lays out a complete IFE file with a populated
@@ -254,7 +255,7 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 		icc: []byte("ICC_PROFILE_BYTES"),
 	}
 	data := mb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -371,7 +372,7 @@ func TestMetadataAbsentBlocks(t *testing.T) {
 		magnification: 0,
 	}
 	data := mb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -407,7 +408,7 @@ func TestMetadataDicomFormatRejected(t *testing.T) {
 	attrsOff := binary.LittleEndian.Uint64(data[mdOff+16 : mdOff+24])
 	data[attrsOff+10] = uint8(AttributesFormatDICOM)
 
-	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err == nil || !strings.Contains(err.Error(), "DICOM") {
 		t.Errorf("openIFE: got %v, want DICOM-rejection error", err)
 	}
@@ -422,7 +423,7 @@ func TestMetadataWrongRecoveryRejected(t *testing.T) {
 	copy(hdr, data)
 	mdOff := binary.LittleEndian.Uint64(hdr[30:38])
 	binary.LittleEndian.PutUint16(data[mdOff+8:mdOff+10], 0xDEAD)
-	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err == nil || !strings.Contains(err.Error(), "recovery") {
 		t.Errorf("got %v, want recovery error", err)
 	}
@@ -455,7 +456,7 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 	// Synthetic test via a minimal wrapper type.
 	mb := &metadataBuilder{codecMajor: 1, magnification: 5}
 	data := mb.build()
-	t1, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	t1, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,7 +498,7 @@ func TestMetadataErrorsAreDistinct(t *testing.T) {
 	copy(hdr, data)
 	mdOff := binary.LittleEndian.Uint64(hdr[30:38])
 	binary.LittleEndian.PutUint64(data[mdOff:mdOff+8], 0xDEADBEEF) // wrong validation
-	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if errors.Is(err, opentile.ErrUnsupportedFormat) {
 		t.Errorf("validation error wrongly aliased to ErrUnsupportedFormat")
 	}

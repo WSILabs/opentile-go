@@ -7,15 +7,16 @@ import (
 	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
-// openIFE is the real OpenRaw entry point. It parses every metadata
+// openIFE is the real construction entry point. It parses every metadata
 // block once, builds the level slice (native-first, inverted from
-// the file's coarsest-first storage), and returns a Tiler that
+// the file's coarsest-first storage), and returns a format.Reader that
 // fields Tile / TileAt requests via direct ReadAt to the cached
 // per-tile (offset, size) entries.
-func openIFE(r io.ReaderAt, size int64, _ *opentile.Config) (opentile.Tiler, error) {
+func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error) {
 	hdr, err := readFileHeader(r, size)
 	if err != nil {
 		return nil, err
