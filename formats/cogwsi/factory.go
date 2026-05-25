@@ -7,8 +7,61 @@ import (
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
+
+// Compile-time assertion: *Tiler satisfies format.Reader.
+var _ format.Reader = (*Tiler)(nil)
+
+func init() {
+	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
+	opentile.Register(&Factory{})
+	format.Register("cogwsi", matchCOGWSI, openCOGWSIFormat)
+}
+
+// matchCOGWSI returns nil iff r is a COG-WSI file (TIFF with a ghost
+// area containing the COG_WSI_VERSION key).
+func matchCOGWSI(r io.ReaderAt, size int64) error {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return fmt.Errorf("cogwsi: not a TIFF: %w", err)
+	}
+	ghost, err := readGhostArea(file)
+	if err != nil {
+		return fmt.Errorf("cogwsi: ghost area: %w", err)
+	}
+	if ghost.COGWSIVersion == "" {
+		return fmt.Errorf("cogwsi: no COG_WSI_VERSION in ghost area")
+	}
+	return nil
+}
+
+// openCOGWSIFormat constructs a format.Reader from a raw reader.
+func openCOGWSIFormat(r io.ReaderAt, size int64, cfg *format.Config) (format.Reader, error) {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("cogwsi: %w", err)
+	}
+	return openCOGWSIFromFile(file, cfg)
+}
+
+// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
+// into a format.Config. Called from Factory.Open during the dual-registration
+// transition; the new openCOGWSIFormat path receives *format.Config directly.
+func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
+	if cfg == nil {
+		return &format.Config{}
+	}
+	ts, hasTS := cfg.TileSize()
+	return &format.Config{
+		TileSize:             ts,
+		HasTileSize:          hasTS,
+		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
+		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
+		Backing:              cfg.Backing(),
+	}
+}
 
 // GhostAreaMaxBytes caps the number of bytes read from the
 // position immediately after the TIFF header when probing for a
@@ -40,7 +93,8 @@ func (f *Factory) Supports(tf *tiff.File) bool {
 // Open parses a COG-WSI file. Validates spec conformance and
 // returns ErrNotConformantCOGWSI on violations.
 func (f *Factory) Open(tf *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	return openCOGWSI(tf, cfg)
+	fcfg := opentileConfigToFormatConfig(cfg)
+	return openCOGWSIFromFile(tf, fcfg)
 }
 
 // readGhostArea reads the ghost-area bytes from the file. The

@@ -165,6 +165,13 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	return openFromTIFFFile(file, fcfg)
 }
 
+// OpenFromTIFF constructs a generic-TIFF format.Reader from an already-parsed
+// TIFF file using a format.Config. Used by cogwsi to delegate the pyramid build
+// while staying on the new format.Config path.
+func (f *Factory) OpenFromTIFF(file *tiff.File, cfg *format.Config) (format.Reader, error) {
+	return openFromTIFFFile(file, cfg)
+}
+
 // opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
 // into a format.Config. Called from Factory.Open during the dual-registration
 // transition; the new openGenericTIFF path receives *format.Config directly.
