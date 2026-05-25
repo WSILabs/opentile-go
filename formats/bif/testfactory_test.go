@@ -23,8 +23,12 @@ func (f *Factory) Supports(file *tiff.File) bool {
 }
 
 // Open constructs a format.Reader from an already-parsed tiff.File.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (format.Reader, error) {
-	return openFromTIFFFile(file, opentileConfigToFormatConfig(cfg))
+func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (*Tiler, error) {
+	r, err := openFromTIFFFile(file, opentileConfigToFormatConfig(cfg))
+	if err != nil {
+		return nil, err
+	}
+	return r.(*Tiler), nil
 }
 
 func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {

@@ -42,14 +42,14 @@ func TestMultiZBIFOpens(t *testing.T) {
 	if len(imgs) != 1 {
 		t.Fatalf("Images: got %d, want 1", len(imgs))
 	}
-	img := imgs[0]
-	if got := img.SizeZ(); got != depth {
+	// BIF-specific multi-Z accessors live on the internal bifImage.
+	if got := tiler.image.SizeZ(); got != depth {
 		t.Errorf("SizeZ: got %d, want %d", got, depth)
 	}
-	if got := img.SizeC(); got != 1 {
+	if got := tiler.image.SizeC(); got != 1 {
 		t.Errorf("SizeC: got %d, want 1 (BIF has no fluorescence)", got)
 	}
-	if got := img.SizeT(); got != 1 {
+	if got := tiler.image.SizeT(); got != 1 {
 		t.Errorf("SizeT: got %d, want 1 (BIF has no time series)", got)
 	}
 
@@ -60,7 +60,7 @@ func TestMultiZBIFOpens(t *testing.T) {
 	//   ZPlaneFocus(2) = +1.5 (one far)
 	wantFoci := []float64{0, -1.5, +1.5}
 	for z, want := range wantFoci {
-		if got := img.ZPlaneFocus(z); got != want {
+		if got := tiler.image.ZPlaneFocus(z); got != want {
 			t.Errorf("ZPlaneFocus(%d): got %v, want %v", z, got, want)
 		}
 	}
@@ -94,7 +94,7 @@ func TestMultiZTileAtReadsCorrectPlane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 
 	for z := 0; z < depth; z++ {
 		for r := 0; r < gridH; r++ {
@@ -139,7 +139,7 @@ func TestMultiZTileAtBoundsCheck(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 
 	// Z=3 (out of [0, 3)) → ErrTileOutOfBounds.
 	_, err := lvl.TileAt(opentile.TileCoord{X: 0, Y: 0, Z: 3})
@@ -187,11 +187,10 @@ func TestSingleZBIFCompatibility(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	img := tiler.Images()[0]
-	if got := img.SizeZ(); got != 1 {
+	if got := tiler.image.SizeZ(); got != 1 {
 		t.Errorf("SizeZ: got %d, want 1 (no IMAGE_DEPTH)", got)
 	}
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	_, err := lvl.TileAt(opentile.TileCoord{X: 0, Y: 0, Z: 1})
 	if !errors.Is(err, opentile.ErrDimensionUnavailable) {
 		t.Errorf("TileAt(Z=1) on SizeZ=1: got %v, want ErrDimensionUnavailable", err)
@@ -203,10 +202,10 @@ func TestSingleZBIFCompatibility(t *testing.T) {
 // spacing).
 func TestComputeZPlaneFocusTable(t *testing.T) {
 	cases := []struct {
-		name       string
-		depth      int
-		zSpacing   float64
-		want       []float64
+		name     string
+		depth    int
+		zSpacing float64
+		want     []float64
 	}{
 		{"depth=1", 1, 1.5, []float64{0}},
 		{"depth=3 spacing=1.5", 3, 1.5, []float64{0, -1.5, +1.5}},

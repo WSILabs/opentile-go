@@ -30,26 +30,26 @@ func TestLevelGeometry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, err := tiler.Level(0)
+	lvl, err := tiler.Level(0, 0)
 	if err != nil {
-		t.Fatalf("Level(0): %v", err)
+		t.Fatalf("Level(0, 0): %v", err)
 	}
-	if got, want := lvl.Index(), 0; got != want {
+	if got, want := lvl.Index, 0; got != want {
 		t.Errorf("Index: got %d, want %d", got, want)
 	}
-	if got, want := lvl.PyramidIndex(), 0; got != want {
+	if got, want := lvl.PyramidIndex, 0; got != want {
 		t.Errorf("PyramidIndex: got %d, want %d", got, want)
 	}
-	if got, want := lvl.Size(), (opentile.Size{W: tw * gridW, H: th * gridH}); got != want {
+	if got, want := lvl.Size, (opentile.Size{W: tw * gridW, H: th * gridH}); got != want {
 		t.Errorf("Size: got %v, want %v", got, want)
 	}
-	if got, want := lvl.TileSize(), (opentile.Size{W: tw, H: th}); got != want {
+	if got, want := lvl.TileSize, (opentile.Size{W: tw, H: th}); got != want {
 		t.Errorf("TileSize: got %v, want %v", got, want)
 	}
-	if got, want := lvl.Grid(), (opentile.Size{W: gridW, H: gridH}); got != want {
+	if got, want := lvl.Grid, (opentile.Size{W: gridW, H: gridH}); got != want {
 		t.Errorf("Grid: got %v, want %v", got, want)
 	}
-	if got := lvl.Compression(); got != opentile.CompressionUnknown {
+	if got := lvl.Compression; got != opentile.CompressionUnknown {
 		// Synthetic fixtures don't set Compression tag → CompressionUnknown.
 		// Real BIF fixtures always have JPEG (7); per-fixture verification
 		// happens in the integration / oracle suites.
@@ -78,11 +78,11 @@ func TestLevelMPP(t *testing.T) {
 	}
 	wants := []float64{0.00025, 0.0005, 0.001}
 	for i, want := range wants {
-		lvl, err := tiler.Level(i)
+		lvl, err := tiler.Level(0, i)
 		if err != nil {
-			t.Fatalf("Level(%d): %v", i, err)
+			t.Fatalf("Level(0, %d): %v", i, err)
 		}
-		if got := lvl.MPP().W; got != want {
+		if got := lvl.MPP.W; got != want {
 			t.Errorf("Level %d MPP.W: got %v, want %v", i, got, want)
 		}
 	}
@@ -98,8 +98,8 @@ func TestLevelTileOverlapZeroByDefault(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
-	if got := lvl.TileOverlap(); got != (image.Point{}) {
+	lvl, _ := tiler.Level(0, 0)
+	if got := lvl.TileOverlap; got != (image.Point{}) {
 		t.Errorf("TileOverlap: got %v, want image.Point{}", got)
 	}
 }
@@ -132,32 +132,21 @@ func TestLevelTileOverlapNonZero(t *testing.T) {
 	}
 	// Level 0 → TileOverlap.X == 24 (weighted average of two
 	// equal-weight joints, both OverlapX=24).
-	l0, _ := tiler.Level(0)
-	if got := l0.TileOverlap(); got != (image.Point{X: 24, Y: 0}) {
+	l0, _ := tiler.Level(0, 0)
+	if got := l0.TileOverlap; got != (image.Point{X: 24, Y: 0}) {
 		t.Errorf("Level 0 TileOverlap: got %v, want {24, 0}", got)
 	}
 	// Level 1 (pyramid level 1) → TileOverlap zero (per spec, only
 	// level=0 carries overlap; pyramid IFDs 1+ never overlap).
-	l1, _ := tiler.Level(1)
-	if got := l1.TileOverlap(); got != (image.Point{}) {
+	l1, _ := tiler.Level(0, 1)
+	if got := l1.TileOverlap; got != (image.Point{}) {
 		t.Errorf("Level 1 TileOverlap: got %v, want zero", got)
 	}
 }
 
 // TestLevelTileSerpentineOrdering: a 2x2 grid with distinct fills
 // per tile demonstrates that Tile(col, row) reads bytes in
-// serpentine storage order. Stage layout (rows count up from
-// bottom):
-//
-//	stage row 1 (image row 0): [1,3] right-to-left → idx 3, idx 2
-//	stage row 0 (image row 1): [0,1] left-to-right → idx 0, idx 1
-//
-// So Tile(0, 0) = serpIdx 3 (third tile written); Tile(0, 1) =
-// serpIdx 0 (first tile written). The synthetic builder assigns
-// every tile the same content (tileFill byte), so this test only
-// verifies offsets match — pixel-level distinctness is not
-// observable. Instead we verify the offsets returned by Tile()
-// match imageToSerpentine.
+// serpentine storage order.
 func TestLevelTileSerpentineOrdering(t *testing.T) {
 	const tw, th, gridW, gridH = 32, 32, 2, 2
 	data := buildBIFLikeBigTIFF(t, []iFDSpec{
@@ -169,7 +158,8 @@ func TestLevelTileSerpentineOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	lvl, _ := tiler.Level(0)
+	// Use levelImpls directly for tile reads (internal test).
+	lvl := tiler.levelImpls[0]
 	// Every (col, row) returns a non-empty byte slice of length
 	// tw*th (synthetic tiles are uniform fill).
 	expectedLen := tw * th
@@ -196,7 +186,7 @@ func TestLevelTileOutOfBounds(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	for _, c := range [][2]int{{-1, 0}, {0, -1}, {1, 0}, {0, 1}} {
 		_, err := lvl.Tile(c[0], c[1])
 		if err == nil {
@@ -216,7 +206,7 @@ func TestLevelTilesIterator(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	count := 0
 	for pos, res := range lvl.Tiles(context.Background()) {
 		if res.Err != nil {
@@ -239,7 +229,7 @@ func TestLevelTileReader(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	lvl, _ := tiler.Level(0)
+	lvl := tiler.levelImpls[0]
 	want, err := lvl.Tile(0, 0)
 	if err != nil {
 		t.Fatalf("Tile: %v", err)

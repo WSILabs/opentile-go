@@ -69,7 +69,7 @@ func TestOpenClassifiesSpecCompliant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	bt := tiler.(*Tiler)
+	bt := tiler
 	if bt.gen != GenerationSpecCompliant {
 		t.Errorf("gen: got %v, want GenerationSpecCompliant", bt.gen)
 	}
@@ -97,7 +97,7 @@ func TestOpenClassifiesLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	bt := tiler.(*Tiler)
+	bt := tiler
 	if bt.gen != GenerationLegacyIScan {
 		t.Errorf("gen: got %v, want GenerationLegacyIScan", bt.gen)
 	}

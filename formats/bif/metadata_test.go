@@ -140,19 +140,11 @@ func TestMetadataOfRejectsNonBIFTiler(t *testing.T) {
 	}
 }
 
-// nonBIFTiler is a stub satisfying opentile.Tiler so MetadataOf has
-// a non-*Tiler input to reject.
+// nonBIFTiler is a stub so MetadataOf has a non-*Tiler input to reject.
+// It only needs to implement UnwrapReader (or not); MetadataOf uses
+// UnwrapReader to chain-walk so a bare struct with no UnwrapReader
+// terminates the walk and returns (nil, false).
 type nonBIFTiler struct{}
-
-func (nonBIFTiler) Format() opentile.Format               { return opentile.FormatSVS }
-func (nonBIFTiler) Images() []opentile.Image              { return nil }
-func (nonBIFTiler) Levels() []opentile.Level              { return nil }
-func (nonBIFTiler) Level(int) (opentile.Level, error)     { return nil, opentile.ErrLevelOutOfRange }
-func (nonBIFTiler) Associated() []opentile.AssociatedImage { return nil }
-func (nonBIFTiler) Metadata() opentile.Metadata           { return opentile.Metadata{} }
-func (nonBIFTiler) ICCProfile() []byte                    { return nil }
-func (nonBIFTiler) Close() error                          { return nil }
-func (nonBIFTiler) WarmLevel(int) error                   { return nil }
 
 // TestMetadataIsCachedNotRecomputed: two consecutive Metadata calls
 // return equal common-field structs; MetadataOf returns the same
