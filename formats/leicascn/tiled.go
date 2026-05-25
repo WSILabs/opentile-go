@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"io"
 	"iter"
 
@@ -119,16 +118,7 @@ func ceilDiv(a, b int) int {
 	return (a + b - 1) / b
 }
 
-func (l *compositeLevel) Index() int                        { return l.index }
-func (l *compositeLevel) PyramidIndex() int                 { return l.pyrIndex }
-func (l *compositeLevel) Size() opentile.Size               { return l.size }
-func (l *compositeLevel) TileSize() opentile.Size           { return l.tileSize }
-func (l *compositeLevel) Grid() opentile.Size               { return l.grid }
-func (l *compositeLevel) Compression() opentile.Compression { return l.compression }
-func (l *compositeLevel) MPP() opentile.SizeMm              { return opentile.SizeMm{} }
-func (l *compositeLevel) FocalPlane() float64               { return 0 }
-func (l *compositeLevel) TileOverlap() image.Point          { return image.Point{} }
-func (l *compositeLevel) TileMaxSize() int                  { return l.maxTile }
+func (l *compositeLevel) TileMaxSize() int { return l.maxTile }
 
 // TilePrefix returns the per-level splice prefix shared by all regions
 // (verified in v0.11 sealed Q5: all channels/regions at a level share

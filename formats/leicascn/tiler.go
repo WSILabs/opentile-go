@@ -1,7 +1,10 @@
 package leicascn
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"iter"
 	"strconv"
 	"strings"
 	"time"
@@ -106,68 +109,121 @@ func MetadataOf(v any) (*Metadata, bool) {
 // tiler is the Leica SCN implementation of format.Reader.
 type tiler struct {
 	md         Metadata
-	levels     []opentile.Level
+	levelImpls []*compositeLevel // parallel to images[0].Levels; tile-read logic
+	images     []opentile.Image  // value-type image/level metadata
 	associated []opentile.AssociatedImage
 	icc        []byte
 	sizeC      int
 	channels   []ChannelInfo
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatLeicaSCN }
-func (t *tiler) Images() []opentile.Image {
-	return []opentile.Image{newSCNImage(t.levels, t.sizeC, t.channels)}
-}
-func (t *tiler) Levels() []opentile.Level {
-	out := make([]opentile.Level, len(t.levels))
-	copy(out, t.levels)
-	return out
-}
+func (t *tiler) Format() opentile.Format    { return opentile.FormatLeicaSCN }
+func (t *tiler) Images() []opentile.Image   { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
-func (t *tiler) Level(i int) (opentile.Level, error) {
-	if i < 0 || i >= len(t.levels) {
-		return nil, opentile.ErrLevelOutOfRange
+
+func (t *tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
 	}
-	return t.levels[i], nil
+	if level < 0 || level >= len(t.levelImpls) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.images[image].Levels[level], nil
 }
-func (t *tiler) WarmLevel(i int) error {
-	if i < 0 || i >= len(t.levels) {
+
+func (t *tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
 		return opentile.ErrLevelOutOfRange
 	}
-	if w, ok := t.levels[i].(interface{ warm() error }); ok {
-		return w.warm()
+	return t.levelImpls[level].warm()
+}
+
+func (t *tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
 	}
-	return nil
-}
-
-// scnImage wraps SingleImage and overrides SizeC + ChannelName for
-// fluorescence files. Mirrors formats/bif/bif.go's bifImage shape.
-type scnImage struct {
-	*opentile.SingleImage
-	sizeC    int
-	channels []ChannelInfo
-}
-
-func newSCNImage(levels []opentile.Level, sizeC int, channels []ChannelInfo) *scnImage {
-	return &scnImage{
-		SingleImage: opentile.NewSingleImage(levels),
-		sizeC:       sizeC,
-		channels:    channels,
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
 	}
+	return t.levelImpls[level].Tile(tx, ty)
 }
 
-func (i *scnImage) SizeC() int { return i.sizeC }
+func (t *tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileInto(tx, ty, dst)
+}
 
-func (i *scnImage) ChannelName(c int) string {
-	if c < 0 || c >= len(i.channels) {
-		// SizeC > len(channels) only on parser/composer drift; fall
-		// back to "" rather than panic. Per Image interface contract
-		// callers use indices in [0, SizeC()).
+func (t *tiler) ImageTileMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileMaxSize()
+}
+
+func (t *tiler) ImageTilePrefix(image, level int) []byte {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return nil
+	}
+	return t.levelImpls[level].TilePrefix()
+}
+
+func (t *tiler) ImageTileBodyMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileBodyMaxSize()
+}
+
+func (t *tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileBodyInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileReader(tx, ty)
+}
+
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return t.levelImpls[level].Tiles(ctx)
+}
+
+// SizeC returns the number of fluorescence channels for this slide
+// (1 for brightfield files). Exposed for internal tests; consumers
+// should use MetadataOf to inspect channel metadata.
+func (t *tiler) SizeC() int { return t.sizeC }
+
+// ChannelName returns the name of channel c from the SCN XML.
+// Returns "" for out-of-range indices or brightfield files.
+func (t *tiler) ChannelName(c int) string {
+	if c < 0 || c >= len(t.channels) {
 		return ""
 	}
-	return i.channels[c].Name
+	return t.channels[c].Name
 }
 
 // buildMetadata constructs the SCN-specific Metadata from the parsed
@@ -329,6 +385,5 @@ func scannerModel(deviceModel string) string {
 	return strings.TrimSpace(deviceModel)
 }
 
-// silence the "unused" warning for fmt while the Tiler is partially
-// built out — multi-region dispatch (T8) introduces fmt.Errorf calls.
+// suppress unused-import warnings during iterative development.
 var _ = fmt.Sprintf

@@ -95,8 +95,9 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		return nil, fmt.Errorf("leicascn: %w", err)
 	}
 
-	// Build per-level compositeLevels.
-	levels := make([]opentile.Level, len(composite))
+	// Build per-level compositeLevels and value-type Level metadata.
+	levelImpls := make([]*compositeLevel, len(composite))
+	valueLevels := make([]opentile.Level, len(composite))
 	for li, cl := range composite {
 		regions := make([]*tiledRegion, len(cl.Regions))
 		for ri, rl := range cl.Regions {
@@ -110,8 +111,17 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		if err != nil {
 			return nil, fmt.Errorf("leicascn: L%d composite: %w", li, err)
 		}
-		levels[li] = cmpl
+		levelImpls[li] = cmpl
+		valueLevels[li] = opentile.Level{
+			Index:       li,
+			PyramidIndex: li,
+			Size:        cmpl.size,
+			TileSize:    cmpl.tileSize,
+			Grid:        cmpl.grid,
+			Compression: cmpl.compression,
+		}
 	}
+	images := []opentile.Image{{Name: "", Index: 0, Levels: valueLevels}}
 
 	sizeC := 1
 	if len(composite) > 0 {
@@ -123,7 +133,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	return &tiler{
 		md:         md,
-		levels:     levels,
+		levelImpls: levelImpls,
+		images:     images,
 		associated: associated,
 		icc:        icc,
 		sizeC:      sizeC,

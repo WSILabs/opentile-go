@@ -107,8 +107,8 @@ func TestFactory_Open_Leica1(t *testing.T) {
 		t.Errorf("Format() = %v, want %v", got, opentile.FormatLeicaSCN)
 	}
 	// Leica-1 main scan has 5 pyramid levels.
-	if got := len(tlr.Levels()); got != 5 {
-		t.Errorf("len(Levels()) = %d, want 5", got)
+	if got := len(tlr.Images()[0].Levels); got != 5 {
+		t.Errorf("len(Levels) = %d, want 5", got)
 	}
 	if got := len(tlr.Associated()); got != 1 {
 		t.Errorf("len(Associated()) = %d, want 1", got)
@@ -116,8 +116,8 @@ func TestFactory_Open_Leica1(t *testing.T) {
 	if got := tlr.Associated()[0].Type(); got != "overview" {
 		t.Errorf("Associated[0].Type() = %q, want %q", got, "overview")
 	}
-	// Multi-image API: SizeC == 1 for brightfield Leica-1.
-	if got := tlr.Images()[0].SizeC(); got != 1 {
+	// SizeC == 1 for brightfield Leica-1.
+	if got := tlr.SizeC(); got != 1 {
 		t.Errorf("SizeC() = %d, want 1", got)
 	}
 }
@@ -147,11 +147,11 @@ func TestFactory_Open_Fluorescence_SizeC(t *testing.T) {
 	}
 	defer tlr.Close()
 
-	if got := tlr.Images()[0].SizeC(); got != 3 {
+	if got := tlr.SizeC(); got != 3 {
 		t.Errorf("SizeC() = %d, want 3", got)
 	}
 	for i, want := range []string{"405|Empty", "L5|Empty", "TX2|Empty"} {
-		if got := tlr.Images()[0].ChannelName(i); got != want {
+		if got := tlr.ChannelName(i); got != want {
 			t.Errorf("ChannelName(%d) = %q, want %q", i, got, want)
 		}
 	}
@@ -346,12 +346,12 @@ func TestFactory_Open_AllFixtures_ReadL0Corner(t *testing.T) {
 				t.Fatalf("Open: %v", err)
 			}
 			defer tlr.Close()
-			if got := len(tlr.Levels()); got == 0 {
-				t.Fatal("len(Levels()) == 0; want > 0")
+			if got := len(tlr.Images()[0].Levels); got == 0 {
+				t.Fatal("len(Images()[0].Levels) == 0; want > 0")
 			}
-			b, err := tlr.Levels()[0].Tile(0, 0)
+			b, err := tlr.ImageRawTile(0, 0, 0, 0)
 			if err != nil {
-				t.Fatalf("Tile(0,0): %v", err)
+				t.Fatalf("ImageRawTile(0,0,0,0): %v", err)
 			}
 			if len(b) < 2 || b[0] != 0xFF || b[1] != 0xD8 {
 				t.Errorf("first 2 bytes = % x, want FF D8", b[:2])
@@ -359,10 +359,9 @@ func TestFactory_Open_AllFixtures_ReadL0Corner(t *testing.T) {
 
 			// Multi-channel check on Fluorescence: channel 1 tile is
 			// distinct from channel 0.
-			img := tlr.Images()[0]
-			if img.SizeC() == 3 {
-				c0, _ := tlr.Levels()[0].Tile(0, 0)
-				c1, err := tlr.Levels()[0].TileAt(opentile.TileCoord{C: 1, X: 0, Y: 0})
+			if tlr.SizeC() == 3 {
+				c0, _ := tlr.ImageRawTile(0, 0, 0, 0)
+				c1, err := tlr.levelImpls[0].TileAt(opentile.TileCoord{C: 1, X: 0, Y: 0})
 				if err != nil {
 					t.Errorf("TileAt(C=1): %v", err)
 				}
