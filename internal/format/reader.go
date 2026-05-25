@@ -1,25 +1,43 @@
 package format
 
 import (
+	"context"
 	"errors"
 	"io"
+	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
 )
 
-// Reader is the contract every format implementation provides.
-// Shape mirrors the pre-v0.23 public Tiler interface exactly, just
-// internalized so the public surface (*opentile.Slide) can evolve
-// without forcing every format to grow in lockstep.
+// Reader is the contract every format implementation provides. The
+// public *opentile.Slide type wraps a Reader and delegates all
+// method calls. Internal to opentile-go.
+//
+// In v0.24, Level and Image are value-type structs; tile reads happen
+// at the Reader level with (image, level) addressing.
 type Reader interface {
 	Format() opentile.Format
 	Images() []opentile.Image
-	Levels() []opentile.Level
-	Level(i int) (opentile.Level, error)
+	Level(image, level int) (opentile.Level, error)
 	Associated() []opentile.AssociatedImage
 	Metadata() opentile.Metadata
 	ICCProfile() []byte
-	WarmLevel(i int) error
+	WarmLevel(image, level int) error
+
+	// Raw tile access.
+	ImageRawTile(image, level, tx, ty int) ([]byte, error)
+	ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error)
+
+	// Splice-prefix optimization family.
+	ImageTileMaxSize(image, level int) int
+	ImageTilePrefix(image, level int) []byte
+	ImageTileBodyMaxSize(image, level int) int
+	ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error)
+	ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
+
+	// Range-over-function iterator.
+	ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult]
+
 	Close() error
 }
 
