@@ -14,7 +14,7 @@ import (
 )
 
 // TestOMEAccessors exercises Image / Tiler accessors that the unit
-// tests don't cover (TileReader, Tiles iterator, MPP, Level shortcuts,
+// tests don't cover (TileReader, RangeTiles iterator, Level shortcuts,
 // MetadataOf). Skips when no Leica fixture is reachable, so it stays
 // out of CI without integration data.
 func TestOMEAccessors(t *testing.T) {
@@ -49,49 +49,45 @@ func TestOMEAccessors(t *testing.T) {
 	_ = tiler.Metadata()
 	_ = tiler.ICCProfile()
 
-	// Image-level
+	// Image-level (value-type struct fields)
 	imgs := tiler.Images()
 	if len(imgs) == 0 {
 		t.Fatal("Images: empty slice")
 	}
 	img := imgs[0]
-	if img.Index() != 0 {
-		t.Errorf("Image.Index: got %d, want 0", img.Index())
+	if img.Index != 0 {
+		t.Errorf("Image.Index: got %d, want 0", img.Index)
 	}
-	_ = img.Name() // may be empty for main pyramid
-	if mpp := img.MPP(); mpp.W < 0 {
-		t.Errorf("Image.MPP: negative %v", mpp)
-	}
-	if got := img.Levels(); len(got) == 0 {
+	_ = img.Name // may be empty for main pyramid
+	if got := img.Levels; len(got) == 0 {
 		t.Error("Image.Levels: empty slice")
 	}
-	if _, err := img.Level(0); err != nil {
-		t.Errorf("Image.Level(0): %v", err)
+	if _, err := tiler.Level(0); err != nil {
+		t.Errorf("Level(0): %v", err)
 	}
-	if _, err := img.Level(-1); !errors.Is(err, opentile.ErrLevelOutOfRange) {
-		t.Errorf("Image.Level(-1): want ErrLevelOutOfRange, got %v", err)
+	if _, err := tiler.Level(-1); !errors.Is(err, opentile.ErrLevelOutOfRange) {
+		t.Errorf("Level(-1): want ErrLevelOutOfRange, got %v", err)
 	}
 
-	// Level-level: TileReader + Tiles iterator
-	base, _ := img.Level(0)
-	rc, err := base.TileReader(0, 0)
+	// Level-level: TileReader + RangeTiles iterator
+	rc, err := tiler.TileReader(0, 0, 0)
 	if err != nil {
-		t.Fatalf("TileReader(0,0): %v", err)
+		t.Fatalf("TileReader(0, 0, 0): %v", err)
 	}
 	defer rc.Close()
 	if _, err := io.ReadAll(rc); err != nil {
 		t.Errorf("TileReader read: %v", err)
 	}
 
-	// Iterate just a couple of tiles via the Tiles iterator (canceling
+	// Iterate just a couple of tiles via RangeTiles (canceling
 	// after a few yields keeps test runtime bounded).
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	count := 0
-	for pos, res := range base.Tiles(ctx) {
+	for pos, res := range tiler.RangeTiles(ctx, 0) {
 		_ = pos
 		if res.Err != nil {
-			t.Errorf("Tiles iterator yielded error: %v", res.Err)
+			t.Errorf("RangeTiles iterator yielded error: %v", res.Err)
 			break
 		}
 		count++
@@ -101,7 +97,7 @@ func TestOMEAccessors(t *testing.T) {
 		}
 	}
 	if count == 0 {
-		t.Error("Tiles iterator yielded zero entries")
+		t.Error("RangeTiles iterator yielded zero entries")
 	}
 
 	// Format-specific metadata accessor
