@@ -3,11 +3,152 @@ package leicascn
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
+
+// Compile-time assertion: *tiler satisfies format.Reader.
+var _ format.Reader = (*tiler)(nil)
+
+func init() {
+	// TODO(v0.23): remove old opentile.Register once tiler.go deletion lands.
+	opentile.Register(&Factory{})
+	format.Register("leicascn", matchLeicaSCN, openLeicaSCNFormat)
+}
+
+// matchLeicaSCN returns nil iff r is a Leica SCN BigTIFF (IFD 0's
+// ImageDescription contains the SCN schema URN).
+func matchLeicaSCN(r io.ReaderAt, size int64) error {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return fmt.Errorf("leicascn: not a TIFF: %w", err)
+	}
+	pages := file.Pages()
+	if len(pages) == 0 {
+		return errors.New("leicascn: TIFF has no pages")
+	}
+	desc, ok := pages[0].ImageDescription()
+	if !ok || !strings.Contains(desc, SchemaURN) {
+		return errors.New("leicascn: ImageDescription does not contain SCN schema URN")
+	}
+	return nil
+}
+
+// openLeicaSCNFormat constructs a format.Reader from a raw reader.
+func openLeicaSCNFormat(r io.ReaderAt, size int64, cfg *format.Config) (format.Reader, error) {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("leicascn: %w", err)
+	}
+	return openFromTIFFFile(file, cfg)
+}
+
+// openFromTIFFFile is the shared construction path used by both
+// openLeicaSCNFormat and Factory.Open.
+func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error) {
+	pages := file.Pages()
+	if len(pages) == 0 {
+		return nil, errors.New("leicascn: file has no pages")
+	}
+	desc, ok := pages[0].ImageDescription()
+	if !ok {
+		return nil, errors.New("leicascn: missing IFD 0 ImageDescription")
+	}
+	c, err := ParseDescription(desc)
+	if err != nil {
+		return nil, fmt.Errorf("leicascn: %w", err)
+	}
+
+	// Partition <image> elements: view==collection → auxiliary, else → main.
+	var auxs, mains []Image
+	for _, img := range c.Images {
+		if IsAuxiliary(img, c) {
+			auxs = append(auxs, img)
+		} else {
+			mains = append(mains, img)
+		}
+	}
+	if len(mains) == 0 {
+		return nil, fmt.Errorf("leicascn: no main scan <image> elements (file has only %d auxiliaries)",
+			len(auxs))
+	}
+
+	// Build AssociatedImages from auxiliaries.
+	r := file.ReaderAt()
+	var associated []opentile.AssociatedImage
+	for _, aux := range auxs {
+		a, err := newAssociatedImage(aux, file, r)
+		if err != nil {
+			if errors.Is(err, errUnsupportedAuxiliary) {
+				continue
+			}
+			return nil, fmt.Errorf("leicascn: auxiliary %q: %w", aux.Name, err)
+		}
+		associated = append(associated, a)
+	}
+
+	// Compose the multi-region pyramid.
+	composite, err := ComposePyramid(mains, c)
+	if err != nil {
+		return nil, fmt.Errorf("leicascn: %w", err)
+	}
+
+	// Build per-level compositeLevels.
+	levels := make([]opentile.Level, len(composite))
+	for li, cl := range composite {
+		regions := make([]*tiledRegion, len(cl.Regions))
+		for ri, rl := range cl.Regions {
+			tr, err := newTiledRegion(rl, file, r)
+			if err != nil {
+				return nil, fmt.Errorf("leicascn: L%d region %d: %w", li, ri, err)
+			}
+			regions[ri] = tr
+		}
+		cmpl, err := newCompositeLevel(li, li, cl, regions)
+		if err != nil {
+			return nil, fmt.Errorf("leicascn: L%d composite: %w", li, err)
+		}
+		levels[li] = cmpl
+	}
+
+	sizeC := 1
+	if len(composite) > 0 {
+		sizeC = composite[0].SizeC
+	}
+
+	icc, _ := pages[0].ICCProfile()
+	md := buildMetadata(c, auxs, mains, desc)
+
+	return &tiler{
+		md:         md,
+		levels:     levels,
+		associated: associated,
+		icc:        icc,
+		sizeC:      sizeC,
+		channels:   md.Channels,
+	}, nil
+}
+
+// opentileConfigToFormatConfig translates the opaque opentile.Config wrapper
+// into a format.Config. Called from Factory.Open during the dual-registration
+// transition; the new openLeicaSCNFormat path receives *format.Config directly.
+func opentileConfigToFormatConfig(cfg *opentile.Config) *format.Config {
+	if cfg == nil {
+		return &format.Config{}
+	}
+	ts, hasTS := cfg.TileSize()
+	return &format.Config{
+		TileSize:             ts,
+		HasTileSize:          hasTS,
+		CorruptTilePolicy:    cfg.CorruptTilePolicy(),
+		NDPISynthesizedLabel: cfg.NDPISynthesizedLabel(),
+		Backing:              cfg.Backing(),
+	}
+}
 
 // Factory is the FormatFactory implementation for Leica SCN.
 // Registered BEFORE generictiff in formats/all so vendor detection
@@ -49,92 +190,6 @@ func (f *Factory) Supports(file *tiff.File) bool {
 // cfg is currently unused (no SCN-specific knobs at v0.11); accepted
 // for interface symmetry with the other format factories.
 func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return nil, errors.New("leicascn: file has no pages")
-	}
-	desc, ok := pages[0].ImageDescription()
-	if !ok {
-		return nil, errors.New("leicascn: missing IFD 0 ImageDescription")
-	}
-	c, err := ParseDescription(desc)
-	if err != nil {
-		return nil, fmt.Errorf("leicascn: %w", err)
-	}
-
-	// Partition <image> elements: view==collection → auxiliary, else → main.
-	var auxs, mains []Image
-	for _, img := range c.Images {
-		if IsAuxiliary(img, c) {
-			auxs = append(auxs, img)
-		} else {
-			mains = append(mains, img)
-		}
-	}
-	if len(mains) == 0 {
-		return nil, fmt.Errorf("leicascn: no main scan <image> elements (file has only %d auxiliaries)",
-			len(auxs))
-	}
-
-	// Build AssociatedImages from auxiliaries. Multi-tile-lowest-res
-	// auxiliaries silently drop per Q8 (errUnsupportedAuxiliary
-	// filtered).
-	r := file.ReaderAt()
-	var associated []opentile.AssociatedImage
-	for _, aux := range auxs {
-		a, err := newAssociatedImage(aux, file, r)
-		if err != nil {
-			if errors.Is(err, errUnsupportedAuxiliary) {
-				continue
-			}
-			return nil, fmt.Errorf("leicascn: auxiliary %q: %w", aux.Name, err)
-		}
-		associated = append(associated, a)
-	}
-
-	// Compose the multi-region pyramid (validates Q5 invariants).
-	composite, err := ComposePyramid(mains, c)
-	if err != nil {
-		return nil, fmt.Errorf("leicascn: %w", err)
-	}
-
-	// Build per-level compositeLevels from the composition output.
-	// Each level wraps N tiledRegions (one per main scan) plus the
-	// per-level union pixel extent + tile size.
-	levels := make([]opentile.Level, len(composite))
-	for li, cl := range composite {
-		regions := make([]*tiledRegion, len(cl.Regions))
-		for ri, rl := range cl.Regions {
-			tr, err := newTiledRegion(rl, file, r)
-			if err != nil {
-				return nil, fmt.Errorf("leicascn: L%d region %d: %w", li, ri, err)
-			}
-			regions[ri] = tr
-		}
-		cmpl, err := newCompositeLevel(li, li, cl, regions)
-		if err != nil {
-			return nil, fmt.Errorf("leicascn: L%d composite: %w", li, err)
-		}
-		levels[li] = cmpl
-	}
-
-	// Determine SizeC from the composite (matches first main's max
-	// channel index + 1).
-	sizeC := 1
-	if len(composite) > 0 {
-		sizeC = composite[0].SizeC
-	}
-
-	icc, _ := pages[0].ICCProfile()
-
-	md := buildMetadata(c, auxs, mains, desc)
-
-	return &tiler{
-		md:         md,
-		levels:     levels,
-		associated: associated,
-		icc:        icc,
-		sizeC:      sizeC,
-		channels:   md.Channels,
-	}, nil
+	fcfg := opentileConfigToFormatConfig(cfg)
+	return openFromTIFFFile(file, fcfg)
 }
