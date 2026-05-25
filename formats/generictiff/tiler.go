@@ -1,6 +1,9 @@
 package generictiff
 
 import (
+	"context"
+	"io"
+	"iter"
 	"strings"
 	"time"
 
@@ -54,39 +57,106 @@ func MetadataOf(v any) (*Metadata, bool) {
 
 // tiler is the generic-TIFF implementation of format.Reader.
 type tiler struct {
-	md         Metadata
-	levels     []opentile.Level
-	associated []opentile.AssociatedImage
-	icc        []byte
+	md          Metadata
+	tiledLevels []*tiledImage
+	images      []opentile.Image
+	associated  []opentile.AssociatedImage
+	icc         []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatGenericTIFF }
-func (t *tiler) Images() []opentile.Image {
-	return []opentile.Image{opentile.NewSingleImage(t.levels)}
-}
-func (t *tiler) Levels() []opentile.Level {
-	out := make([]opentile.Level, len(t.levels))
-	copy(out, t.levels)
-	return out
-}
+func (t *tiler) Format() opentile.Format            { return opentile.FormatGenericTIFF }
+func (t *tiler) Images() []opentile.Image           { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
-func (t *tiler) Level(i int) (opentile.Level, error) {
-	if i < 0 || i >= len(t.levels) {
-		return nil, opentile.ErrLevelOutOfRange
+
+func (t *tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
 	}
-	return t.levels[i], nil
+	if level < 0 || level >= len(t.tiledLevels) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.images[image].Levels[level], nil
 }
-func (t *tiler) WarmLevel(i int) error {
-	if i < 0 || i >= len(t.levels) {
+
+func (t *tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.tiledLevels) {
 		return opentile.ErrLevelOutOfRange
 	}
-	if w, ok := t.levels[i].(interface{ warm() error }); ok {
-		return w.warm()
+	return t.tiledLevels[level].warm()
+}
+
+func (t *tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
 	}
-	return nil
+	if level < 0 || level >= len(t.tiledLevels) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.tiledLevels[level].Tile(tx, ty)
+}
+
+func (t *tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.tiledLevels) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.tiledLevels[level].TileInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.tiledLevels) {
+		return 0
+	}
+	return t.tiledLevels[level].TileMaxSize()
+}
+
+func (t *tiler) ImageTilePrefix(image, level int) []byte {
+	if image != 0 || level < 0 || level >= len(t.tiledLevels) {
+		return nil
+	}
+	return t.tiledLevels[level].TilePrefix()
+}
+
+func (t *tiler) ImageTileBodyMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.tiledLevels) {
+		return 0
+	}
+	return t.tiledLevels[level].TileBodyMaxSize()
+}
+
+func (t *tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.tiledLevels) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.tiledLevels[level].TileBodyInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.tiledLevels) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.tiledLevels[level].TileReader(tx, ty)
+}
+
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	if image != 0 || level < 0 || level >= len(t.tiledLevels) {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return t.tiledLevels[level].Tiles(ctx)
 }
 
 // buildMetadata reads the cross-format + generic-specific metadata

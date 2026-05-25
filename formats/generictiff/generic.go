@@ -83,13 +83,24 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}
 
 	r := file.ReaderAt()
-	levels := make([]opentile.Level, 0, len(res.Pyramid))
+	tiledLevels := make([]*tiledImage, 0, len(res.Pyramid))
+	valueLevels := make([]opentile.Level, 0, len(res.Pyramid))
 	for i, info := range res.Pyramid {
 		lvl, err := newTiledImage(i, i, pages[info.Index], r)
 		if err != nil {
 			return nil, fmt.Errorf("generic: level %d (page %d): %w", i, info.Index, err)
 		}
-		levels = append(levels, lvl)
+		tiledLevels = append(tiledLevels, lvl)
+		valueLevels = append(valueLevels, opentile.Level{
+			Index:        lvl.index,
+			PyramidIndex: lvl.pyrIndex,
+			Size:         lvl.size,
+			TileSize:     lvl.tileSize,
+			Grid:         lvl.grid,
+			Compression:  lvl.compression,
+			MPP:          opentile.SizeMm{},
+			FocalPlane:   0,
+		})
 	}
 
 	baseline := res.Pyramid[0]
@@ -115,12 +126,18 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	icc, _ := pages[res.Pyramid[0].Index].ICCProfile()
 	md := buildMetadata(pages[res.Pyramid[0].Index])
+	images := []opentile.Image{{
+		Name:   "",
+		Index:  0,
+		Levels: valueLevels,
+	}}
 
 	return &tiler{
-		md:         md,
-		levels:     levels,
-		associated: associated,
-		icc:        icc,
+		md:          md,
+		tiledLevels: tiledLevels,
+		images:      images,
+		associated:  associated,
+		icc:         icc,
 	}, nil
 }
 
