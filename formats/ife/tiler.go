@@ -2,7 +2,6 @@ package ife
 
 import (
 	"context"
-	"image"
 	"io"
 	"iter"
 
@@ -63,20 +62,8 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 		}
 	}
 
-	t := &tiler{
-		hdr:              hdr,
-		tt:               tt,
-		compression:      compression,
-		layerExtentsFile: fileOrder,
-		layerExtentsAPI:  apiOrder,
-		layerCumulative:  cumulative,
-		tileOffsets:      tiles,
-		r:                r,
-		md:               md,
-		associated:       assoc,
-		icc:              icc,
-	}
-	t.levels = make([]opentile.Level, len(apiOrder))
+	levelImpls := make([]*levelImpl, len(apiOrder))
+	valueLevels := make([]opentile.Level, len(apiOrder))
 	for i := range apiOrder {
 		// Compute TileMaxSize for this level: walk the per-level
 		// slice of TILE_OFFSETS entries and find the maximum byte
@@ -92,7 +79,36 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 				maxSize = s
 			}
 		}
-		t.levels[i] = &levelImpl{tiler: t, apiIndex: i, maxTileSize: int(maxSize)}
+		impl := &levelImpl{apiIndex: i, maxTileSize: int(maxSize)}
+		levelImpls[i] = impl
+		valueLevels[i] = opentile.Level{
+			Index:       i,
+			PyramidIndex: i,
+			Size:        opentile.Size{W: int(ext.XTiles) * TileSidePixels, H: int(ext.YTiles) * TileSidePixels},
+			TileSize:    opentile.Size{W: TileSidePixels, H: TileSidePixels},
+			Grid:        opentile.Size{W: int(ext.XTiles), H: int(ext.YTiles)},
+			Compression: compression,
+		}
+	}
+	images := []opentile.Image{{Name: "", Index: 0, Levels: valueLevels}}
+	t := &tiler{
+		hdr:              hdr,
+		tt:               tt,
+		compression:      compression,
+		layerExtentsFile: fileOrder,
+		layerExtentsAPI:  apiOrder,
+		layerCumulative:  cumulative,
+		tileOffsets:      tiles,
+		r:                r,
+		md:               md,
+		associated:       assoc,
+		icc:              icc,
+		levelImpls:       levelImpls,
+		images:           images,
+	}
+	// Wire the back-pointer to the tiler now that t is initialized.
+	for _, impl := range levelImpls {
+		impl.tiler = t
 	}
 	return t, nil
 }
@@ -110,30 +126,25 @@ type tiler struct {
 	layerCumulative  []uint64      // prefix sum of x_tiles*y_tiles in FILE order
 	tileOffsets      []TileEntry
 	r                io.ReaderAt
-	levels           []opentile.Level
+	levelImpls       []*levelImpl    // parallel to images[0].Levels; tile-read logic
+	images           []opentile.Image // value-type image/level metadata
 
 	md         Metadata
 	associated []opentile.AssociatedImage
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatIFE }
+func (t *tiler) Format() opentile.Format  { return opentile.FormatIFE }
+func (t *tiler) Images() []opentile.Image { return t.images }
 
-func (t *tiler) Images() []opentile.Image {
-	return []opentile.Image{opentile.NewSingleImage(t.levels)}
-}
-
-func (t *tiler) Levels() []opentile.Level {
-	out := make([]opentile.Level, len(t.levels))
-	copy(out, t.levels)
-	return out
-}
-
-func (t *tiler) Level(i int) (opentile.Level, error) {
-	if i < 0 || i >= len(t.levels) {
-		return nil, opentile.ErrLevelOutOfRange
+func (t *tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
 	}
-	return t.levels[i], nil
+	if level < 0 || level >= len(t.levelImpls) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.images[image].Levels[level], nil
 }
 
 func (t *tiler) Associated() []opentile.AssociatedImage {
@@ -151,14 +162,83 @@ func (t *tiler) ICCProfile() []byte {
 	return out
 }
 func (t *tiler) Close() error { return nil }
-func (t *tiler) WarmLevel(i int) error {
-	if i < 0 || i >= len(t.levels) {
+
+func (t *tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
 		return opentile.ErrLevelOutOfRange
 	}
-	if w, ok := t.levels[i].(interface{ warm() error }); ok {
-		return w.warm()
+	return t.levelImpls[level].warm()
+}
+
+func (t *tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
 	}
-	return nil
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].Tile(tx, ty)
+}
+
+func (t *tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileMaxSize()
+}
+
+func (t *tiler) ImageTilePrefix(image, level int) []byte {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return nil
+	}
+	return t.levelImpls[level].TilePrefix()
+}
+
+func (t *tiler) ImageTileBodyMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileBodyMaxSize()
+}
+
+func (t *tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileBodyInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileReader(tx, ty)
+}
+
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return t.levelImpls[level].Tiles(ctx)
 }
 
 // levelImpl is the IFE implementation of opentile.Level. apiIndex
@@ -171,32 +251,12 @@ type levelImpl struct {
 	maxTileSize int // max(entry.Size) across this level's TILE_OFFSETS entries
 }
 
-func (l *levelImpl) Index() int        { return l.apiIndex }
-func (l *levelImpl) PyramidIndex() int { return l.apiIndex }
-
 func (l *levelImpl) extent() LayerExtent { return l.tiler.layerExtentsAPI[l.apiIndex] }
 
-func (l *levelImpl) Size() opentile.Size {
-	e := l.extent()
-	return opentile.Size{
-		W: int(e.XTiles) * TileSidePixels,
-		H: int(e.YTiles) * TileSidePixels,
-	}
-}
-
-func (l *levelImpl) TileSize() opentile.Size {
-	return opentile.Size{W: TileSidePixels, H: TileSidePixels}
-}
-
-func (l *levelImpl) Grid() opentile.Size {
+func (l *levelImpl) grid() opentile.Size {
 	e := l.extent()
 	return opentile.Size{W: int(e.XTiles), H: int(e.YTiles)}
 }
-
-func (l *levelImpl) TileOverlap() image.Point          { return image.Point{} }
-func (l *levelImpl) Compression() opentile.Compression { return l.tiler.compression }
-func (l *levelImpl) MPP() opentile.SizeMm              { return opentile.SizeMm{} }
-func (l *levelImpl) FocalPlane() float64               { return 0 }
 
 // fileIndex maps an apiIndex to the file-storage index. Layers are
 // stored coarsest-first; the API exposes native-first. fileIndex is
@@ -356,7 +416,7 @@ func (l *levelImpl) TileReader(col, row int) (io.ReadCloser, error) {
 
 func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult] {
 	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
-		grid := l.Grid()
+		grid := l.grid()
 		for r := 0; r < grid.H; r++ {
 			for c := 0; c < grid.W; c++ {
 				if ctx.Err() != nil {
