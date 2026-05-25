@@ -1,49 +1,191 @@
 package ndpi
 
 import (
+	"bytes"
+	"context"
+	"io"
+	"iter"
+
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 )
+
+// Compile-time assertion: *tiler satisfies format.Reader.
+var _ format.Reader = (*tiler)(nil)
+
+// ndpiLevel is the internal interface for NDPI pyramid-level tile access.
+// Both strippedImage and oneframe.Image satisfy it.
+type ndpiLevel interface {
+	Tile(x, y int) ([]byte, error)
+	TileInto(x, y int, dst []byte) (int, error)
+	TileMaxSize() int
+	TilePrefix() []byte
+	TileBodyMaxSize() int
+	TileBodyInto(x, y int, dst []byte) (int, error)
+	TileReader(x, y int) (io.ReadCloser, error)
+	Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult]
+}
+
+// ndpiWarmer is optionally implemented by ndpiLevel types that support page
+// pre-warming. warm() is unexported, so only same-package types (strippedImage)
+// can satisfy this; oneframe.Image (external package) is handled via type
+// assertion in WarmLevel.
+type ndpiWarmer interface {
+	warm() error
+}
 
 // tiler is the NDPI implementation of format.Reader.
 type tiler struct {
-	md         Metadata
-	levels     []opentile.Level
-	associated []opentile.AssociatedImage
-	icc        []byte
+	md          Metadata
+	images      []opentile.Image
+	levelImpls  []ndpiLevel // parallel to images[0].Levels
+	associated  []opentile.AssociatedImage
+	icc         []byte
 }
 
-func (t *tiler) Format() opentile.Format { return opentile.FormatNDPI }
-
-func (t *tiler) Images() []opentile.Image {
-	return []opentile.Image{opentile.NewSingleImage(t.levels)}
-}
-
-func (t *tiler) Levels() []opentile.Level {
-	// Return a defensive copy of the slice header so callers cannot mutate
-	// library state. The underlying Level pointers are shared.
-	out := make([]opentile.Level, len(t.levels))
-	copy(out, t.levels)
-	return out
-}
-
+func (t *tiler) Format() opentile.Format            { return opentile.FormatNDPI }
+func (t *tiler) Images() []opentile.Image           { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
 
-func (t *tiler) Level(i int) (opentile.Level, error) {
-	if i < 0 || i >= len(t.levels) {
-		return nil, opentile.ErrLevelOutOfRange
+func (t *tiler) Level(image, level int) (opentile.Level, error) {
+	if image != 0 || image >= len(t.images) {
+		return opentile.Level{}, opentile.ErrImageIndexOutOfRange
 	}
-	return t.levels[i], nil
+	if level < 0 || level >= len(t.images[image].Levels) {
+		return opentile.Level{}, opentile.ErrLevelOutOfRange
+	}
+	return t.images[image].Levels[level], nil
 }
 
-func (t *tiler) WarmLevel(i int) error {
-	if i < 0 || i >= len(t.levels) {
+func (t *tiler) WarmLevel(image, level int) error {
+	if image != 0 {
+		return opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
 		return opentile.ErrLevelOutOfRange
 	}
-	if w, ok := t.levels[i].(interface{ warm() error }); ok {
+	if w, ok := t.levelImpls[level].(ndpiWarmer); ok {
 		return w.warm()
 	}
 	return nil
+}
+
+func (t *tiler) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].Tile(tx, ty)
+}
+
+func (t *tiler) ImageRawTileInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileMaxSize()
+}
+
+func (t *tiler) ImageTilePrefix(image, level int) []byte {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return nil
+	}
+	return t.levelImpls[level].TilePrefix()
+}
+
+func (t *tiler) ImageTileBodyMaxSize(image, level int) int {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return 0
+	}
+	return t.levelImpls[level].TileBodyMaxSize()
+}
+
+func (t *tiler) ImageTileBodyInto(image, level, tx, ty int, dst []byte) (int, error) {
+	if image != 0 {
+		return 0, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileBodyInto(tx, ty, dst)
+}
+
+func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	return t.levelImpls[level].TileReader(tx, ty)
+}
+
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+	if image != 0 || level < 0 || level >= len(t.levelImpls) {
+		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+	}
+	return t.levelImpls[level].Tiles(ctx)
+}
+
+// levelAsValueType converts an ndpiLevel to its opentile.Level metadata.
+// Called at Open time to build the value-type slice; after that, metadata
+// is read from t.images[0].Levels.
+func levelAsValueType(idx int, l ndpiLevel) opentile.Level {
+	// Use a type switch to extract metadata fields from the concrete types.
+	type inspector interface {
+		Index() int
+		PyramidIndex() int
+		Size() opentile.Size
+		TileSize() opentile.Size
+		Grid() opentile.Size
+		Compression() opentile.Compression
+		MPP() opentile.SizeMm
+		FocalPlane() float64
+	}
+	if ins, ok := l.(inspector); ok {
+		return opentile.Level{
+			Index:        ins.Index(),
+			PyramidIndex: ins.PyramidIndex(),
+			Size:         ins.Size(),
+			TileSize:     ins.TileSize(),
+			Grid:         ins.Grid(),
+			Compression:  ins.Compression(),
+			MPP:          ins.MPP(),
+			FocalPlane:   ins.FocalPlane(),
+		}
+	}
+	// Fallback — should not happen; concrete types always implement inspector.
+	return opentile.Level{Index: idx}
+}
+
+// levelToValueSlice builds the value-type []opentile.Level from ndpiLevels.
+func levelToValueSlice(impls []ndpiLevel) []opentile.Level {
+	out := make([]opentile.Level, len(impls))
+	for i, l := range impls {
+		out[i] = levelAsValueType(i, l)
+	}
+	return out
+}
+
+// ndpiTileReader wraps a []byte as an io.ReadCloser. Used when an ndpiLevel
+// doesn't implement TileReader.
+func ndpiTileReader(b []byte, err error) (io.ReadCloser, error) {
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(b)), nil
 }
