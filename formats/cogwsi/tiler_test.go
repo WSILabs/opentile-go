@@ -273,9 +273,11 @@ func TestTiler_WarmLevel(t *testing.T) {
 	}
 }
 
-// TestTiler_UnwrapTiler verifies Tiler.UnwrapTiler() returns the
-// inner generictiff Tiler. Accesses the method via a type assertion
-// since UnwrapTiler is not part of the opentile.Tiler interface.
+// TestTiler_UnwrapTiler was a regression test for the old fileCloser/mmapCloser
+// UnwrapTiler() path. As of v0.23, OpenFile returns *opentile.Slide (a concrete
+// struct), so the unwrap-via-type-assertion pattern no longer applies.
+// The test now verifies that the Slide's Images() and Levels() are non-empty,
+// which was the original assertion's substance.
 func TestTiler_UnwrapTiler(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -285,29 +287,18 @@ func TestTiler_UnwrapTiler(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Skip("fixture not present")
 	}
-	tlr, err := opentile.OpenFile(path)
+	slide, err := opentile.OpenFile(path)
 	if err != nil {
 		t.Fatalf("OpenFile: %v", err)
 	}
-	defer tlr.Close()
+	defer slide.Close()
 
-	// Type-assert to access UnwrapTiler method.
-	unwrappable, ok := tlr.(interface{ UnwrapTiler() opentile.Tiler })
-	if !ok {
-		t.Fatal("Tiler does not implement UnwrapTiler()")
-	}
-	unwrapped := unwrappable.UnwrapTiler()
-	if unwrapped == nil {
-		t.Fatal("UnwrapTiler(): got nil")
-	}
-	// The unwrapped inner Tiler should have Images() and Levels()
-	// available (both are opentile.Tiler interface methods).
-	images := unwrapped.Images()
+	images := slide.Images()
 	if len(images) == 0 {
-		t.Error("UnwrapTiler().Images(): empty")
+		t.Error("slide.Images(): empty")
 	}
-	levels := unwrapped.Levels()
+	levels := slide.Levels()
 	if len(levels) == 0 {
-		t.Error("UnwrapTiler().Levels(): empty")
+		t.Error("slide.Levels(): empty")
 	}
 }

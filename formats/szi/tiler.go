@@ -10,6 +10,7 @@ import (
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/dzi"
+	"github.com/wsilabs/opentile-go/internal/format"
 )
 
 // ErrCorruptArchive is returned when an SZI archive violates the
@@ -23,7 +24,7 @@ import (
 // once a real sparse-SZI fixture surfaces.
 var ErrCorruptArchive = errors.New("szi: corrupt archive")
 
-// Tiler is the SZI-format implementation of opentile.Tiler.
+// Tiler is the SZI-format implementation of format.Reader.
 type Tiler struct {
 	r    io.ReaderAt
 	size int64
@@ -65,11 +66,18 @@ type Tiler struct {
 	// szim is the SZI-specific metadata exposed via szi.MetadataOf.
 	szim Metadata
 
-	cfg *opentile.Config
+	cfg *format.Config
 }
 
-// openSZI is the FormatFactory.OpenRaw implementation.
-func openSZI(r io.ReaderAt, size int64, cfg *opentile.Config) (*Tiler, error) {
+// openSZIWithFormatConfig constructs a Tiler using the format.Config path.
+// This is the shared construction path used by both openSZIFormat (new
+// format.Register path) and Factory.OpenRaw (legacy FormatFactory path).
+func openSZIWithFormatConfig(r io.ReaderAt, size int64, cfg *format.Config) (*Tiler, error) {
+	return openSZI(r, size, cfg)
+}
+
+// openSZI is the core constructor. Called via openSZIWithFormatConfig.
+func openSZI(r io.ReaderAt, size int64, cfg *format.Config) (*Tiler, error) {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
 		return nil, fmt.Errorf("szi: open zip: %w", err)

@@ -15,7 +15,7 @@ import (
 
 // openCMU1 is a small helper that opens the CMU-1.szi fixture or
 // skips the test when the fixture is unavailable.
-func openCMU1(t *testing.T) opentile.Tiler {
+func openCMU1(t *testing.T) *opentile.Slide {
 	t.Helper()
 	path := filepath.Join(testdataDir(t), "CMU-1.szi")
 	if _, err := os.Stat(path); err != nil {

@@ -163,20 +163,20 @@ func mppFromRational(r [2]uint32) (float64, bool) {
 	return 10000.0 / pixelsPerCm, true
 }
 
-// MetadataOf returns the NDPI-specific metadata if t is an NDPI Tiler.
-// Walks Tiler wrappers (mirrors svs.MetadataOf) to accommodate the
-// fileCloser wrapper that opentile.OpenFile returns.
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
+// MetadataOf returns the NDPI-specific metadata if v is (or wraps) an NDPI
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
+func MetadataOf(v any) (*Metadata, bool) {
 	const maxHops = 16
-	for i := 0; t != nil && i <= maxHops; i++ {
-		if nt, ok := t.(*tiler); ok {
+	for i := 0; v != nil && i <= maxHops; i++ {
+		if nt, ok := v.(*tiler); ok {
 			return &nt.md, true
 		}
-		u, ok := t.(interface{ UnwrapTiler() opentile.Tiler })
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }

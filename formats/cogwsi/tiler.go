@@ -7,6 +7,7 @@ import (
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/formats/generictiff"
 	"github.com/wsilabs/opentile-go/internal/cog"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
@@ -16,7 +17,7 @@ import (
 // errors.Is(err, cogwsi.ErrNotConformantCOGWSI).
 var ErrNotConformantCOGWSI = errors.New("cogwsi: file is not spec-conformant")
 
-// Tiler is the COG-WSI format implementation of opentile.Tiler.
+// Tiler is the COG-WSI format implementation of format.Reader.
 //
 // Per v0.19 plan T6, cogwsi delegates the tile-byte hot path
 // (pyramid + associated level construction, tile reads, splice
@@ -31,15 +32,14 @@ var ErrNotConformantCOGWSI = errors.New("cogwsi: file is not spec-conformant")
 //   - Metadata() augments the cross-format struct with the
 //     WSIMPP*/WSIMagnification tags + COG-WSI Properties.
 type Tiler struct {
-	inner opentile.Tiler
+	inner format.Reader
 	md    opentile.Metadata
 }
 
-// openCOGWSI parses the ghost area, validates the COG-WSI version
-// + ghost values + per-IFD spec conformance, then delegates the
-// pyramid + associated build to generictiff (which honors the
-// WSI tags as authoritative per T4).
-func openCOGWSI(tf *tiff.File, cfg *opentile.Config) (*Tiler, error) {
+// openCOGWSIFromFile is the shared construction path used by both
+// openCOGWSIFormat (new format.Register path) and Factory.Open
+// (legacy FormatFactory path).
+func openCOGWSIFromFile(tf *tiff.File, cfg *format.Config) (*Tiler, error) {
 	ghost, err := readGhostArea(tf)
 	if err != nil {
 		return nil, fmt.Errorf("cogwsi: ghost-area read: %w", err)
@@ -72,7 +72,7 @@ func openCOGWSI(tf *tiff.File, cfg *opentile.Config) (*Tiler, error) {
 	// Build the inner tile-byte machinery via generic-TIFF. T4
 	// added WSI-tag awareness so the existing Open path handles
 	// COG-WSI pyramids + associated classification correctly.
-	inner, err := generictiff.New().Open(tf, cfg)
+	inner, err := generictiff.OpenFromTIFF(tf, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cogwsi: generic-tiff open: %w", err)
 	}
@@ -125,8 +125,8 @@ func (t *Tiler) ICCProfile() []byte { return t.inner.ICCProfile() }
 // the inner Tiler (which implements the v0.9 mmap-aware warm path).
 func (t *Tiler) WarmLevel(i int) error { return t.inner.WarmLevel(i) }
 
-// UnwrapTiler exposes the inner generic-TIFF Tiler so callers that
+// UnwrapReader exposes the inner generic-TIFF reader so callers that
 // hold a *cogwsi.Tiler can reach the generic-TIFF-format-specific
 // helpers (e.g., generictiff.MetadataOf). Mirrors the unwrap
 // pattern used by *fileCloser and other format wrappers.
-func (t *Tiler) UnwrapTiler() opentile.Tiler { return t.inner }
+func (t *Tiler) UnwrapReader() any { return t.inner }

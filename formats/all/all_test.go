@@ -6,19 +6,20 @@ import (
 	opentile "github.com/wsilabs/opentile-go"
 )
 
-// TestRegisterIsIdempotent confirms calling Register() multiple times does not
-// panic and does not register duplicate factories.
-func TestRegisterIsIdempotent(t *testing.T) {
-	// First call happens via init(). Call a second time explicitly.
-	Register()
-	Register()
-	// No assertion beyond the absence of a panic — duplicate-registration
-	// behavior is a property of opentile.Register (which does accept
-	// duplicates); our concern is that our sync.Once gate prevents
-	// double-addition.
+// TestFormatsRegistered confirms that importing this package registers formats.
+// We verify by checking that the FormatSVS constant exists (compilation check)
+// and that OpenFile with a nonexistent path returns an error containing the
+// path (not a "no formats registered" error).
+func TestFormatsRegistered(t *testing.T) {
+	_, err := opentile.OpenFile("/nonexistent/path.svs")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	// If no formats were registered, the error would be "no format registered".
+	// With formats registered, it should be a file-not-found error.
+	if err.Error() == "opentile: no format registered" {
+		t.Fatalf("formats were not registered: %v", err)
+	}
 }
 
-// TestRegisterRegistersSVS confirms SVS is registered after Register().
-// It does this by calling Open against a minimal Aperio TIFF and asserting
-// that the SVS factory picks it up (via the FormatSVS string).
 var _ = opentile.FormatSVS

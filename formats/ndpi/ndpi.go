@@ -13,44 +13,60 @@
 package ndpi
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
+// Compile-time assertion: *tiler satisfies format.Reader.
+var _ format.Reader = (*tiler)(nil)
+
+func init() {
+	format.Register("ndpi", matchNDPI, openNDPI)
+}
+
 // tagMake is the standard TIFF Make tag (camera/scanner manufacturer).
 const tagMake uint16 = 271
 
-// Factory is the FormatFactory implementation for NDPI.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns an NDPI factory. Safe to register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatNDPI }
-
-// Supports reports whether file looks like an NDPI. Per tifffile line 10608:
+// matchNDPI returns nil iff r is an NDPI file. Per tifffile line 10608:
 // NDPI requires BOTH FileFormat (65420) AND Make (271).
-func (f *Factory) Supports(file *tiff.File) bool {
+func matchNDPI(r io.ReaderAt, size int64) error {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return fmt.Errorf("ndpi: not a TIFF: %w", err)
+	}
 	pages := file.Pages()
 	if len(pages) == 0 {
-		return false
+		return errors.New("ndpi: TIFF has no pages")
 	}
 	p := pages[0]
 	if _, ok := p.ScalarU32(tagFileFormat); !ok {
-		return false
+		return errors.New("ndpi: missing FileFormat tag (65420)")
 	}
 	if _, ok := p.ASCII(tagMake); !ok {
-		return false
+		return errors.New("ndpi: missing Make tag (271)")
 	}
-	return true
+	return nil
 }
 
-// Open constructs an NDPI Tiler from a parsed TIFF file.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
+// openNDPI constructs a format.Reader from a raw reader. It re-parses
+// the TIFF (matchNDPI already parsed it; header-only reads are cheap).
+func openNDPI(r io.ReaderAt, size int64, cfg *format.Config) (format.Reader, error) {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("ndpi: %w", err)
+	}
+	return openFromTIFFFile(file, cfg)
+}
+
+// openFromTIFFFile is the shared construction path used by both openNDPI
+// and Factory.Open.
+func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error) {
 	pages := file.Pages()
 	if len(pages) == 0 {
 		return nil, fmt.Errorf("ndpi: file has no pages")
@@ -65,11 +81,11 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	// JPEG header (via readStripes), so we do a lightweight first pass to
 	// find the smallest strip width across all pyramid-level pages.
 	reqSize := opentile.Size{W: 512, H: 512}
-	if sz, set := cfg.TileSize(); set {
-		if sz.W != sz.H {
-			return nil, fmt.Errorf("ndpi: tile size must be square, got %v", sz)
+	if cfg.HasTileSize {
+		if cfg.TileSize.W != cfg.TileSize.H {
+			return nil, fmt.Errorf("ndpi: tile size must be square, got %v", cfg.TileSize)
 		}
-		reqSize = sz
+		reqSize = cfg.TileSize
 	}
 
 	// Pre-read each pyramid-level page's StripInfo so we can (a) compute the
@@ -142,7 +158,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 			// part of the standard NDPI layout.
 		}
 	}
-	if overview != nil && cfg.NDPISynthesizedLabel() {
+	if overview != nil && cfg.NDPISynthesizedLabel {
 		// Default label crop: 0 → 30% of macro width. Derive MCU pixel size
 		// from the overview's actual JPEG SOF0 sampling factors rather than
 		// hardcoding 16x16 (correct for the Hamamatsu YCbCr 4:2:0 default,
@@ -162,3 +178,4 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	}
 	return &tiler{md: md, levels: levels, associated: associated}, nil
 }
+

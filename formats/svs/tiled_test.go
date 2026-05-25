@@ -448,13 +448,21 @@ func TestSvsTilerSkipsNonTiledPages(t *testing.T) {
 	}
 }
 
-// wrapperTiler is a test double that wraps a Tiler through an UnwrapTiler
-// method. Used to verify MetadataOf unwraps arbitrary wrappers.
+// wrapperTiler is a test double that wraps a format.Reader through an
+// UnwrapReader method. Used to verify MetadataOf unwraps arbitrary wrappers.
 type wrapperTiler struct {
-	opentile.Tiler
+	inner any
 }
 
-func (w *wrapperTiler) UnwrapTiler() opentile.Tiler { return w.Tiler }
+func (w *wrapperTiler) UnwrapReader() any { return w.inner }
+
+// Close implements io.Closer so defer tiler.Close() compiles.
+func (w *wrapperTiler) Close() error {
+	if c, ok := w.inner.(interface{ Close() error }); ok {
+		return c.Close()
+	}
+	return nil
+}
 
 func TestMetadataOfUnwrapsWrappers(t *testing.T) {
 	data, _ := buildSVSTIFF(t, 16, 16, 1, 1, "MPP = 0.25")
@@ -467,7 +475,7 @@ func TestMetadataOfUnwrapsWrappers(t *testing.T) {
 	defer tiler.Close()
 
 	// Wrap the concrete SVS tiler in one level of wrapper.
-	wrapped := &wrapperTiler{Tiler: tiler}
+	wrapped := &wrapperTiler{inner: tiler}
 	md, ok := MetadataOf(wrapped)
 	if !ok {
 		t.Fatal("MetadataOf: expected ok=true through one wrapper")
@@ -477,7 +485,7 @@ func TestMetadataOfUnwrapsWrappers(t *testing.T) {
 	}
 
 	// Wrap twice to confirm it walks multiple layers.
-	doubleWrapped := &wrapperTiler{Tiler: wrapped}
+	doubleWrapped := &wrapperTiler{inner: wrapped}
 	md, ok = MetadataOf(doubleWrapped)
 	if !ok {
 		t.Fatal("MetadataOf: expected ok=true through two wrappers")
@@ -487,13 +495,11 @@ func TestMetadataOfUnwrapsWrappers(t *testing.T) {
 	}
 }
 
-// cyclicTiler is a pathological wrapper whose UnwrapTiler returns itself.
+// cyclicTiler is a pathological wrapper whose UnwrapReader returns itself.
 // Used to verify MetadataOf does not spin forever.
-type cyclicTiler struct {
-	opentile.Tiler
-}
+type cyclicTiler struct{}
 
-func (c *cyclicTiler) UnwrapTiler() opentile.Tiler { return c }
+func (c *cyclicTiler) UnwrapReader() any { return c }
 
 func TestMetadataOfHandlesCyclicUnwrap(t *testing.T) {
 	c := &cyclicTiler{}

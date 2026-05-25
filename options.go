@@ -126,20 +126,40 @@ type Config struct {
 //   - (non-zero, true): caller's requested tile size; format honors it
 //     (NDPI may snap to a stripe-multiple, SVS rejects when it doesn't
 //     match the native tile dimensions).
-func (c *Config) TileSize() (Size, bool) { return c.c.tileSize, c.c.hasTileSize }
+func (c *Config) TileSize() (Size, bool) {
+	if c == nil || c.c == nil {
+		return Size{}, false
+	}
+	return c.c.tileSize, c.c.hasTileSize
+}
 
 // CorruptTilePolicy returns the configured policy.
-func (c *Config) CorruptTilePolicy() CorruptTilePolicy { return c.c.corruptTile }
+func (c *Config) CorruptTilePolicy() CorruptTilePolicy {
+	if c == nil || c.c == nil {
+		return CorruptTilePolicy(0)
+	}
+	return c.c.corruptTile
+}
 
 // NDPISynthesizedLabel reports whether NDPI Tiler.Associated() should
 // include a synthesized label cropped from the overview. Default true.
-func (c *Config) NDPISynthesizedLabel() bool { return c.c.ndpiSynthLabel }
+func (c *Config) NDPISynthesizedLabel() bool {
+	if c == nil || c.c == nil {
+		return false
+	}
+	return c.c.ndpiSynthLabel
+}
 
 // Backing reports the I/O backing the caller selected via
 // [WithBacking]. Defaults to [BackingMmap] since v0.9 if no option
 // was passed. Format packages typically don't need this — Open is
 // path-agnostic — but it's exposed for diagnostic accessors.
-func (c *Config) Backing() Backing { return c.c.backing }
+func (c *Config) Backing() Backing {
+	if c == nil || c.c == nil {
+		return BackingMmap
+	}
+	return c.c.backing
+}
 
 // NewTestConfig constructs a Config for use in tests.
 //

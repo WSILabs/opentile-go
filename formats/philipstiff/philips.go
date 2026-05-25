@@ -1,12 +1,22 @@
 package philipstiff
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
+
+// Compile-time assertion: *tiler satisfies format.Reader.
+var _ format.Reader = (*tiler)(nil)
+
+func init() {
+	format.Register("philipstiff", matchPhilips, openPhilips)
+}
 
 // philipsSoftwarePrefix is the literal prefix on the Software tag (305)
 // that identifies a Philips IntelliSite Pathology Solution scan.
@@ -21,42 +31,43 @@ const philipsSoftwarePrefix = "Philips DP"
 // </DataObject>-bearing XML in non-Philips TIFFs.
 const philipsDescriptionSuffix = "</DataObject>"
 
-// Factory is the FormatFactory implementation for Philips TIFF.
-type Factory struct{ opentile.RawUnsupported }
-
-// New returns a Philips factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatPhilipsTIFF }
-
-// Supports reports whether file looks like a Philips TIFF: its first
-// page's Software tag starts with "Philips DP" AND its ImageDescription
-// tag ends in </DataObject> (after stripping trailing whitespace).
-//
-// Direct port of tifffile's `is_philips` predicate
-// (tifffile.py:10267-10271). Both signals are required — either alone
-// has too high a false-positive rate.
-func (f *Factory) Supports(file *tiff.File) bool {
+// matchPhilips returns nil iff r is a Philips TIFF file.
+func matchPhilips(r io.ReaderAt, size int64) error {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return fmt.Errorf("philips: not a TIFF: %w", err)
+	}
 	pages := file.Pages()
 	if len(pages) == 0 {
-		return false
+		return errors.New("philips: TIFF has no pages")
 	}
 	sw, ok := pages[0].Software()
 	if !ok || !strings.HasPrefix(sw, philipsSoftwarePrefix) {
-		return false
+		return errors.New("philips: Software tag does not start with Philips DP")
 	}
 	desc, ok := pages[0].ImageDescription()
 	if !ok {
-		return false
+		return errors.New("philips: ImageDescription missing")
 	}
-	return strings.HasSuffix(strings.TrimSpace(desc), philipsDescriptionSuffix)
+	if !strings.HasSuffix(strings.TrimSpace(desc), philipsDescriptionSuffix) {
+		return errors.New("philips: ImageDescription does not end with </DataObject>")
+	}
+	return nil
 }
 
-// Open constructs a Philips Tiler from a parsed TIFF file. Drives
-// metadata parsing, dimension correction, series classification, and
-// level / associated-image construction.
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
+// openPhilips constructs a format.Reader from a raw reader. It re-parses
+// the TIFF (matchPhilips already parsed it; header-only reads are cheap).
+func openPhilips(r io.ReaderAt, size int64, cfg *format.Config) (format.Reader, error) {
+	file, err := tiff.Open(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("philips: %w", err)
+	}
+	return openFromTIFFFile(file, cfg)
+}
+
+// openFromTIFFFile is the shared construction path used by both openPhilips
+// and Factory.Open.
+func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error) {
 	pages := file.Pages()
 	if len(pages) == 0 {
 		return nil, fmt.Errorf("philips: file has no pages")
@@ -164,7 +175,7 @@ func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, e
 	}, nil
 }
 
-// tiler is the Philips implementation of opentile.Tiler.
+// tiler is the Philips implementation of format.Reader.
 type tiler struct {
 	md         Metadata
 	levels     []opentile.Level
@@ -203,32 +214,25 @@ func (t *tiler) WarmLevel(i int) error {
 	return nil
 }
 
-// tilerUnwrapper is the same coordination interface SVS / NDPI use to
-// peel off opentile's *fileCloser wrapper before MetadataOf can type-
-// assert on the concrete philipstiff.tiler.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
+const maxUnwrapHops = 16
 
-const maxTilerUnwrapHops = 16
-
-// MetadataOf returns the Philips-specific metadata if t is a Philips
-// Tiler, otherwise (nil, false). Walks any number of wrappers before
-// asserting on the concrete type.
+// MetadataOf returns the Philips-specific metadata if v is (or wraps) a Philips
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-//	if md, ok := philipstiff.MetadataOf(tiler); ok {
+//	if md, ok := philipstiff.MetadataOf(slide); ok {
 //	    fmt.Println(md.PixelSpacing, md.BitsAllocated)
 //	}
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if pt, ok := t.(*tiler); ok {
+func MetadataOf(v any) (*Metadata, bool) {
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if pt, ok := v.(*tiler); ok {
 			return &pt.md, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }

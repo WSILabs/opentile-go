@@ -9,7 +9,7 @@
 // (see docs/deferred.md §8f). One deliberate deviation: multi-image
 // OME files (where several main pyramids share a single TIFF
 // container — Leica-2.ome.tiff is one) expose every pyramid via the
-// new opentile.Tiler.Images() API. Upstream's base Tiler loop
+// new format.Reader.Images() API. Upstream's base Tiler loop
 // silently overwrites _level_series_index on each match and surfaces
 // only the last main pyramid; we treat that as an upstream oversight
 // rather than intentional behaviour.
@@ -18,7 +18,6 @@ package ometiff
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -32,176 +31,25 @@ import (
 //	return self.description[-10:].strip().endswith('OME>')
 const omeDescriptionSuffix = "OME>"
 
-// Factory is the FormatFactory implementation for OME TIFF.
-type Factory struct{ opentile.RawUnsupported }
+const maxUnwrapHops = 16
 
-// New returns an OME factory. Safe to call once and register globally.
-func New() *Factory { return &Factory{} }
-
-// Format reports the format identifier used by opentile.Tiler.Format().
-func (f *Factory) Format() opentile.Format { return opentile.FormatOMETIFF }
-
-// Supports reports whether file looks like an OME TIFF: its first
-// page's ImageDescription's last 10 characters, after stripping
-// trailing whitespace, end with `OME>` (i.e. the closing tag of the
-// `<OME>` root element). Direct port of tifffile's `is_ome`
-// predicate.
-func (f *Factory) Supports(file *tiff.File) bool {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return false
-	}
-	desc, ok := pages[0].ImageDescription()
-	if !ok || desc == "" {
-		return false
-	}
-	tail := desc
-	if len(tail) > 10 {
-		tail = tail[len(tail)-10:]
-	}
-	return strings.HasSuffix(strings.TrimSpace(tail), omeDescriptionSuffix)
-}
-
-// Open constructs an OME Tiler from a parsed TIFF file. Parses
-// OME-XML metadata from page-0's ImageDescription, classifies Images
-// into main pyramids vs. associated, and walks each main pyramid's
-// SubIFD chain to build per-level Tiles.
+// MetadataOf returns the OME-specific metadata if v is (or wraps) an OME
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-// Multi-image OME files (Leica-2 has 4 main pyramids) expose all
-// pyramids via Tiler.Images(); upstream's last-wins behaviour is the
-// v0.6 deviation documented in docs/deferred.md "Deviations from
-// upstream Python opentile".
-func (f *Factory) Open(file *tiff.File, cfg *opentile.Config) (opentile.Tiler, error) {
-	pages := file.Pages()
-	if len(pages) == 0 {
-		return nil, errors.New("ome: file has no pages")
-	}
-	desc, ok := pages[0].ImageDescription()
-	if !ok {
-		return nil, errors.New("ome: page 0 missing ImageDescription")
-	}
-	md, err := parseOMEMetadata(desc)
-	if err != nil {
-		return nil, err
-	}
-	cls, err := classifyImages(md.Images)
-	if err != nil {
-		return nil, err
-	}
-
-	// Default OneFrame tile size: caller-supplied WithTileSize wins;
-	// otherwise fall back to the first main pyramid's base page tile
-	// dims (mirrors upstream's tile_size = Size(base_page.tilewidth,
-	// base_page.tilelength)).
-	oneFrameTileSize, err := defaultOneFrameTileSize(pages, cls.LevelImages, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	images := make([]opentile.Image, 0, len(cls.LevelImages))
-	for k, omeIdx := range cls.LevelImages {
-		// Top-level pages align 1:1 with OME Image indices in document
-		// order (verified empirically against both Leica fixtures —
-		// series[i].pages[0].offset == tf.pages[i].offset).
-		if omeIdx >= len(pages) {
-			return nil, fmt.Errorf("ome: OME Image %d has no corresponding TIFF page (only %d top-level pages)", omeIdx, len(pages))
-		}
-		basePage := pages[omeIdx]
-		baseSize, err := pageDims(basePage)
-		if err != nil {
-			return nil, fmt.Errorf("ome: image %d base page: %w", omeIdx, err)
-		}
-		baseMPP := opentile.SizeMm{
-			W: md.Images[omeIdx].PhysicalSizeX,
-			H: md.Images[omeIdx].PhysicalSizeY,
-		}
-		levels, err := buildLevels(file, basePage, baseSize, baseMPP, oneFrameTileSize)
-		if err != nil {
-			return nil, fmt.Errorf("ome: image %d: %w", omeIdx, err)
-		}
-		omeImg := md.Images[omeIdx]
-		// SizeC discriminator (per T2 gate outcome): use the count of
-		// <Channel> elements, NOT <Pixels SizeC>. <Pixels SizeC>
-		// describes per-pixel sample count (3 on RGB brightfield);
-		// <Channel> count describes separately-stored channels (1 on
-		// brightfield; > 1 only on fluorescence).
-		sizeC := omeImg.Channels
-		if sizeC < 1 {
-			sizeC = 1
-		}
-		images = append(images, &pyramidImage{
-			index:        k,
-			name:         omeImg.Name,
-			levels:       levels,
-			mpp:          baseMPP,
-			sizeZ:        omeImg.SizeZ,
-			sizeC:        sizeC,
-			sizeT:        omeImg.SizeT,
-			channelNames: append([]string(nil), omeImg.ChannelNames...),
-		})
-	}
-
-	// Associated images. Order matches our convention (thumbnail,
-	// label, overview) for parity with SVS/NDPI/Philips.
-	var associated []opentile.AssociatedImage
-	for _, spec := range []struct {
-		kind   string
-		omeIdx int
-	}{
-		{"thumbnail", cls.Thumbnail},
-		{"label", cls.Label},
-		{"overview", cls.Macro}, // OME XML calls it "macro"; we expose as "overview"
-	} {
-		if spec.omeIdx < 0 {
-			continue
-		}
-		if spec.omeIdx >= len(pages) {
-			return nil, fmt.Errorf("ome: associated %s OME Image %d has no corresponding TIFF page", spec.kind, spec.omeIdx)
-		}
-		a, err := newAssociatedImage(spec.kind, pages[spec.omeIdx], file.ReaderAt())
-		if err != nil {
-			return nil, fmt.Errorf("ome: associated %s: %w", spec.kind, err)
-		}
-		associated = append(associated, a)
-	}
-
-	icc, _ := pages[0].ICCProfile()
-	cross := crossMetadata(md, cls)
-	return &tiler{
-		md:         md,
-		cross:      cross,
-		images:     images,
-		associated: associated,
-		icc:        icc,
-	}, nil
-}
-
-// tilerUnwrapper is the same coordination interface SVS / NDPI / Philips
-// use to peel off opentile's *fileCloser wrapper before MetadataOf can
-// type-assert on the concrete *tiler.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
-
-const maxTilerUnwrapHops = 16
-
-// MetadataOf returns the OME-specific metadata if t is an OME Tiler,
-// otherwise (nil, false). Walks any number of wrappers before
-// asserting on the concrete type.
-//
-//	if md, ok := ometiff.MetadataOf(tiler); ok {
+//	if md, ok := ometiff.MetadataOf(slide); ok {
 //	    fmt.Println("OME images:", len(md.Images))
 //	}
-func MetadataOf(t opentile.Tiler) (*OMEMetadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if ot, ok := t.(*tiler); ok {
+func MetadataOf(v any) (*OMEMetadata, bool) {
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if ot, ok := v.(*tiler); ok {
 			return &ot.md, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }
@@ -213,7 +61,7 @@ func MetadataOf(t opentile.Tiler) (*OMEMetadata, bool) {
 // in OmeTiffTiler.get_level (ome_tiff_tiler.py:128) regardless of
 // the user's tile_size argument. We deliberately ignore cfg.TileSize
 // for OME; it's a no-op on this format.
-func defaultOneFrameTileSize(pages []*tiff.Page, levelImageIndices []int, _ *opentile.Config) (opentile.Size, error) {
+func defaultOneFrameTileSize(pages []*tiff.Page, levelImageIndices []int) (opentile.Size, error) {
 	if len(levelImageIndices) == 0 {
 		return opentile.Size{}, errors.New("ome: cannot derive tile size — no main pyramids")
 	}
@@ -348,7 +196,7 @@ func max1(n int) int {
 	return n
 }
 
-// tiler is the OME implementation of opentile.Tiler.
+// tiler is the OME implementation of format.Reader.
 type tiler struct {
 	md         OMEMetadata
 	cross      opentile.Metadata // v0.17 cross-format view; populated from md at Open time

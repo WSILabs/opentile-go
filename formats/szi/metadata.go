@@ -19,7 +19,7 @@ import (
 // "0h17m22s" ElapsedTime string, and the vendor.<key> open-ended
 // properties map) live on the outer struct.
 //
-// Consumers read the common fields via opentile.Tiler.Metadata() as
+// Consumers read the common fields via opentile.Slide.Metadata() as
 // usual; to read the SZI-specific raw fields, pass the Tiler to
 // szi.MetadataOf. Field reads via Go's embedded-struct promotion
 // continue to compile: szi.MetadataOf(t).MicronsPerPixel routes
@@ -82,41 +82,24 @@ type Metadata struct {
 	VendorProperties map[string]string
 }
 
-// tilerUnwrapper is implemented by opentile wrapper types (e.g., the
-// *fileCloser returned by opentile.OpenFile) that hold an inner Tiler.
-// Kept unexported because it is a coordination interface between
-// opentile and its format packages.
-type tilerUnwrapper interface {
-	UnwrapTiler() opentile.Tiler
-}
-
-// maxTilerUnwrapHops caps the number of UnwrapTiler calls MetadataOf
-// will make. Mirrors the SVS / NDPI / Philips / OME / BIF / IFE / SCN
-// /generictiff precedent: realistic chain length is 1, 16 is ample
-// headroom against an accidental cycle.
-const maxTilerUnwrapHops = 16
-
-// MetadataOf returns the SZI-specific Metadata if t is an SZI-format
-// Tiler (possibly wrapped by opentile.OpenFile's *fileCloser /
-// *mmapCloser), otherwise (nil, false). Walks any number of
-// wrappers via UnwrapTiler before asserting on the concrete type.
+// MetadataOf returns the SZI-specific Metadata if v is (or wraps) an SZI
+// reader, otherwise (nil, false). Accepts *opentile.Slide, format.Reader
+// implementations, and any type implementing UnwrapReader() any.
 //
-//	if md, ok := szi.MetadataOf(tiler); ok {
+//	if md, ok := szi.MetadataOf(slide); ok {
 //	    fmt.Println(md.MicronsPerPixel, md.VendorProperties["vendor.SerialNumber"])
 //	}
-//
-// Mirrors the v0.6+/Philips/OME/IFE/SCN format-specific accessor
-// pattern.
-func MetadataOf(t opentile.Tiler) (*Metadata, bool) {
-	for i := 0; t != nil && i <= maxTilerUnwrapHops; i++ {
-		if tt, ok := t.(*Tiler); ok {
+func MetadataOf(v any) (*Metadata, bool) {
+	const maxUnwrapHops = 16
+	for i := 0; v != nil && i <= maxUnwrapHops; i++ {
+		if tt, ok := v.(*Tiler); ok {
 			return &tt.szim, true
 		}
-		u, ok := t.(tilerUnwrapper)
+		u, ok := v.(interface{ UnwrapReader() any })
 		if !ok {
 			return nil, false
 		}
-		t = u.UnwrapTiler()
+		v = u.UnwrapReader()
 	}
 	return nil, false
 }

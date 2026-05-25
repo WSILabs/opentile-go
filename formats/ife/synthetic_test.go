@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 )
 
 // synthBuilder hand-rolls a complete IFE v1.0 byte buffer for unit
@@ -174,7 +175,7 @@ func TestSynthLayerInversion(t *testing.T) {
 	}
 	data, _ := sb.build()
 
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -243,7 +244,7 @@ func TestSynthSparse(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -282,7 +283,7 @@ func TestSynthIrisEncoding(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -302,7 +303,7 @@ func TestSynthAvifEncoding(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -325,7 +326,7 @@ func TestSynthTilesIterator(t *testing.T) {
 		},
 	}
 	data, _ := sb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -372,7 +373,7 @@ func TestSynthOpenRejects(t *testing.T) {
 			},
 		}
 		data, _ := sb.build()
-		_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+		_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 		if err == nil {
 			t.Fatal("want error on encoding=7")
 		}
@@ -391,7 +392,7 @@ func TestSynthOpenRejects(t *testing.T) {
 		// Now poke encoding=0 (TILE_ENCODING_UNDEFINED) at the
 		// TILE_TABLE byte offset 10 + the table's own offset (38).
 		data[fileHeaderSize+10] = encodingUndefined
-		_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+		_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 		if err == nil {
 			t.Fatal("want error on encoding=0")
 		}
@@ -406,7 +407,7 @@ func TestSynthOpenRejects(t *testing.T) {
 			},
 		}
 		data, _ := sb.build()
-		_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+		_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 		if err == nil {
 			t.Fatal("want error on decreasing scales")
 		}

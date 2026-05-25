@@ -11,6 +11,87 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-05-24
+
+**BREAKING:** Replaced the public `Tiler` interface with a `*Slide` struct.
+
+### Removed (BREAKING)
+
+- `opentile.Tiler` interface — gone entirely; no deprecation shim.
+- `opentile.OpenTiler(path string) (Tiler, error)` — use
+  `opentile.OpenFile(path string) (*Slide, error)`.
+- `opentile.FormatFactory` interface — format packages no longer
+  implement this; registration is via `format.Register` in `init()`.
+- `opentile.Register(f FormatFactory)` — replaced by
+  `internal/format.Register(name, match, opener)`.
+- `opentile.RawUnsupported` struct (and its `SupportsRaw` / `OpenRaw`
+  methods) — the raw-vs-TIFF dispatch distinction is gone; every
+  format registers a single `Match + Opener` pair.
+- `opentile.Formats() []Format` — no replacement; iterate
+  `(*Slide).Format()` on open slides.
+
+### Fixed
+
+- `*opentile.Config` accessor methods (`TileSize`, `CorruptTilePolicy`,
+  `NDPISynthesizedLabel`, `Backing`) are now nil-safe on the zero
+  `&Config{}` — they previously panicked on the nil internal pointer.
+  Pre-existing latent bug surfaced by v0.23's dual-registration
+  refactor.
+
+### Added
+
+- `opentile.Slide` struct — new canonical handle for an open slide.
+- `opentile.OpenFile(path) (*Slide, error)` — open by path.
+- `opentile.Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error)`
+  — open from any ReaderAt; identical option set to old `OpenTiler`.
+- `(*Slide).Close() error`
+- `(*Slide).Format() Format`
+- `(*Slide).Metadata() Metadata`
+- `(*Slide).Levels() []Level`
+- `(*Slide).Level(i int) (Level, error)`
+- `(*Slide).Images() []Image`
+- `(*Slide).Associated() []AssociatedImage`
+- `(*Slide).ICCProfile() []byte`
+- `(*Slide).WarmLevel(i int) error`
+- `internal/format` package — unexported `Reader` interface, `Register`,
+  `OpenAny`, `ErrUnknownFormat`; consumed by format packages and
+  `opentile.Open` / `opentile.OpenFile`.
+
+### Migration guide
+
+The shape of the API is unchanged — method signatures on `*Slide`
+mirror the previous `Tiler` interface exactly. Migrating a consumer
+is a mechanical rename:
+
+| Before                                  | After                                |
+| --------------------------------------- | ------------------------------------ |
+| `opentile.Tiler`                        | `*opentile.Slide`                    |
+| `opentile.OpenTiler(path)`              | `opentile.OpenFile(path)`            |
+| `t.RawTile(level, tx, ty)`              | unchanged                            |
+| `t.Levels()`, `t.Metadata()`, etc.      | unchanged                            |
+| `t.Close()`                             | unchanged                            |
+
+For each consumer, the migration is:
+1. Bump opentile-go to v0.23.0.
+2. Search-and-replace `opentile.OpenTiler(` → `opentile.OpenFile(`.
+3. Search-and-replace declared types `opentile.Tiler` →
+   `*opentile.Slide`.
+4. Compile; fix any straggler references.
+
+### Why this change
+
+The old `Tiler` interface forced every format implementer to grow in
+lockstep with the public API. Adding decoded-tile methods, region
+reads, or a strip iterator would require every format to implement
+them or break the interface contract. Collapsing to `*Slide` with a
+format reader as an unexported interface lets future methods land on
+`*Slide` without touching format implementations.
+
+This is the first installment of the v1.0 redesign sketched in
+`docs/strategic-direction.md`. v0.24+ will add decoded-tile access;
+v0.25+ adds region reads; the strip iterator with parallel decode +
+cache + lookahead is the v1.0 milestone.
+
 ## [0.22.1] — 2026-05-24
 
 Patch release fixing `decoder/htj2k` cgo compilation against openjph 0.27+.
@@ -1678,7 +1759,9 @@ Initial functional milestone. Aperio SVS tiled-level passthrough.
 - Three real-slide fixtures: CMU-1-Small-Region.svs, CMU-1.svs (JPEG),
   JP2K-33003-1.svs (JP2K passthrough).
 
-[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/wsilabs/opentile-go/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/WSILabs/opentile-go/releases/tag/v0.23.0
+[0.22.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.22.1
 [0.22.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.22.0
 [0.21.0]: https://github.com/wsilabs/opentile-go/releases/tag/v0.21.0
 [0.20.1]: https://github.com/wsilabs/opentile-go/releases/tag/v0.20.1

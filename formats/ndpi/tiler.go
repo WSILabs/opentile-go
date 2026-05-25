@@ -4,7 +4,7 @@ import (
 	opentile "github.com/wsilabs/opentile-go"
 )
 
-// tiler is the NDPI implementation of opentile.Tiler.
+// tiler is the NDPI implementation of format.Reader.
 type tiler struct {
 	md         Metadata
 	levels     []opentile.Level

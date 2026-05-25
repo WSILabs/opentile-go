@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/format"
 )
 
 // metadataBuilder lays out a complete IFE file with a populated
@@ -254,7 +255,7 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 		icc: []byte("ICC_PROFILE_BYTES"),
 	}
 	data := mb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -371,7 +372,7 @@ func TestMetadataAbsentBlocks(t *testing.T) {
 		magnification: 0,
 	}
 	data := mb.build()
-	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatalf("openIFE: %v", err)
 	}
@@ -407,7 +408,7 @@ func TestMetadataDicomFormatRejected(t *testing.T) {
 	attrsOff := binary.LittleEndian.Uint64(data[mdOff+16 : mdOff+24])
 	data[attrsOff+10] = uint8(AttributesFormatDICOM)
 
-	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err == nil || !strings.Contains(err.Error(), "DICOM") {
 		t.Errorf("openIFE: got %v, want DICOM-rejection error", err)
 	}
@@ -422,7 +423,7 @@ func TestMetadataWrongRecoveryRejected(t *testing.T) {
 	copy(hdr, data)
 	mdOff := binary.LittleEndian.Uint64(hdr[30:38])
 	binary.LittleEndian.PutUint16(data[mdOff+8:mdOff+10], 0xDEAD)
-	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err == nil || !strings.Contains(err.Error(), "recovery") {
 		t.Errorf("got %v, want recovery error", err)
 	}
@@ -455,11 +456,11 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 	// Synthetic test via a minimal wrapper type.
 	mb := &metadataBuilder{codecMajor: 1, magnification: 5}
 	data := mb.build()
-	t1, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	t1, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper := &testWrapper{Tiler: t1}
+	wrapper := &testWrapper{inner: t1}
 	md, ok := MetadataOf(wrapper)
 	if !ok {
 		t.Fatal("MetadataOf through wrapper: !ok")
@@ -468,11 +469,11 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 		t.Errorf("Mag(hdr) = %v", md.MagnificationFromHeader)
 	}
 
-	// Non-IFE Tiler returns false.
-	type notIFE struct{ opentile.Tiler }
+	// Non-IFE type returns false.
+	type notIFE struct{}
 	_, ok = MetadataOf(notIFE{})
 	if ok {
-		t.Error("MetadataOf on non-IFE Tiler returned true")
+		t.Error("MetadataOf on non-IFE type returned true")
 	}
 
 	// nil → false (don't panic).
@@ -482,10 +483,10 @@ func TestMetadataOfWalksWrappers(t *testing.T) {
 	}
 }
 
-// testWrapper satisfies the unwrap interface that fileCloser uses.
-type testWrapper struct{ opentile.Tiler }
+// testWrapper satisfies the unwrap interface that MetadataOf uses.
+type testWrapper struct{ inner any }
 
-func (w *testWrapper) UnwrapTiler() opentile.Tiler { return w.Tiler }
+func (w *testWrapper) UnwrapReader() any { return w.inner }
 
 // Smoke: errors propagate to compatible errors.Is targets; the
 // mismatch errors are bare strings (not wrapped sentinels) by design,
@@ -497,7 +498,7 @@ func TestMetadataErrorsAreDistinct(t *testing.T) {
 	copy(hdr, data)
 	mdOff := binary.LittleEndian.Uint64(hdr[30:38])
 	binary.LittleEndian.PutUint64(data[mdOff:mdOff+8], 0xDEADBEEF) // wrong validation
-	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &opentile.Config{})
+	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if errors.Is(err, opentile.ErrUnsupportedFormat) {
 		t.Errorf("validation error wrongly aliased to ErrUnsupportedFormat")
 	}

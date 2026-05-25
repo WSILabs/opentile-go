@@ -1,60 +1,25 @@
 // Package all registers every format implemented by opentile-go. Import this
-// package for its side effect (via a blank import) or call Register() once
-// from main for equivalent behavior without relying on import ordering.
+// package for its side effect (via a blank import).
 //
 //	import _ "github.com/wsilabs/opentile-go/formats/all"
 //
-// Or:
-//
-//	import formats_all "github.com/wsilabs/opentile-go/formats/all"
-//	...
-//	formats_all.Register()
+// Each format package's init() calls format.Register; importing this package
+// triggers all of them in the correct order.
 package all
 
 import (
-	"sync"
-
-	opentile "github.com/wsilabs/opentile-go"
-	"github.com/wsilabs/opentile-go/formats/bif"
-	"github.com/wsilabs/opentile-go/formats/cogwsi"
-	"github.com/wsilabs/opentile-go/formats/generictiff"
-	"github.com/wsilabs/opentile-go/formats/ife"
-	"github.com/wsilabs/opentile-go/formats/leicascn"
-	"github.com/wsilabs/opentile-go/formats/ndpi"
-	"github.com/wsilabs/opentile-go/formats/ometiff"
-	"github.com/wsilabs/opentile-go/formats/philipstiff"
-	"github.com/wsilabs/opentile-go/formats/svs"
-	"github.com/wsilabs/opentile-go/formats/szi"
+	// Import all format packages for their init() side effects.
+	// Order matters: more-specific formats before catch-alls.
+	_ "github.com/wsilabs/opentile-go/formats/bif"
+	_ "github.com/wsilabs/opentile-go/formats/cogwsi"
+	_ "github.com/wsilabs/opentile-go/formats/ife"
+	_ "github.com/wsilabs/opentile-go/formats/leicascn"
+	_ "github.com/wsilabs/opentile-go/formats/ndpi"
+	_ "github.com/wsilabs/opentile-go/formats/ometiff"
+	_ "github.com/wsilabs/opentile-go/formats/philipstiff"
+	_ "github.com/wsilabs/opentile-go/formats/svs"
+	// SZI before generictiff so ZIP-magic detection runs first.
+	_ "github.com/wsilabs/opentile-go/formats/szi"
+	// generictiff must be last: it's the catch-all.
+	_ "github.com/wsilabs/opentile-go/formats/generictiff"
 )
-
-var once sync.Once
-
-// Register registers all known format factories with the top-level opentile
-// package. Safe to call multiple times; only the first call registers.
-func Register() {
-	once.Do(func() {
-		opentile.Register(svs.New())
-		opentile.Register(ndpi.New())
-		opentile.Register(philipstiff.New())
-		opentile.Register(ometiff.New())
-		opentile.Register(bif.New())
-		opentile.Register(ife.New())
-		opentile.Register(leicascn.New())
-		// SZI is registered before generictiff so its byte-level
-		// SupportsRaw (ZIP magic) runs first. generictiff would
-		// never claim a ZIP-magic file anyway, but keeping non-TIFF
-		// readers ahead of the catch-all matches the IFE precedent.
-		opentile.Register(szi.New())
-		// COG-WSI registers before generictiff so its ghost-area
-		// detector (Supports → COG_WSI_VERSION key present) wins
-		// over the catch-all on COG-WSI files. Mirrors the
-		// leicascn-before-generictiff precedent from v0.11.
-		opentile.Register(cogwsi.New())
-		// Generic TIFF must register LAST: it's the catch-all
-		// for tiled pyramidal TIFFs that no vendor format claims.
-		// Registering earlier would let it steal vendor-shaped TIFFs.
-		opentile.Register(generictiff.New())
-	})
-}
-
-func init() { Register() }
