@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/resample"
 )
 
 // StripIterator yields horizontal strips of a slide scaled to a
@@ -121,20 +122,142 @@ func (it *StripIterator) Strips() int {
 	return it.stripsTotal
 }
 
-// Next returns the next strip. STUB in this task — returns an error
-// for "not yet implemented" when strips remain; io.EOF when exhausted;
-// io.ErrClosedPipe after Close. Phase 4 implements the real strip assembly.
+// Next returns the next decoded strip image. Returns io.EOF when all
+// strips have been consumed, and io.ErrClosedPipe after Close.
 func (it *StripIterator) Next() (*decoder.Image, error) {
 	it.mu.Lock()
-	defer it.mu.Unlock()
 	if it.closed {
+		it.mu.Unlock()
 		return nil, io.ErrClosedPipe
 	}
 	if it.nextStrip >= it.stripsTotal {
+		it.mu.Unlock()
 		return nil, io.EOF
 	}
+	stripIdx := it.nextStrip
 	it.nextStrip++
-	return nil, fmt.Errorf("strip iterator not yet implemented (Phase 4)")
+	it.mu.Unlock()
+
+	// Signal lookahead that consumer advanced.
+	select {
+	case it.advance <- struct{}{}:
+	default:
+	}
+
+	// Compute output strip dimensions.
+	outY0 := stripIdx * it.stripHeight
+	outY1 := outY0 + it.stripHeight
+	if outY1 > it.outSize.Y {
+		outY1 = it.outSize.Y
+	}
+	stripH := outY1 - outY0
+	stripImg := decoder.NewImageFormat(it.outSize.X, stripH, decoder.PixelFormatRGB)
+	fillWhite(stripImg)
+
+	// Compute source-level region covering this strip.
+	scaleY := float64(it.l0Rect.Dy()) / (it.sourceLevel.Downsample * float64(it.outSize.Y))
+	levelY0 := int(float64(outY0)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample)
+	levelY1 := int(float64(outY1)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample) + 1
+	scaleX := 1.0 / it.sourceLevel.Downsample
+	levelX0 := int(float64(it.l0Rect.Min.X) * scaleX)
+	levelX1 := int(float64(it.l0Rect.Max.X)*scaleX) + 1
+
+	// Clip to level bounds.
+	cy0 := levelY0
+	cy1 := levelY1
+	cx0 := levelX0
+	cx1 := levelX1
+	if cy0 < 0 {
+		cy0 = 0
+	}
+	if cy1 > it.sourceLevel.Size.H {
+		cy1 = it.sourceLevel.Size.H
+	}
+	if cx0 < 0 {
+		cx0 = 0
+	}
+	if cx1 > it.sourceLevel.Size.W {
+		cx1 = it.sourceLevel.Size.W
+	}
+	if cy0 >= cy1 || cx0 >= cx1 {
+		// Entirely out of bounds; strip stays all white.
+		return stripImg, nil
+	}
+
+	// Allocate an intermediate image at level resolution for this strip's
+	// source-level region. We'll blit tiles into it then resample to output.
+	intermediateW := cx1 - cx0
+	intermediateH := cy1 - cy0
+	intermediate := decoder.NewImageFormat(intermediateW, intermediateH, decoder.PixelFormatRGB)
+	fillWhite(intermediate)
+
+	tileW := it.sourceLevel.TileSize.W
+	tileH := it.sourceLevel.TileSize.H
+	txMin := cx0 / tileW
+	tyMin := cy0 / tileH
+	txMax := (cx1 - 1) / tileW
+	tyMax := (cy1 - 1) / tileH
+
+	for ty := tyMin; ty <= tyMax; ty++ {
+		for tx := txMin; tx <= txMax; tx++ {
+			k := tileKey{tx: tx, ty: ty}
+			// Reserve in case lookahead hasn't gotten to it yet.
+			if it.cache.reserve(k) {
+				select {
+				case it.tileReqs <- k:
+				case <-it.cancelCtx.Done():
+					return nil, it.cancelCtx.Err()
+				}
+			}
+			tileImg, err, _ := it.cache.waitGet(k, it.cancelCtx)
+			if err != nil {
+				return nil, fmt.Errorf("opentile: ScaledStrips: decode tile (%d,%d) at level %d: %w", tx, ty, it.sourceLevel.Index, err)
+			}
+			if tileImg == nil {
+				if err := it.cancelCtx.Err(); err != nil {
+					return nil, err
+				}
+				return nil, fmt.Errorf("opentile: ScaledStrips: tile (%d,%d) missing from cache", tx, ty)
+			}
+			// Blit the intersection of tileImg with the clipped strip region
+			// into the intermediate image.
+			tileLevelX := tx * tileW
+			tileLevelY := ty * tileH
+			ax0 := maxInt(tileLevelX, cx0)
+			ay0 := maxInt(tileLevelY, cy0)
+			ax1 := minInt(tileLevelX+tileImg.Width, cx1)
+			ay1 := minInt(tileLevelY+tileImg.Height, cy1)
+			if ax0 >= ax1 || ay0 >= ay1 {
+				continue
+			}
+			blitInto(tileImg, ax0-tileLevelX, ay0-tileLevelY, ax1-ax0, ay1-ay0,
+				intermediate, ax0-cx0, ay0-cy0)
+		}
+	}
+
+	// Resample intermediate → stripImg's dimensions.
+	scratch := decoder.NewImageFormat(it.outSize.X, stripH, decoder.PixelFormatRGB)
+	fillWhite(scratch)
+	if intermediate.Width > 0 && intermediate.Height > 0 {
+		if err := resampleImageIntoUsing(intermediate, scratch, it.cfg.kernel); err != nil {
+			return nil, fmt.Errorf("opentile: ScaledStrips: resample: %w", err)
+		}
+	}
+	// Copy scratch into stripImg verbatim.
+	copy(stripImg.Pix, scratch.Pix)
+
+	return stripImg, nil
+}
+
+// resampleImageIntoUsing is a thin wrapper over resample.ImageInto that
+// preserves the kernel choice. Allows future no-op fast-path when src
+// dims match dst dims.
+func resampleImageIntoUsing(src, dst *decoder.Image, kernel resample.Kernel) error {
+	if src.Width == dst.Width && src.Height == dst.Height {
+		copy(dst.Pix, src.Pix)
+		return nil
+	}
+	return resample.ImageInto(src, dst, kernel)
 }
 
 // Close releases the iterator's workers + cache. Safe to call
