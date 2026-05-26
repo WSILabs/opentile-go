@@ -11,6 +11,44 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-05-26
+
+Adds high-throughput strip iterator to `*Slide`. The libvips-speed
+primitive that dzsave / tile-server / region-extract tools consume.
+
+### Added
+
+- `(*Slide).ScaledStrips(l0Rect, outSize, stripHeight, opts ...StripOption) *StripIterator` —
+  iterate a slide's L0 rectangle scaled to outSize, in horizontal
+  strips. Internally manages parallel decode workers + per-iterator
+  tile cache + lookahead pre-fetch.
+- `*StripIterator` with `Next()`, `Close()`, `Strips()` methods.
+- `StripOption` functional-options type:
+  - `WithStripWorkers(n int)` — parallel decode workers (default NumCPU).
+  - `WithStripLookahead(strips int)` — pre-fetch depth (default 2).
+  - `WithStripIDCTScale(scale int)` — JPEG IDCT override (default auto).
+  - `WithStripKernel(k resample.Kernel)` — resample kernel (default Lanczos).
+  - `WithStripContext(ctx context.Context)` — external cancellation.
+- Auto-select source pyramid level via `BestLevelForDownsample` +
+  auto IDCT scale (1/2/4/8) for JPEG sources, minimizing wasted
+  decode work.
+
+### Unchanged
+
+- All v0.25 APIs (ReadRegion, ReadRegionScaled, BestLevelForDownsample,
+  DecodedTile, RawTile, splice-prefix family).
+- Format readers (purely additive; no internal changes).
+
+### Out of scope (deferred)
+
+- Public `*Cache` type for cross-iterator sharing (per-iterator
+  cache only in v0.26). v0.27+ if a tile-server consumer needs it.
+- Multi-image variant `ImageScaledStrips(image, ...)`. Future
+  release.
+- Go 1.23 range-over-function adapter. Trivial to add later.
+- Benchmarks vs libvips dzsave. Follow-up after the first
+  working implementation.
+
 ## [0.25.0] — 2026-05-25
 
 Adds arbitrary-rectangle region reads to `*Slide`. The
@@ -72,6 +110,7 @@ buried in mixed-convention parameters.
 - Format readers (no changes — region reads compose over DecodedTile).
 - File output bytes from format readers — region reads are decode-only.
 
+[0.26.0]: https://github.com/WSILabs/opentile-go/releases/tag/v0.26.0
 [0.25.0]: https://github.com/WSILabs/opentile-go/releases/tag/v0.25.0
 
 ## [0.24.0] — 2026-05-25
