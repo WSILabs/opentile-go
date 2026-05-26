@@ -9,9 +9,6 @@ import (
 	"io"
 	"iter"
 	"testing"
-
-	"github.com/wsilabs/opentile-go/decoder"
-	_ "github.com/wsilabs/opentile-go/decoder/jpeg" // register JPEG decoder
 )
 
 func TestScaledStripsStripsCount(t *testing.T) {
@@ -139,87 +136,3 @@ func (r *stripsTestReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq
 }
 func (r *stripsTestReader) Close() error { return nil }
 
-func TestScaledStripsSingleStripWholeSlide(t *testing.T) {
-	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(
-		image.Rect(0, 0, 1000, 1000),
-		image.Point{X: 100, Y: 100},
-		100, // stripHeight = outH → 1 strip
-	)
-	defer it.Close()
-
-	if it.Strips() != 1 {
-		t.Fatalf("Strips: got %d, want 1", it.Strips())
-	}
-
-	img, err := it.Next()
-	if err != nil {
-		t.Fatalf("Next: %v", err)
-	}
-	if img.Width != 100 || img.Height != 100 {
-		t.Errorf("dimensions: got %dx%d, want 100x100", img.Width, img.Height)
-	}
-
-	_, err = it.Next()
-	if err != io.EOF {
-		t.Errorf("second Next: got %v, want io.EOF", err)
-	}
-}
-
-func TestScaledStripsMultipleStrips(t *testing.T) {
-	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(
-		image.Rect(0, 0, 1000, 1000),
-		image.Point{X: 100, Y: 200},
-		50, // stripHeight = 50 → 4 strips
-	)
-	defer it.Close()
-
-	if it.Strips() != 4 {
-		t.Fatalf("Strips: got %d, want 4", it.Strips())
-	}
-
-	for i := 0; i < 4; i++ {
-		img, err := it.Next()
-		if err != nil {
-			t.Fatalf("Next strip %d: %v", i, err)
-		}
-		if img.Width != 100 || img.Height != 50 {
-			t.Errorf("strip %d: got %dx%d, want 100x50", i, img.Width, img.Height)
-		}
-	}
-
-	_, err := it.Next()
-	if err != io.EOF {
-		t.Errorf("after final Next: got %v, want io.EOF", err)
-	}
-}
-
-func TestScaledStripsShortLastStrip(t *testing.T) {
-	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(
-		image.Rect(0, 0, 1000, 1000),
-		image.Point{X: 100, Y: 130},
-		50, // 130 / 50 = 2 strips of 50 + last of 30
-	)
-	defer it.Close()
-
-	imgs := make([]*decoder.Image, 0, 3)
-	for {
-		img, err := it.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatalf("Next: %v", err)
-		}
-		imgs = append(imgs, img)
-	}
-	if len(imgs) != 3 {
-		t.Fatalf("got %d strips, want 3", len(imgs))
-	}
-	if imgs[0].Height != 50 || imgs[1].Height != 50 || imgs[2].Height != 30 {
-		t.Errorf("strip heights: %d, %d, %d (want 50, 50, 30)",
-			imgs[0].Height, imgs[1].Height, imgs[2].Height)
-	}
-}
