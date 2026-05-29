@@ -12,6 +12,7 @@ import (
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/decoderhandle"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/jpegturbo"
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -84,7 +85,7 @@ type strippedImage struct {
 	// Reusable decoder handle for the fast pixel path. Lazy-init on
 	// first DecodedTile call via decHandleOnce so non-DecodedTile
 	// users pay no decoder-creation cost.
-	decHandle     *decoderHandle
+	decHandle     *decoderhandle.Pool
 	decHandleOnce sync.Once
 }
 
@@ -314,7 +315,15 @@ func (l *strippedImage) DecodedTile(tx, ty int, opts decoder.DecodeOptions) (*de
 			return nil, err
 		}
 		l.ensureDecHandle()
-		return l.decHandle.Decode(jpegFrame, decoder.DecodeOptions{
+		if l.decHandle == nil {
+			return nil, fmt.Errorf("ndpi: no decoder registered for %s", l.compression)
+		}
+		dec, err := l.decHandle.Borrow()
+		if err != nil {
+			return nil, err
+		}
+		defer l.decHandle.Return(dec)
+		return dec.Decode(jpegFrame, decoder.DecodeOptions{
 			Format: decoder.PixelFormatRGB,
 		})
 	})
@@ -347,7 +356,16 @@ func (l *strippedImage) decodedTileViaCrop(tx, ty int, opts decoder.DecodeOption
 		return nil, err
 	}
 	l.ensureDecHandle()
-	out, err := l.decHandle.Decode(jpegBytes, opts)
+	if l.decHandle == nil {
+		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty,
+			Err: fmt.Errorf("ndpi: no decoder registered for %s", l.compression)}
+	}
+	dec, err := l.decHandle.Borrow()
+	if err != nil {
+		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty, Err: err}
+	}
+	defer l.decHandle.Return(dec)
+	out, err := dec.Decode(jpegBytes, opts)
 	if err != nil {
 		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty, Err: err}
 	}
@@ -356,7 +374,16 @@ func (l *strippedImage) decodedTileViaCrop(tx, ty int, opts decoder.DecodeOption
 
 func (l *strippedImage) ensureDecHandle() {
 	l.decHandleOnce.Do(func() {
-		l.decHandle = newDecoderHandle(l.compression)
+		tag := opentile.CompressionToTIFFTag(l.compression)
+		fac, ok := decoder.GetByCompressionTag(tag)
+		if !ok {
+			return
+		}
+		capacity := runtime.NumCPU()
+		if capacity > 8 {
+			capacity = 8
+		}
+		l.decHandle = decoderhandle.New(fac, capacity)
 	})
 }
 
