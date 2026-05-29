@@ -11,6 +11,113 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-05-28
+
+NDPI striped fast pixel path (decode-once-per-strip + blit). Closes
+the ~5× per-thread perf gap between opentile-go and openslide on
+NDPI tile decode by adding a decoded-pixel-frame LRU cache plus a
+reusable decoder handle inside `formats/ndpi/strippedImage`, dispatched
+from `Slide.ImageDecodedTile` via an unexported `decodedTiler`
+interface.
+
+### Measured throughput (Apple Silicon, CMU-1.ndpi L0, 29,800 tiles, single-thread)
+
+| Build           | Wall    | Throughput   | vs openslide |
+|-----------------|---------|--------------|--------------|
+| openslide 4.0.0 | 8.38 s  | 233.0 Mpix/s | 1.00×        |
+| v0.26           | 44.25 s | 44.1 Mpix/s  | 5.28× slower |
+| **v0.27**       | **8.03 s** | **243.1 Mpix/s** | **0.96× (faster)** |
+
+CPU profile: v0.26 spent 78.5% in `tjTransform` (lossless JPEG crop)
++ 16.9% in `tjDestroy` (per-tile decoder-handle churn) + 3.3% in
+actual decode. v0.27 eliminates both: each strip is decoded once via
+a long-lived decoder handle, and per-tile requests blit a region out
+of the cached pixels. The new path's hot spots are pixel `memmove`
+(20.4%) and Go-side blit (2.8%).
+
+### Added (internal only)
+
+- `internal/fastpath.ErrUnsupported` — dispatch sentinel signalling
+  slow-path fallback. Tiny shared package; not exposed publicly.
+- `formats/ndpi.pixelFrameCache` — bounded LRU of decoded RGB frames,
+  capacity = `max(runtime.NumCPU(), 16)`. Promise pattern: concurrent
+  goroutines for the same key share one decode.
+- `formats/ndpi.decoderHandle` — single long-lived `decoder.Decoder`
+  per `strippedImage`, serialized by mutex.
+- `(*strippedImage).DecodedTile` — fast pixel path with edge-tile
+  fallback to the existing `CropWithBackgroundLuminanceOpts` path.
+- `(*tiler).ImageDecodedTile` — NDPI reader dispatch; returns
+  `fastpath.ErrUnsupported` for non-striped levels (oneframe,
+  associated images).
+- `cmd/bench/ndpi/` — committed bench programs (Go subject + C
+  openslide reference) for regression tracking. `make bench-ndpi`
+  enforces ≥130 Mpix/s on CMU-1.ndpi.
+
+### Changed
+
+- `(*Slide).ImageDecodedTile` and `(*Slide).ImageDecodedTileInto`
+  now type-assert on `decodedTiler` and dispatch to the fast path
+  when supported. Non-NDPI formats, non-striped NDPI levels, and
+  `WithScale != 1` calls keep the v0.26 behavior exactly.
+- `(*fileCloser).ImageDecodedTile` and `(*mmapCloser).ImageDecodedTile`
+  — delegation methods so the type assertion succeeds on the
+  reader-wrapper types `Slide.r` points at.
+- `formats/ndpi.tiler.Close` — releases each `strippedImage`'s
+  long-lived decoder handle. Was a no-op `return nil` in v0.26.
+
+### Public API
+
+- **No additions.** No new exported types, functions, or methods on
+  any v0.3+ public surface.
+- **No breaking changes.** RawTile (compressed bytes API) is bit-for-
+  bit unchanged; `ScaledStrips`, `ReadRegion`, and all format readers
+  inherit the speedup transparently.
+
+### Tests
+
+- `formats/ndpi/stripped_pixel_parity_smoke_test.go` — foundational
+  v0.27 design-gate test.
+- `formats/ndpi/stripped_decodedtile_test.go` — end-to-end fast-path
+  pixel parity (`TestNDPIFastPathPixelParity`) + 32-way concurrency
+  stress (`TestNDPIFastPathConcurrent`).
+- `formats/ndpi/pixel_cache_test.go` — cache hit/miss/eviction/
+  promise/error/thrash unit coverage.
+- `formats/ndpi/decoder_handle_test.go` — handle lifecycle +
+  concurrent decode + double-close.
+- `tests/ndpi_decodedtile_parity_test.go` — cross-fixture DecodedTile
+  parity over CMU-1.ndpi, OS-2.ndpi, Hamamatsu-1.ndpi (all levels,
+  including the oneframe-path fixture which exercises the slow-path
+  fallback).
+
+### Out of scope (deferred forward)
+
+- **NDPI oneframe path** (`internal/oneframe`) — same algorithmic
+  opportunity, structurally similar. Hamamatsu-1.ndpi still uses the
+  v0.26 slow path through the dispatch fallback. Likely v0.28 if
+  benched real-world workloads justify continuing.
+- **Tactical decoder-handle pooling for the RawTile path** —
+  ~7s of `tjTransform`/`tjDestroy` churn remains on RawTile-driven
+  workloads (wsitools splice template path). v0.27 didn't touch
+  RawTile; mostly invisible to current consumers.
+- **`ScaledStrips` decoder-handle pool** — current implementation
+  uses one mutex-serialized handle per `strippedImage`; under heavy
+  NumCPU fanout this could become a bottleneck. Estimated ~210 ms of
+  queue time per worker on the CMU-1 bench.
+- **JPEG-frame cache bounding** — unchanged from v0.26. Pre-existing
+  unbounded growth (~200 MB on CMU-1 L0); CLAUDE.md `stripped.go`:67-73
+  documents as acceptable.
+- **`WithScale != 1` integration with the pixel cache** — currently
+  falls through to the slow path for that single call. Not blocking;
+  flagged for v1.0 API review.
+
+### Pre-existing issues out of scope
+
+- `tests/oracle/` (Python opentile parity oracle) has stale code
+  referring to v0.24-removed Level methods. Was already broken on
+  `main` before v0.27; not a regression. The snapshot-based
+  `tests/parity/` suite continues to pass over the full 40-fixture
+  set.
+
 ## [0.26.0] — 2026-05-26
 
 Adds high-throughput strip iterator to `*Slide`. The libvips-speed
