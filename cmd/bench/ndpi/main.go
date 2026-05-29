@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"runtime/pprof"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -17,6 +19,7 @@ func main() {
 	cpuProf := flag.String("cpuprofile", "", "write cpu profile to file")
 	memProf := flag.String("memprofile", "", "write mem profile to file")
 	maxTiles := flag.Int("maxtiles", 0, "stop after N tiles (0 = all)")
+	goroutines := flag.Int("goroutines", 1, "number of goroutines fanning out tile reads (1 = sequential, v0.27 behavior)")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "missing -in")
@@ -49,30 +52,82 @@ func main() {
 	start := time.Now()
 	var pix int64
 	var nTiles int
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			x := c * TS
-			y := r * TS
-			tw := TS
-			if x+tw > w {
-				tw = w - x
-			}
-			th := TS
-			if y+th > h {
-				th = h - y
-			}
-			img, err := slide.ReadRegion(0, x, y, tw, th)
-			if err != nil {
-				panic(err)
-			}
-			pix += int64(tw * th)
-			nTiles++
-			_ = img
-			if *maxTiles > 0 && nTiles >= *maxTiles {
-				goto done
+
+	if *goroutines <= 1 {
+		// Preserved v0.27 single-thread loop (bit-identical wrt
+		// memory access pattern and bench number comparability).
+		for r := 0; r < rows; r++ {
+			for c := 0; c < cols; c++ {
+				x := c * TS
+				y := r * TS
+				tw := TS
+				if x+tw > w {
+					tw = w - x
+				}
+				th := TS
+				if y+th > h {
+					th = h - y
+				}
+				img, err := slide.ReadRegion(0, x, y, tw, th)
+				if err != nil {
+					panic(err)
+				}
+				pix += int64(tw * th)
+				nTiles++
+				_ = img
+				if *maxTiles > 0 && nTiles >= *maxTiles {
+					goto done
+				}
 			}
 		}
+	} else {
+		type tilePos struct{ tx, ty, w, h int }
+		jobs := make(chan tilePos, *goroutines*4)
+		var wg sync.WaitGroup
+		var pixAtomic atomic.Int64
+		var nAtomic atomic.Int64
+
+		for i := 0; i < *goroutines; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := range jobs {
+					img, err := slide.ReadRegion(0, j.tx, j.ty, j.w, j.h)
+					if err != nil {
+						panic(err)
+					}
+					pixAtomic.Add(int64(j.w * j.h))
+					nAtomic.Add(1)
+					_ = img
+				}
+			}()
+		}
+
+	submit:
+		for r := 0; r < rows; r++ {
+			for c := 0; c < cols; c++ {
+				x := c * TS
+				y := r * TS
+				tw := TS
+				if x+tw > w {
+					tw = w - x
+				}
+				th := TS
+				if y+th > h {
+					th = h - y
+				}
+				jobs <- tilePos{x, y, tw, th}
+				if *maxTiles > 0 && nAtomic.Load() >= int64(*maxTiles) {
+					break submit
+				}
+			}
+		}
+		close(jobs)
+		wg.Wait()
+		pix = pixAtomic.Load()
+		nTiles = int(nAtomic.Load())
 	}
+
 done:
 	el := time.Since(start).Seconds()
 	fmt.Printf("%d tiles, %d MiB pixels in %.2f s (%.1f Mpix/s, %.1f MiB/s)\n",
