@@ -30,6 +30,13 @@ type pixelFrameCache struct {
 	capacity int
 	entries  map[frameKey]*pixelFrameEntry
 	order    *list.List // values are frameKey; front = MRU
+
+	// v0.29 Layer 3: pool of evicted decoded frames. Reused by the
+	// next getOrLoadInto call that needs a same-sized buffer.
+	// sync.Pool auto-shrinks under GC pressure. Per-cache (per-
+	// strippedImage) instance so we never get cross-level size
+	// mismatches.
+	scratchPool sync.Pool
 }
 
 // pixelFrameEntry is one cache slot. ready is closed when pix/err is
@@ -84,6 +91,71 @@ func (c *pixelFrameCache) getOrLoad(key frameKey, load func() (*decoder.Image, e
 		c.mu.Lock()
 		// Only remove if our entry is still the one in the map; an
 		// eviction may have already removed it.
+		if cur, ok := c.entries[key]; ok && cur == e {
+			delete(c.entries, key)
+			c.order.Remove(e.elem)
+		}
+		c.mu.Unlock()
+		e.err = err
+		close(e.ready)
+		return nil, err
+	}
+	e.pix = pix
+	close(e.ready)
+	return pix, nil
+}
+
+// getOrLoadInto is the v0.29 Layer 3 variant of getOrLoad. The load
+// callback receives a scratch *decoder.Image (or nil if the pool is
+// empty); decoders that honor opts.Dst can write into it,
+// eliminating the per-miss allocation. Evicted entries route into
+// the scratch pool best-effort (matching size only).
+//
+// wantW / wantH describe the expected frame dimensions; the pool
+// only serves matching-size buffers. Mismatches are GC'd.
+//
+// Added in v0.29.
+func (c *pixelFrameCache) getOrLoadInto(
+	key frameKey,
+	wantW, wantH int,
+	load func(scratch *decoder.Image) (*decoder.Image, error),
+) (*decoder.Image, error) {
+	c.mu.Lock()
+	if e, ok := c.entries[key]; ok {
+		c.order.MoveToFront(e.elem)
+		ready := e.ready
+		c.mu.Unlock()
+		<-ready
+		return e.pix, e.err
+	}
+	e := &pixelFrameEntry{ready: make(chan struct{})}
+	c.entries[key] = e
+	e.elem = c.order.PushFront(key)
+	evicted := c.evictIfOverLocked()
+	c.mu.Unlock()
+
+	// Route evicted entries (populated, size-matching) into the pool.
+	for _, ev := range evicted {
+		if ev.pix != nil &&
+			ev.pix.Width == wantW &&
+			ev.pix.Height == wantH {
+			c.scratchPool.Put(ev.pix)
+		}
+	}
+
+	// Try to borrow a same-sized scratch from the pool.
+	var scratch *decoder.Image
+	if v := c.scratchPool.Get(); v != nil {
+		s := v.(*decoder.Image)
+		if s.Width == wantW && s.Height == wantH {
+			scratch = s
+		}
+		// Mismatched-size pool drop: let GC reclaim.
+	}
+
+	pix, err := load(scratch)
+	if err != nil {
+		c.mu.Lock()
 		if cur, ok := c.entries[key]; ok && cur == e {
 			delete(c.entries, key)
 			c.order.Remove(e.elem)
