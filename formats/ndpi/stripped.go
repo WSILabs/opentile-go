@@ -7,6 +7,7 @@ import (
 	"image"
 	"io"
 	"iter"
+	"runtime"
 	"sync"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -73,6 +74,17 @@ type strippedImage struct {
 	// JPEG size (~100s of KB for a 512x512 tile-equivalent frame).
 	frameMu     sync.Mutex
 	framesByKey map[frameKey][]byte
+
+	// Pixel-frame cache. Decoded RGB frames keyed by (framePos,
+	// frameSize). Bounded LRU; max(NumCPU, 16) entries. Populated
+	// lazily by strippedImage.DecodedTile (v0.27).
+	pixelCache *pixelFrameCache
+
+	// Reusable decoder handle for the fast pixel path. Lazy-init on
+	// first DecodedTile call via decHandleOnce so non-DecodedTile
+	// users pay no decoder-creation cost.
+	decHandle     *decoderHandle
+	decHandleOnce sync.Once
 }
 
 type frameKey struct {
@@ -117,6 +129,7 @@ func newStrippedImage(
 		dcBackground:       dc,
 		headersByFrameSize: make(map[opentile.Size][]byte),
 		framesByKey:        make(map[frameKey][]byte),
+		pixelCache:         newPixelFrameCache(maxInt(runtime.NumCPU(), 16)),
 	}, nil
 }
 
