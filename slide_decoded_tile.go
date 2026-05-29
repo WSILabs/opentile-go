@@ -79,13 +79,15 @@ func (s *Slide) ImageDecodedTile(image, level, tx, ty int, opts ...DecodeOption)
 		return nil, err
 	}
 	tag := CompressionToTIFFTag(lvl.Compression)
-	fac, ok := decoder.GetByCompressionTag(tag)
-	if !ok {
-		return nil, fmt.Errorf("%w: %s (blank-import github.com/wsilabs/opentile-go/decoder/all or decoder/<codec>)",
-			ErrCodecNotRegistered, lvl.Compression)
+	pool, err := s.decoderFor(tag)
+	if err != nil {
+		return nil, err
 	}
-	dec := fac.New()
-	defer dec.Close()
+	dec, err := pool.Borrow()
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Return(dec)
 	return dec.Decode(compressed, decoder.DecodeOptions{
 		Scale:  cfg.scale,
 		Format: cfg.format,
@@ -122,13 +124,15 @@ func (s *Slide) ImageDecodedTileInto(image, level, tx, ty int, dst *decoder.Imag
 		return err
 	}
 	tag := CompressionToTIFFTag(lvl.Compression)
-	fac, ok := decoder.GetByCompressionTag(tag)
-	if !ok {
-		return fmt.Errorf("%w: %s (blank-import github.com/wsilabs/opentile-go/decoder/all or decoder/<codec>)",
-			ErrCodecNotRegistered, lvl.Compression)
+	pool, err := s.decoderFor(tag)
+	if err != nil {
+		return err
 	}
-	dec := fac.New()
-	defer dec.Close()
+	dec, err := pool.Borrow()
+	if err != nil {
+		return err
+	}
+	defer pool.Return(dec)
 	_, err = dec.Decode(compressed, decoder.DecodeOptions{
 		Scale:  cfg.scale,
 		Format: cfg.format,
