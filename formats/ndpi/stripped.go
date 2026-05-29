@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/jpegturbo"
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -268,6 +269,145 @@ func (l *strippedImage) Tile(x, y int) ([]byte, error) {
 		return nil, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
 	}
 	return out, nil
+}
+
+// DecodedTile is the v0.27 fast pixel path. Returns the decoded
+// pixels for tile (tx, ty) by looking up (or building) the assembled
+// strip frame, decoding it once, and blitting the tile region out.
+//
+// Interior tiles take the cache+blit path. Edge tiles (extending
+// past image bounds) fall back to the existing CropWithBackground +
+// decode path via Tile() to preserve pixel-parity with Python
+// opentile's white-fill behavior.
+//
+// Concurrency: safe for concurrent invocation. The pixel cache uses
+// a promise pattern (one decode per cache miss regardless of fanout);
+// the decoder handle serializes its internal libjpeg-turbo
+// invocation under a mutex.
+//
+// opts.Scale != 1 falls through to the existing Tile()+decode path —
+// the cache holds full-resolution frames only.
+//
+// Added in v0.27.
+func (l *strippedImage) DecodedTile(tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if tx < 0 || ty < 0 || tx >= l.grid.W || ty >= l.grid.H {
+		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty, Err: opentile.ErrTileOutOfBounds}
+	}
+	// Slow-path triggers: WithScale > 1 OR edge tile. Both share the
+	// fallthrough to Tile() + handle-decode.
+	tileXOrigin := tx * l.tileSize.W
+	tileYOrigin := ty * l.tileSize.H
+	extendsBeyond := tileXOrigin+l.tileSize.W > l.size.W ||
+		tileYOrigin+l.tileSize.H > l.size.H
+	if opts.Scale > 1 || extendsBeyond {
+		return l.decodedTileViaCrop(tx, ty, opts)
+	}
+
+	// Fast path. Compute frame geometry (mirrors Tile()).
+	frameSize := l.frameSizeForTile(tx, ty)
+	framePos := l.framePosition(tx, ty, frameSize)
+	key := frameKey{posX: framePos.W, posY: framePos.H, w: frameSize.W, h: frameSize.H}
+
+	pixFrame, err := l.pixelCache.getOrLoad(key, func() (*decoder.Image, error) {
+		jpegFrame, err := l.getFrame(framePos, frameSize)
+		if err != nil {
+			return nil, err
+		}
+		l.ensureDecHandle()
+		return l.decHandle.Decode(jpegFrame, decoder.DecodeOptions{
+			Format: decoder.PixelFormatRGB,
+		})
+	})
+	if err != nil {
+		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty, Err: err}
+	}
+
+	// Blit the tile region out of the cached pixel frame.
+	denomX := maxInt(frameSize.W, l.tileSize.W)
+	denomY := maxInt(frameSize.H, l.tileSize.H)
+	left := (tx * l.tileSize.W) % denomX
+	top := (ty * l.tileSize.H) % denomY
+
+	outFormat := opts.Format
+	if outFormat == 0 {
+		outFormat = decoder.PixelFormatRGB
+	}
+	out := decoder.NewImageFormat(l.tileSize.W, l.tileSize.H, outFormat)
+	blitFromFrame(pixFrame, left, top, l.tileSize.W, l.tileSize.H, out)
+	return out, nil
+}
+
+// decodedTileViaCrop is the slow-path fallback used for edge tiles
+// and WithScale != 1 calls. Equivalent to the v0.26 decode path
+// (Tile() returns a tile-shaped JPEG, then decode), reusing the
+// strippedImage's long-lived decoder handle.
+func (l *strippedImage) decodedTileViaCrop(tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
+	jpegBytes, err := l.Tile(tx, ty)
+	if err != nil {
+		return nil, err
+	}
+	l.ensureDecHandle()
+	out, err := l.decHandle.Decode(jpegBytes, opts)
+	if err != nil {
+		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty, Err: err}
+	}
+	return out, nil
+}
+
+func (l *strippedImage) ensureDecHandle() {
+	l.decHandleOnce.Do(func() {
+		l.decHandle = newDecoderHandle(l.compression)
+	})
+}
+
+// closeResources releases the long-lived decoder handle. Called from
+// the parent tiler.Close. Safe to call multiple times.
+func (l *strippedImage) closeResources() error {
+	if l.decHandle == nil {
+		return nil
+	}
+	return l.decHandle.Close()
+}
+
+// blitFromFrame copies a srcW × srcH region starting at (srcX, srcY)
+// from src into dst at (0,0). Both images are RGB or RGBA; widening
+// from RGB src → RGBA dst pads alpha=0xFF, narrowing from RGBA src →
+// RGB dst drops alpha. dst's bounds determine the blit extent.
+func blitFromFrame(src *decoder.Image, srcX, srcY, srcW, srcH int, dst *decoder.Image) {
+	srcBpp := 3
+	if src.Format == decoder.PixelFormatRGBA {
+		srcBpp = 4
+	}
+	dstBpp := 3
+	if dst.Format == decoder.PixelFormatRGBA {
+		dstBpp = 4
+	}
+	rows := srcH
+	if rows > dst.Height {
+		rows = dst.Height
+	}
+	cols := srcW
+	if cols > dst.Width {
+		cols = dst.Width
+	}
+	for r := 0; r < rows; r++ {
+		so := (srcY+r)*src.Stride + srcX*srcBpp
+		do := r * dst.Stride
+		if srcBpp == dstBpp {
+			copy(dst.Pix[do:do+cols*dstBpp], src.Pix[so:so+cols*srcBpp])
+			continue
+		}
+		for c := 0; c < cols; c++ {
+			dst.Pix[do+0] = src.Pix[so+0]
+			dst.Pix[do+1] = src.Pix[so+1]
+			dst.Pix[do+2] = src.Pix[so+2]
+			if dstBpp == 4 {
+				dst.Pix[do+3] = 0xFF
+			}
+			so += srcBpp
+			do += dstBpp
+		}
+	}
 }
 
 func (l *strippedImage) TileReader(x, y int) (io.ReadCloser, error) {
