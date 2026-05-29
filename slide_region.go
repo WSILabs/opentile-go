@@ -113,25 +113,40 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 	txMax := (x1 - 1) / lvl.TileSize.W
 	tyMax := (y1 - 1) / lvl.TileSize.H
 
+	// v0.29 Layer 2: borrow a scratch *decoder.Image once per call,
+	// reuse across every tile in the loop. Returned on defer.
+	// Format follows dst's so the decoder writes into the right
+	// pixel layout.
+	scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
+	defer returnTileScratch(scratch)
+
 	for ty := tyMin; ty <= tyMax; ty++ {
 		for tx := txMin; tx <= txMax; tx++ {
-			tileImg, err := s.ImageDecodedTile(image, level, tx, ty, opts...)
-			if err != nil {
+			if err := s.ImageDecodedTileInto(image, level, tx, ty, scratch, opts...); err != nil {
 				return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tx, ty, level, err)
 			}
 			tileX := tx * lvl.TileSize.W
 			tileY := ty * lvl.TileSize.H
 			tileW := lvl.TileSize.W
 			tileH := lvl.TileSize.H
-			// Edge tiles may have smaller actual decoded extents than
-			// the nominal TileSize when the level's dimensions aren't
-			// a multiple of TileSize. Trust the decoded image's own
-			// reported size.
-			if tileImg.Width < tileW {
-				tileW = tileImg.Width
+			// Edge tiles may decode to less than nominal TileSize. The
+			// decoder writes only the actual extent into scratch; the
+			// scratch's Width/Height are the nominal pool size, which
+			// stays constant across reuse. Derive the actual decoded
+			// extent from the level geometry instead.
+			actualW := lvl.Size.W - tileX
+			if actualW > lvl.TileSize.W {
+				actualW = lvl.TileSize.W
 			}
-			if tileImg.Height < tileH {
-				tileH = tileImg.Height
+			actualH := lvl.Size.H - tileY
+			if actualH > lvl.TileSize.H {
+				actualH = lvl.TileSize.H
+			}
+			if actualW < tileW {
+				tileW = actualW
+			}
+			if actualH < tileH {
+				tileH = actualH
 			}
 			// Intersect tile bounds with the clipped output region.
 			ix0 := maxInt(tileX, x0)
@@ -147,7 +162,7 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 			srcH := iy1 - iy0
 			dstX := ix0 - x
 			dstY := iy0 - y
-			blitInto(tileImg, srcX, srcY, srcW, srcH, dst, dstX, dstY)
+			blitInto(scratch, srcX, srcY, srcW, srcH, dst, dstX, dstY)
 		}
 	}
 	return nil
