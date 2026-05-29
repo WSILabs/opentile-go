@@ -74,10 +74,6 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 
 	w, h := dst.Width, dst.Height
 
-	// Pre-fill the output with white. Out-of-bounds pixels stay white;
-	// in-bounds pixels get overwritten by blitInto below.
-	fillWhite(dst)
-
 	// Clip the requested rectangle to the level's bounds.
 	x0 := x
 	y0 := y
@@ -97,6 +93,18 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 	}
 	if x0 >= x1 || y0 >= y1 {
 		return ErrRegionEmpty
+	}
+
+	// v0.29 Layer 1: skip fillWhite when the requested region is fully
+	// in-bounds AND no edge tile contributes. Edge tiles return less
+	// than nominal TileSize, and the blit only writes the actual
+	// decoded extent — pre-existing dst contents would leak in
+	// without a fillWhite prelude.
+	fullyInBounds := x0 == x && y0 == y && x1 == x+w && y1 == y+h
+	edgeTileX := x1 == lvl.Size.W && lvl.Size.W%lvl.TileSize.W != 0
+	edgeTileY := y1 == lvl.Size.H && lvl.Size.H%lvl.TileSize.H != 0
+	if !fullyInBounds || edgeTileX || edgeTileY {
+		fillWhite(dst)
 	}
 
 	// Tile grid covering the clipped rectangle.
