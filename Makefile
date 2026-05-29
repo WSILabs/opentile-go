@@ -61,7 +61,7 @@ bench-ndpi-mt:
 # SVS single-thread tile-decode bench. v0.28 hard gate for the
 # cross-format pool's measured deliverable. MIN_SVS_MPIXS gate value
 # is set after baseline measurement (Task 4.4).
-MIN_SVS_MPIXS ?= 0
+MIN_SVS_MPIXS ?= 566
 
 bench-svs:
 	@if [ ! -f "$(OPENTILE_TESTDIR)/svs/CMU-1.svs" ]; then \
