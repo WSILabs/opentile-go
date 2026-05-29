@@ -2,7 +2,57 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.27 (in progress 2026-05-28)
+## Current milestone — v0.28 (in progress 2026-05-29)
+
+- **Scope:** Cross-format decoder-handle pool. New
+  `internal/decoderhandle.Pool` primitive — a fixed-size pool of
+  long-lived `decoder.Decoder` instances per `(Slide, codec)`, sized
+  `min(NumCPU, 8)`. NDPI's v0.27 per-`strippedImage` `decoderHandle`
+  migrates to the same shared primitive (instance ownership stays
+  per-level). `Slide.ImageDecodedTile` slow path replaces per-call
+  `fac.New() / dec.Close()` with `pool.Borrow() / pool.Return()`.
+  `Slide.Close` drains every cached pool. v0.27 NDPI fast path gains
+  multi-core parallelism (was capped at single-thread by mutex).
+  Cross-format slow paths (SVS, OME-TIFF tiled, BIF, Leica SCN, IFE,
+  SZI, COG-WSI, generictiff, Philips) get measurable bulk throughput
+  improvement from eliminated `tjInit + tjDestroy` churn
+  (~290 µs/call avoided, dominated by `tjDestroy`).
+- **API additions:** none public. Internal: `decoderhandle.Pool`,
+  `Slide.decoderFor`, `Slide.handlesMu`, `Slide.handles`,
+  `Slide.HandleCountForTest` (test-only via export_test.go).
+- **API breaks:** none. RawTile bit-for-bit unchanged.
+- **Active limitations:** NDPI handle instance scope stays
+  per-strippedImage (no Slide-level consolidation). Pool capacity is
+  hardcoded at `min(NumCPU, 8)` — no public knob.
+- **Correctness bar:** `make test` green; new pool unit tests
+  (`internal/decoderhandle/handle_test.go`, 8 tests) and Slide
+  integration tests (`slide_handle_test.go`, 3 tests) pass under
+  `-race -count=3`. v0.27 NDPI fast-path tests
+  (`TestNDPIFastPathPixelParity`, `TestNDPIFastPathConcurrent`,
+  `TestNDPIDecodedTilePathParity`) pass unchanged. `make bench-ndpi`
+  ≥220 Mpix/s (tightened from 130). `make bench-svs` ≥566 Mpix/s
+  (new gate, 95% of measured 596 baseline).
+- **Sealed Q-decisions** (per spec): 10 sealed Qs covering scope,
+  primitive migration, concurrency shape, lazy vs eager init, API
+  surface, instance scope, bench coverage, gate level, multi-thread
+  bench validation, Close lifecycle.
+- **Deferred forward:** NDPI Slide-level handle consolidation;
+  sync.Pool migration; NDPI oneframe fast path (confirmed
+  unprofitable during v0.28 brainstorm); JPEG-frame cache bounding;
+  `WithScale != 1` integration. `tests/oracle/` build break stays
+  pre-existing.
+- **Bench reality:**
+  - bench-ndpi: 251 Mpix/s single-thread (v0.27 was 243; ~3% diff
+    is noise), 539 Mpix/s multi-thread (2.15× — masked by
+    ReadRegion's fillWhite Go-side allocation).
+  - bench-svs: 596 Mpix/s single-thread, **2121 Mpix/s
+    multi-thread (3.56× single-thread)** — clean validation of the
+    pool's deliverable on the slow path.
+- **Design:** docs/superpowers/specs/2026-05-29-opentile-go-v28-cross-format-decoder-pool-design.md
+- **Plan:** docs/superpowers/plans/2026-05-29-opentile-go-v28-cross-format-decoder-pool.md
+- **Work branch:** feat/v0.28
+
+## Previous milestone — v0.27 (shipped 2026-05-28)
 
 - **Scope:** NDPI striped fast pixel path
   (decode-once-per-strip + blit). Closes the ~5× per-thread perf gap
