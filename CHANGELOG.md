@@ -11,6 +11,103 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-05-29
+
+Cross-format decoder-handle pool. Eliminates per-tile
+`decoder.Factory.New() / dec.Close()` churn across every format
+routing through `Slide.ImageDecodedTile`. Introduces a fixed-size
+pool of long-lived `decoder.Decoder` instances per `(Slide, codec)`,
+sized `min(NumCPU, 8)`. NDPI's v0.27 per-`strippedImage` handle
+migrates to the same shared primitive, gaining multi-core parallelism
+on `Slide.DecodedTile` calls.
+
+### Measured throughput (Apple Silicon, 13 cores)
+
+| Bench               | Mode           | Throughput     | Notes |
+|---|---|---|---|
+| bench-ndpi          | single-thread  | 251.0 Mpix/s   | v0.27 was 243; ~3% diff is run-to-run noise |
+| bench-ndpi-mt       | multi-thread   | 539.5 Mpix/s   | ~2.15× single-thread |
+| bench-svs           | single-thread  | 595.8 Mpix/s   | new bench in v0.28 |
+| bench-svs-mt        | multi-thread   | 2121 Mpix/s    | ~3.56× single-thread |
+
+NDPI single-thread is unchanged (v0.27 already used a long-lived
+handle). NDPI multi-thread shows 2.15× because the bench uses
+`ReadRegion`, where Go-side `fillWhite` allocation dominates wall
+time. SVS multi-thread shows 3.56× — a cleaner test of the pool's
+deliverable because the SVS bench calls `DecodedTile` directly and
+SVS routes through the v0.26 slow path (no v0.27 fast-path
+optimization), so every call exercises the new pool.
+
+CPU profile shape: pre-v0.28 the slow path showed `tjDestroy`
+(240 µs/call) + `tjInit` (~50 µs/call) as significant hot spots.
+Post-v0.28 both are gone from per-tile cost; `tjDecompress2`
+remains the dominant cgo function.
+
+### Added (internal only)
+
+- `internal/decoderhandle.Pool` — fixed-size pool of long-lived
+  decoder.Decoder instances. Lazy member creation; mutex-guarded
+  outstanding counter; channel-based borrow/return. Replaces
+  v0.27's `formats/ndpi.decoderHandle`. 8 unit tests covering
+  sequential reuse, concurrent fanout, lazy creation, Close races,
+  double-close, factory-returns-nil.
+- `(*Slide).decoderFor(tag uint16)` (unexported) — Slide-level pool
+  cache accessor under `Slide.handlesMu`.
+- `(*Slide).HandleCountForTest()` (test-only via export_test.go) —
+  exposes pool-cache map length for integration tests.
+- `cmd/bench/svs/` — single-thread + multi-thread SVS tile-decode
+  benchmark plus README.
+
+### Changed
+
+- `(*Slide).ImageDecodedTile` and `(*Slide).ImageDecodedTileInto`
+  slow paths replaced `fac.New() / dec.Close()` with
+  `pool.Borrow() / pool.Return()`. v0.27 NDPI fast-path dispatch
+  unchanged in shape (also migrated to the shared pool type).
+- `(*Slide).Close` drains every cached decoder pool before
+  delegating to `s.r.Close`. First-error semantics; idempotent.
+- `formats/ndpi/strippedImage.decHandle` retypes from
+  `*decoderHandle` to `*decoderhandle.Pool`. NDPI fast-path code
+  switches from direct `dec.Decode` to `pool.Borrow() /
+  pool.Return()`. NDPI single-thread bench unchanged; NDPI
+  multi-thread now lifts the v0.27 single-mutex cap.
+- `formats/ndpi/decoder_handle.go` and `decoder_handle_test.go`
+  **deleted** — superseded by the shared package.
+- `cmd/bench/ndpi/main.go` gained `-goroutines N` flag.
+- `Makefile`: `MIN_NDPI_MPIXS` tightened from 130 to 220 Mpix/s
+  (catches the regression class the prior loose gate hid). New
+  `MIN_SVS_MPIXS=566` (95% of measured 596 baseline). New targets:
+  `bench-ndpi-mt`, `bench-svs`, `bench-svs-mt`.
+
+### Public API
+
+- **No additions.** No new exported types, functions, or methods.
+- **No breaking changes.** RawTile, ScaledStrips, ReadRegion,
+  DecodedTile, and every format reader behave identically.
+
+### Tests
+
+- `internal/decoderhandle/handle_test.go` — 8 pool unit tests under
+  `-race -count=3`.
+- `slide_handle_test.go` (`opentile_test` package) — Slide-level
+  integration: handle reuse, Close releases handles, 32-goroutine
+  fanout safety.
+- `export_test.go` — test-only `HandleCountForTest` accessor for
+  pool-cache map shape.
+
+### Out of scope (deferred forward)
+
+- **NDPI handle instance consolidation** (sharing one Slide-level
+  pool across all NDPI levels) — would require `formats/ndpi`
+  knowing about `Slide`. Deferred indefinitely.
+- **sync.Pool migration** — fixed-channel pool gives deterministic
+  teardown; revisit if memory pressure surfaces.
+- **NDPI oneframe fast path** — confirmed during v0.28 brainstorm
+  that oneframe fires only on tiny levels (<1 MB RGB; only CMU-1
+  L3 at 4 tiles total). Not worth a perf milestone.
+- **`tests/oracle/`** build break (v0.24 Level API drift) — still
+  pre-existing, still out of scope.
+
 ## [0.27.0] — 2026-05-28
 
 NDPI striped fast pixel path (decode-once-per-strip + blit). Closes
