@@ -1,10 +1,24 @@
 package opentile
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/fastpath"
 )
+
+// decodedTiler is the unexported interface that format readers
+// implement when they provide a fast pixel-path. Slide.ImageDecodedTile
+// type-asserts on s.r and dispatches when matched. Readers signal
+// "this level doesn't support the fast path" by returning
+// fastpath.ErrUnsupported; the dispatcher then falls back to the
+// existing RawTile + Decode path.
+//
+// Added in v0.27.
+type decodedTiler interface {
+	ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error)
+}
 
 // DecodedTile returns the decoded pixel data for the tile at (level, tx, ty)
 // within image 0. The output pixel format defaults to PixelFormatRGB;
@@ -16,10 +30,11 @@ import (
 // specific codec subpackage (e.g., decoder/jpeg) to enable. Returns
 // ErrCodecNotRegistered (wrapped with the compression name) if not.
 //
-// Each call constructs a fresh Decoder and Closes it after use.
-// Callers running concurrent decoded reads should use one goroutine
-// per tile; the decoder package's Factory.New() is goroutine-safe
-// but individual Decoder instances are not.
+// As of v0.27, format readers implementing the unexported decodedTiler
+// interface (currently NDPI striped levels) take a fast pixel-cache path
+// that avoids per-tile JPEG re-encoding + decoder-handle churn. Other
+// formats and non-striped NDPI levels keep the original RawTile + fresh-
+// decoder path, which is preserved unchanged.
 func (s *Slide) DecodedTile(level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
 	return s.ImageDecodedTile(0, level, tx, ty, opts...)
 }
@@ -33,8 +48,28 @@ func (s *Slide) DecodedTileInto(level, tx, ty int, dst *decoder.Image, opts ...D
 }
 
 // ImageDecodedTile is the multi-image variant of DecodedTile.
+//
+// v0.27 fast-path dispatch: when s.r implements decodedTiler and the
+// fast path succeeds, returns its output directly. ErrUnsupported from
+// the reader signals "no fast path for this level" and falls through to
+// the v0.26 RawTile + fresh-decoder path. Any other error propagates.
 func (s *Slide) ImageDecodedTile(image, level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
 	cfg := newDecodeConfig(opts)
+
+	if dr, ok := s.r.(decodedTiler); ok {
+		out, err := dr.ImageDecodedTile(image, level, tx, ty, decoder.DecodeOptions{
+			Format: cfg.format,
+			Scale:  cfg.scale,
+		})
+		if err == nil {
+			return out, nil
+		}
+		if !errors.Is(err, fastpath.ErrUnsupported) {
+			return nil, err
+		}
+		// fast path declined — fall through.
+	}
+
 	lvl, err := s.r.Level(image, level)
 	if err != nil {
 		return nil, err
@@ -58,8 +93,26 @@ func (s *Slide) ImageDecodedTile(image, level, tx, ty int, opts ...DecodeOption)
 }
 
 // ImageDecodedTileInto is the multi-image variant of DecodedTileInto.
+//
+// v0.27 fast-path dispatch: when s.r implements decodedTiler and the
+// fast path succeeds, copies its output into dst. Otherwise routes
+// through the v0.26 path which decodes directly into dst.
 func (s *Slide) ImageDecodedTileInto(image, level, tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
 	cfg := newDecodeConfig(opts)
+
+	if dr, ok := s.r.(decodedTiler); ok {
+		out, err := dr.ImageDecodedTile(image, level, tx, ty, decoder.DecodeOptions{
+			Format: cfg.format,
+			Scale:  cfg.scale,
+		})
+		if err == nil {
+			return copyImageInto(out, dst)
+		}
+		if !errors.Is(err, fastpath.ErrUnsupported) {
+			return err
+		}
+	}
+
 	lvl, err := s.r.Level(image, level)
 	if err != nil {
 		return err
@@ -82,4 +135,40 @@ func (s *Slide) ImageDecodedTileInto(image, level, tx, ty int, dst *decoder.Imag
 		Dst:    dst,
 	})
 	return err
+}
+
+// copyImageInto copies src's pixels into dst. Dimensions must match;
+// formats may differ (RGB ↔ RGBA conversion via per-pixel copy).
+func copyImageInto(src, dst *decoder.Image) error {
+	if src.Width != dst.Width || src.Height != dst.Height {
+		return fmt.Errorf("opentile: ImageDecodedTileInto: size mismatch src=%dx%d dst=%dx%d",
+			src.Width, src.Height, dst.Width, dst.Height)
+	}
+	srcBpp := 3
+	if src.Format == decoder.PixelFormatRGBA {
+		srcBpp = 4
+	}
+	dstBpp := 3
+	if dst.Format == decoder.PixelFormatRGBA {
+		dstBpp = 4
+	}
+	if srcBpp == dstBpp && src.Stride == dst.Stride {
+		copy(dst.Pix, src.Pix)
+		return nil
+	}
+	for r := 0; r < src.Height; r++ {
+		so := r * src.Stride
+		do := r * dst.Stride
+		for c := 0; c < src.Width; c++ {
+			dst.Pix[do+0] = src.Pix[so+0]
+			dst.Pix[do+1] = src.Pix[so+1]
+			dst.Pix[do+2] = src.Pix[so+2]
+			if dstBpp == 4 {
+				dst.Pix[do+3] = 0xFF
+			}
+			so += srcBpp
+			do += dstBpp
+		}
+	}
+	return nil
 }
