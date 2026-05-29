@@ -309,24 +309,29 @@ func (l *strippedImage) DecodedTile(tx, ty int, opts decoder.DecodeOptions) (*de
 	framePos := l.framePosition(tx, ty, frameSize)
 	key := frameKey{posX: framePos.W, posY: framePos.H, w: frameSize.W, h: frameSize.H}
 
-	pixFrame, err := l.pixelCache.getOrLoad(key, func() (*decoder.Image, error) {
-		jpegFrame, err := l.getFrame(framePos, frameSize)
-		if err != nil {
-			return nil, err
-		}
-		l.ensureDecHandle()
-		if l.decHandle == nil {
-			return nil, fmt.Errorf("ndpi: no decoder registered for %s", l.compression)
-		}
-		dec, err := l.decHandle.Borrow()
-		if err != nil {
-			return nil, err
-		}
-		defer l.decHandle.Return(dec)
-		return dec.Decode(jpegFrame, decoder.DecodeOptions{
-			Format: decoder.PixelFormatRGB,
+	pixFrame, err := l.pixelCache.getOrLoadInto(key, frameSize.W, frameSize.H,
+		func(scratch *decoder.Image) (*decoder.Image, error) {
+			jpegFrame, err := l.getFrame(framePos, frameSize)
+			if err != nil {
+				return nil, err
+			}
+			l.ensureDecHandle()
+			if l.decHandle == nil {
+				return nil, fmt.Errorf("ndpi: no decoder registered for %s", l.compression)
+			}
+			dec, err := l.decHandle.Borrow()
+			if err != nil {
+				return nil, err
+			}
+			defer l.decHandle.Return(dec)
+			// v0.29 Layer 3: pass scratch through to decoder via opts.Dst.
+			// nil scratch (pool empty) is handled by the decoder's own
+			// allocation path.
+			return dec.Decode(jpegFrame, decoder.DecodeOptions{
+				Format: decoder.PixelFormatRGB,
+				Dst:    scratch,
+			})
 		})
-	})
 	if err != nil {
 		return nil, &opentile.TileError{Level: l.index, X: tx, Y: ty, Err: err}
 	}
