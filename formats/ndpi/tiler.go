@@ -7,6 +7,8 @@ import (
 	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/fastpath"
 	"github.com/wsilabs/opentile-go/internal/format"
 )
 
@@ -48,7 +50,43 @@ func (t *tiler) Images() []opentile.Image           { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
-func (t *tiler) Close() error                           { return nil }
+func (t *tiler) Close() error {
+	// v0.27: release each strippedImage's long-lived decoder handle.
+	var firstErr error
+	for _, lvl := range t.levelImpls {
+		if si, ok := lvl.(*strippedImage); ok {
+			if err := si.closeResources(); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
+// ImageDecodedTile is the v0.27 fast pixel-path dispatch method. The
+// opentile root's Slide.ImageDecodedTile type-asserts the underlying
+// reader against the unexported decodedTiler interface and calls
+// this method when it matches.
+//
+// For striped levels (the common case), delegates to
+// strippedImage.DecodedTile. For non-striped levels (oneframe,
+// associated images), returns fastpath.ErrUnsupported to signal the
+// caller to fall back to the slow path.
+//
+// Added in v0.27.
+func (t *tiler) ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if image != 0 {
+		return nil, opentile.ErrImageIndexOutOfRange
+	}
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil, opentile.ErrLevelOutOfRange
+	}
+	si, ok := t.levelImpls[level].(*strippedImage)
+	if !ok {
+		return nil, fastpath.ErrUnsupported
+	}
+	return si.DecodedTile(tx, ty, opts)
+}
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {
