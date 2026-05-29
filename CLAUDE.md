@@ -2,7 +2,71 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.20 (shipped 2026-05-20)
+## Current milestone — v0.27 (in progress 2026-05-28)
+
+- **Scope:** NDPI striped fast pixel path
+  (decode-once-per-strip + blit). Closes the ~5× per-thread perf gap
+  between opentile-go and openslide on NDPI tile decode. Adds a
+  decoded-pixel-frame LRU cache (`formats/ndpi.pixelFrameCache`,
+  bounded `max(NumCPU, 16)` with promise-pattern population) plus a
+  reusable long-lived decoder handle (`formats/ndpi.decoderHandle`)
+  on `strippedImage`. `Slide.ImageDecodedTile` type-asserts on a new
+  unexported `decodedTiler` interface; non-NDPI readers, non-striped
+  NDPI levels, and `WithScale != 1` calls fall through to the v0.26
+  path. Critical wrapper-delegation fix on `fileCloser`/`mmapCloser`
+  so the type assertion finds the underlying `*ndpi.tiler`. Measured
+  CMU-1.ndpi single-thread: 44.25 s → 8.03 s (44.1 → 243.1 Mpix/s);
+  v0.27 is now 0.96× of openslide.
+- **API additions:** none public. Internal: unexported `decodedTiler`
+  interface; `internal/fastpath.ErrUnsupported` sentinel;
+  `(*strippedImage).DecodedTile`, `(*tiler).ImageDecodedTile`,
+  `(*fileCloser).ImageDecodedTile`, `(*mmapCloser).ImageDecodedTile`.
+  `(*tiler).Close` now releases decoder handles (was no-op).
+- **API breaks:** none. RawTile (compressed bytes API) bit-for-bit
+  unchanged; `ScaledStrips`/`ReadRegion` inherit the speedup
+  transparently.
+- **Active limitations:** NDPI oneframe path
+  (`internal/oneframe`, Hamamatsu-1.ndpi) still uses the v0.26 slow
+  path through the dispatch fallback. RawTile + assembled JPEG-frame
+  cache unchanged. `WithScale != 1` keeps the slow path per call.
+- **Correctness bar:** `make test` green across 25 packages including
+  the 104s fixture suite; new `TestNDPIFastPathPixelParity`,
+  `TestNDPIFastPathConcurrent` (32-way fanout), cross-fixture
+  `TestNDPIDecodedTilePathParity` (CMU-1, OS-2, Hamamatsu-1 all
+  levels) all green; `make bench-ndpi` PASS at 243 Mpix/s (gate is
+  ≥130). Plan execution included a foundational pre-gate (T1.1)
+  that confirmed the design assumption (decode-then-blit ==
+  crop-then-decode at the pixel level) before building anything.
+- **Sealed Q-decisions** (per spec): see design doc §3 (10 sealed
+  Qs). Q1 architectural lever; Q2 striped only; Q3 purely internal
+  API; Q4 small bounded LRU; Q5 edge tiles keep current path;
+  Q6 RawTile + JPEG cache unchanged; Q7 mutex-serialized single
+  handle (pool deferred); Q8 type-assertion dispatch with
+  `ErrUnsupported` fallthrough; Q9 single canonical RGB frame at
+  frame resolution; Q10 `WithScale != 1` falls to slow path.
+- **Deferred forward:** NDPI oneframe fast path (next obvious lever);
+  tactical handle pooling for RawTile + ScaledStrips; JPEG-frame
+  cache bounding; `WithScale` integration. Pre-existing
+  `tests/oracle/` build break (v0.24 Level API drift) flagged as not
+  v0.27 introduced.
+- **Bench reality:** opentile-go is now per-thread competitive with
+  openslide on NDPI. wsitools' multi-thread `convert --to dzi/szi`
+  inherits the win automatically through `ScaledStrips`.
+- **Design:** docs/superpowers/specs/2026-05-28-opentile-go-v27-ndpi-pixel-cache-design.md
+- **Plan:** docs/superpowers/plans/2026-05-28-opentile-go-v27-ndpi-pixel-cache.md
+- **Work branch:** feat/v0.27
+
+## Previous milestone — v0.26 (shipped 2026-05-26)
+
+ScaledStrips iterator — the libvips-speed primitive that dzsave / tile-
+server / region-extract tools consume. `*Slide.ScaledStrips` emits
+horizontal strips of a slide scaled to a target resolution, with
+internal parallel decode workers, per-iterator LRU tile cache, and
+lookahead pre-fetch. Per-thread throughput inherits from
+`Slide.ImageDecodedTile`, which v0.27 has now made competitive with
+openslide on NDPI.
+
+## Previous milestone — v0.20 (shipped 2026-05-20)
 
 - **Scope:** Cross-format `Writer` typed field — closes R22.
   Adds `Writer string` to `opentile.Metadata` carrying the

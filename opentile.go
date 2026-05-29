@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/fastpath"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
@@ -162,6 +164,19 @@ func (fc *fileCloser) Close() error {
 // helpers can walk through wrapper chains.
 func (fc *fileCloser) UnwrapReader() any { return fc.slideReader }
 
+// ImageDecodedTile delegates to the wrapped reader's fast-path method
+// if it implements decodedTiler; otherwise returns fastpath.ErrUnsupported
+// so the dispatcher in Slide.ImageDecodedTile falls through to the slow
+// path. Without this delegation, the type assertion s.r.(decodedTiler)
+// would fail on the wrapper even when the wrapped reader supports the
+// fast path. Added in v0.27.
+func (fc *fileCloser) ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if dr, ok := fc.slideReader.(decodedTiler); ok {
+		return dr.ImageDecodedTile(image, level, tx, ty, opts)
+	}
+	return nil, fastpath.ErrUnsupported
+}
+
 // mmapCloser wraps a slideReader and releases the mmap on Close.
 type mmapCloser struct {
 	slideReader
@@ -175,3 +190,16 @@ func (mc *mmapCloser) Close() error {
 // UnwrapReader exposes the inner reader so format-specific MetadataOf
 // helpers can walk through wrapper chains.
 func (mc *mmapCloser) UnwrapReader() any { return mc.slideReader }
+
+// ImageDecodedTile delegates to the wrapped reader's fast-path method
+// if it implements decodedTiler; otherwise returns fastpath.ErrUnsupported
+// so the dispatcher in Slide.ImageDecodedTile falls through to the slow
+// path. Without this delegation, the type assertion s.r.(decodedTiler)
+// would fail on the wrapper even when the wrapped reader supports the
+// fast path. Added in v0.27.
+func (mc *mmapCloser) ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if dr, ok := mc.slideReader.(decodedTiler); ok {
+		return dr.ImageDecodedTile(image, level, tx, ty, opts)
+	}
+	return nil, fastpath.ErrUnsupported
+}
