@@ -193,12 +193,17 @@ func TestNDPIDecodeBlitParityFoundational(t *testing.T) {
 	}
 	l0 := lvls[0]
 
-	// Sample tiles deep enough that they don't sit on the image edge.
-	// CMU-1.ndpi is 51200x38144 at L0 with 256-tile grid; interior
-	// tiles are abundant.
+	// Sample interior tiles relative to the actual L0 grid. NDPI tile
+	// size for CMU-1 is 512×512; L0 Grid is 100×75. Last row (ty=74)
+	// is an edge tile (image is 38144 px = 74.5 tile heights), so cap
+	// ty at grid.H-2 to stay safely interior.
 	type tilePos struct{ tx, ty int }
+	gw, gh := l0.Grid.W, l0.Grid.H
 	cases := []tilePos{
-		{10, 10}, {50, 50}, {100, 75}, {120, 100},
+		{gw / 8, gh / 8},     // ~(12, 9)
+		{gw / 2, gh / 2},     // ~(50, 37)
+		{3 * gw / 4, gh / 4}, // ~(75, 18)
+		{gw - 2, gh - 2},     // ~(98, 73) — safely interior
 	}
 
 	dec, err := decodeFromCompression(l0.Compression)
@@ -1015,9 +1020,11 @@ func TestNDPIFastPathPixelParity(t *testing.T) {
 	defer slide.Close()
 
 	l0 := slide.Levels()[0]
-	// Sample a strided grid of interior tiles; full-grid is 200×150
-	// ≈ 30k tiles. Stride to keep the test under 30s.
-	stride := 17
+	// Sample a strided grid of interior tiles. NDPI tile size is
+	// 512×512 for CMU-1; L0 grid is 100×75 ≈ 7500 tiles. Stride to
+	// keep the test under 30s while exercising a representative
+	// scatter of frames.
+	stride := 11
 	mismatches := 0
 	for ty := 0; ty < l0.Grid.H-1 && mismatches < 5; ty += stride {
 		for tx := 0; tx < l0.Grid.W-1 && mismatches < 5; tx += stride {
