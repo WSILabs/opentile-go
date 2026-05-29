@@ -4,6 +4,9 @@ import (
 	"context"
 	"io"
 	"iter"
+	"sync"
+
+	"github.com/wsilabs/opentile-go/internal/decoderhandle"
 )
 
 // slideReader is the unexported interface with the same method set as
@@ -48,6 +51,12 @@ type slideReader interface {
 // Close must not race with in-flight tile reads.
 type Slide struct {
 	r slideReader
+
+	// v0.28: per-codec decoder pool cache. Lazy: nil until first
+	// decoderFor() call. Drained by Close. Keyed by TIFF compression
+	// tag (the same tag space CompressionToTIFFTag emits).
+	handlesMu sync.Mutex
+	handles   map[uint16]*decoderhandle.Pool
 }
 
 // Format returns the canonical format identifier.
@@ -85,7 +94,31 @@ func (s *Slide) ICCProfile() []byte { return s.r.ICCProfile() }
 func (s *Slide) WarmLevel(i int) error { return s.r.WarmLevel(0, i) }
 
 // Close releases resources held by the slide.
-func (s *Slide) Close() error { return s.r.Close() }
+// Close releases the Slide's resources: drains every cached decoder
+// pool, then delegates to the underlying reader (which closes the
+// mmap or file handle and tears down format-specific state).
+//
+// v0.27 contract: Close must not race with in-flight tile reads. v0.28
+// preserves that. A racing Borrow gets ErrClosed; a racing Decode
+// completes against an already-borrowed Decoder, then Return closes
+// it directly via the pool's closed-pool branch.
+func (s *Slide) Close() error {
+	s.handlesMu.Lock()
+	handles := s.handles
+	s.handles = nil
+	s.handlesMu.Unlock()
+
+	var firstErr error
+	for _, pool := range handles {
+		if err := pool.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if err := s.r.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	return firstErr
+}
 
 // UnwrapReader returns the underlying format-specific reader.
 // Format packages use this to chain-walk through *Slide to their
