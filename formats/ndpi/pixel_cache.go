@@ -76,7 +76,7 @@ func (c *pixelFrameCache) getOrLoad(key frameKey, load func() (*decoder.Image, e
 	e := &pixelFrameEntry{ready: make(chan struct{})}
 	c.entries[key] = e
 	e.elem = c.order.PushFront(key)
-	c.evictIfOverLocked()
+	_ = c.evictIfOverLocked() // T4.2 routes survivors to scratchPool
 	c.mu.Unlock()
 
 	pix, err := load()
@@ -99,24 +99,31 @@ func (c *pixelFrameCache) getOrLoad(key frameKey, load func() (*decoder.Image, e
 }
 
 // evictIfOverLocked must be called with c.mu held. Evicts entries
-// from the back of order until len(entries) <= capacity.
+// from the back of order until len(entries) <= capacity. Returns
+// the evicted entries so callers can route their populated *pix
+// into a scratch pool (v0.29 Layer 3).
 //
 // An evicted entry may still be in flight (its load callback is
 // running). That's safe because (a) waiters on the entry's ready
 // chan still get notified when close(e.ready) runs, and (b) the
 // entry is no longer in entries/order so future lookups miss and
-// re-load. Once the in-flight load finishes, the entry is
-// garbage-collected (no map/list references remain).
-func (c *pixelFrameCache) evictIfOverLocked() {
+// re-load. In-flight entries in the returned slice will have
+// pix==nil — callers must filter for non-nil pix before pooling.
+func (c *pixelFrameCache) evictIfOverLocked() []*pixelFrameEntry {
+	var evicted []*pixelFrameEntry
 	for len(c.entries) > c.capacity {
 		back := c.order.Back()
 		if back == nil {
-			return
+			return evicted
 		}
 		key := back.Value.(frameKey)
+		if e, ok := c.entries[key]; ok {
+			evicted = append(evicted, e)
+		}
 		c.order.Remove(back)
 		delete(c.entries, key)
 	}
+	return evicted
 }
 
 // len returns the current number of cached entries. Used by tests
