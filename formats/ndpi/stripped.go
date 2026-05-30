@@ -68,14 +68,11 @@ type strippedImage struct {
 
 	// Assembled-frame cache. Keyed by (framePos, frameSize); the value is
 	// a complete JPEG that covers the frame. Populated lazily per-call.
-	//
-	// Note: v0.2 does not bound the cache size. A worst-case pyramid-level
-	// pass iterates tiles in row-major order, so each frame is assembled
-	// once and then every tile-inside-frame reads from the same entry
-	// until the next frame is needed. Memory cost per entry is ~frame
-	// JPEG size (~100s of KB for a 512x512 tile-equivalent frame).
-	frameMu     sync.Mutex
-	framesByKey map[frameKey][]byte
+	// Byte-bounded LRU (128 MiB default) — replaces the v0.2 unbounded
+	// map. On a single-pass DZI traversal each frame is assembled once
+	// and read by all tiles-inside-frame before eviction; the bound
+	// keeps OS-2's ~0.6 GB C3 in check for random-access Tile() callers.
+	frames *frameByteLRU
 
 	// Pixel-frame cache. Decoded RGB frames keyed by (framePos,
 	// frameSize). Bounded LRU; max(NumCPU, 16) entries. Populated
@@ -130,7 +127,7 @@ func newStrippedImage(
 		frameSize:          maxSize(tileSize, opentile.Size{W: strips.StripW, H: strips.StripH}),
 		dcBackground:       dc,
 		headersByFrameSize: make(map[opentile.Size][]byte),
-		framesByKey:        make(map[frameKey][]byte),
+		frames:             newFrameByteLRU(128 << 20),
 		pixelCache:         newPixelFrameCache(maxInt(runtime.NumCPU(), 16)),
 	}, nil
 }
@@ -511,27 +508,23 @@ func (l *strippedImage) framePosition(x, y int, frameSize opentile.Size) opentil
 // getFrame returns (and caches) the assembled JPEG covering framePos at
 // frameSize. Cache key uses tile-coord position and pixel size so distinct
 // edge-tile frames don't collide with the interior-frame key.
+//
+// Unlike the v0.2 double-checked-lock map this replaced, concurrent misses
+// for the same key may each run assembleFrame independently; that is safe
+// because assembleFrame is deterministic and byte-identical per key, so the
+// redundant work (only on the slow random-access Tile() path — the
+// ScaledStrips fast path serializes per-key assembly inside
+// pixelCache.getOrLoad) merely costs a repeat read, never a wrong result.
 func (l *strippedImage) getFrame(framePos, frameSize opentile.Size) ([]byte, error) {
 	key := frameKey{posX: framePos.W, posY: framePos.H, w: frameSize.W, h: frameSize.H}
-	l.frameMu.Lock()
-	if b, ok := l.framesByKey[key]; ok {
-		l.frameMu.Unlock()
+	if b, ok := l.frames.get(key); ok {
 		return b, nil
 	}
-	l.frameMu.Unlock()
-
 	frame, err := l.assembleFrame(framePos, frameSize)
 	if err != nil {
 		return nil, err
 	}
-
-	l.frameMu.Lock()
-	if existing, ok := l.framesByKey[key]; ok {
-		l.frameMu.Unlock()
-		return existing, nil
-	}
-	l.framesByKey[key] = frame
-	l.frameMu.Unlock()
+	l.frames.put(key, frame)
 	return frame, nil
 }
 
