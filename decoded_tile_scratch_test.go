@@ -8,13 +8,23 @@ import (
 )
 
 func TestTileScratchPoolReuse(t *testing.T) {
-	a := borrowTileScratch(256, 256, decoder.PixelFormatRGB)
-	returnTileScratch(a)
-	b := borrowTileScratch(256, 256, decoder.PixelFormatRGB)
-	if a != b {
-		t.Fatal("expected sync.Pool to reuse the returned scratch on next Borrow")
+	// sync.Pool is documented to drop items at any time (especially
+	// under GC pressure or -race), so asserting exact pointer equality
+	// on a Put→Get cycle is flaky across platforms. Instead, run many
+	// borrow-return cycles and assert that the pool produces at least
+	// some reuse — i.e., the number of distinct pointers seen is less
+	// than the number of borrows. Bug-class this test catches: a
+	// refactor that accidentally bypasses the pool entirely.
+	const iterations = 32
+	seen := map[*decoder.Image]bool{}
+	for i := 0; i < iterations; i++ {
+		s := borrowTileScratch(256, 256, decoder.PixelFormatRGB)
+		seen[s] = true
+		returnTileScratch(s)
 	}
-	returnTileScratch(b)
+	if len(seen) >= iterations {
+		t.Fatalf("expected sync.Pool reuse across %d borrows; got %d distinct pointers (no reuse — pool not engaged)", iterations, len(seen))
+	}
 }
 
 func TestTileScratchPoolSizeKeyed(t *testing.T) {
