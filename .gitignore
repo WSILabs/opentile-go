@@ -14,3 +14,6 @@
 
 # macOS
 .DS_Store
+
+# Local direnv env (machine-specific paths)
+.envrc
