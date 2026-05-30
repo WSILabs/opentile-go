@@ -2,7 +2,54 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.28 (in progress 2026-05-29)
+## Current milestone — v0.29 (in progress 2026-05-29)
+
+- **Scope:** ReadRegion allocation-elimination perf milestone. Two
+  layers shipped (of three planned):
+  - **Layer 1:** `imageReadRegionImpl` skips `fillWhite(dst)` when
+    the requested region is fully in-bounds and doesn't touch an
+    edge tile.
+  - **Layer 2:** module-level `sync.Pool` of per-tile decode-output
+    `*decoder.Image` buffers, keyed by `(W, H, Format)`. ReadRegion
+    borrows once per call via `ImageDecodedTileInto`. Required
+    `strippedImage.DecodedTile` to honor `opts.Dst`.
+  - **Layer 3 (abandoned):** NDPI pixelCache scratchPool implemented
+    then reverted within v0.29. Race detected (evicted-buffer-recycled
+    while a cache-hit reader still held the pointer). Deferred
+    pending refcount or alternative cache topology.
+- **API additions:** none public. Internal: `borrowTileScratch` /
+  `returnTileScratch` in new `decoded_tile_scratch.go`.
+- **API breaks:** none. RawTile / DecodedTile / ReadRegion /
+  ScaledStrips behave bit-identically.
+- **Active limitations:** bench-svs unchanged because it calls
+  `DecodedTile` directly (bypasses Layer 1+2's ReadRegion-only
+  scope). 11 GB of NDPI pixelCache frame allocations remain (was
+  Layer 3's target).
+- **Correctness bar:** `make test` green; new tests under
+  `-race -count=3`: 5 scratch-pool tests, 2 fillWhite-skip tests
+  with synthetic `knownPixelReader`, 2 NDPI fast-path Dst tests.
+  v0.27 + v0.28 regression suite green. `make bench-ndpi` ≥270
+  Mpix/s (up from 220); `make bench-svs` ≥475 Mpix/s (unchanged).
+- **Sealed Q-decisions** (per spec): see design doc. Spec's Layer 3
+  Q-decisions effectively void after JIT abandonment.
+- **Deferred forward:** Layer 3 (NDPI pixelCache scratchPool) needs
+  refcount design or alternative; direct DecodedTile allocation
+  pooling; ScaledStrips internal cache profile.
+- **Bench reality (v0.29 final, Layer 1+2 only):**
+  - bench-ndpi: ~300 Mpix/s single-thread (vs 251 v0.28: **+19%**)
+  - bench-ndpi-mt: 593 Mpix/s multi-thread (vs 539 v0.28: **+10%**)
+  - bench-svs: unchanged at ~577 Mpix/s (no `ReadRegion`)
+  - bench-svs-mt: unchanged at ~2117 Mpix/s
+  - Allocation: 38.7 GB → 17 GB on bench-ndpi-mt (**-57%**)
+- **Layer 3 lessons:** the v0.27 promise pattern protects
+  population but doesn't track readers post-population. Any pool
+  reuse of cached buffers needs explicit reader-lifetime tracking
+  (refcount) — by-design future work, not a bug to chase.
+- **Design:** docs/superpowers/specs/2026-05-29-opentile-go-v29-readregion-perf-design.md
+- **Plan:** docs/superpowers/plans/2026-05-29-opentile-go-v29-readregion-perf.md
+- **Work branch:** feat/v0.29
+
+## Previous milestone — v0.28 (shipped 2026-05-29)
 
 - **Scope:** Cross-format decoder-handle pool. New
   `internal/decoderhandle.Pool` primitive — a fixed-size pool of
