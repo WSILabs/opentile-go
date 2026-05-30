@@ -17,6 +17,11 @@ RPS or scanning slides at high parallelism.
   intensively, call `Tiler.WarmLevel(i)` once at slide-open time.
 - The legacy `Level.Tile(x, y) ([]byte, error)` API is unchanged and
   fully supported. Use it for casual scripts and one-shot reads.
+- For whole-slide scaled output (DZI conversion, region extract), use
+  `Slide.ScaledStrips(...)`. Its peak memory is byte-bounded since v0.30
+  — set `OPENTILE_READ_MEMORY_BUDGET` / `WithMemoryBudget` and
+  `GOMEMLIMIT≈2GiB` to keep it ~2 GB regardless of slide width. See
+  [ScaledStrips + memory budget](#whole-slide-scaled-output-scaledstrips--memory-budget-v026v030).
 
 ## Default I/O backing: memory-mapped
 
@@ -274,3 +279,70 @@ Pattern B is an optional bandwidth optimization for client-server
 consumers. Savings are real but fixture-author-dependent — don't
 assume them without profiling. Pattern A always works, always
 correct. When in doubt, start with Pattern A.
+
+## Whole-slide scaled output: `ScaledStrips` + memory budget (v0.26–v0.30)
+
+For DZI/deep-zoom builders, libvips-style pipelines, and region
+extract, `Slide.ScaledStrips(l0Rect, outSize, stripHeight, opts...)`
+streams a slide scaled to a target resolution as horizontal strips. It
+runs parallel decode workers, a bounded per-iterator decoded-tile
+cache, and lookahead prefetch internally; the caller pulls one
+`*decoder.Image` strip per `Next()` until `io.EOF`, then `Close()`.
+Per-thread decode throughput inherits from the NDPI/SVS fast paths
+(v0.27–v0.28), so multi-threaded `convert --to dzi` scales across cores.
+
+### Memory model (why peak is bounded since v0.30)
+
+Pre-v0.30 the strip cache was sized by a tile *count* that grew with
+slide **width**, so peak memory climbed without a ceiling — a wide NDPI
+slide could drive a 16 GB machine into a memory panic during DZI
+conversion. v0.30 re-expresses the cache cap as a **byte budget**, so
+the dominant term is flat regardless of width.
+
+Peak ≈ GC-headroom × (cache budget + frame LRU + pixelCache + strip
+buffers):
+
+| Term | Size | Scales with |
+|---|---|---|
+| Decoded-tile cache (C1) | `WithMemoryBudget`, default **1 GiB** | nothing (bounded) |
+| Assembled-frame LRU (C3) | 128 MiB | nothing (bounded) |
+| NDPI `pixelCache` (C2) | ~0.5 GB | slide width (deferred byte-bound) |
+| Output strip buffer (C4) | `outWidth × stripHeight × 3 × ~(lookahead+2)` | width × tile size |
+| GC headroom | ~2× live (`GOGC=100`), or clamped by `GOMEMLIMIT` | — |
+
+### Tuning
+
+- **`opentile.WithMemoryBudget(bytes)`** / **`OPENTILE_READ_MEMORY_BUDGET`**
+  (env, bytes): the C1 cache budget. Option > env > default (1 GiB).
+- **Set `GOMEMLIMIT`** (e.g. `2GiB`) to clamp GC headroom — it takes the
+  peak from ~2× live down toward the live set. opentile-go honours an
+  externally-set `GOMEMLIMIT` (its default budget auto-shrinks to ≤ half
+  of it) but never sets one itself. A `GOMEMLIMIT` *below* the live
+  working set causes GC thrash, so keep it ≥ the budget plus headroom.
+- **DZI tile size 256** (the default) gives the lowest peak; 512/1024
+  enlarge the irreducible C4 strip buffer (not covered by the budget).
+
+### Measured (widest fixture: Hamamatsu, 188160×101376, 19 Gpix)
+
+Worst case — no consumer backpressure, the strip iterator running flat
+out (real `wsitools convert` backpressures and runs lower):
+
+| Config | peak RSS |
+|---|---|
+| 256 tile + `GOMEMLIMIT=2GiB` (recommended) | ~2.1 GB |
+| 256 tile, no env | ~3.3 GB |
+| 1024 tile + `GOMEMLIMIT=2GiB` | ~3.5 GB |
+| 1024 tile, no env (heaviest) | ~5.8 GB |
+
+Extrapolated to a maximum-size 2″×1″ 40× slide (~24 Gpix): the
+recommended config stays ~2.3 GB; the absolute ceiling across all
+configs is ~7 GB. Either way it is a fixed ceiling — independent of
+slide width at a given tile size — not the unbounded pre-v0.30 climb.
+
+### Gate
+
+`make bench-ndpi-mem` runs the no-backpressure worst case under
+`GOMEMLIMIT=2GiB` (CMU-1 + OS-2 at tile 256/1024) and fails if peak
+`HeapInuse` exceeds the committed thresholds — the regression guard for
+this class of issue. Thresholds are intentionally higher than real
+`wsitools` RSS because the harness drops strips (no backpressure).
