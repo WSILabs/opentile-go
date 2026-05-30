@@ -57,6 +57,11 @@ type Slide struct {
 	// tag (the same tag space CompressionToTIFFTag emits).
 	handlesMu sync.Mutex
 	handles   map[uint16]*decoderhandle.Pool
+
+	// v0.30: per-Slide read-path memory budget (bytes), resolved at
+	// Open from WithMemoryBudget / OPENTILE_READ_MEMORY_BUDGET /
+	// default. Read by newStripIterator to size the C1 tile cache.
+	readBudget int64
 }
 
 // Format returns the canonical format identifier.

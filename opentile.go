@@ -68,7 +68,7 @@ func Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Slide{r: rdr}, nil
+	return &Slide{r: rdr, readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
 // OpenFile opens path for reading and delegates to [Open]. The
@@ -128,7 +128,7 @@ func openFilePread(path string, opts []Option) (*Slide, error) {
 		return nil, fmt.Errorf("opentile: %s: %w", path, err)
 	}
 	fc := &fileCloser{slideReader: rdr, f: f}
-	return &Slide{r: fc}, nil
+	return &Slide{r: fc, readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
 // openFileMmap is the v0.9 default path. Memory-maps the file and
@@ -147,7 +147,7 @@ func openFileMmap(path string, opts []Option) (*Slide, error) {
 		return nil, fmt.Errorf("opentile: %s: %w", path, err)
 	}
 	mc := &mmapCloser{slideReader: rdr, m: m}
-	return &Slide{r: mc}, nil
+	return &Slide{r: mc, readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
 // fileCloser wraps a slideReader and closes the underlying os.File on Close.

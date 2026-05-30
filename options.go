@@ -1,5 +1,10 @@
 package opentile
 
+import (
+	"os"
+	"strconv"
+)
+
 // CorruptTilePolicy controls how corrupt-edge tiles (currently: Aperio SVS) are
 // reported. v0.1 supports only CorruptTileError.
 type CorruptTilePolicy uint8
@@ -34,17 +39,25 @@ const (
 	BackingPread
 )
 
+// defaultReadMemoryBudget is the default per-Slide live-memory target
+// for the ScaledStrips read path (the decoded-tile cache, C1). ~2 GB
+// peak under GOGC=100. Override with WithMemoryBudget or the
+// OPENTILE_READ_MEMORY_BUDGET env var (bytes).
+const defaultReadMemoryBudget int64 = 1 << 30 // 1 GiB
+
 // Option mutates the opentile configuration before Open returns a Tiler.
 type Option func(*config)
 
 // config is the aggregate of all Option values applied at Open time.
 type config struct {
-	tileSize       Size
-	hasTileSize    bool
-	corruptTile    CorruptTilePolicy
-	ndpiSynthLabel bool // default true
-	backing        Backing
-	hasBacking     bool
+	tileSize        Size
+	hasTileSize     bool
+	corruptTile     CorruptTilePolicy
+	ndpiSynthLabel  bool // default true
+	backing         Backing
+	hasBacking      bool
+	memoryBudget    int64
+	hasMemoryBudget bool
 }
 
 func newConfig(opts []Option) *config {
@@ -104,6 +117,34 @@ func WithBacking(b Backing) Option {
 		c.backing = b
 		c.hasBacking = true
 	}
+}
+
+// WithMemoryBudget sets the per-Slide live-memory budget (bytes) for
+// the ScaledStrips read path. Governs the decoded-tile cache so peak
+// memory stays flat regardless of slide width / DZI tile size. Default
+// 1 GiB; also settable via OPENTILE_READ_MEMORY_BUDGET (option wins).
+// Values < 1 are ignored (default used).
+func WithMemoryBudget(bytes int64) Option {
+	return func(c *config) {
+		if bytes >= 1 {
+			c.memoryBudget = bytes
+			c.hasMemoryBudget = true
+		}
+	}
+}
+
+// resolveMemoryBudget returns the effective budget: option > env >
+// default. A non-positive or unparseable env value is ignored.
+func (c *config) resolveMemoryBudget() int64 {
+	if c.hasMemoryBudget {
+		return c.memoryBudget
+	}
+	if v := os.Getenv("OPENTILE_READ_MEMORY_BUDGET"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 1 {
+			return n
+		}
+	}
+	return defaultReadMemoryBudget
 }
 
 // Config is an opaque, read-only view of the configuration passed to a
