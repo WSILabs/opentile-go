@@ -2,7 +2,65 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.29 (in progress 2026-05-29)
+## Current milestone — v0.30 (shipped 2026-05-30)
+
+- **Scope:** Read-path memory-budget milestone. Bounds NDPI
+  `ScaledStrips` (DZI conversion) peak memory to ~2 GB regardless of
+  slide width, closing a `wsitools convert --to dzi` system-memory
+  panic on wide NDPI slides. The OOM predates and is independent of
+  v0.29 (v0.26 vs v0.29 had identical peaks).
+- **Corrected root cause (heap-profiled):** the dominant consumer is
+  **C1, the `StripIterator` decoded-tile cache** (count-based, grew
+  with slide width — ~2 GB CMU-1, ~6 GB OS-2), NOT the NDPI
+  `pixelCache` (C2) the original geometry hypothesis blamed. C2 is the
+  *smallest* term (~0.1–0.7 GB); the "OS-2 = C2" reading was an
+  artifact of measuring total wsitools RSS (which includes wsitools'
+  own DZI level-builder cascade). Profiled via the new in-tree
+  `cmd/bench/ndpi-strips` harness.
+- **Fix (4 layers, priority C1 ≫ C3 > C4 > C2):**
+  - **C1:** `StripIterator` tile-cache capacity re-expressed from a
+    width-proportional count to byte-derived (`budget/bytesPerTile`,
+    floored `max(workers,8)`, capped at the old count formula).
+  - **C3:** NDPI `framesByKey` (was **unbounded**) → 128 MiB
+    `frameByteLRU`.
+  - **GOMEMLIMIT:** default budget shrinks to ≤ half an externally-set
+    `GOMEMLIMIT` (floor 128 MiB); library never *sets* it.
+  - **C2:** deferred (already count-bounded, smallest term).
+- **API additions:** `WithMemoryBudget(bytes int64) Option` (public,
+  additive); `OPENTILE_READ_MEMORY_BUDGET` env (precedence option > env
+  > default 1 GiB); `Slide.readBudget` (internal); `make bench-ndpi-mem`
+  peak-RSS gate.
+- **API breaks:** none. RawTile / DecodedTile / ReadRegion /
+  ScaledStrips byte-identical.
+- **Concurrency fix:** the smaller cache exposed a latent deadlock —
+  `tileCache.evictLocked` evicted in-flight (reserved, `ready`-open)
+  entries, orphaning `waitGet` waiters; now it skips in-flight entries.
+  Also `tileReqs` is never closed (workers exit via cancel ctx),
+  removing a shutdown send-on-closed-channel race.
+- **Active limitations:** **C4** — the irreducible full-width output
+  strip buffer scales with width × DZI-tile-size; at dziTile 1024 on
+  very wide slides it's the residual term (Hamamatsu-1 ~3.5 GB @1024,
+  still no OOM; default 256 tiles → ~2 GB). C2 byte-budgeting deferred.
+  `StripIterator.Next` doesn't `acquire`-pin around `waitGet`
+  (pre-existing spurious-"tile missing" window). Workers now strictly
+  require `Close()` (contractually mandatory). wsitools DZI cascade is
+  co-dominant on wide slides and outside the library fix.
+- **Correctness bar:** `make test` green under `-race`; new tests
+  (frame byte-LRU ×4, budget resolution ×6, capacity helper ×4);
+  `ScaledStrips` green under `-race -count=3` (the deadlock
+  reproducer). `make bench-ndpi-mem` gate (CMU-1 ≤2300, OS-2 ≤3300 MiB
+  under `GOMEMLIMIT=2GiB`). `make bench-ndpi` ≥270 (measured 293).
+- **Bench reality (worst case, `GOMEMLIMIT=2GiB`):**
+  - CMU-1 @256: 2633 → **1948 MiB**
+  - OS-2 @256: 6643 → **2037 MiB** (2.5× wider, ~same peak — width-
+    independent), 157 → 241 Mpix/s
+  - OS-2 @1024: 7852 → **2751 MiB**
+  - Hamamatsu-1 @1024: completes at **3470 MiB** (was suspected hard-OOM)
+- **Design:** docs/superpowers/specs/2026-05-30-opentile-go-v30-ndpi-memory-budget-design.md
+- **Plan:** docs/superpowers/plans/2026-05-30-opentile-go-v30-ndpi-memory-budget.md
+- **Work branch:** feat/v0.30-memory-budget
+
+## Previous milestone — v0.29 (shipped 2026-05-29)
 
 - **Scope:** ReadRegion allocation-elimination perf milestone. Two
   layers shipped (of three planned):

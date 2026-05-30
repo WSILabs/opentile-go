@@ -99,9 +99,13 @@ bench-svs-mt:
 # deployment config). Thresholds are intentionally HIGHER than real
 # wsitools RSS because this harness drops strips (no consumer
 # backpressure) — it bounds the library's worst case, not the app's.
-# Placeholders — finalized in a later task from post-fix measurement.
-MAXPEAK_CMU ?= 99999
-MAXPEAK_OS2 ?= 99999
+# Thresholds set from post-fix measurement (v0.30) with ~15-20% headroom.
+# Measured peaks under GOMEMLIMIT=2GiB: CMU-1@256 ~1948 MiB; OS-2@256
+# ~2037 MiB; OS-2@1024 ~2751 MiB (the @1024 case is higher due to the
+# irreducible full-width output strip buffer, not the tile cache).
+# MAXPEAK_OS2 covers both OS-2 runs, so it tracks the @1024 peak.
+MAXPEAK_CMU ?= 2300
+MAXPEAK_OS2 ?= 3300
 
 bench-ndpi-mem: ## NDPI ScaledStrips peak-RSS gate (DZI path)
 	@go build -o /tmp/ndpi-strips ./cmd/bench/ndpi-strips/

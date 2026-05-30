@@ -11,6 +11,113 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-05-30
+
+Read-path memory-budget milestone. Bounds NDPI `ScaledStrips` (the DZI
+conversion path) peak memory to ~2 GB regardless of slide width,
+closing a `wsitools convert --to dzi` out-of-memory that drove a 16 GB
+Mac into a system memory panic on wide Hamamatsu NDPI slides. The OOM
+predates and is independent of v0.29 (verified: v0.26 and v0.29 had
+statistically identical peaks).
+
+### Corrected root cause (heap-profiled, not geometry)
+
+An in-tree `inuse_space` profile (`cmd/bench/ndpi-strips`) falsified the
+original geometry-based hypothesis. The dominant consumer is **C1, the
+per-iterator `StripIterator` decoded-tile cache** (~2 GB on CMU-1,
+~6 GB on OS-2) — its capacity was a tile *count* that grew with slide
+width. The NDPI `pixelCache` (C2), originally suspected as the OS-2
+dominator, is empirically the *smallest* term (~0.1–0.7 GB); the earlier
+"OS-2 = C2" reading was an artifact of measuring total wsitools RSS,
+which also includes wsitools' own DZI level-builder cascade (a separate
+width-proportional consumer outside this library).
+
+### Measured peak HeapInuse (worst case, `GOMEMLIMIT=2GiB`)
+
+| Fixture           | before    | after     |
+|---|---|---|
+| CMU-1 @ dziTile 256  | 2633 MiB | **1948 MiB** |
+| OS-2  @ dziTile 256  | 6643 MiB | **2037 MiB** |
+| OS-2  @ dziTile 1024 | 7852 MiB | **2751 MiB** |
+
+OS-2 (2.5× wider than CMU-1) now peaks at ~the same level — peak is
+slide-width-independent at the default tile size. ScaledStrips
+throughput is unchanged-to-improved (OS-2 @256: 157 → 241 Mpix/s).
+`bench-ndpi` (ReadRegion path) unchanged at ~293 Mpix/s.
+
+### Added
+
+- **`WithMemoryBudget(bytes int64) Option`** (public) — per-Slide
+  read-path live-memory budget; governs the C1 decoded-tile cache.
+  Default 1 GiB.
+- **`OPENTILE_READ_MEMORY_BUDGET`** env var (bytes) — same knob without
+  recompiling. Precedence: option > env > default.
+- `cmd/bench/ndpi-strips` peak-RSS gate + `make bench-ndpi-mem` target
+  (runs the no-backpressure worst case under `GOMEMLIMIT=2GiB`,
+  CMU-1 + OS-2 at dziTile 256/1024). The regression guard for this
+  class of issue.
+
+### Changed
+
+- **C1** — `StripIterator` tile-cache capacity is now byte-derived
+  (`budget / bytesPerTile`, floored at `max(workers, 8)`, capped at the
+  original count formula) instead of an unbounded width-proportional
+  count. Accounts for `idctScale`.
+- **C3** — NDPI `framesByKey` (previously an **unbounded** assembled-
+  JPEG-frame map) is now a 128 MiB byte-bounded LRU (`frameByteLRU`).
+  On the single-pass DZI traversal it provided ~zero benefit while
+  retaining most of the compressed level.
+- Default budget now **honours `GOMEMLIMIT`**: when set and no explicit
+  budget was given, the default shrinks to ≤ half the limit (floor
+  128 MiB) so live set + GC headroom fit under the runtime ceiling. The
+  library never *sets* `GOMEMLIMIT`.
+- `tileCache.evictLocked` no longer evicts **in-flight** entries
+  (`ready != nil`) — only produced, unpinned ones. The smaller cache
+  exposed a latent deadlock: an evicted in-flight entry orphaned a
+  concurrent `waitGet` waiter on a `ready` channel that never closed
+  (reliably deadlocked `TestScaledStripsCrossFormat/SVS`).
+- `StripIterator.tileReqs` is never closed; workers shut down via the
+  cancel context. Removes a send-on-closed-channel race on shutdown.
+
+### Public API
+
+- **One addition:** `WithMemoryBudget` (additive, non-breaking).
+- **No breaking changes.** `RawTile`, `DecodedTile`, `ReadRegion`, and
+  `ScaledStrips` outputs are byte-identical to v0.29.
+
+### Tests
+
+- `formats/ndpi/frame_cache_test.go` (NEW): 4 byte-LRU tests.
+- `options_budget_test.go` (NEW): 6 budget-resolution tests incl.
+  `GOMEMLIMIT` shrink + explicit-verbatim.
+- `strip_iterator_budget_test.go` (NEW): 4 capacity-helper tests.
+- `ScaledStrips` suite green under `-race -count=3` (the deadlock
+  reproducer); full `opentile` + `ndpi` packages green under `-race`.
+
+### Deferred forward
+
+- **C2** (`pixelCache`) byte-budgeting — already count-bounded and the
+  smallest term; threading the per-Slide budget through the
+  format-dispatch bridge wasn't worth it for v0.30 (design doc §1.4).
+- **C4** — the irreducible full-width output strip buffer scales with
+  width × DZI-tile-size. At dziTile 1024 on very wide slides it is the
+  residual term (Hamamatsu-1, 188160 wide, peaks ~3.5 GB @1024 — still
+  far below the OOM threshold and completes cleanly). The reported OOM
+  used the default 256 tiles, now ~2 GB.
+- `StripIterator.Next` does not `acquire`-pin tiles around `waitGet`, so
+  a produced tile evicted in the `reserve→false`→`waitGet` window can
+  surface a spurious "tile missing" error (pre-existing; not observed in
+  any `-race` run). Fix: pin via `acquire`/`release` or re-reserve.
+- Workers now strictly require `Close()` to exit (was: exited on the old
+  channel close). `Close()` is contractually mandatory.
+- wsitools' DZI level-builder cascade is co-dominant on wide slides and
+  outside this library fix — tracked in wsitools (design doc §2).
+
+### Design / Plan
+
+- Design: `docs/superpowers/specs/2026-05-30-opentile-go-v30-ndpi-memory-budget-design.md`
+- Plan: `docs/superpowers/plans/2026-05-30-opentile-go-v30-ndpi-memory-budget.md`
+
 ## [0.29.0] — 2026-05-29
 
 ReadRegion allocation-elimination perf milestone — Layers 1 + 2 of
