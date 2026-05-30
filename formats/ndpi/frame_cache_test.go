@@ -48,3 +48,28 @@ func TestFrameByteLRUOversizeEntryStillStored(t *testing.T) {
 		t.Fatalf("oversize entry must still be retrievable")
 	}
 }
+
+func TestFrameByteLRUReplaceKeyDeltaAccounts(t *testing.T) {
+	// Re-putting an existing key must delta-account bytes (not double
+	// count) and replace the stored data. Budget is generous so no
+	// eviction interferes with the accounting check.
+	c := newFrameByteLRU(1000)
+	k := frameKey{posX: 1}
+	c.put(k, make([]byte, 100))
+	if got := c.bytes(); got != 100 {
+		t.Fatalf("bytes after first put = %d, want 100", got)
+	}
+	c.put(k, make([]byte, 150)) // replace same key, larger
+	if got := c.bytes(); got != 150 {
+		t.Fatalf("bytes after replace = %d, want 150 (delta-accounted, not 250)", got)
+	}
+	got, ok := c.get(k)
+	if !ok || len(got) != 150 {
+		t.Fatalf("get after replace = (len %d, ok %v), want (150, true)", len(got), ok)
+	}
+	// Shrinking replace must also delta-account downward.
+	c.put(k, make([]byte, 40))
+	if got := c.bytes(); got != 40 {
+		t.Fatalf("bytes after shrink replace = %d, want 40", got)
+	}
+}

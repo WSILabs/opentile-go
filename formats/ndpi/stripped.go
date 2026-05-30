@@ -508,6 +508,13 @@ func (l *strippedImage) framePosition(x, y int, frameSize opentile.Size) opentil
 // getFrame returns (and caches) the assembled JPEG covering framePos at
 // frameSize. Cache key uses tile-coord position and pixel size so distinct
 // edge-tile frames don't collide with the interior-frame key.
+//
+// Unlike the v0.2 double-checked-lock map this replaced, concurrent misses
+// for the same key may each run assembleFrame independently; that is safe
+// because assembleFrame is deterministic and byte-identical per key, so the
+// redundant work (only on the slow random-access Tile() path — the
+// ScaledStrips fast path serializes per-key assembly inside
+// pixelCache.getOrLoad) merely costs a repeat read, never a wrong result.
 func (l *strippedImage) getFrame(framePos, frameSize opentile.Size) ([]byte, error) {
 	key := frameKey{posX: framePos.W, posY: framePos.H, w: frameSize.W, h: frameSize.H}
 	if b, ok := l.frames.get(key); ok {
