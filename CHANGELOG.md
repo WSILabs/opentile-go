@@ -52,7 +52,8 @@ throughput is unchanged-to-improved (OS-2 @256: 157 → 241 Mpix/s).
   Default 1 GiB.
 - **`OPENTILE_READ_MEMORY_BUDGET`** env var (bytes) — same knob without
   recompiling. Precedence: option > env > default.
-- `cmd/bench/ndpi-strips` peak-RSS gate + `make bench-ndpi-mem` target
+- `cmd/bench/ndpi-strips` peak-memory gate (asserts `HeapInuse`) +
+  `make bench-ndpi-mem` target
   (runs the no-backpressure worst case under `GOMEMLIMIT=2GiB`,
   CMU-1 + OS-2 at dziTile 256/1024). The regression guard for this
   class of issue.

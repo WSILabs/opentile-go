@@ -29,7 +29,7 @@ Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/op
 - **API additions:** `WithMemoryBudget(bytes int64) Option` (public,
   additive); `OPENTILE_READ_MEMORY_BUDGET` env (precedence option > env
   > default 1 GiB); `Slide.readBudget` (internal); `make bench-ndpi-mem`
-  peak-RSS gate.
+  peak-memory gate (asserts `HeapInuse`).
 - **API breaks:** none. RawTile / DecodedTile / ReadRegion /
   ScaledStrips byte-identical.
 - **Concurrency fix:** the smaller cache exposed a latent deadlock —
