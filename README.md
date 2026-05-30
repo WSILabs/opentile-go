@@ -145,6 +145,57 @@ for _, img := range t.Images() {
 
 For SVS, NDPI, and Philips, `Images()` always returns a one-element slice — Levels() / Level(i) work as before.
 
+### Reading pixel regions and scaled strips
+
+The `Tile*` methods above return one tile's *compressed* bytes. For
+*decoded* pixels — arbitrary regions, downsampled output, or whole-slide
+streaming (DZI conversion, tile servers, region extract) — use the
+region/strip API. All of these return `*decoder.Image` (`Width`,
+`Height`, `Stride`, `Format`, `Pix []byte`).
+
+```go
+// A decoded pixel region at a given level (level coords).
+img, err := t.ReadRegion(0 /*level*/, x, y, w, h)
+
+// An L0 region scaled to an explicit output size (e.g. a thumbnail
+// of the whole slide). IDCT-time downscale + resample under the hood.
+l0 := t.Levels()[0]
+thumb, err := t.ReadRegionScaled(0, 0, l0.Size.W, l0.Size.H, 1024, 1024)
+```
+
+For whole-slide scaled output that is too large to hold in memory at
+once — DZI/deep-zoom builders, libvips-style pipelines — iterate it in
+horizontal **strips**. `ScaledStrips` runs parallel decode workers + a
+bounded internal cache + lookahead prefetch; you pull one strip at a
+time:
+
+```go
+import "image"
+
+l0 := t.Levels()[0]
+it := t.ScaledStrips(
+    image.Rect(0, 0, l0.Size.W, l0.Size.H), // L0 region (here: whole slide)
+    image.Point{X: l0.Size.W, Y: l0.Size.H}, // output size (here: native res)
+    256,                                     // strip height in output rows
+    // opts: WithStripWorkers, WithStripLookahead, WithStripKernel,
+    // WithStripIDCTScale, WithStripContext
+)
+defer it.Close() // mandatory — reaps the worker goroutines
+
+for {
+    strip, err := it.Next()
+    if err == io.EOF {
+        break
+    }
+    if err != nil { /* ... */ }
+    consume(strip) // strip is one *decoder.Image band, outSize.W wide
+}
+```
+
+Peak memory for the strip path is **bounded and independent of slide
+width** — see [Performance → Memory](#performance) below for the budget
+knob and tuning.
+
 ### Associated images
 
 `Tiler.Associated()` returns label / overview / thumbnail / map images where the format provides them:
@@ -203,6 +254,40 @@ opentile-go's tile reads are designed for high-RPS HTTP serving and per-frame de
 - **Use `Level.TileInto(x, y, dst) (int, error)`** with a `sync.Pool` of `[]byte` buffers sized to `Level.TileMaxSize()` for zero-allocation tile reads. Cervix serial: 152 ns/op, 0 allocs (vs v0.8's 22µs).
 - **`Tiler.WarmLevel(i) error`** pre-warms the page cache for predictable warm-cache latency.
 - **Bandwidth deduplication (v0.13):** `Level.TilePrefix()` returns the constant JPEG prefix; `Level.TileBodyInto(x, y, dst)` returns on-disk bytes without the prefix. Client-server consumers can send the prefix once per session and body bytes per tile. `opentile.SpliceJPEGTile(prefix, body)` reconstitutes a complete JPEG on the client side. Savings are fixture-author-dependent — see [`docs/perf.md`](./docs/perf.md) for details.
+
+### Memory (ScaledStrips / DZI path)
+
+The `ScaledStrips` decode path keeps a bounded internal cache of decoded
+source tiles. Since **v0.30** that cache is **byte-bounded**, so peak
+memory is flat regardless of slide width — a 19-gigapixel NDPI slide and
+a 2-gigapixel one peak at roughly the same level.
+
+- **`opentile.WithMemoryBudget(bytes)`** — per-`Slide` budget for the
+  read-path cache. Default **1 GiB**. Also settable without recompiling
+  via the **`OPENTILE_READ_MEMORY_BUDGET`** env var (bytes); the option
+  wins over the env var, which wins over the default.
+- **Set `GOMEMLIMIT`** for the tightest peak. The budget bounds the
+  *live* working set; Go's GC headroom (`GOGC=100`) lets the heap grow
+  ~2× live before collecting. A `GOMEMLIMIT` (e.g. `2GiB`) clamps that
+  headroom — and when set, opentile-go's default budget auto-shrinks to
+  ≤ half of it. opentile-go never *sets* `GOMEMLIMIT` itself.
+- **Keep the DZI tile size at 256** (the default) for the lowest peak.
+  Larger tiles (512/1024) need a proportionally larger full-width output
+  strip buffer, which the cache budget does not cover.
+
+Measured peak RSS on the widest test slide (Hamamatsu, 188k×101k px),
+worst case (no consumer backpressure):
+
+| Config | peak RSS |
+|---|---|
+| 256 tile + `GOMEMLIMIT=2GiB` (recommended) | ~2.1 GB |
+| 256 tile, no env | ~3.3 GB |
+| 1024 tile, no env (heaviest) | ~5.8 GB |
+
+Even on a hypothetical maximum-size 2″×1″ 40× slide the recommended
+config stays ~2.3 GB; the absolute ceiling across all configs is ~7 GB.
+The peak is a fixed ceiling, not the unbounded climb of pre-v0.30. See
+[`docs/perf.md`](./docs/perf.md) for the full breakdown.
 
 ## Deviations from upstream Python opentile
 
