@@ -103,11 +103,19 @@ func (s *Slide) ImageDecodedTileInto(image, level, tx, ty int, dst *decoder.Imag
 	cfg := newDecodeConfig(opts)
 
 	if dr, ok := s.r.(decodedTiler); ok {
+		// v0.29 Layer 2: pass dst as opts.Dst so the fast path can
+		// write directly into it (eliminating the v0.28 copy step).
+		// Fast-path impls that ignore Dst still return a fresh Image;
+		// the out != dst branch below covers that defensively.
 		out, err := dr.ImageDecodedTile(image, level, tx, ty, decoder.DecodeOptions{
 			Format: cfg.format,
 			Scale:  cfg.scale,
+			Dst:    dst,
 		})
 		if err == nil {
+			if out == dst {
+				return nil
+			}
 			return copyImageInto(out, dst)
 		}
 		if !errors.Is(err, fastpath.ErrUnsupported) {

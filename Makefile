@@ -25,7 +25,7 @@ bench:
 # Requires OPENTILE_TESTDIR pointing at sample_files/ (with the NDPI
 # fixture present). Defaults to $PWD/sample_files.
 OPENTILE_TESTDIR ?= $(PWD)/sample_files
-MIN_NDPI_MPIXS ?= 220
+MIN_NDPI_MPIXS ?= 270
 
 bench-ndpi:
 	@if [ ! -f "$(OPENTILE_TESTDIR)/ndpi/CMU-1.ndpi" ]; then \

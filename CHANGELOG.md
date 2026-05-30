@@ -11,6 +11,105 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-05-29
+
+ReadRegion allocation-elimination perf milestone — Layers 1 + 2 of
+the v0.29 spec's three-layer design. Layer 3 (NDPI pixelCache
+scratchPool) was implemented and then reverted within v0.29:
+surfaced a real race when buffers shared via the scratch pool got
+evicted while a cache-hit reader still held the pointer. Deferred
+to a future milestone pending refcounting or a different cache
+topology.
+
+### Measured throughput (Apple Silicon, 13 cores)
+
+| Bench               | v0.28          | v0.29          | Delta |
+|---|---|---|---|
+| bench-ndpi (single) | 251 Mpix/s     | ~300 Mpix/s    | +19% |
+| bench-ndpi-mt       | 539 Mpix/s     | 593 Mpix/s     | +10% |
+| bench-svs (single)  | 596 Mpix/s     | ~577 Mpix/s    | noise |
+| bench-svs-mt        | 2121 Mpix/s    | 2117 Mpix/s    | noise |
+
+bench-svs is unchanged because it calls `Slide.DecodedTile` directly
+(bypassing `ReadRegion`); Layers 1 and 2 only optimize the
+`ReadRegion` path.
+
+### Allocation reduction (bench-ndpi-mt, alloc_space)
+
+| Source                                 | v0.28    | v0.29    |
+|---|---|---|
+| Per-tile output (Layer 2)              | 22 GB    | ~0       |
+| pixelCache frame (Layer 3 — abandoned) | 11.4 GB  | 11.4 GB  |
+| Total `decoder.NewImageFormat`         | 38.7 GB  | ~17 GB   |
+
+57% allocation reduction; the remaining 11 GB is in the NDPI
+pixelCache and remains for a future milestone.
+
+### Added (internal only)
+
+- `borrowTileScratch(w, h int, format decoder.PixelFormat) *decoder.Image`
+  — module-level `sync.Pool` accessor; lazy per-(W, H, Format).
+- `returnTileScratch(img *decoder.Image)` — paired return; nil-safe.
+
+### Changed
+
+- **Layer 1** — `Slide.imageReadRegionImpl`: clip-to-bounds
+  computation moved ahead of `fillWhite`; fillWhite gated on
+  `!fullyInBounds || edgeTileX || edgeTileY`. Saves ~5% on multi-
+  thread and ~16% on single-thread NDPI ReadRegion calls.
+- **Layer 2** — `Slide.imageReadRegionImpl` borrows a scratch tile-
+  Image once per call and uses `ImageDecodedTileInto` across the
+  tile loop. `Slide.ImageDecodedTileInto` fast-path dispatch passes
+  `Dst: dst` into the decoded-tile call; skips `copyImageInto` when
+  the fast path wrote directly into `dst`.
+  `formats/ndpi.strippedImage.DecodedTile` honors `opts.Dst` when
+  caller-provided dimensions+format match.
+- `Makefile`: `MIN_NDPI_MPIXS` tightened from 220 to 270 Mpix/s
+  (~90% of measured v0.29 single-thread baseline).
+
+### Public API
+
+- **No additions.** No new exported types, functions, or methods.
+- **No breaking changes.** RawTile, DecodedTile, ReadRegion,
+  ScaledStrips, and every format reader behave bit-identically.
+
+### Tests
+
+- `decoded_tile_scratch_test.go` (NEW): 5 pool unit tests under
+  `-race -count=3`.
+- `slide_region_layer1_test.go` (NEW, package `opentile`): 2 Layer 1
+  tests with synthetic `knownPixelReader`.
+- `formats/ndpi/stripped_decodedtile_test.go` (extended): 2 NDPI
+  prereq tests.
+
+### Layer 3 abandonment
+
+Layer 3 — NDPI `pixelFrameCache` scratchPool — was implemented and
+then reverted within v0.29. The race: when a cached frame's
+`*decoder.Image` is recycled to the pool on eviction, a goroutine
+still holding the pointer (from a previous cache hit) can read the
+buffer concurrently with a new decoder writing into it. Caught by
+an aggressive new concurrent test; not by existing parity tests
+(small race window, low contention). Path forward (deferred):
+refcount each cached entry with explicit `release()` callback, or
+adopt an immutable-frames + per-blit-owned-scratch topology. Layer
+3's allocation target (~11 GB of pixelCache frames) remains
+available for a future milestone.
+
+### Out of scope (deferred forward)
+
+- **Layer 3** (NDPI pixelCache scratch pool) — abandoned with race
+  detected; needs refcount design or alternative.
+- **`Slide.DecodedTile` allocation reduction** — direct callers
+  receive user-owned `*decoder.Image`; would require API changes.
+- **`ScaledStrips` allocation profile** — has its own internal tile
+  cache + worker pool; not profiled in v0.29.
+
+### Pre-existing issues out of scope
+
+- `tests/oracle/` build break (v0.24 Level API drift). Same as
+  v0.27 / v0.28; not v0.29-introduced.
+
 ## [0.28.0] — 2026-05-29
 
 Cross-format decoder-handle pool. Eliminates per-tile

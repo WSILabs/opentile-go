@@ -341,7 +341,19 @@ func (l *strippedImage) DecodedTile(tx, ty int, opts decoder.DecodeOptions) (*de
 	if outFormat == 0 {
 		outFormat = decoder.PixelFormatRGB
 	}
-	out := decoder.NewImageFormat(l.tileSize.W, l.tileSize.H, outFormat)
+	// v0.29 Layer 2 prereq: honor opts.Dst when caller provides a
+	// buffer of matching dimensions+format. Falls back to allocation
+	// otherwise (defensive — callers passing arbitrary Dst don't
+	// panic).
+	var out *decoder.Image
+	if opts.Dst != nil &&
+		opts.Dst.Width == l.tileSize.W &&
+		opts.Dst.Height == l.tileSize.H &&
+		opts.Dst.Format == outFormat {
+		out = opts.Dst
+	} else {
+		out = decoder.NewImageFormat(l.tileSize.W, l.tileSize.H, outFormat)
+	}
 	blitFromFrame(pixFrame, left, top, l.tileSize.W, l.tileSize.H, out)
 	return out, nil
 }
