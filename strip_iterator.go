@@ -6,6 +6,7 @@ import (
 	"image"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/resample"
@@ -40,7 +41,8 @@ type StripIterator struct {
 
 	// Tile dispatch channel — lookahead goroutine pushes (tx, ty)
 	// requests; workers pop them, decode, and put into cache.
-	tileReqs chan tileKey
+	tileReqs      chan tileKey
+	tileReqsOpen  atomic.Bool // true while tileReqs is open for sends
 
 	// Worker pool wait group.
 	workersDone sync.WaitGroup
@@ -81,16 +83,34 @@ func newStripIterator(s *Slide, imageIdx int, l0Rect image.Rectangle, outSize im
 		it.idctScale = 1
 	}
 
-	// Cache size heuristic: workers * (lookahead + 1) * tilesPerStripWidth
-	// (workers concurrent in-flight tiles per strip × strips in window).
+	// Cache size: byte-budget-derived, floored at max(workers,8) and
+	// capped at the original count formula. The count formula
+	// (workers × (lookahead+1) × tilesPerStripWidth) is the upper
+	// bound; the byte budget shrinks it on wide levels so the C1
+	// decoded-tile cache cannot balloon with slide width (v0.30).
 	tilesPerStripWidth := 1
 	if level.TileSize.W > 0 {
 		tilesPerStripWidth = (level.Size.W + level.TileSize.W - 1) / level.TileSize.W
 	}
-	cacheCapacity := cfg.workers * (cfg.lookahead + 1) * tilesPerStripWidth
-	if cacheCapacity < 8 {
-		cacheCapacity = 8
+	countFormulaCap := cfg.workers * (cfg.lookahead + 1) * tilesPerStripWidth
+	if countFormulaCap < 8 {
+		countFormulaCap = 8
 	}
+	// Per-tile bytes at the decoded (post-IDCT) resolution the workers
+	// actually cache; 3 bytes/px RGB. idctScale shrinks both dims.
+	scale := it.idctScale
+	if scale < 1 {
+		scale = 1
+	}
+	bytesPerTile := int64((level.TileSize.W/scale)*(level.TileSize.H/scale)) * 3
+	if bytesPerTile < 1 {
+		bytesPerTile = 1
+	}
+	budget := s.readBudget
+	if budget < 1 {
+		budget = defaultReadMemoryBudget
+	}
+	cacheCapacity := stripCacheCapacity(budget, bytesPerTile, cfg.workers, countFormulaCap)
 	it.cache = newTileCache(cacheCapacity)
 
 	// Wire up cancellation.
@@ -102,6 +122,7 @@ func newStripIterator(s *Slide, imageIdx int, l0Rect image.Rectangle, outSize im
 
 	// Start worker pool + lookahead.
 	it.tileReqs = make(chan tileKey, cfg.workers*2)
+	it.tileReqsOpen.Store(true)
 	it.advance = make(chan struct{}, 1)
 
 	// Start workers.
@@ -202,11 +223,19 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 		for tx := txMin; tx <= txMax; tx++ {
 			k := tileKey{tx: tx, ty: ty}
 			// Reserve in case lookahead hasn't gotten to it yet.
+			// If the lookahead has already closed tileReqs (all strips
+			// dispatched, cache cap smaller than the full slide) fall back
+			// to a synchronous in-line decode rather than sending on a
+			// closed channel.
 			if it.cache.reserve(k) {
-				select {
-				case it.tileReqs <- k:
-				case <-it.cancelCtx.Done():
-					return nil, it.cancelCtx.Err()
+				if it.tileReqsOpen.Load() {
+					select {
+					case it.tileReqs <- k:
+					case <-it.cancelCtx.Done():
+						return nil, it.cancelCtx.Err()
+					}
+				} else {
+					it.decodeAndStore(k)
 				}
 			}
 			tileImg, err, _ := it.cache.waitGet(k, it.cancelCtx)
@@ -324,7 +353,10 @@ func (it *StripIterator) decodeAndStore(k tileKey) {
 // Exits when cancelCtx fires or all strips' tiles have been enqueued.
 func (it *StripIterator) lookahead() {
 	defer it.lookaheadDone.Done()
-	defer close(it.tileReqs)
+	defer func() {
+		it.tileReqsOpen.Store(false)
+		close(it.tileReqs)
+	}()
 
 	dispatchedStrip := 0 // last strip whose tiles we've enqueued
 
@@ -425,6 +457,30 @@ func (it *StripIterator) tilesForStrip(stripIdx int) []tileKey {
 		}
 	}
 	return keys
+}
+
+// stripCacheCapacity converts a byte budget into a tile-count cap for
+// the per-iterator decoded-tile cache (C1). The result is floored at
+// max(workers, 8) so each worker always has an in-flight slot and tiny
+// budgets don't livelock, and capped at the original count-formula
+// value so a generous budget never over-provisions a narrow level.
+func stripCacheCapacity(budgetBytes, bytesPerTile int64, workers, countFormulaCap int) int {
+	if bytesPerTile < 1 {
+		bytesPerTile = 1
+	}
+	byteCap := int(budgetBytes / bytesPerTile)
+	floor := workers
+	if floor < 8 {
+		floor = 8
+	}
+	capacity := byteCap
+	if capacity < floor {
+		capacity = floor
+	}
+	if capacity > countFormulaCap {
+		capacity = countFormulaCap
+	}
+	return capacity
 }
 
 // autoIDCTScale picks the IDCT scale factor for a JPEG source level
