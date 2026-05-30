@@ -1,4 +1,4 @@
-.PHONY: test cover parity vet bench bench-ndpi bench-ndpi-mt bench-svs bench-svs-mt
+.PHONY: test cover parity vet bench bench-ndpi bench-ndpi-mt bench-svs bench-svs-mt bench-ndpi-mem
 
 test:
 	go test ./... -race -count=1
@@ -93,3 +93,18 @@ bench-svs-mt:
 	fi
 	@go build -o /tmp/bench-opentile-svs ./cmd/bench/svs/
 	@/tmp/bench-opentile-svs -in "$(OPENTILE_TESTDIR)/svs/CMU-1.svs" -goroutines $$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+
+# Peak-RSS gate for the NDPI ScaledStrips (DZI) path. Runs the
+# no-backpressure worst case under GOMEMLIMIT=2GiB (the recommended
+# deployment config). Thresholds are intentionally HIGHER than real
+# wsitools RSS because this harness drops strips (no consumer
+# backpressure) — it bounds the library's worst case, not the app's.
+# Placeholders — finalized in a later task from post-fix measurement.
+MAXPEAK_CMU ?= 99999
+MAXPEAK_OS2 ?= 99999
+
+bench-ndpi-mem: ## NDPI ScaledStrips peak-RSS gate (DZI path)
+	@go build -o /tmp/ndpi-strips ./cmd/bench/ndpi-strips/
+	GOMEMLIMIT=2GiB /tmp/ndpi-strips -in "$(OPENTILE_TESTDIR)/ndpi/CMU-1.ndpi" -dzitile 256  -maxpeak $(MAXPEAK_CMU)
+	GOMEMLIMIT=2GiB /tmp/ndpi-strips -in "$(OPENTILE_TESTDIR)/ndpi/OS-2.ndpi"  -dzitile 256  -maxpeak $(MAXPEAK_OS2)
+	GOMEMLIMIT=2GiB /tmp/ndpi-strips -in "$(OPENTILE_TESTDIR)/ndpi/OS-2.ndpi"  -dzitile 1024 -maxpeak $(MAXPEAK_OS2)
