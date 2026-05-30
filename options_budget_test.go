@@ -1,6 +1,9 @@
 package opentile
 
-import "testing"
+import (
+	"runtime/debug"
+	"testing"
+)
 
 func TestMemoryBudgetDefault(t *testing.T) {
 	c := newConfig(nil)
@@ -30,5 +33,31 @@ func TestMemoryBudgetIgnoresGarbageEnv(t *testing.T) {
 	c := newConfig(nil)
 	if got := c.resolveMemoryBudget(); got != defaultReadMemoryBudget {
 		t.Fatalf("garbage env should fall back to default: got %d", got)
+	}
+}
+
+func TestMemoryBudgetShrinksUnderGOMEMLIMIT(t *testing.T) {
+	// Set a 1 GiB runtime limit; restore after.
+	prev := debug.SetMemoryLimit(1 << 30)
+	t.Cleanup(func() { debug.SetMemoryLimit(prev) })
+
+	c := newConfig(nil) // no explicit budget
+	got := c.resolveMemoryBudget()
+	// Should be <= half the limit (leave headroom for GC + C2/C3 + app),
+	// and never below the 128 MiB floor.
+	if got > (1<<30)/2 {
+		t.Fatalf("budget %d should be <= half of GOMEMLIMIT", got)
+	}
+	if got < 128<<20 {
+		t.Fatalf("budget %d below floor", got)
+	}
+}
+
+func TestExplicitBudgetIgnoresGOMEMLIMIT(t *testing.T) {
+	prev := debug.SetMemoryLimit(1 << 30)
+	t.Cleanup(func() { debug.SetMemoryLimit(prev) })
+	c := newConfig([]Option{WithMemoryBudget(900_000_000)})
+	if got := c.resolveMemoryBudget(); got != 900_000_000 {
+		t.Fatalf("explicit budget must be honoured verbatim: got %d", got)
 	}
 }

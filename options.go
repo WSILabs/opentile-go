@@ -1,7 +1,9 @@
 package opentile
 
 import (
+	"math"
 	"os"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -44,6 +46,11 @@ const (
 // peak under GOGC=100. Override with WithMemoryBudget or the
 // OPENTILE_READ_MEMORY_BUDGET env var (bytes).
 const defaultReadMemoryBudget int64 = 1 << 30 // 1 GiB
+
+// minReadMemoryBudget is the floor below which budget derivation never
+// goes (roughly one worker's worth of in-flight tiles plus a strip
+// buffer). Keeps GOMEMLIMIT-driven shrinking from starving the cache.
+const minReadMemoryBudget int64 = 128 << 20 // 128 MiB
 
 // Option mutates the opentile configuration before Open returns a Tiler.
 type Option func(*config)
@@ -144,7 +151,21 @@ func (c *config) resolveMemoryBudget() int64 {
 			return n
 		}
 	}
-	return defaultReadMemoryBudget
+	// No explicit option/env budget: start from the default, but if the
+	// process has a GOMEMLIMIT set, shrink to <= half of it so our live
+	// set + GC headroom + the NDPI caches + the caller's own buffers fit
+	// under the runtime ceiling. SetMemoryLimit(-1) reads the current
+	// limit without changing it; math.MaxInt64 means "unset".
+	budget := defaultReadMemoryBudget
+	if limit := debug.SetMemoryLimit(-1); limit != math.MaxInt64 {
+		if half := limit / 2; half < budget {
+			budget = half
+		}
+	}
+	if budget < minReadMemoryBudget {
+		budget = minReadMemoryBudget
+	}
+	return budget
 }
 
 // Config is an opaque, read-only view of the configuration passed to a
