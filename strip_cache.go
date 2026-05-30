@@ -167,18 +167,27 @@ func (c *tileCache) release(k tileKey) {
 	}
 }
 
-// evictLocked tries to evict the LRU entry with refCount=0. If all
-// entries are referenced (capacity full + all in use), blocks via
-// cond until an entry's refCount drops or an entry is removed.
+// evictLocked tries to evict the LRU entry that is both unpinned
+// (refCount==0) and already produced (ready==nil). If none qualifies
+// (capacity full + all entries either pinned or still in-flight), it
+// blocks via cond until put() produces an in-flight entry or release()
+// drops a refCount, then retries.
+//
+// In-flight entries (ready!=nil) are NEVER evicted: a concurrent
+// waitGet() may already hold that entry's ready channel, and evicting
+// it would orphan the waiter forever (the producing put() creates a
+// fresh entry whose ready is a different channel). Skipping them is
+// safe for liveness because workers always produce reserved entries,
+// at which point they become evictable.
 //
 // Caller must hold c.mu.
 func (c *tileCache) evictLocked() {
 	for len(c.entries) >= c.capacity {
-		// Scan LRU back-to-front for a refCount=0 entry.
+		// Scan LRU back-to-front for an unpinned, produced entry.
 		var victim *list.Element
 		for e := c.lru.Back(); e != nil; e = e.Prev() {
-			k := e.Value.(tileKey)
-			if c.entries[k].refCount == 0 {
+			ent := c.entries[e.Value.(tileKey)]
+			if ent.refCount == 0 && ent.ready == nil {
 				victim = e
 				break
 			}
@@ -189,7 +198,7 @@ func (c *tileCache) evictLocked() {
 			delete(c.entries, k)
 			return
 		}
-		// All entries pinned — wait for release().
+		// All entries pinned or in-flight — wait for put()/release().
 		c.cond.Wait()
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"image"
 	"io"
 	"sync"
-	"sync/atomic"
 
 	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/resample"
@@ -39,10 +38,11 @@ type StripIterator struct {
 	cancelCtx context.Context    // derived from cfg.ctx + iterator's own cancel
 	cancelFn  context.CancelFunc
 
-	// Tile dispatch channel — lookahead goroutine pushes (tx, ty)
-	// requests; workers pop them, decode, and put into cache.
-	tileReqs      chan tileKey
-	tileReqsOpen  atomic.Bool // true while tileReqs is open for sends
+	// Tile dispatch channel — the lookahead goroutine and Next() push
+	// (tx, ty) requests; workers pop them, decode, and put into cache.
+	// Never closed: workers shut down via cancelCtx (see decodeWorker),
+	// so a sender can never panic on a closed channel.
+	tileReqs chan tileKey
 
 	// Worker pool wait group.
 	workersDone sync.WaitGroup
@@ -122,7 +122,6 @@ func newStripIterator(s *Slide, imageIdx int, l0Rect image.Rectangle, outSize im
 
 	// Start worker pool + lookahead.
 	it.tileReqs = make(chan tileKey, cfg.workers*2)
-	it.tileReqsOpen.Store(true)
 	it.advance = make(chan struct{}, 1)
 
 	// Start workers.
@@ -222,20 +221,14 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 	for ty := tyMin; ty <= tyMax; ty++ {
 		for tx := txMin; tx <= txMax; tx++ {
 			k := tileKey{tx: tx, ty: ty}
-			// Reserve in case lookahead hasn't gotten to it yet.
-			// If the lookahead has already closed tileReqs (all strips
-			// dispatched, cache cap smaller than the full slide) fall back
-			// to a synchronous in-line decode rather than sending on a
-			// closed channel.
+			// Reserve in case lookahead hasn't gotten to it yet, then hand
+			// the request to a worker. tileReqs is never closed (workers
+			// exit via cancelCtx), so this send never races a close.
 			if it.cache.reserve(k) {
-				if it.tileReqsOpen.Load() {
-					select {
-					case it.tileReqs <- k:
-					case <-it.cancelCtx.Done():
-						return nil, it.cancelCtx.Err()
-					}
-				} else {
-					it.decodeAndStore(k)
+				select {
+				case it.tileReqs <- k:
+				case <-it.cancelCtx.Done():
+					return nil, it.cancelCtx.Err()
 				}
 			}
 			tileImg, err, _ := it.cache.waitGet(k, it.cancelCtx)
@@ -320,15 +313,15 @@ func (it *StripIterator) Close() error {
 // decodeWorker pulls tileKey requests from tileReqs, decodes via
 // ImageDecodedTile(WithScale), and stores into the cache.
 //
-// Exits when tileReqs closes or cancelCtx fires.
+// Exits when cancelCtx fires (Close cancels it). tileReqs is never
+// closed, so workers idle on the channel between work and shutdown
+// rather than exiting on a close signal — this keeps the channel
+// sender-safe (no send-on-closed-channel race with Next/lookahead).
 func (it *StripIterator) decodeWorker() {
 	defer it.workersDone.Done()
 	for {
 		select {
-		case k, ok := <-it.tileReqs:
-			if !ok {
-				return
-			}
+		case k := <-it.tileReqs:
 			it.decodeAndStore(k)
 		case <-it.cancelCtx.Done():
 			return
@@ -353,10 +346,6 @@ func (it *StripIterator) decodeAndStore(k tileKey) {
 // Exits when cancelCtx fires or all strips' tiles have been enqueued.
 func (it *StripIterator) lookahead() {
 	defer it.lookaheadDone.Done()
-	defer func() {
-		it.tileReqsOpen.Store(false)
-		close(it.tileReqs)
-	}()
 
 	dispatchedStrip := 0 // last strip whose tiles we've enqueued
 
