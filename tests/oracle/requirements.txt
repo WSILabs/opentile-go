@@ -1,3 +1,16 @@
+# Python reference environment for the byte-parity oracle (-tags parity).
+#
+# IMPORTANT: use Python <= 3.12 for this venv. opentile 0.20.0 pulls
+# ome-types 0.5.3 / xsdata 24.3.1, whose OME-XML dataclass parsing breaks
+# on Python 3.14 (PEP 649 deferred annotations →
+# "XmlContextError: Failed to detect the declared class for field rights"
+# during OpenTile.open() on OME-TIFF). Verified green on Python 3.12.13.
+#
+# For the openslide oracle (TestOpenslideBIFParity, currently skipped),
+# also: pip install openslide-python openslide-bin
+#
+#   python3.12 -m venv venv && venv/bin/pip install -r requirements.txt
+#   OPENTILE_ORACLE_PYTHON=venv/bin/python go test -tags parity ./tests/oracle/
 opentile==0.20.0
 tifffile>=2023.12.9,<2024
 PyTurboJPEG>=1.7.5
