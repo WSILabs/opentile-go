@@ -346,3 +346,34 @@ slide width at a given tile size — not the unbounded pre-v0.30 climb.
 `HeapInuse` exceeds the committed thresholds — the regression guard for
 this class of issue. Thresholds are intentionally higher than real
 `wsitools` RSS because the harness drops strips (no backpressure).
+
+## Benchmark suite (cross-format)
+
+`bench/` is the standing cross-format benchmark suite (design:
+`docs/superpowers/specs/2026-05-30-comprehensive-benchmark-suite-design.md`).
+It covers all 10 formats × three patterns (`Tile` compressed-fetch,
+`DecodedTile`, `ReadRegion`) × single/parallel. Three entry points:
+
+- **`go test ./bench/ -bench BenchmarkRead`** — the profiling + A/B
+  instrument. Each sub-benchmark reports `Mpix/s` alongside `ns/op` and
+  `allocs/op`; `-cpuprofile`/`-memprofile` for profiles; `benchstat`
+  across `-count` runs for before/after comparison.
+- **`make bench-all`** — the throughput regression gate. Local/manual
+  (like the other `bench-*` targets — not run in CI, since shared
+  runners are too slow/variable for absolute Mpix/s floors). Fails if a
+  gated `format/pattern` drops below its floor (~85% of measured
+  single-thread baseline; only stable decode/assembly patterns are
+  gated). Re-baseline floors after a deliberate speedup.
+- **`make bench-compare`** — the on-demand competitive report:
+  opentile-go vs **openslide** (ReadRegion, in-process via a build-tagged
+  cgo shim) vs **python opentile** (Tile, subprocess). Needs
+  libopenslide + a python-opentile interpreter (`OPENTILE_ORACLE_PYTHON`).
+  See `cmd/bench/compare/README.md` for the column caveats (the Tile
+  column measures compressed-fetch overhead, not decode; multi-region
+  SCN ReadRegion isn't apples-to-apples).
+
+The openslide comparison uses an in-house ~40-line cgo shim
+(`internal/openslideshim`) gated behind `//go:build openslidebench`, so
+the shipping library keeps its single cgo dependency
+(`internal/jpegturbo`) — normal builds, `go test ./...`, and CI never
+compile it.

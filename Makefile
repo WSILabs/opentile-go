@@ -112,3 +112,40 @@ bench-ndpi-mem: ## NDPI ScaledStrips peak-RSS gate (DZI path)
 	GOMEMLIMIT=2GiB /tmp/ndpi-strips -in "$(OPENTILE_TESTDIR)/ndpi/CMU-1.ndpi" -dzitile 256  -maxpeak $(MAXPEAK_CMU)
 	GOMEMLIMIT=2GiB /tmp/ndpi-strips -in "$(OPENTILE_TESTDIR)/ndpi/OS-2.ndpi"  -dzitile 256  -maxpeak $(MAXPEAK_OS2)
 	GOMEMLIMIT=2GiB /tmp/ndpi-strips -in "$(OPENTILE_TESTDIR)/ndpi/OS-2.ndpi"  -dzitile 1024 -maxpeak $(MAXPEAK_OS2)
+
+.PHONY: bench-all bench-compare
+
+# Cross-format throughput regression gate. Local/manual (like the other
+# bench-* targets — NOT run in CI; GitHub runners are too slow/variable
+# for absolute Mpix/s floors). Runs the pure-Go internal benchmarks and
+# fails if a gated format/pattern drops below its floor. Floors are
+# ~85% of measured single-thread baselines on the developer machine;
+# only stable decode/assembly patterns are gated (svs/tile is pure
+# compressed-fetch overhead and too noisy to gate). Re-baseline floors
+# when a deliberate speedup raises the bar.
+bench-all: ## Cross-format throughput regression gate (local)
+	@OPENTILE_TESTDIR="$(OPENTILE_TESTDIR)" go test ./bench/ \
+		-bench 'BenchmarkRead/(ndpi|svs)/.*/single' -run '^$$' -benchtime 100x 2>/dev/null \
+		| tee /tmp/bench-all.txt
+	@awk ' \
+	  BEGIN { \
+	    floor["ndpi/tile/single"]=290; floor["ndpi/decodedtile/single"]=520; floor["ndpi/readregion/single"]=540; \
+	    floor["svs/decodedtile/single"]=380; floor["svs/readregion/single"]=440; \
+	    fail=0 \
+	  } \
+	  /Mpix\/s/ { \
+	    name=$$1; sub(/-[0-9]+$$/,"",name); sub(/^BenchmarkRead\//,"",name); \
+	    for (i=1;i<=NF;i++) if ($$i=="Mpix/s") v=$$(i-1); \
+	    if (name in floor) { \
+	      if (v+0 < floor[name]+0) { printf "FAIL: %s = %.1f Mpix/s < floor %d\n", name, v, floor[name]; fail=1 } \
+	      else { printf "ok:   %s = %.1f Mpix/s >= %d\n", name, v, floor[name] } \
+	    } \
+	  } \
+	  END { if (fail) exit 1; else print "bench-all: all gated lines >= floor" } \
+	' /tmp/bench-all.txt
+
+# Cross-language competitive report (on-demand; needs libopenslide +
+# python opentile via OPENTILE_ORACLE_PYTHON). Not run in CI.
+bench-compare: ## Competitive report: opentile-go vs openslide vs python opentile
+	@go build -tags openslidebench -o /tmp/bench-compare ./cmd/bench/compare/
+	@OPENTILE_TESTDIR="$(OPENTILE_TESTDIR)" /tmp/bench-compare
