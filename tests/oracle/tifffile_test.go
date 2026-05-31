@@ -112,9 +112,9 @@ func runTifffileBIFParityOnSlide(t *testing.T, slide string) {
 	}()
 
 	for li, lvl := range tiler.Levels() {
-		positions := samplePositions(lvl.Grid(), false)
+		positions := samplePositions(lvl.Grid, false)
 		for _, pos := range positions {
-			our, err := lvl.Tile(pos.X, pos.Y)
+			our, err := tiler.RawTile(li, pos.X, pos.Y)
 			if err != nil {
 				t.Errorf("level %d tile (%d,%d): Go error: %v", li, pos.X, pos.Y, err)
 				continue
@@ -154,7 +154,7 @@ func runTifffileParityOnSlide(t *testing.T, slide string) {
 	}()
 
 	for ii, img := range tiler.Images() {
-		for li, lvl := range img.Levels() {
+		for li, lvl := range img.Levels {
 			// Only tiled levels — OneFrame uses a transformed pipeline
 			// with no straight-byte tifffile reference. Detect via
 			// TileSize() vs Grid() consistency: tiled pages have
@@ -165,9 +165,9 @@ func runTifffileParityOnSlide(t *testing.T, slide string) {
 			// pages also have a TileWidth tag. The cleanest
 			// discriminator is: ask the tifffile runner; it will
 			// return zero-length on non-tiled levels.
-			positions := samplePositions(lvl.Grid(), false)
+			positions := samplePositions(lvl.Grid, false)
 			for _, pos := range positions {
-				our, err := lvl.Tile(pos.X, pos.Y)
+				our, err := tiler.ImageRawTile(ii, li, pos.X, pos.Y)
 				if err != nil {
 					t.Errorf("image %d level %d tile (%d,%d): Go error: %v", ii, li, pos.X, pos.Y, err)
 					continue
