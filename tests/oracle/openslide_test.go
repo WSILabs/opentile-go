@@ -94,14 +94,14 @@ func runOpenslideParityOnBIF(t *testing.T, slide string) {
 	}()
 
 	for li, lvl := range tiler.Levels() {
-		if ov := lvl.TileOverlap(); ov.X != 0 || ov.Y != 0 {
+		if ov := lvl.TileOverlap; ov.X != 0 || ov.Y != 0 {
 			t.Logf("level %d: skipping (TileOverlap=%v; openslide composes neighbours)", li, ov)
 			continue
 		}
-		positions := samplePositions(lvl.Grid(), false)
-		ts := lvl.TileSize()
+		positions := samplePositions(lvl.Grid, false)
+		ts := lvl.TileSize
 		for _, pos := range positions {
-			our, err := lvl.Tile(pos.X, pos.Y)
+			our, err := tiler.RawTile(li, pos.X, pos.Y)
 			if err != nil {
 				t.Errorf("level %d tile (%d,%d): Go error: %v", li, pos.X, pos.Y, err)
 				continue
