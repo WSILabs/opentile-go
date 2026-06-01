@@ -2,7 +2,9 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN), the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension), and the ZIP-wrapped Microsoft Deep Zoom-based [Smart Zoom Image](https://github.com/smartinmedia/SZI-Format) format. Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output. BIF (v0.7), IFE (v0.8), generic-TIFF (v0.10), Leica SCN (v0.11), and SZI (v0.16) are opentile-go's own additions beyond upstream's coverage. **Memory-mapped tile reads + pool-friendly `TileInto` API since v0.9; bandwidth-deduplication `TilePrefix` / `TileBodyInto` API since v0.13** — see [docs/perf.md](./docs/perf.md).
+A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, and Cloud-Optimized GeoTIFF WSI), the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension), and the ZIP-wrapped Microsoft Deep Zoom-based [Smart Zoom Image](https://github.com/smartinmedia/SZI-Format) format. Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output (verified against tifffile and Python opentile). BIF (v0.7), IFE (v0.8), generic-TIFF (v0.10), Leica SCN (v0.11), SZI (v0.16), and COG-WSI (v0.19) are opentile-go's own additions beyond upstream's coverage.
+
+Beyond raw passthrough, opentile-go adds: memory-mapped reads + pool-friendly `TileInto` (v0.9), bandwidth-deduplication `TilePrefix` / `TileBodyInto` (v0.13), a libvips-style `ScaledStrips` region/DZI iterator with byte-bounded peak memory (v0.26 / v0.30), and raw vendor TIFF-tag access (v0.31). Per-thread decode throughput is competitive with [openslide](#performance) — typically exceeding it on the in-repo cross-format benchmark. See [docs/perf.md](./docs/perf.md).
 
 ```go
 import (
@@ -313,6 +315,29 @@ Even on a hypothetical maximum-size 2″×1″ 40× slide the recommended
 config stays ~2.3 GB; the absolute ceiling across all configs is ~7 GB.
 The peak is a fixed ceiling, not the unbounded climb of pre-v0.30. See
 [`docs/perf.md`](./docs/perf.md) for the full breakdown.
+
+### Benchmarks & comparison
+
+The repo carries a standing cross-format benchmark suite (`bench/`):
+
+- **`go test ./bench/ -bench BenchmarkRead`** — per-format throughput for
+  `Tile` (compressed), `DecodedTile`, and `ReadRegion`, single and
+  parallel, reporting `Mpix/s` + `allocs/op`. The profiling / A/B
+  instrument (`benchstat`-friendly).
+- **`make bench-all`** — a local per-format throughput regression gate.
+- **`make bench-compare`** — an on-demand competitive report against
+  [openslide](https://openslide.org/) (decoded `read_region`) and Python
+  opentile (compressed `get_tile`). Requires libopenslide + a
+  python-opentile interpreter.
+
+On the in-repo benchmark (one fixture per format, bounded interior
+grid), opentile-go's decoded-region throughput typically exceeds
+openslide, and raw compressed-tile fetch is substantially faster than
+Python opentile. These are early, favorable, self-run numbers — a more
+thorough cross-machine benchmark is future work; run `make bench-compare`
+for current figures on your hardware, and see [`docs/perf.md`](./docs/perf.md)
+for methodology and caveats (region alignment, single machine, the
+multi-region SCN exception).
 
 ## Deviations from upstream Python opentile
 

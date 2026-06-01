@@ -2,7 +2,53 @@
 
 Direct Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB) with one cgo dependency (libjpeg-turbo, narrowly scoped to `internal/jpegturbo/`). Reads tiles from WSI (whole-slide imaging) TIFF files used in digital pathology.
 
-## Current milestone — v0.30 (shipped 2026-05-30)
+## Current milestone — v0.31 (shipped 2026-06-01)
+
+- **Scope:** Raw TIFF tag exposure (public API headline), plus a
+  standing cross-format benchmark suite and the restored byte-parity
+  oracle. Three things that merged since v0.30: the tag API, the bench
+  suite, and the `tests/oracle` build-fix.
+- **API additions (public):** `TIFFTag` (`Number`, `Name`, `Type`,
+  `Count`, `Raw []byte`, getters `ASCII`/`Uints`/`Rationals`),
+  `TIFFType` (+consts), `Rational`, `TIFFTags` (`Tag`/`ByName`),
+  `TIFFDirectory`/`DirectoryKind`, `TIFFDirectoriesOf`, and
+  `Slide.LevelTIFFTags`/`ImageLevelTIFFTags`/`AssociatedTIFFTags` — tags
+  anchored to the same `(image, level)` coords as `ImageRawTile`, with a
+  `TIFFDirectoriesOf` completeness view over orphan IFDs. Internal:
+  `internal/tiff.Page.RawTags()`, `TIFFTagsFromPage` bridge.
+- **API breaks:** none. All tag API is additive; RawTile / DecodedTile /
+  ReadRegion / ScaledStrips unchanged.
+- **Architecture:** lazy type-assertion provider — TIFF readers
+  implement exported `TIFFDirectories()`; the Slide walks the
+  `UnwrapReader` chain (the `MetadataOf` pattern). Decode on call,
+  nothing at Open. Implemented for all 8 TIFF formats (SVS, NDPI,
+  Philips, OME-TIFF multi-image, BIF, generic-TIFF, Leica-SCN; COG-WSI
+  **free** via its existing `UnwrapReader` delegation to inner
+  generic-TIFF). Pixel-pointer tags (273/279/324/325) excluded;
+  best-effort name dictionary; non-TIFF (IFE/SZI) → `ok=false`.
+- **Benchmark suite:** `bench/` — `go test ./bench/ -bench BenchmarkRead`
+  (10 formats × Tile/DecodedTile/ReadRegion × single/parallel),
+  `make bench-all` per-format gate, `make bench-compare` competitive
+  report vs openslide (in-process build-tagged cgo shim,
+  `//go:build openslidebench`) + python opentile (subprocess). Measured:
+  opentile-go ReadRegion **3–12× openslide**; RawTile **5–17× python
+  opentile**. One-cgo-dep invariant preserved (shim tagged out by
+  default).
+- **Oracle restored:** `tests/oracle` (`-tags parity`) builds + passes
+  again (Level/Image struct API drift fixed). Green on **Python ≤3.12**
+  (3.14 breaks ome-types/xsdata OME-XML parsing — pinned in
+  requirements.txt). opentile-go verified byte-identical to tifffile +
+  python opentile. `-tags bfparity` (Leica/Bio-Formats) still separate
+  (uses removed `Image.SizeC`).
+- **Correctness bar:** `make test` green under `-race` (39 packages);
+  `TestTIFFTagsAllFormats` cross-format sufficiency gate over all 8 TIFF
+  formats + non-TIFF exclusion + ASCII/Raw fidelity. CI green mac+linux.
+- **Design:** docs/superpowers/specs/2026-05-31-tiff-tag-exposure-design.md;
+  docs/superpowers/specs/2026-05-30-comprehensive-benchmark-suite-design.md
+- **Plans:** docs/superpowers/plans/2026-05-31-tiff-tag-exposure.md (+ -all-readers.md)
+- **Work branches:** feat/tiff-tags, feat/bench-suite, fix/oracle-parity-build
+
+## Previous milestone — v0.30 (shipped 2026-05-30)
 
 - **Scope:** Read-path memory-budget milestone. Bounds NDPI
   `ScaledStrips` (DZI conversion) peak memory to ~2 GB regardless of
