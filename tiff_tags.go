@@ -151,3 +151,75 @@ type TIFFDirectory struct {
 
 // Tag is a convenience for d.Tags.Tag(number).
 func (d TIFFDirectory) Tag(number uint16) (TIFFTag, bool) { return d.Tags.Tag(number) }
+
+// tiffTagProvider is implemented by TIFF-based format readers. The method
+// is exported because readers live in other packages. Returns every IFD
+// with structured identity; the Slide accessors derive views from it.
+type tiffTagProvider interface {
+	TIFFDirectories() []TIFFDirectory
+}
+
+// tiffProviderOf walks the UnwrapReader chain (like the MetadataOf helpers)
+// looking for a reader that implements tiffTagProvider.
+func tiffProviderOf(s *Slide) (tiffTagProvider, bool) {
+	var cur any = s.r
+	for cur != nil {
+		if p, ok := cur.(tiffTagProvider); ok {
+			return p, true
+		}
+		u, ok := cur.(interface{ UnwrapReader() any })
+		if !ok {
+			return nil, false
+		}
+		cur = u.UnwrapReader()
+	}
+	return nil, false
+}
+
+// TIFFDirectoriesOf enumerates every TIFF IFD (including orphan IFDs not
+// surfaced as a level or associated image). ok=false for non-TIFF formats
+// (IFE, SZI). The escape hatch for "dump all"; prefer LevelTIFFTags /
+// AssociatedTIFFTags for everyday access.
+func TIFFDirectoriesOf(s *Slide) ([]TIFFDirectory, bool) {
+	p, ok := tiffProviderOf(s)
+	if !ok {
+		return nil, false
+	}
+	return p.TIFFDirectories(), true
+}
+
+// ImageLevelTIFFTags returns the TIFF tags of image's level's backing IFD,
+// keyed exactly like ImageRawTile(image, level, ...). ok=false for non-TIFF
+// formats or an out-of-range (image, level).
+func (s *Slide) ImageLevelTIFFTags(image, level int) (TIFFTags, bool) {
+	dirs, ok := TIFFDirectoriesOf(s)
+	if !ok {
+		return nil, false
+	}
+	for _, d := range dirs {
+		if d.Kind == DirLevel && d.Image == image && d.Level == level {
+			return d.Tags, true
+		}
+	}
+	return nil, false
+}
+
+// LevelTIFFTags is the image-0 shortcut for ImageLevelTIFFTags.
+func (s *Slide) LevelTIFFTags(level int) (TIFFTags, bool) {
+	return s.ImageLevelTIFFTags(0, level)
+}
+
+// AssociatedTIFFTags returns the TIFF tags of an associated image's IFD,
+// matched on a.Type(). ok=false for non-TIFF or if not found.
+func (s *Slide) AssociatedTIFFTags(a AssociatedImage) (TIFFTags, bool) {
+	dirs, ok := TIFFDirectoriesOf(s)
+	if !ok {
+		return nil, false
+	}
+	for _, d := range dirs {
+		if d.Kind == DirAssociated && d.Associated == a.Type() {
+			return d.Tags, true
+		}
+	}
+	return nil, false
+}

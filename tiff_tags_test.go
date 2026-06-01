@@ -1,6 +1,10 @@
 package opentile
 
 import (
+	"context"
+	"errors"
+	"io"
+	"iter"
 	"testing"
 
 	"github.com/wsilabs/opentile-go/internal/tiff"
@@ -62,5 +66,85 @@ func TestTiffTagsFromTranslatesAndFilters(t *testing.T) {
 	v, ok := ts.Tag(65420)
 	if !ok || v.Name != "" {
 		t.Fatalf("vendor tag 65420 should be kept with empty name: %+v %v", v, ok)
+	}
+}
+
+// fakeTagReader is a slideReader stub that also implements tiffTagProvider.
+type fakeTagReader struct {
+	slideReader
+	dirs []TIFFDirectory
+}
+
+func (f fakeTagReader) TIFFDirectories() []TIFFDirectory { return f.dirs }
+
+func TestSlideTIFFAccessors(t *testing.T) {
+	s := &Slide{r: fakeTagReader{dirs: []TIFFDirectory{
+		{Kind: DirLevel, Image: 0, Level: 0, Tags: TIFFTags{{Number: 270, Name: "ImageDescription", Type: TIFFASCII}}},
+		{Kind: DirLevel, Image: 0, Level: 1, Tags: TIFFTags{{Number: 256, Name: "ImageWidth", Type: TIFFShort}}},
+		{Kind: DirAssociated, Associated: "label", Tags: TIFFTags{{Number: 305, Name: "Software", Type: TIFFASCII}}},
+		{Kind: DirOther, Tags: TIFFTags{{Number: 65500, Type: TIFFLong}}},
+	}}}
+
+	tags, ok := s.LevelTIFFTags(0)
+	if !ok {
+		t.Fatal("LevelTIFFTags(0) ok=false")
+	}
+	if _, ok := tags.Tag(270); !ok {
+		t.Fatal("level 0 missing tag 270")
+	}
+	tags1, ok := s.LevelTIFFTags(1)
+	if !ok {
+		t.Fatal("LevelTIFFTags(1) ok=false")
+	}
+	if _, ok := tags1.Tag(256); !ok {
+		t.Fatal("level 1 missing tag 256")
+	}
+	if _, ok := s.LevelTIFFTags(9); ok {
+		t.Fatal("out-of-range level should be ok=false")
+	}
+	all, ok := TIFFDirectoriesOf(s)
+	if !ok || len(all) != 4 {
+		t.Fatalf("TIFFDirectoriesOf = %d dirs, ok=%v", len(all), ok)
+	}
+}
+
+// nonTIFFReader is a minimal slideReader stub that does NOT implement
+// tiffTagProvider. Used to verify that non-TIFF accessors return ok=false.
+type nonTIFFReader struct{}
+
+func (nonTIFFReader) Format() Format                   { return Format("test") }
+func (nonTIFFReader) Images() []Image                  { return nil }
+func (nonTIFFReader) Level(_, _ int) (Level, error)    { return Level{}, errors.New("stub") }
+func (nonTIFFReader) Associated() []AssociatedImage    { return nil }
+func (nonTIFFReader) Metadata() Metadata               { return Metadata{} }
+func (nonTIFFReader) ICCProfile() []byte               { return nil }
+func (nonTIFFReader) WarmLevel(_, _ int) error         { return nil }
+func (nonTIFFReader) ImageRawTile(_, _, _, _ int) ([]byte, error) {
+	return nil, errors.New("stub")
+}
+func (nonTIFFReader) ImageRawTileInto(_, _, _, _ int, _ []byte) (int, error) {
+	return 0, errors.New("stub")
+}
+func (nonTIFFReader) ImageTileMaxSize(_, _ int) int      { return 0 }
+func (nonTIFFReader) ImageTilePrefix(_, _ int) []byte    { return nil }
+func (nonTIFFReader) ImageTileBodyMaxSize(_, _ int) int  { return 0 }
+func (nonTIFFReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) {
+	return 0, errors.New("stub")
+}
+func (nonTIFFReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error) {
+	return nil, errors.New("stub")
+}
+func (nonTIFFReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[TilePos, TileResult] {
+	return func(yield func(TilePos, TileResult) bool) {}
+}
+func (nonTIFFReader) Close() error { return nil }
+
+func TestSlideTIFFAccessorsNonTIFF(t *testing.T) {
+	s := &Slide{r: nonTIFFReader{}}
+	if _, ok := s.LevelTIFFTags(0); ok {
+		t.Fatal("non-TIFF should return ok=false")
+	}
+	if _, ok := TIFFDirectoriesOf(s); ok {
+		t.Fatal("non-TIFF TIFFDirectoriesOf should be ok=false")
 	}
 }
