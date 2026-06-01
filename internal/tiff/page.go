@@ -3,6 +3,7 @@ package tiff
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
 // Well-known TIFF tag IDs used by opentile-go.
@@ -335,4 +336,20 @@ func (p *Page) TileGrid() (int, int, error) {
 		gy++
 	}
 	return gx, gy, nil
+}
+
+// RawTags enumerates every tag in this page's IFD, decoded, in ascending
+// tag-number order (deterministic). Used by the opentile root package to
+// build the public TIFF-tag API.
+func (p *Page) RawTags() []RawTag {
+	nums := make([]uint16, 0, len(p.ifd.entries))
+	for n := range p.ifd.entries {
+		nums = append(nums, n)
+	}
+	sort.Slice(nums, func(i, j int) bool { return nums[i] < nums[j] })
+	out := make([]RawTag, 0, len(nums))
+	for _, n := range nums {
+		out = append(out, p.ifd.entries[n].decode(p.br))
+	}
+	return out
 }
