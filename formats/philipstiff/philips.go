@@ -128,6 +128,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	tiledLevels := make([]*tiledImage, 0, len(class.Levels))
 	valueLevels := make([]opentile.Level, 0, len(class.Levels))
+	var dirSpecs []philipsDirSpec
+	seenPages := make(map[int]bool)
 	for k, pageIdx := range class.Levels {
 		var levelSize opentile.Size
 		if k < len(correctedSizes) {
@@ -154,6 +156,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			FocalPlane:   0,
 			Downsample:   float64(baseSize.W) / float64(lvl.size.W),
 		})
+		dirSpecs = append(dirSpecs, philipsDirSpec{pageIdx: pageIdx, kind: opentile.DirLevel, level: k})
+		seenPages[pageIdx] = true
 	}
 
 	// Associated images: emit in upstream's accessor order — thumbnail,
@@ -176,6 +180,14 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			return nil, fmt.Errorf("philips: associated %s (page %d): %w", spec.kind, spec.pageIdx, err)
 		}
 		associated = append(associated, a)
+		dirSpecs = append(dirSpecs, philipsDirSpec{pageIdx: spec.pageIdx, kind: opentile.DirAssociated, assoc: spec.kind})
+		seenPages[spec.pageIdx] = true
+	}
+	// Capture orphan pages (IFDs not surfaced as a level or associated image).
+	for i := range pages {
+		if !seenPages[i] {
+			dirSpecs = append(dirSpecs, philipsDirSpec{pageIdx: i, kind: opentile.DirOther})
+		}
 	}
 
 	icc, _ := pages[0].ICCProfile()
@@ -192,7 +204,18 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		icc:         icc,
 		baseSize:    baseSize,
 		baseMPP:     baseMPP,
+		file:        file,
+		dirSpecs:    dirSpecs,
 	}, nil
+}
+
+// philipsDirSpec captures the physical page index and semantic role of one IFD,
+// recorded at Open time so TIFFDirectories() can build the public view lazily.
+type philipsDirSpec struct {
+	pageIdx int
+	kind    opentile.DirectoryKind
+	level   int    // valid when kind==DirLevel
+	assoc   string // valid when kind==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the Philips implementation of format.Reader.
@@ -204,6 +227,8 @@ type tiler struct {
 	icc         []byte
 	baseSize    opentile.Size
 	baseMPP     opentile.SizeMm
+	file        *tiff.File      // retained for lazy TIFF-tag exposure
+	dirSpecs    []philipsDirSpec // page→role mapping captured at Open
 }
 
 func (t *tiler) Format() opentile.Format            { return opentile.FormatPhilipsTIFF }
@@ -212,6 +237,29 @@ func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
+
+// TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
+// Implements opentile's (unexported) tiffTagProvider.
+func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
+	if t.file == nil {
+		return nil
+	}
+	pages := t.file.Pages()
+	out := make([]opentile.TIFFDirectory, 0, len(t.dirSpecs))
+	for _, ds := range t.dirSpecs {
+		if ds.pageIdx < 0 || ds.pageIdx >= len(pages) {
+			continue
+		}
+		out = append(out, opentile.TIFFDirectory{
+			Kind:       ds.kind,
+			Image:      0, // Philips TIFF is single-image
+			Level:      ds.level,
+			Associated: ds.assoc,
+			Tags:       opentile.TIFFTagsFromPage(pages[ds.pageIdx]),
+		})
+	}
+	return out
+}
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {
