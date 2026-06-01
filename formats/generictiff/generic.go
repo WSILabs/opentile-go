@@ -85,6 +85,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	r := file.ReaderAt()
 	tiledLevels := make([]*tiledImage, 0, len(res.Pyramid))
 	valueLevels := make([]opentile.Level, 0, len(res.Pyramid))
+	var dirSpecs []genericDirSpec
+	seenPages := make(map[int]bool)
 	var l0Width int
 	for i, info := range res.Pyramid {
 		lvl, err := newTiledImage(i, i, pages[info.Index], r)
@@ -106,6 +108,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			FocalPlane:   0,
 			Downsample:   float64(l0Width) / float64(lvl.size.W),
 		})
+		dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: info.Index, kind: opentile.DirLevel, level: i})
+		seenPages[info.Index] = true
 	}
 
 	baseline := res.Pyramid[0]
@@ -121,12 +125,21 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			if errors.Is(err, errUnsupportedAssociatedShape) {
 				// Spec §6: silently drop unsupported IFDs (multi-strip
 				// Deflate, tiled associated) — the IFD is recognised
-				// but not exposed via Associated().
+				// but not exposed via Associated(). Route to DirOther
+				// so the page is still visible via TIFFDirectories.
 				continue
 			}
 			return nil, fmt.Errorf("generic: associated %s (page %d): %w", kind, info.Index, err)
 		}
 		associated = append(associated, a)
+		dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: info.Index, kind: opentile.DirAssociated, assoc: kind})
+		seenPages[info.Index] = true
+	}
+	// Capture orphan pages (IFDs not surfaced as a level or associated image).
+	for i := range pages {
+		if !seenPages[i] {
+			dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: i, kind: opentile.DirOther})
+		}
 	}
 
 	icc, _ := pages[res.Pyramid[0].Index].ICCProfile()
@@ -143,6 +156,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		images:      images,
 		associated:  associated,
 		icc:         icc,
+		file:        file,
+		dirSpecs:    dirSpecs,
 	}, nil
 }
 

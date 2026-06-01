@@ -55,6 +55,15 @@ func MetadataOf(v any) (*Metadata, bool) {
 	return nil, false
 }
 
+// genericDirSpec captures the physical page index and semantic role of one IFD,
+// recorded at Open time so TIFFDirectories() can build the public view lazily.
+type genericDirSpec struct {
+	pageIdx int
+	kind    opentile.DirectoryKind
+	level   int    // valid when kind==DirLevel
+	assoc   string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+}
+
 // tiler is the generic-TIFF implementation of format.Reader.
 type tiler struct {
 	md          Metadata
@@ -62,6 +71,8 @@ type tiler struct {
 	images      []opentile.Image
 	associated  []opentile.AssociatedImage
 	icc         []byte
+	file        *tiff.File      // retained for lazy TIFF-tag exposure
+	dirSpecs    []genericDirSpec // page→role mapping captured at Open
 }
 
 func (t *tiler) Format() opentile.Format            { return opentile.FormatGenericTIFF }
@@ -70,6 +81,29 @@ func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
+
+// TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
+// Implements opentile's (unexported) tiffTagProvider.
+func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
+	if t.file == nil {
+		return nil
+	}
+	pages := t.file.Pages()
+	out := make([]opentile.TIFFDirectory, 0, len(t.dirSpecs))
+	for _, ds := range t.dirSpecs {
+		if ds.pageIdx < 0 || ds.pageIdx >= len(pages) {
+			continue
+		}
+		out = append(out, opentile.TIFFDirectory{
+			Kind:       ds.kind,
+			Image:      0, // generic-TIFF is single-image
+			Level:      ds.level,
+			Associated: ds.assoc,
+			Tags:       opentile.TIFFTagsFromPage(pages[ds.pageIdx]),
+		})
+	}
+	return out
+}
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {
