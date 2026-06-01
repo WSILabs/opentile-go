@@ -43,6 +43,7 @@ type tiler struct {
 	levelImpls  []ndpiLevel // parallel to images[0].Levels
 	associated  []opentile.AssociatedImage
 	icc         []byte
+	dirSpecs    []ndpiDirSpec // page→role mapping captured at Open; used by TIFFDirectories
 }
 
 func (t *tiler) Format() opentile.Format            { return opentile.FormatNDPI }
