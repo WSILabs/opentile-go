@@ -238,6 +238,30 @@ if md, ok := ome.MetadataOf(t); ok {
 
 `MetadataOf` walks any number of wrapper Tilers (e.g., `*fileCloser` from `OpenFile`) before asserting on the concrete type, so the helper works regardless of how the Tiler was obtained.
 
+### Raw TIFF tags
+
+For TIFF-based formats, raw tags — including vendor/private tags not surfaced
+as typed `Metadata` fields — are available per IFD, anchored to the level or
+associated image you already hold:
+
+```go
+tags, ok := slide.LevelTIFFTags(0)          // image-0 level-0 IFD
+if ok {
+    if t, ok := tags.Tag(65420); ok {        // a vendor/private tag by number
+        s, _ := t.ASCII()
+        _ = s
+    }
+}
+slide.AssociatedTIFFTags(a)                   // an associated image's tags
+opentile.TIFFDirectoriesOf(slide)             // every IFD incl. orphans (Map/hidden)
+```
+
+`TIFFTag` carries `Number`, best-effort `Name`, `Type`, `Count`, verbatim
+`Raw` bytes, and typed getters (`ASCII`/`Uints`/`Rationals`). Non-TIFF
+formats (IFE, SZI) return `ok=false`. Pixel-pointer tags
+(`StripOffsets`/`TileOffsets`/…) are excluded. Currently implemented for
+SVS; other TIFF formats follow.
+
 ### Concurrency
 
 `Level.Tile`, `Level.TileInto`, `Level.TileAt`, and `Level.TileReader` are safe to call concurrently from multiple goroutines. SVS / Philips / OME tiled / BIF / IFE have no internal locks on the tile hot path. NDPI's striped reader takes a per-page mutex on its assembled-frame cache; concurrent reads of *different* pages run in parallel, concurrent reads of the *same* page serialize. OME OneFrame is similar.
