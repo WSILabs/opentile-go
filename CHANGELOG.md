@@ -11,6 +11,81 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-06-01
+
+Raw TIFF tag exposure (the headline, public API), plus a standing
+cross-format benchmark suite and the restored byte-parity oracle.
+
+### Added — raw TIFF tags (public)
+
+Consumers can read raw TIFF tags — including vendor/private tags not
+surfaced as typed `Metadata` fields — anchored to the semantic level or
+associated image they already hold:
+
+- `TIFFTag{Number, Name, Type, Count, Raw []byte}` with typed getters
+  `ASCII()` / `Uints()` / `Rationals()`; `TIFFType` constants;
+  `Rational`. `TIFFTags` with `Tag(number)` / `ByName`.
+- Entity-anchored access, keyed by the same `(image, level)` coordinates
+  as `ImageRawTile`: `Slide.LevelTIFFTags(level)`,
+  `Slide.ImageLevelTIFFTags(image, level)`,
+  `Slide.AssociatedTIFFTags(a)`.
+- `TIFFDirectoriesOf(s) ([]TIFFDirectory, bool)` — completeness view over
+  every IFD with structured identity (`DirLevel` / `DirAssociated` /
+  `DirOther`), reaching orphan IFDs (NDPI Map page, OME SubIFDs, SCN
+  region/XML IFDs).
+
+Implemented for all 8 TIFF-based formats (SVS, NDPI, Philips, OME-TIFF
+multi-image, BIF, generic-TIFF, Leica-SCN, COG-WSI). Lazy (decoded on
+call, nothing at `Open`) via a type-assertion provider through the
+`UnwrapReader` chain; COG-WSI inherits it for free via its delegation to
+the inner generic-TIFF reader. Pixel-pointer tags
+(`StripOffsets`/`StripByteCounts`/`TileOffsets`/`TileByteCounts`) are
+excluded; the tag-name dictionary is best-effort (`Number` is always
+authoritative). Non-TIFF formats (IFE, SZI) return `ok=false`.
+`internal/tiff.Page` gains a generic `RawTags()` enumerator.
+
+### Added — benchmark suite (internal/tooling)
+
+Standing cross-format benchmark suite (`bench/`): `go test ./bench/
+-bench BenchmarkRead` over all 10 formats × Tile/DecodedTile/ReadRegion ×
+single/parallel (Mpix/s + allocs/op); `make bench-all` per-format
+throughput gate; `make bench-compare` competitive report vs **openslide**
+(in-process via a build-tagged in-house cgo shim, `//go:build
+openslidebench`) and **python opentile** (subprocess). The shipping
+library keeps its single cgo dependency. Measured: opentile-go ReadRegion
+3–12× openslide; RawTile fetch 5–17× python opentile.
+
+### Fixed — byte-parity oracle
+
+`tests/oracle` (`-tags parity`) builds again after Level/Image struct API
+drift (method-style → field access; `Level.Tile` → `Slide.RawTile`/
+`ImageRawTile`). Full parity suite green on Python ≤3.12 (3.14 breaks
+ome-types/xsdata OME-XML parsing); opentile-go verified byte-identical to
+tifffile (raw TIFF) and python opentile across formats. The `-tags
+bfparity` Leica/Bio-Formats oracle remains separate (uses the removed
+`Image.SizeC`).
+
+### Public API
+
+- **Additions:** `TIFFTag`, `TIFFType` (+constants), `Rational`,
+  `TIFFTags`, `TIFFDirectory`, `DirectoryKind`, `TIFFDirectoriesOf`,
+  `Slide.LevelTIFFTags`, `Slide.ImageLevelTIFFTags`,
+  `Slide.AssociatedTIFFTags`. All additive.
+- **No breaking changes.** RawTile / DecodedTile / ReadRegion /
+  ScaledStrips unchanged.
+
+### Tests
+
+- `TestTIFFTagsAllFormats` — cross-format sufficiency gate over all 8
+  TIFF formats; `TestTIFFTagsNonTIFFExcluded`; `TestTIFFTagFidelity`.
+  Per-format provider tests. `make test` green under `-race`.
+
+### Design / Plans
+
+- `docs/superpowers/specs/2026-05-31-tiff-tag-exposure-design.md`
+- `docs/superpowers/plans/2026-05-31-tiff-tag-exposure.md` (+ `-all-readers.md`)
+- `docs/superpowers/specs/2026-05-30-comprehensive-benchmark-suite-design.md`
+
 ## [0.30.0] — 2026-05-30
 
 Read-path memory-budget milestone. Bounds NDPI `ScaledStrips` (the DZI
