@@ -68,7 +68,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	if err != nil {
 		return nil, err
 	}
-	levelIFDs, associatedIFDs, _, err := inventory(file)
+	levelIFDs, associatedIFDs, unknownIFDs, err := inventory(file)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +77,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		return nil, err
 	}
 	scanWhite := scanWhitePointFor(iscan)
+	var dirSpecs []bifDirSpec
 	levelImpls := make([]*levelImpl, 0, len(levelIFDs))
 	valueLevels := make([]opentile.Level, 0, len(levelIFDs))
 	var levelZeroDepth int
@@ -103,6 +104,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			FocalPlane:   0,
 			Downsample:   float64(l0Width) / float64(l.size.W),
 		})
+		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirLevel, level: i})
 	}
 	if levelZeroDepth < 1 {
 		levelZeroDepth = 1
@@ -111,6 +113,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	for _, c := range associatedIFDs {
 		kind := kindFromIFDRole(c.Role)
 		if kind == "" {
+			dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirOther})
 			continue
 		}
 		a, err := newAssociatedImage(kind, c.Page, file.ReaderAt())
@@ -118,6 +121,11 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			return nil, err
 		}
 		associated = append(associated, a)
+		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirAssociated, assoc: kind})
+	}
+	// Capture orphan pages (IFDs not surfaced as a level or associated image).
+	for _, c := range unknownIFDs {
+		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirOther})
 	}
 	zSpacing := 0.0
 	if iscan != nil {
@@ -140,6 +148,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		image:         newBifImage(levelZeroDepth, zSpacing),
 		images:        images,
 		associated:    associated,
+		dirSpecs:      dirSpecs,
 	}, nil
 }
 
@@ -186,6 +195,10 @@ type Tiler struct {
 	// MetadataOf call (T17). Subsequent calls return the cached
 	// pointer; the struct itself is never mutated.
 	cachedMetadata *Metadata
+
+	// dirSpecs captures the page→role mapping for every IFD, recorded
+	// at Open time so TIFFDirectories() can build the public view lazily.
+	dirSpecs []bifDirSpec
 }
 
 
@@ -448,6 +461,36 @@ func (t *Tiler) ICCProfile() []byte {
 		return nil
 	}
 	return prof
+}
+
+// bifDirSpec captures the physical page pointer and semantic role of one IFD,
+// recorded at Open time so TIFFDirectories() can build the public view lazily.
+// BIF associated images carry direct *tiff.Page references (via classifiedIFD.Page),
+// so we store the page pointer directly rather than a page index.
+type bifDirSpec struct {
+	page  *tiff.Page
+	kind  opentile.DirectoryKind
+	level int    // valid when kind==DirLevel
+	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+}
+
+// TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
+// Implements opentile's (unexported) tiffTagProvider.
+func (t *Tiler) TIFFDirectories() []opentile.TIFFDirectory {
+	out := make([]opentile.TIFFDirectory, 0, len(t.dirSpecs))
+	for _, ds := range t.dirSpecs {
+		if ds.page == nil {
+			continue
+		}
+		out = append(out, opentile.TIFFDirectory{
+			Kind:       ds.kind,
+			Image:      0, // BIF is single-image
+			Level:      ds.level,
+			Associated: ds.assoc,
+			Tags:       opentile.TIFFTagsFromPage(ds.page),
+		})
+	}
+	return out
 }
 
 // Close releases any resources held by the Tiler. Currently a no-op:
