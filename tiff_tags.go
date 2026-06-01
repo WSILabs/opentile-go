@@ -19,6 +19,13 @@ var tiffTagNames = map[uint16]string{
 	34665: "ExifIFD", 34675: "ICCProfile",
 }
 
+// TIFFTagsFromPage builds the public TIFFTags for a parsed TIFF page. For
+// use by format readers implementing the TIFF-tag provider; not part of
+// the consumer-facing surface (the parameter type is internal).
+func TIFFTagsFromPage(p *tiff.Page) TIFFTags {
+	return tiffTagsFrom(p.RawTags())
+}
+
 // tiffTagsFrom translates internal raw tags to the public TIFFTags: maps
 // types, applies the name dictionary, and drops the pixel-pointer denylist.
 func tiffTagsFrom(raw []tiff.RawTag) TIFFTags {
