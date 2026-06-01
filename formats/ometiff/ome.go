@@ -115,8 +115,10 @@ func pageDims(p *tiff.Page) (opentile.Size, error) {
 }
 
 // buildLevels walks an OME main pyramid's SubIFD chain and returns
-// both the value-type level metadata slice and the internal tile-read
-// engine slice (top-level page L0 + each SubIFD as L1..Ln).
+// the value-type level metadata slice, the internal tile-read engine
+// slice (top-level page L0 + each SubIFD as L1..Ln), and the per-level
+// *tiff.Page slice in the same order (used by the TIFF-tag provider to
+// capture dirSpecs at Open time).
 // Dispatches per-page on TileWidth: tiled pages → tiledImage,
 // non-tiled pages → oneframe.Image.
 func buildLevels(
@@ -125,13 +127,13 @@ func buildLevels(
 	baseSize opentile.Size,
 	baseMPP opentile.SizeMm,
 	oneFrameTileSize opentile.Size,
-) ([]opentile.Level, []omeLevel, error) {
+) ([]opentile.Level, []omeLevel, []*tiff.Page, error) {
 	pages := []*tiff.Page{basePage}
 	if subOffsets, ok := basePage.SubIFDOffsets(); ok {
 		for _, off := range subOffsets {
 			sub, err := file.PageAtOffset(off)
 			if err != nil {
-				return nil, nil, fmt.Errorf("read SubIFD at %d: %w", off, err)
+				return nil, nil, nil, fmt.Errorf("read SubIFD at %d: %w", off, err)
 			}
 			pages = append(pages, sub)
 		}
@@ -143,7 +145,7 @@ func buildLevels(
 		if tw > 0 {
 			ti, err := newTiledImage(li, p, baseSize, baseMPP, file.ReaderAt())
 			if err != nil {
-				return nil, nil, fmt.Errorf("level %d (tiled): %w", li, err)
+				return nil, nil, nil, fmt.Errorf("level %d (tiled): %w", li, err)
 			}
 			valueLevels = append(valueLevels, opentile.Level{
 				Index:        ti.index,
@@ -159,7 +161,7 @@ func buildLevels(
 		} else {
 			of, err := newOneFrameImage(li, p, oneFrameTileSize, baseSize, baseMPP, file.ReaderAt())
 			if err != nil {
-				return nil, nil, fmt.Errorf("level %d (oneframe): %w", li, err)
+				return nil, nil, nil, fmt.Errorf("level %d (oneframe): %w", li, err)
 			}
 			sz := of.Size()
 			valueLevels = append(valueLevels, opentile.Level{
@@ -175,7 +177,19 @@ func buildLevels(
 			engines = append(engines, of)
 		}
 	}
-	return valueLevels, engines, nil
+	return valueLevels, engines, pages, nil
+}
+
+// omeDirSpec captures the *tiff.Page pointer and semantic role of one IFD,
+// recorded at Open time so TIFFDirectories() can build the public view lazily.
+// OME levels are base page + SubIFD pages returned by buildLevels; image is the
+// pyramid index (k) in the cls.LevelImages loop — NOT always 0.
+type omeDirSpec struct {
+	page  *tiff.Page
+	kind  opentile.DirectoryKind
+	image int    // valid when kind==DirLevel; equals pyramid index k
+	level int    // valid when kind==DirLevel
+	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the OME implementation of format.Reader.
@@ -190,6 +204,10 @@ type tiler struct {
 	levels     [][]omeLevel // [imageIdx][levelIdx]
 	associated []opentile.AssociatedImage
 	icc        []byte
+
+	// dirSpecs captures the page→role mapping for every IFD, recorded
+	// at Open time so TIFFDirectories() can build the public view lazily.
+	dirSpecs []omeDirSpec
 }
 
 func (t *tiler) Format() opentile.Format    { return opentile.FormatOMETIFF }
@@ -198,6 +216,31 @@ func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.cross }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
+
+// TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
+// Implements opentile's (unexported) tiffTagProvider.
+//
+// OME is multi-image: each main pyramid has its own image index (the k
+// counter from the cls.LevelImages loop, not always 0). Level 0 is the
+// base page; L1..Ln are SubIFD pages read by buildLevels. Associated
+// images (macro/label/thumbnail) are stored at their OME page with the
+// kind string ("overview", "label", "thumbnail") that matches Type().
+func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
+	out := make([]opentile.TIFFDirectory, 0, len(t.dirSpecs))
+	for _, ds := range t.dirSpecs {
+		if ds.page == nil {
+			continue
+		}
+		out = append(out, opentile.TIFFDirectory{
+			Kind:       ds.kind,
+			Image:      ds.image,
+			Level:      ds.level,
+			Associated: ds.assoc,
+			Tags:       opentile.TIFFTagsFromPage(ds.page),
+		})
+	}
+	return out
+}
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image < 0 || image >= len(t.images) {

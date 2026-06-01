@@ -10,6 +10,7 @@ import (
 	"time"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Metadata is the Leica SCN-specific format metadata. Embeds
@@ -106,6 +107,18 @@ func MetadataOf(v any) (*Metadata, bool) {
 	return nil, false
 }
 
+// scnDirSpec captures the physical page pointer and semantic role of one IFD,
+// recorded at Open time so TIFFDirectories() can build the public view lazily.
+// SCN levels are composed from multiple region IFDs; the canonical page is
+// region 0 / channel 0 for each level. All other region/channel IFDs at a
+// level become DirOther.
+type scnDirSpec struct {
+	page  *tiff.Page
+	kind  opentile.DirectoryKind
+	level int    // valid when kind==DirLevel
+	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+}
+
 // tiler is the Leica SCN implementation of format.Reader.
 type tiler struct {
 	md         Metadata
@@ -115,6 +128,10 @@ type tiler struct {
 	icc        []byte
 	sizeC      int
 	channels   []ChannelInfo
+
+	// dirSpecs captures the page→role mapping for every IFD, recorded
+	// at Open time so TIFFDirectories() can build the public view lazily.
+	dirSpecs []scnDirSpec
 }
 
 func (t *tiler) Format() opentile.Format    { return opentile.FormatLeicaSCN }
@@ -123,6 +140,33 @@ func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }
+
+// TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
+// Implements opentile's (unexported) tiffTagProvider.
+//
+// SCN is multi-region: each composite level is backed by N regions × M
+// channels IFDs. The canonical IFD for each level is region 0 / channel 0
+// (the same page newTiledRegion uses as its "canonical" source for tile
+// size / grid). All other region/channel IFDs at a level are emitted as
+// DirOther. Associated images use the lowest-resolution auxiliary IFD
+// (the page selected by newAssociatedImage). SCN exposes a single main
+// image (Image: 0).
+func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
+	out := make([]opentile.TIFFDirectory, 0, len(t.dirSpecs))
+	for _, ds := range t.dirSpecs {
+		if ds.page == nil {
+			continue
+		}
+		out = append(out, opentile.TIFFDirectory{
+			Kind:       ds.kind,
+			Image:      0, // SCN exposes a single main image
+			Level:      ds.level,
+			Associated: ds.assoc,
+			Tags:       opentile.TIFFTagsFromPage(ds.page),
+		})
+	}
+	return out
+}
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {

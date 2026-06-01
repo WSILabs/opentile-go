@@ -77,16 +77,48 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	// Build AssociatedImages from auxiliaries.
 	r := file.ReaderAt()
+	seenIFDs := make(map[int]bool)
+	var dirSpecs []scnDirSpec
+
 	var associated []opentile.AssociatedImage
 	for _, aux := range auxs {
 		a, err := newAssociatedImage(aux, file, r)
 		if err != nil {
 			if errors.Is(err, errUnsupportedAuxiliary) {
+				// All dimension IFDs for this skipped auxiliary become DirOther.
+				for _, d := range aux.Dimensions {
+					if d.IFD >= 0 && d.IFD < len(pages) && !seenIFDs[d.IFD] {
+						dirSpecs = append(dirSpecs, scnDirSpec{page: pages[d.IFD], kind: opentile.DirOther})
+						seenIFDs[d.IFD] = true
+					}
+				}
 				continue
 			}
 			return nil, fmt.Errorf("leicascn: auxiliary %q: %w", aux.Name, err)
 		}
 		associated = append(associated, a)
+		// Identify the representative IFD: lowest-resolution dimension
+		// (smallest pixel area), mirroring newAssociatedImage's lo selection.
+		lo := aux.Dimensions[0]
+		for _, d := range aux.Dimensions[1:] {
+			if int64(d.SizeX)*int64(d.SizeY) < int64(lo.SizeX)*int64(lo.SizeY) {
+				lo = d
+			}
+		}
+		if lo.IFD >= 0 && lo.IFD < len(pages) && !seenIFDs[lo.IFD] {
+			dirSpecs = append(dirSpecs, scnDirSpec{page: pages[lo.IFD], kind: opentile.DirAssociated, assoc: "overview"})
+			seenIFDs[lo.IFD] = true
+		}
+		// Remaining aux dimension IFDs become DirOther.
+		for _, d := range aux.Dimensions {
+			if d.IFD == lo.IFD {
+				continue
+			}
+			if d.IFD >= 0 && d.IFD < len(pages) && !seenIFDs[d.IFD] {
+				dirSpecs = append(dirSpecs, scnDirSpec{page: pages[d.IFD], kind: opentile.DirOther})
+				seenIFDs[d.IFD] = true
+			}
+		}
 	}
 
 	// Compose the multi-region pyramid.
@@ -96,6 +128,9 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}
 
 	// Build per-level compositeLevels and value-type Level metadata.
+	// While doing so, capture dirSpecs: for each level, the canonical IFD
+	// (region 0 / channel 0) becomes DirLevel; all other region/channel
+	// IFDs at that level become DirOther.
 	levelImpls := make([]*compositeLevel, len(composite))
 	valueLevels := make([]opentile.Level, len(composite))
 	var l0Width int
@@ -107,6 +142,19 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				return nil, fmt.Errorf("leicascn: L%d region %d: %w", li, ri, err)
 			}
 			regions[ri] = tr
+			// Capture dirSpecs for this region's IFDs.
+			for chi, ifdIdx := range rl.IFDPerChannel {
+				if ifdIdx < 0 || ifdIdx >= len(pages) || seenIFDs[ifdIdx] {
+					continue
+				}
+				if ri == 0 && chi == 0 {
+					// Canonical page for this composite level.
+					dirSpecs = append(dirSpecs, scnDirSpec{page: pages[ifdIdx], kind: opentile.DirLevel, level: li})
+				} else {
+					dirSpecs = append(dirSpecs, scnDirSpec{page: pages[ifdIdx], kind: opentile.DirOther})
+				}
+				seenIFDs[ifdIdx] = true
+			}
 		}
 		cmpl, err := newCompositeLevel(li, li, cl, regions)
 		if err != nil {
@@ -126,6 +174,15 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			Downsample:   float64(l0Width) / float64(cmpl.size.W),
 		}
 	}
+
+	// Capture any remaining IFDs (not surfaced as a level or associated image)
+	// as DirOther.
+	for i, pg := range pages {
+		if !seenIFDs[i] {
+			dirSpecs = append(dirSpecs, scnDirSpec{page: pg, kind: opentile.DirOther})
+		}
+	}
+
 	images := []opentile.Image{{Name: "", Index: 0, Levels: valueLevels}}
 
 	sizeC := 1
@@ -144,6 +201,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		icc:        icc,
 		sizeC:      sizeC,
 		channels:   md.Channels,
+		dirSpecs:   dirSpecs,
 	}, nil
 }
 

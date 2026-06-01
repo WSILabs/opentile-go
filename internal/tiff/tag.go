@@ -169,6 +169,57 @@ func (e Entry) decodeRational(b *byteReader) ([][2]uint32, error) {
 	return out, nil
 }
 
+// RawTag is a decoded TIFF tag exposed to the opentile root package so it
+// can build the public opentile.TIFFTag. Internal package only.
+type RawTag struct {
+	Number    uint16
+	Type      DataType
+	Count     int
+	Raw       []byte      // verbatim payload bytes, file byte order
+	ASCII     string      // set when Type==DTASCII
+	Uints     []uint64    // BYTE/SHORT/LONG/LONG8 (best-effort)
+	Rationals [][2]uint32 // num/denom pairs when Type==DTRational
+}
+
+// RawBytes returns the verbatim value payload for the entry (the bytes a
+// re-encoder would re-emit), in file byte order.
+func (e Entry) RawBytes(b *byteReader) ([]byte, error) {
+	need := int64(e.Count) * int64(e.Type.Size())
+	if need <= 0 {
+		return nil, nil
+	}
+	if e.fitsInline() {
+		capn := e.inlineCap
+		if capn == 0 {
+			capn = 4
+		}
+		if need > int64(capn) {
+			need = int64(capn)
+		}
+		return append([]byte(nil), e.valueBytes[:need]...), nil
+	}
+	if need > int64(^uint(0)>>1) {
+		return nil, fmt.Errorf("tiff: tag %d: value size %d exceeds platform int range", e.Tag, need)
+	}
+	return b.bytes(int64(e.valueOrOffset), int(need))
+}
+
+// decode populates a RawTag from the entry using the page's byteReader.
+// Best-effort: a field that doesn't apply to the type is left zero.
+func (e Entry) decode(b *byteReader) RawTag {
+	rt := RawTag{Number: e.Tag, Type: e.Type, Count: int(e.Count)}
+	rt.Raw, _ = e.RawBytes(b)
+	switch e.Type {
+	case DTASCII:
+		rt.ASCII, _ = e.decodeASCII(b, e.valueBytes[:])
+	case DTRational, DTSRational:
+		rt.Rationals, _ = e.decodeRational(b)
+	default:
+		rt.Uints, _ = e.Values64(b)
+	}
+	return rt
+}
+
 // Values64 returns decoded values as []uint64, accepting Short, Long, Long8,
 // IFD, and IFD8 entry types. Prefer this over Values for entries that might
 // carry BigTIFF LONG8 data (tile offsets, for instance).

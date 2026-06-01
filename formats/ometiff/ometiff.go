@@ -81,6 +81,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	images := make([]opentile.Image, 0, len(cls.LevelImages))
 	allEngines := make([][]omeLevel, 0, len(cls.LevelImages))
+	var dirSpecs []omeDirSpec
 	for k, omeIdx := range cls.LevelImages {
 		if omeIdx >= len(pages) {
 			return nil, fmt.Errorf("ome: OME Image %d has no corresponding TIFF page (only %d top-level pages)", omeIdx, len(pages))
@@ -94,7 +95,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			W: md.Images[omeIdx].PhysicalSizeX,
 			H: md.Images[omeIdx].PhysicalSizeY,
 		}
-		valueLevels, engines, err := buildLevels(file, basePage, baseSize, baseMPP, oneFrameTileSize)
+		valueLevels, engines, levelPages, err := buildLevels(file, basePage, baseSize, baseMPP, oneFrameTileSize)
 		if err != nil {
 			return nil, fmt.Errorf("ome: image %d: %w", omeIdx, err)
 		}
@@ -104,6 +105,12 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			Levels: valueLevels,
 		})
 		allEngines = append(allEngines, engines)
+		// Capture per-(image k, level li) dirSpecs. k is the pyramid index
+		// (matches ImageRawTile's image parameter); levelPages[li] is the
+		// actual *tiff.Page (base page for li==0, SubIFD page for li>0).
+		for li, lp := range levelPages {
+			dirSpecs = append(dirSpecs, omeDirSpec{page: lp, kind: opentile.DirLevel, image: k, level: li})
+		}
 	}
 
 	var associated []opentile.AssociatedImage
@@ -126,6 +133,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			return nil, fmt.Errorf("ome: associated %s: %w", spec.kind, err)
 		}
 		associated = append(associated, a)
+		// Capture associated dirSpec; spec.kind matches AssociatedImage.Type().
+		dirSpecs = append(dirSpecs, omeDirSpec{page: pages[spec.omeIdx], kind: opentile.DirAssociated, assoc: spec.kind})
 	}
 
 	icc, _ := pages[0].ICCProfile()
@@ -137,6 +146,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		levels:     allEngines,
 		associated: associated,
 		icc:        icc,
+		dirSpecs:   dirSpecs,
 	}, nil
 }
 
