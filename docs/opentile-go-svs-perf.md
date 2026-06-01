@@ -4,7 +4,7 @@
 
 **Scope.** Aperio SVS files specifically. Most ideas transfer to NDPI but NDPI's striped path has different concurrency characteristics (per-page mutex) and is called out where it matters.
 
-**Status.** Recommendations, not a binding plan. Pick what's useful for your workload.
+**Status.** Recommendations, not a binding plan. Pick what's useful for your workload. Predates the v0.26+ work; for the `ScaledStrips` region/DZI iterator and byte-bounded memory budgeting (v0.30) plus the cross-format benchmark suite, see [`perf.md`](./perf.md).
 
 ---
 
