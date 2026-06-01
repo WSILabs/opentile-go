@@ -259,8 +259,9 @@ opentile.TIFFDirectoriesOf(slide)             // every IFD incl. orphans (Map/hi
 `TIFFTag` carries `Number`, best-effort `Name`, `Type`, `Count`, verbatim
 `Raw` bytes, and typed getters (`ASCII`/`Uints`/`Rationals`). Non-TIFF
 formats (IFE, SZI) return `ok=false`. Pixel-pointer tags
-(`StripOffsets`/`TileOffsets`/…) are excluded. Currently implemented for
-SVS; other TIFF formats follow.
+(`StripOffsets`/`TileOffsets`/…) are excluded. Implemented for all
+TIFF-based formats (SVS, NDPI, Philips, OME-TIFF, BIF, generic-TIFF,
+Leica-SCN, COG-WSI).
 
 ### Concurrency
 
