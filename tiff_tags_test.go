@@ -1,6 +1,10 @@
 package opentile
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/wsilabs/opentile-go/internal/tiff"
+)
 
 func TestTIFFTagGetters(t *testing.T) {
 	ascii := TIFFTag{Number: 270, Type: TIFFASCII, Count: 3, ascii: "abc"}
@@ -33,5 +37,30 @@ func TestTIFFTagsLookup(t *testing.T) {
 	}
 	if tag, ok := ts.ByName("ImageWidth"); !ok || tag.Number != 256 {
 		t.Fatalf("ByName = %+v,%v", tag, ok)
+	}
+}
+
+func TestTiffTagsFromTranslatesAndFilters(t *testing.T) {
+	raw := []tiff.RawTag{
+		{Number: 256, Type: tiff.DTShort, Count: 1, Uints: []uint64{512}},
+		{Number: 270, Type: tiff.DTASCII, Count: 3, ASCII: "abc"},
+		{Number: 273, Type: tiff.DTLong, Count: 9, Uints: []uint64{1, 2, 3}}, // StripOffsets — must be dropped
+		{Number: 324, Type: tiff.DTLong, Count: 9, Uints: []uint64{4, 5}},    // TileOffsets — must be dropped
+		{Number: 65420, Type: tiff.DTLong, Count: 1, Uints: []uint64{7}},     // vendor/private — kept, no name
+	}
+	ts := tiffTagsFrom(raw)
+	if _, ok := ts.Tag(273); ok {
+		t.Fatalf("StripOffsets (273) should be filtered")
+	}
+	if _, ok := ts.Tag(324); ok {
+		t.Fatalf("TileOffsets (324) should be filtered")
+	}
+	w, ok := ts.Tag(256)
+	if !ok || w.Name != "ImageWidth" || w.Type != TIFFShort {
+		t.Fatalf("ImageWidth not translated: %+v %v", w, ok)
+	}
+	v, ok := ts.Tag(65420)
+	if !ok || v.Name != "" {
+		t.Fatalf("vendor tag 65420 should be kept with empty name: %+v %v", v, ok)
 	}
 }

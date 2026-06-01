@@ -1,5 +1,49 @@
 package opentile
 
+import "github.com/wsilabs/opentile-go/internal/tiff"
+
+// pixelPointerTags are the bulk pixel-data-pointer tags excluded from the
+// public API (regenerated on re-encode; not metadata): StripOffsets,
+// StripByteCounts, TileOffsets, TileByteCounts.
+var pixelPointerTags = map[uint16]bool{273: true, 279: true, 324: true, 325: true}
+
+// tiffTagNames is a best-effort dictionary of well-known TIFF tag names.
+// Number is always authoritative; unknown tags get Name == "".
+var tiffTagNames = map[uint16]string{
+	256: "ImageWidth", 257: "ImageLength", 258: "BitsPerSample",
+	259: "Compression", 262: "PhotometricInterpretation", 270: "ImageDescription",
+	271: "Make", 272: "Model", 274: "Orientation", 277: "SamplesPerPixel",
+	282: "XResolution", 283: "YResolution", 284: "PlanarConfiguration",
+	296: "ResolutionUnit", 305: "Software", 306: "DateTime",
+	322: "TileWidth", 323: "TileLength", 339: "SampleFormat",
+	34665: "ExifIFD", 34675: "ICCProfile",
+}
+
+// tiffTagsFrom translates internal raw tags to the public TIFFTags: maps
+// types, applies the name dictionary, and drops the pixel-pointer denylist.
+func tiffTagsFrom(raw []tiff.RawTag) TIFFTags {
+	out := make(TIFFTags, 0, len(raw))
+	for _, r := range raw {
+		if pixelPointerTags[r.Number] {
+			continue
+		}
+		t := TIFFTag{
+			Number: r.Number,
+			Name:   tiffTagNames[r.Number],
+			Type:   TIFFType(r.Type),
+			Count:  r.Count,
+			Raw:    r.Raw,
+			ascii:  r.ASCII,
+			uints:  r.Uints,
+		}
+		for _, rr := range r.Rationals {
+			t.rationals = append(t.rationals, Rational{Num: rr[0], Denom: rr[1]})
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
 // TIFFType mirrors the TIFF field type. Named so consumers can interpret
 // TIFFTag.Type without a magic-number table.
 type TIFFType uint16
