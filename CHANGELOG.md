@@ -11,6 +11,26 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed — documentation / positioning
+
+- Repositioned the project framing in `README.md`, `CLAUDE.md`, and
+  `NOTICE`: opentile-go is no longer described as a "direct port of
+  opentile" but as having **begun as a Go port of opentile and grown
+  into a superset that incorporates openslide-like decoded-region
+  reading** (`ReadRegion` / scaled-strip DZI, associated images,
+  memory-budget control, raw vendor TIFF-tag access) across 10 WSI
+  formats. The Sectra AB Apache-2.0 attribution in `NOTICE` is retained
+  (a license obligation); algorithmic provenance comments are unchanged.
+- Corrected the stale "one cgo dependency" description. cgo now spans
+  **libjpeg-turbo + OpenJPEG (required under any cgo build)** plus
+  **optional libjxl / libwebp / libavif / openjph** (each
+  `no<codec>`-disableable; CI builds `nohtj2k`) and **libopenslide**
+  (benchmark-only, `openslidebench` tag). Raw-tile reads remain pure Go;
+  `nocgo` / `CGO_ENABLED=0` builds return `ErrCGORequired` for decode
+  paths only.
+
+No code, API, or behavior changes — documentation only.
+
 ## [0.31.0] — 2026-06-01
 
 Raw TIFF tag exposure (the headline, public API), plus a standing
