@@ -151,11 +151,16 @@ so the position map must still be read.
 ## Corrected assumptions (why we inspected before designing)
 
 Inspecting `Leica-4` moved two items from "deferrable" to "day-one
-mandatory" and surfaced two silent-corruption risks:
+mandatory" and surfaced two silent-corruption risks. (These were the
+*Leica-only* corrections; the cross-scanner section below corrects them
+further — most importantly, **TILED_FULL turns out to be the common
+case**, not the SPARSE one.)
 
-1. **TILED_SPARSE is the norm, not an edge case.** A Leica DICOM reader
-   must implement the Per-Frame position map from the start; "support
-   TILED_FULL first, defer SPARSE" would not read these files at all.
+1. **TILED_SPARSE must be supported from day one** — but it is Leica's
+   organization, **not** universal. A Leica DICOM reader must implement
+   the Per-Frame position map ("support TILED_FULL first, defer SPARSE"
+   would not read Leica at all), *and* must support TILED_FULL, which the
+   other two scanners use (see cross-scanner section).
 2. **Empty Basic Offset Table** → must scan fragments at Open to build
    the frame index; cannot rely on the BOT.
 3. **Mixed encoding within one series** → JPEG frames for
@@ -176,6 +181,46 @@ What held up from the initial speculation: the multi-file-series model,
 the 1:1 frame↔raw-tile fit, the `ImageType`→level/associated split, and
 that the codecs we already own (JPEG + uncompressed) cover this file
 with zero gaps.
+
+## Cross-scanner validation (Leica + 3DHISTECH + Grundium)
+
+A throwaway prototype (`suyashkumar/dicom` for cold metadata + an own
+mmap fragment-offset-walk for raw frames) was run against all three
+fixture scanners. The offset-walk reproduced every frame **byte-identical**
+to the library on all three (Grundium 16384 frames, 3DHISTECH 3304
+frames) while holding ~16 bytes/frame instead of the library's ~50
+MB/level. The scanners diverge substantially:
+
+| | Leica GT450 | 3DHISTECH | Grundium |
+|---|---|---|---|
+| Organization | **TILED_SPARSE** | **TILED_FULL** | **TILED_FULL** |
+| Tile size | 256² | 1024² | 512² |
+| Levels / downsample | 3 / 4× | 10 / **2×** | 3 / 4× |
+| Base px | 23374×22079 | 57344×60416 | 65536² |
+| JPEG 2nd marker | APP0 (JFIF) | COM | DQT |
+| Basic Offset Table | empty | empty | empty |
+| Label codec | **uncompressed** | JPEG | JPEG |
+| Series hygiene | clean | non-WSM / 0×0 instances present | clean |
+| File naming | UID | `0000NN.dcm` | semantic |
+
+Lessons the reader must absorb from v1:
+
+- **Both organizations are mandatory; TILED_FULL is the common case**
+  (2 of 3). FULL needs a computed raster frame-index
+  (`ty*tilesAcross + tx`); SPARSE needs the position map.
+- **Tile size, level count, and downsample ratio all vary** — derive
+  every geometry value per-instance from `TotalPixelMatrix`; assume no
+  fixed ladder.
+- **Frames are opaque JPEG** — three different second markers
+  (APP0 / COM / DQT). Treat as SOI-delimited; never assume JFIF.
+- **Empty BOT is universal** — always build the offset table by walking
+  fragments.
+- **Series hygiene** — filter by `SOPClassUID == WSM` and skip instances
+  with zero/missing `TotalPixelMatrix` (3DHISTECH carries such instances
+  in the series).
+
+The full reader design built on these findings:
+[`docs/superpowers/specs/2026-06-02-dicom-reader-design.md`](../superpowers/specs/2026-06-02-dicom-reader-design.md).
 
 ## Architectural implications for a future `formats/dicom`
 
