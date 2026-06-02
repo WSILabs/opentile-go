@@ -12,6 +12,9 @@ import (
 	// Order matters: more-specific formats before catch-alls.
 	_ "github.com/wsilabs/opentile-go/formats/bif"
 	_ "github.com/wsilabs/opentile-go/formats/cogwsi"
+	// dicom registers a path-aware hook (not the normal registry opener) —
+	// it must be imported here so the hook is installed before any OpenFile call.
+	_ "github.com/wsilabs/opentile-go/formats/dicom"
 	_ "github.com/wsilabs/opentile-go/formats/ife"
 	_ "github.com/wsilabs/opentile-go/formats/leicascn"
 	_ "github.com/wsilabs/opentile-go/formats/ndpi"

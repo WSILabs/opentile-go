@@ -62,6 +62,10 @@ func sampledByDefault(slide string) bool {
 		"Ventana-1_cog-wsi.tiff",
 		"cervix_2x_jpeg_cog-wsi.tiff":
 		return true
+	// DICOM WSI (v0.32): all three fixtures exceed 100 MB and are
+	// sampled by default.
+	case "Leica-4", "3DHISTECH-1", "scan_621_grundium_dicom":
+		return true
 	}
 	return false
 }
@@ -114,13 +118,13 @@ func generateFixture(slide string) error {
 		// the per-image record.
 		for ii, img := range images {
 			imgFix := tests.ImageFixture{
-				Index: img.Index(),
-				Name:  img.Name(),
+				Index: img.Index,
+				Name:  img.Name,
 			}
 			if !useSampled {
 				imgFix.TileSHA256 = make(map[string]string)
 			}
-			if err := generateImageFixture(&imgFix, img.Levels(), useSampled, ii); err != nil {
+			if err := generateImageFixture(&imgFix, img.Levels, tiler, useSampled, ii); err != nil {
 				return err
 			}
 			f.Images = append(f.Images, imgFix)
@@ -136,7 +140,7 @@ func generateFixture(slide string) error {
 		if !useSampled {
 			imgFix.TileSHA256 = make(map[string]string)
 		}
-		if err := generateImageFixture(&imgFix, tiler.Levels(), useSampled, 0); err != nil {
+		if err := generateImageFixture(&imgFix, tiler.Levels(), tiler, useSampled, 0); err != nil {
 			return err
 		}
 		f.Levels = imgFix.Levels
@@ -180,26 +184,26 @@ func generateFixture(slide string) error {
 
 // generateImageFixture populates an ImageFixture from a single Image's
 // level chain. Shared between the multi-image (Image[ii]) and
-// single-image (top-level) generator paths. imageIdx is for error
-// messages only.
-func generateImageFixture(out *tests.ImageFixture, levels []opentile.Level, useSampled bool, imageIdx int) error {
+// single-image (top-level) generator paths. imageIdx is used both for
+// ImageRawTile calls and error messages.
+func generateImageFixture(out *tests.ImageFixture, levels []opentile.Level, tiler *opentile.Slide, useSampled bool, imageIdx int) error {
 	for i, lvl := range levels {
 		out.Levels = append(out.Levels, tests.LevelFixture{
 			Index:       i,
-			Size:        [2]int{lvl.Size().W, lvl.Size().H},
-			TileSize:    [2]int{lvl.TileSize().W, lvl.TileSize().H},
-			Grid:        [2]int{lvl.Grid().W, lvl.Grid().H},
-			Compression: lvl.Compression().String(),
-			MPPUm:       lvl.MPP().W * 1000,
-			PyramidIdx:  lvl.PyramidIndex(),
+			Size:        [2]int{lvl.Size.W, lvl.Size.H},
+			TileSize:    [2]int{lvl.TileSize.W, lvl.TileSize.H},
+			Grid:        [2]int{lvl.Grid.W, lvl.Grid.H},
+			Compression: lvl.Compression.String(),
+			MPPUm:       lvl.MPP.W * 1000,
+			PyramidIdx:  lvl.PyramidIndex,
 		})
 		if useSampled {
-			positions := tests.SamplePositions(lvl.Grid(), lvl.Size(), lvl.TileSize())
+			positions := tests.SamplePositions(lvl.Grid, lvl.Size, lvl.TileSize)
 			if out.SampledTileSHA256 == nil {
 				out.SampledTileSHA256 = make(map[string]tests.SampledTile)
 			}
 			for _, p := range positions {
-				b, err := lvl.Tile(p.X, p.Y)
+				b, err := tiler.ImageRawTile(imageIdx, i, p.X, p.Y)
 				if err != nil {
 					return fmt.Errorf("Tile(%d,%d) image %d level %d: %w", p.X, p.Y, imageIdx, i, err)
 				}
@@ -210,9 +214,9 @@ func generateImageFixture(out *tests.ImageFixture, levels []opentile.Level, useS
 				}
 			}
 		} else {
-			for y := 0; y < lvl.Grid().H; y++ {
-				for x := 0; x < lvl.Grid().W; x++ {
-					b, err := lvl.Tile(x, y)
+			for y := 0; y < lvl.Grid.H; y++ {
+				for x := 0; x < lvl.Grid.W; x++ {
+					b, err := tiler.ImageRawTile(imageIdx, i, x, y)
 					if err != nil {
 						return fmt.Errorf("Tile(%d,%d) image %d level %d: %w", x, y, imageIdx, i, err)
 					}

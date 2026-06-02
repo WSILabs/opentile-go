@@ -1,8 +1,54 @@
 # opentile-go
 
-Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 10 WSI formats with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo + OpenJPEG core; optional JPEG-XL/WebP/AVIF/HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths.
+Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 11 WSI formats with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo + OpenJPEG core; optional JPEG-XL/WebP/AVIF/HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths. Note: the DICOM reader uses `github.com/suyashkumar/dicom` (pure Go, no new cgo) for cold-path attribute parsing.
 
-## Current milestone — v0.31 (shipped 2026-06-01)
+## Current milestone — v0.32 (shipped 2026-06-02)
+
+- **Scope:** DICOM WSI reader — the 11th format and the first multi-file
+  format opentile-go reads. Reads VL Whole Slide Microscopy Image (WSM)
+  series (SOP Class UID `1.2.840.10008.5.1.4.1.1.77.1.6`) via `OpenFile`
+  on a directory or any one `.dcm` file.
+- **Architecture:**
+  - **`internal/dicom`** wraps `github.com/suyashkumar/dicom` (pure Go,
+    no new cgo) for cold-path attribute parsing: preamble + `DICM`,
+    group-0002 meta header → transfer syntax, Explicit-VR data set,
+    nested undefined-length SQ traversal for functional-group sequences,
+    encapsulated PixelData fragment header.
+  - **`formats/dicom`** owns series assembly (directory scan, WSM
+    filtering, SeriesUID grouping), instance classification
+    (VOLUME→level, LABEL/OVERVIEW/THUMBNAIL→associated), TILED_FULL +
+    TILED_SPARSE frame-index tables, own mmap fragment-offset-walk hot
+    path (~16 bytes/frame), and the standard `Tiler`/`Image`/`Level`/
+    `AssociatedImage` interfaces.
+  - **Path-aware `OpenFile` hook** in `formats/dicom/` — the only
+    entry point; standard `Open(io.ReaderAt, size)` cannot reach DICOM.
+    Opening a single `.dcm` triggers a bounded sibling-scan in the same
+    parent directory for the same `SeriesInstanceUID`.
+- **Scanners verified:** Leica GT450 (TILED_SPARSE, 256² tiles, mixed
+  JPEG + uncompressed), 3DHISTECH (TILED_FULL, 1024² tiles, 10 levels
+  2× downsample, non-WSM instance filtering), Grundium (TILED_FULL,
+  512² tiles). Mmap offset-walk byte-identical to `suyashkumar/dicom`
+  on all three.
+- **API additions:** `opentile.FormatDICOM`; full standard tile/region/
+  metadata surface. `TIFFDirectoriesOf` returns `ok=false` (not TIFF).
+- **API breaks:** none. Additive new format.
+- **Sealed decisions:** JPEG Baseline + uncompressed only (day-one
+  transfer syntaxes); `suyashkumar/dicom` for cold path (no hand-rolled
+  DICOM parser); own offset-walk for hot path (not library's in-memory
+  frame cache); TILED_FULL + TILED_SPARSE both mandatory from day one
+  (Leica requires SPARSE; 3DHISTECH + Grundium require FULL); series
+  hygiene: skip non-WSM instances + zero/missing `TotalPixelMatrix`.
+- **Deferred:** concatenations, multi-fragment-per-frame, JP2K / HTJ2K /
+  JPEG-LS / RLE transfer syntaxes, multi-optical-path / Z-stack /
+  multi-pyramid series, DICOMweb / PACS, raw DICOM-attribute API.
+- **Correctness bar:** `make test` green under `-race`; `TestSlideParity`
+  extended with DICOM fixtures (Leica-4 + 3DHISTECH-1 + Grundium);
+  geometry-pin + cross-backing parity tests.
+- **Design:** docs/superpowers/specs/2026-06-02-dicom-reader-design.md
+- **Plan:** docs/superpowers/plans/2026-06-02-dicom-reader.md
+- **Work branch:** feat/dicom-reader
+
+## Previous milestone — v0.31 (shipped 2026-06-01)
 
 - **Scope:** Raw TIFF tag exposure (public API headline), plus a
   standing cross-format benchmark suite and the restored byte-parity
