@@ -11,6 +11,13 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-06-02
+
+Documentation + internal-structure release. **No code, public API, or
+behavior change** — the exported surface is identical to 0.31.0
+(`make test` green under `-race`; `RawTile` / `DecodedTile` /
+`ReadRegion` / `ScaledStrips` / TIFF-tag APIs all byte-stable).
+
 ### Changed — documentation / positioning
 
 - Repositioned the project framing in `README.md`, `CLAUDE.md`, and
@@ -28,8 +35,27 @@ upstream references, and retirement audit per milestone.
   (benchmark-only, `openslidebench` tag). Raw-tile reads remain pure Go;
   `nocgo` / `CGO_ENABLED=0` builds return `ErrCGORequired` for decode
   paths only.
+- Dropped the v1.0 / API-freeze ceremony from `CLAUDE.md` (the "public
+  API frozen / requires a major-version bump" invariant, the v0.3
+  "frozen" milestone phrasing, the "v1.0 cut pending" note). Replaced
+  with a lighter practical-compat note: don't gratuitously break the
+  exported surface because `wsitools` + `openscope` import it directly —
+  no version ceremony, refactor freely.
 
-No code, API, or behavior changes — documentation only.
+### Changed — internal structure (no API impact)
+
+- Reorganized the flat root `package opentile`. Renamed the mislabeled
+  `slide_*` files so the `slide_` prefix means *core Slide* only —
+  `slide_region.go` → `region.go`, `slide_region_scaled.go` →
+  `region_scaled.go`, `slide_decoded_tile.go` → `decoded_tile.go`,
+  `slide_scaled_strips.go` → `strips.go`, plus `opentile.go` →
+  `open.go`, `format_types.go` → `format.go`, `tiff_tags.go` →
+  `tifftags.go` (and matching `_test.go` files). Split the 523-line
+  `strip_iterator.go` into `strip_iterator.go` (the `StripIterator` type
+  + `Next`/`Strips`/`Close`), `strip_workers.go` (decode-worker pool),
+  and `strip_geometry.go` (resample + sizing/level-selection helpers).
+  All `git mv` + verbatim relocation — no exported symbol renamed or
+  moved, no logic changed. 39 packages green under `-race`.
 
 ## [0.31.0] — 2026-06-01
 
