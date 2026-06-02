@@ -11,7 +11,7 @@ func init() {
 }
 
 // bridgeOpenAny translates opentile's flat config arguments into a format.Config
-// and calls OpenAny. Returns format.Reader as an any interface; opentile.go
+// and calls OpenAny. Returns format.Reader as an any interface; open.go
 // type-asserts it to slideReader (which has the same method set as format.Reader).
 //
 // This bridge exists to break the import cycle:
