@@ -6,7 +6,7 @@
 
 ## Problem
 
-`package opentile` lives flat at the repo root: 22 non-test `.go` files
+`package opentile` lives flat at the repo root: 23 non-test `.go` files
 (~3,159 LOC) plus 34 test files. Navigation is poor — the `slide_`
 prefix is overloaded (it tags both core-Slide files and unrelated
 region/strips subsystems), and `strip_iterator.go` has grown to 523
@@ -14,7 +14,7 @@ lines spanning the iterator type, its worker pool, and geometry helpers.
 
 ## Hard constraint (why this is a *naming* reorg, not a *foldering* one)
 
-Go is one-package-per-directory. 19 of the 22 files define an exported
+Go is one-package-per-directory. 20 of the 23 files define an exported
 type (`Level`, `Image`, `TIFFTag`, `Compression`, `StripIterator`,
 `SpliceJPEGTile`, …) or a `func (s *Slide)` method. Those **must** stay
 in `package opentile` at root — moving them into subdirectories would
