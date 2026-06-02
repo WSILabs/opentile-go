@@ -49,7 +49,7 @@ func extractFirstFrame(b []byte) (data []byte, encapsulated bool, err error) {
 	// Defined length → native uncompressed; the pixel blob starts right after the header.
 	dataStart := pos + 12
 	dataLen := int(length32)
-	if dataStart+dataLen > len(b) {
+	if dataLen < 0 || dataStart+dataLen > len(b) {
 		return nil, false, fmt.Errorf("dicom: native PixelData length %d overruns file", dataLen)
 	}
 	return b[dataStart : dataStart+dataLen], false, nil
@@ -82,7 +82,7 @@ func walkEncapsulatedFrames(b []byte) ([]span, error) {
 		}
 		length := int(binary.LittleEndian.Uint32(b[p+4 : p+8]))
 		p += 8
-		if p+length > len(b) {
+		if length < 0 || p+length > len(b) {
 			return nil, fmt.Errorf("dicom: fragment at %d overruns file", p)
 		}
 		if first {

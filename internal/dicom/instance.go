@@ -107,6 +107,11 @@ func ParseInstance(path string) (Instance, error) {
 	if in.DimOrg == "TILED_SPARSE" {
 		in.FramePositions = parseFramePositions(ds)
 	}
+	if e, err := ds.FindElementByTagNested(tag.Tag{Group: 0x0028, Element: 0x2000}); err == nil {
+		if v, ok := e.Value.GetValue().([]byte); ok {
+			in.ICCProfile = v
+		}
+	}
 	return in, nil
 }
 

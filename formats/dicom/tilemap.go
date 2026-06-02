@@ -8,15 +8,15 @@ type tileKey struct{ tx, ty int }
 // order is implicit raster (ty*tilesAcross + tx). For TILED_SPARSE the
 // 1-based pixel positions are converted to tile indices. Absent cells are
 // simply missing from the map (callers blank-fill).
-func buildTileMap(dimOrg string, tilesAcross, tilesDown, tileSize int, pos []idicom.FramePos, numFrames int) map[tileKey]int {
+func buildTileMap(dimOrg string, tilesAcross, tilesDown, tileW, tileH int, pos []idicom.FramePos, numFrames int) map[tileKey]int {
 	m := make(map[tileKey]int, numFrames)
 	if dimOrg == "TILED_SPARSE" {
 		for i, p := range pos {
 			if p.Col == 0 && p.Row == 0 {
 				continue // unpositioned frame; skip
 			}
-			tx := (p.Col - 1) / tileSize
-			ty := (p.Row - 1) / tileSize
+			tx := (p.Col - 1) / tileW
+			ty := (p.Row - 1) / tileH
 			m[tileKey{tx, ty}] = i
 		}
 		return m

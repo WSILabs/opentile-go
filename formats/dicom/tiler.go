@@ -26,7 +26,6 @@ type levelEngine struct {
 	spans   []span
 	tileMap map[tileKey]int
 	grid    opentile.Size
-	closeFn func() error
 }
 
 // Tiler is the formats/dicom reader. It owns one mmap per instance and
@@ -66,15 +65,15 @@ func openSeriesFromInstances(insts []idicom.Instance, open instanceBytes) (*Tile
 			info:    li,
 			data:    data,
 			spans:   spans,
-			tileMap: buildTileMap(li.inst.DimOrg, across, down, li.inst.TileCols, li.inst.FramePositions, li.inst.NumFrames),
+			tileMap: buildTileMap(li.inst.DimOrg, across, down, li.inst.TileCols, li.inst.TileRows, li.inst.FramePositions, li.inst.NumFrames),
 			grid:    opentile.Size{W: across, H: down},
-			closeFn: closeFn,
 		}
 		t.levels = append(t.levels, eng)
 	}
 	t.img = opentile.Image{Name: "", Index: 0, Levels: t.buildLevels()}
 	t.meta, t.dmeta = buildMetadata(l0, s)  // Task 8
 	t.associated = buildAssociated(s, open) // Task 7
+	t.icc = s.levels[0].inst.ICCProfile
 	return t, nil
 }
 
@@ -88,7 +87,7 @@ func (t *Tiler) buildLevels() []opentile.Level {
 			TileSize:     opentile.Size{W: e.info.inst.TileCols, H: e.info.inst.TileRows},
 			Grid:         e.grid,
 			TileOverlap:  image.Point{},
-			Compression:  opentile.CompressionJPEG,
+			Compression:  compressionForSyntax(e.info.inst.TransferSyntax),
 			Downsample:   e.info.downsample,
 		}
 	}

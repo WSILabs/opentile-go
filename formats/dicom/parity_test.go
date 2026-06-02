@@ -2,14 +2,14 @@ package dicom_test
 
 import (
 	"crypto/sha256"
-	"os"
-	"path/filepath"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
+// TestDICOMBackingParity verifies that DICOM uses a uniform mmap-copy opener
+// regardless of the requested Backing, so mmap and pread return identical bytes.
 func TestDICOMBackingParity(t *testing.T) {
 	dir := leica4(t) // from open_test.go (same package _test)
 	probe := func(backing opentile.Backing) string {
@@ -28,6 +28,4 @@ func TestDICOMBackingParity(t *testing.T) {
 	if probe(opentile.BackingMmap) != probe(opentile.BackingPread) {
 		t.Error("mmap vs pread raw tile differ")
 	}
-	_ = filepath.Join
-	_ = os.Stat
 }

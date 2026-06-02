@@ -116,5 +116,6 @@ func mmapOpener(path string) ([]byte, func() error, error) {
 		r.Close()
 		return nil, nil, fmt.Errorf("dicom: read %s: %w", path, err)
 	}
-	return b, r.Close, nil
+	r.Close() // bytes copied to heap; mmap released immediately (mirrors associated.go)
+	return b, func() error { return nil }, nil
 }
