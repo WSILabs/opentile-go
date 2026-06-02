@@ -1,11 +1,13 @@
 opentile-go
 Copyright 2026 Toby C. Cornish
 
-This product is a Go port of opentile (https://github.com/imi-bigpicture/opentile),
-Copyright 2021-2024 Sectra AB, licensed under the Apache License, Version 2.0.
+This product began as, and incorporates, a Go port of opentile
+(https://github.com/imi-bigpicture/opentile), Copyright 2021-2024 Sectra AB,
+licensed under the Apache License, Version 2.0; it has since grown into an
+independent, broader library.
 
-This is an independent port. It is not affiliated with or endorsed by Sectra AB
-or the Innovative Medicines Initiative BigPicture project.
+It is not affiliated with or endorsed by Sectra AB or the Innovative Medicines
+Initiative BigPicture project.
 
 ----
 

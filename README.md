@@ -2,7 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, and Cloud-Optimized GeoTIFF WSI), the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension), and the ZIP-wrapped Microsoft Deep Zoom-based [Smart Zoom Image](https://github.com/smartinmedia/SZI-Format) format. Direct port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library for the four TIFF formats it supports, with byte-identical output (verified against tifffile and Python opentile). BIF (v0.7), IFE (v0.8), generic-TIFF (v0.10), Leica SCN (v0.11), SZI (v0.16), and COG-WSI (v0.19) are opentile-go's own additions beyond upstream's coverage.
+A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, and Cloud-Optimized GeoTIFF WSI), the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension), and the ZIP-wrapped Microsoft Deep Zoom-based [Smart Zoom Image](https://github.com/smartinmedia/SZI-Format) format. opentile-go **began as a Go port** of the Python [opentile](https://github.com/imi-bigpicture/opentile) library and stays byte-identical to it on the four formats opentile covers (SVS, NDPI, Philips, OME-TIFF). Its functionality is **now a superset of opentile that also incorporates openslide-like decoded-region reading** — `ReadRegion` and scaled-strip (DZI) output, associated images, and raw vendor TIFF-tag access — and it reads six more formats than upstream (BIF, IFE, generic-TIFF, Leica SCN, SZI, COG-WSI).
 
 Beyond raw passthrough, opentile-go adds: memory-mapped reads + pool-friendly `TileInto` (v0.9), bandwidth-deduplication `TilePrefix` / `TileBodyInto` (v0.13), a libvips-style `ScaledStrips` region/DZI iterator with byte-bounded peak memory (v0.26 / v0.30), and raw vendor TIFF-tag access (v0.31). Per-thread decode throughput is competitive with [openslide](#performance) — typically exceeding it on the in-repo cross-format benchmark. See [docs/perf.md](./docs/perf.md).
 
@@ -58,12 +58,12 @@ The decoded-tile `*Slide` methods that consume this layer are planned for v1.0. 
 ## Prerequisites
 
 - **Go 1.23+** (uses `iter.Seq2`).
-- **libjpeg-turbo 2.1+** for tile-domain JPEG operations (NDPI edge-tile fill, Philips sparse-tile fill, OME OneFrame extraction).
-  - macOS: `brew install jpeg-turbo`
-  - Debian / Ubuntu: `apt-get install libturbojpeg0-dev`
-- **`pkg-config`** to resolve `libturbojpeg` at build time.
+- **libjpeg-turbo 2.1+** — JPEG decode + tile-domain ops (NDPI edge-tile fill, Philips sparse-tile fill, OME OneFrame). macOS: `brew install jpeg-turbo`; Debian / Ubuntu: `apt-get install libturbojpeg0-dev`.
+- **OpenJPEG** — JPEG 2000 decode; linked under any cgo build (no per-codec opt-out).
+- **Optional codec libraries**, each disableable with a `no<codec>` build tag if you don't have it: libjxl (`nojxl`), libwebp (`nowebp`), libavif (`noavif`), openjph / HTJ2K (`nohtj2k`).
+- **`pkg-config`** to resolve the above at build time.
 
-opentile-go is **mostly Go with one cgo dependency** — `internal/jpegturbo/` wraps libjpeg-turbo's `tjTransform` for lossless DCT-domain crops. Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: SVS works fully, NDPI striped levels work, but NDPI OneFrame / NDPI edge-tile fill / Philips sparse-tile fill / OME OneFrame return `ErrCGORequired`.
+opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`RawTile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-striped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.
 
 ## Install
 
