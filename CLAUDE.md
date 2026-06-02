@@ -300,7 +300,7 @@ openslide on NDPI.
   bug filed for separate fix (out-of-scope).
 - **Deferred forward:** R19 (bare DZI), R23 (re-apply v0.18 SVS
   detectWriter to Grundium-source COG-WSI). L19, L20, L23-L25,
-  L26-L29, L30-L34, R4/R6/R9, R15. v1.0 cut still pending.
+  L26-L29, L30-L34, R4/R6/R9, R15.
 - **R22 retired:** cross-format Writer typed field — shipped
   (see deferred.md §8n).
 - **Bench reality:** no perf-axis work; pure metadata-surfacing
@@ -386,13 +386,13 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 - v0.6: OME-TIFF — closes upstream Python opentile's format set.
 - v0.5: Philips TIFF (third format).
 - v0.4: NDPI completeness (L12 OOB-fill + L17 label crop).
-- v0.3: polish, settled API, public-API frozen from this point.
+- v0.3: polish, settled the public API shape.
 - v0.2: NDPI + BigTIFF + associated images + Python parity oracle.
 - v0.1: Aperio SVS tiled-level passthrough.
 
 ## Invariants
 
-- **Public API stable from v0.3.** Adding new exported names is fine; renaming, moving, or removing is a breaking change that requires a major-version bump (or, until we have external users, an explicit owner sign-off).
+- **Don't gratuitously break the public API.** The sibling projects `wsitools` and `openscope` import this package directly ([[project_wsi_ecosystem]]), so renaming/moving/removing exported names breaks real consumers — coordinate such a change with the owner. Adding new exported names is always fine. (This is a practical consumer-compat note, not an API freeze: there is no v1.0 ceremony and no version-bump gate — refactor freely as long as the exported surface keeps working.)
 - **Don't guess format behavior — read upstream.** This is a **direct port** of Python opentile (which delegates format details to tifffile). Whenever classification, layout, tag semantics, or edge-case handling is unclear: **read `imi-bigpicture/opentile` first, then `cgohlke/tifffile`**. Guessed behavior cost v0.2 five separate debugging cycles (NDPI IFD layout, NDPI metadata tag numbers, NDPI StripOffsets tag, NDPI striped vs. oneframe gate, APP14 byte values) — every one fixed by reading the actual upstream source. The v0.4 plan elevates this to a structural per-task `Step 0: Confirm upstream` action that the executor must run before any production-code edit. The rule: if you catch yourself reasoning from first principles about a WSI format quirk, stop and find the upstream code that handles it. Port directly, adapt for Go idioms, but preserve the logic.
 - **No cutting corners; no active users yet.** Complete things we know are broken before moving on. When a bug is identified, the rule is: fix it, don't defer. Plan thoroughly for v0.3+ rather than race.
 - **Architectural placement of ported logic:** format-specific quirks belong in the format package (`formats/ndpi/`, `formats/svs/`), not `internal/tiff`. `internal/tiff` stays a generic TIFF/BigTIFF/NDPI-IFD parser. Examples: NDPI page-series grouping, SVS ImageDescription quirks, Philips sparse-tile filling.
