@@ -11,6 +11,40 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added — DICOM WSI reader (the 11th format)
+
+- **First multi-file format** opentile-go reads. `OpenFile` accepts a
+  directory (scans all WSM `.dcm` instances) or any single `.dcm`
+  (bounded sibling-scan within the same directory for the same
+  `SeriesInstanceUID`). The standard `Open(io.ReaderAt, size)` entry
+  point cannot reach DICOM.
+- **TILED_FULL + TILED_SPARSE** both supported. FULL: raster frame-index
+  (`ty*tilesAcross + tx`). SPARSE: per-frame `ColumnPosition /
+  RowPosition` map built at Open from the Per-Frame Functional Groups
+  Sequence. TILED_FULL is the common case (3DHISTECH + Grundium);
+  TILED_SPARSE is Leica's organization.
+- **JPEG Baseline levels** (libjpeg-turbo via the existing decoder pool)
+  and **JPEG + uncompressed associated images** (label/overview/thumbnail
+  keyed by `ImageType` LABEL/OVERVIEW/THUMBNAIL tokens). Mixed encoding
+  within one series is handled (Leica GT450 label is uncompressed native
+  RGB; JPEG for all other instances).
+- **`internal/dicom`** wraps `github.com/suyashkumar/dicom` (pure Go —
+  no new cgo) for cold-path attribute parsing (preamble + `DICM` magic,
+  group-0002 meta header, nested undefined-length SQ traversal for
+  functional-group sequences, encapsulated PixelData fragment header).
+  The hot path uses an own **mmap fragment-offset-walk** (~16 bytes/frame
+  overhead), building a frozen byte-offset table at Open — byte-identical
+  to the library on all three scanner types.
+- **Verified on Leica GT450 / 3DHISTECH / Grundium** (all three fixture
+  scanners). Series hygiene: non-WSM instances and zero/missing
+  `TotalPixelMatrix` entries (present in 3DHISTECH series) are filtered.
+- **`opentile.FormatDICOM`** added. Full `Levels()` / `Metadata()` /
+  `RawTile` / `DecodedTile` / `ReadRegion` / `ScaledStrips` available.
+  `TIFFDirectoriesOf` returns `ok=false` (DICOM is not TIFF).
+- **Deferred:** concatenations, multi-fragment-per-frame, JP2K / HTJ2K /
+  JPEG-LS / RLE transfer syntaxes, multi-optical-path / Z-stack /
+  multi-pyramid series, DICOMweb / PACS, raw DICOM-attribute API.
+
 ## [0.31.1] — 2026-06-02
 
 Documentation + internal-structure release. **No code, public API, or
