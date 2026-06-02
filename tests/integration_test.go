@@ -14,10 +14,12 @@ import (
 	"github.com/wsilabs/opentile-go/tests"
 )
 
-// slideCandidates lists SVS, NDPI, Philips, OME, BIF, IFE, and
-// generic-TIFF slides this integration suite knows about. Each is
-// tested only if both the on-disk slide and the committed fixture
-// JSON are present; otherwise the slide is skipped.
+// slideCandidates lists SVS, NDPI, Philips, OME, BIF, IFE,
+// generic-TIFF, and DICOM slides this integration suite knows about.
+// Each is tested only if both the on-disk slide and the committed
+// fixture JSON are present; otherwise the slide is skipped.
+// DICOM "slides" are directories; their entries have no extension and
+// are resolved via the "dicom" sub-directory branch in resolveSlide.
 var slideCandidates = []string{
 	"CMU-1-Small-Region.svs",
 	"CMU-1.svs",
@@ -87,15 +89,25 @@ var slideCandidates = []string{
 	"Philips-1_cog-wsi.tiff",
 	"Ventana-1_cog-wsi.tiff",
 	"cervix_2x_jpeg_cog-wsi.tiff",
+	// DICOM WSI (v0.32): each entry is a directory name (no extension);
+	// resolveSlide resolves them under the "dicom" sub-directory and
+	// fixtureJSONFor maps extensionless names to "<stem>.dicom.json".
+	// Leica-4 is a TILED_SPARSE GT450 dataset (6 .dcm, 3 levels);
+	// 3DHISTECH-1 is TILED_FULL with 10 levels;
+	// scan_621_grundium_dicom is TILED_FULL Grundium with 3 levels.
+	"Leica-4",
+	"3DHISTECH-1",
+	"scan_621_grundium_dicom",
 }
 
 // resolveSlide looks up name in dir, dir/svs, dir/ndpi, dir/philips-tiff,
-// dir/ome-tiff, dir/bif, dir/ife, dir/generic-tiff, dir/scn, and dir/szi.
-// Returns the first existing absolute path. Used so OPENTILE_TESTDIR
-// can be set to the repo sample_files root and cover every supported
-// format in one run.
+// dir/ome-tiff, dir/bif, dir/ife, dir/generic-tiff, dir/scn, dir/szi, and
+// dir/dicom. Returns the first existing absolute path (including
+// directories, so DICOM series directories resolve correctly). Used so
+// OPENTILE_TESTDIR can be set to the repo sample_files root and cover
+// every supported format in one run.
 func resolveSlide(dir, name string) (string, bool) {
-	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn", "szi", "cog-wsi"} {
+	for _, sub := range []string{"", "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "scn", "szi", "cog-wsi", "dicom"} {
 		p := filepath.Join(dir, sub, name)
 		if _, err := os.Stat(p); err == nil {
 			return p, true
@@ -335,6 +347,9 @@ func fixtureJSONFor(slideFilename string) string {
 		return stem + ".scn.json"
 	case ".szi":
 		return stem + ".szi.json"
+	case "":
+		// Extensionless entries are DICOM series directories.
+		return stem + ".dicom.json"
 	}
 	return stem + ".json"
 }
