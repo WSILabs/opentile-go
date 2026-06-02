@@ -11,6 +11,19 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Fixed — decoder/htj2k: RGBA output support
+
+- **`PixelFormatRGBA` now accepted** by the HTJ2K decoder. Previously
+  `Decode` with `opts.Format == PixelFormatRGBA` returned
+  `ErrUnsupportedFormat`; it now decodes RGB via the C shim (`wsi_htj2k_decode`,
+  which always emits packed RGB888) into a scratch buffer, then expands
+  RGB→RGBA in Go with opaque alpha (`0xFF`). The `opts.Dst` path is
+  also supported — a caller-provided `*decoder.Image` is validated
+  (dimensions must match) and filled in place. The existing RGB path is
+  byte-identical to before. Brings `decoder/htj2k` to parity with the
+  other codec decoders (`jpeg`, `jpeg2000`, `webp`, `avif`, `jpegxl`)
+  which all support RGBA.
+
 ### Added — DICOM WSI reader (the 11th format)
 
 - **First multi-file format** opentile-go reads. `OpenFile` accepts a
