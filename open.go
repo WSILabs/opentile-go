@@ -25,6 +25,26 @@ var openAnyHook func(
 	backing Backing,
 ) (any, error)
 
+// dicomPathOpenHook is set by formats/dicom's init() via SetDICOMPathOpenHook
+// to avoid an import cycle: formats/dicom imports opentile; opentile cannot
+// import formats/dicom. The hook receives the path and returns a slideReader
+// wrapped in an any (type-asserted in OpenFile). Returns ErrUnsupportedFormat
+// if the path is not a DICOM series; OpenFile falls through to normal dispatch.
+var dicomPathOpenHook func(path string) (any, error)
+
+// SetDICOMPathOpenHook registers the DICOM path-open function. Called once
+// from formats/dicom's init() via factory.go. The hook receives a path (file
+// or directory) and returns a slideReader (as any) or an error. If it returns
+// ErrUnsupportedFormat the path is not DICOM and OpenFile falls through to
+// the normal single-file dispatch. Not safe for concurrent use during setup.
+//
+// This indirection avoids an import cycle: formats/dicom imports the root
+// opentile package (for Level, Image, etc.); the root cannot import
+// formats/dicom. The same pattern is used by internal/format (SetOpenAnyHook).
+func SetDICOMPathOpenHook(fn func(path string) (any, error)) {
+	dicomPathOpenHook = fn
+}
+
 // SetOpenAnyHook registers the format dispatch function. Called once from
 // internal/format's init() via a bridge file. Must be called before any
 // Open/OpenFile call. Not safe for concurrent use during setup.
@@ -75,6 +95,22 @@ func Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error) {
 // returned [*Slide] owns the underlying file handle (or memory map);
 // Close releases it.
 //
+// # DICOM series (Contract 1 & 2)
+//
+// DICOM VL Whole Slide Microscopy is the only format reachable via
+// OpenFile but NOT via Open(io.ReaderAt, size). A DICOM series is
+// multi-file; [Open] cannot express it. When the formats/dicom package
+// is imported (e.g. via _ "github.com/wsilabs/opentile-go/formats/all"),
+// OpenFile detects DICOM before the normal single-file dispatch:
+//
+//   - Directory path: opens all WSM .dcm files in the directory.
+//   - Single .dcm path (Contract 2): performs a bounded sibling-scan —
+//     same directory only, same SeriesUID only, WSM-filtered — so that
+//     passing any one instance opens the full series.
+//
+// The [WithBacking] option is accepted but ignored for DICOM (the Tiler
+// owns its own per-instance mmaps).
+//
 // Default backing since v0.9 is [BackingMmap]: the file is
 // memory-mapped read-only and tile reads become userspace memcpys
 // from the mapped region — no pread(2) syscall per [Level.Tile]
@@ -99,6 +135,27 @@ func Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error) {
 //     use; if your storage allows it, use BackingPread.
 func OpenFile(path string, opts ...Option) (*Slide, error) {
 	cfg := newConfig(opts)
+
+	// DICOM path-aware branch — must come before the single-file dispatch
+	// because DICOM is multi-file (a directory or a single instance that
+	// expands to its sibling series). The hook is nil when formats/dicom is
+	// not imported. ErrUnsupportedFormat from the hook means "not DICOM —
+	// fall through to normal dispatch."
+	if dicomPathOpenHook != nil {
+		result, err := dicomPathOpenHook(path)
+		if err == nil {
+			sr, ok := result.(slideReader)
+			if !ok {
+				return nil, fmt.Errorf("opentile: dicom hook returned unexpected type %T", result)
+			}
+			return &Slide{r: sr, readBudget: cfg.resolveMemoryBudget()}, nil
+		}
+		if !errors.Is(err, ErrUnsupportedFormat) {
+			return nil, err
+		}
+		// ErrUnsupportedFormat: not DICOM — fall through to normal dispatch.
+	}
+
 	switch cfg.backing {
 	case BackingMmap:
 		return openFileMmap(path, opts)

@@ -56,3 +56,55 @@ func TestAssembleNoVolume(t *testing.T) {
 		t.Fatal("expected error when no VOLUME level present")
 	}
 }
+
+func instSeries(role, uid string, cols, rows int) idicom.Instance {
+	i := inst(role, cols, rows)
+	i.SeriesUID = uid
+	return i
+}
+
+func TestSelectDominantSeries(t *testing.T) {
+	// Series "A" has 1 VOLUME; series "B" has 3 VOLUMEs. B should win.
+	parsed := []idicom.Instance{
+		instSeries("VOLUME", "A", 512, 256),
+		instSeries("VOLUME", "B", 23374, 22079),
+		instSeries("VOLUME", "B", 5843, 5519),
+		instSeries("VOLUME", "B", 1460, 1379),
+		instSeries("LABEL", "B", 608, 547),
+	}
+	got := selectDominantSeries(parsed)
+	for _, in := range got {
+		if in.SeriesUID != "B" {
+			t.Errorf("expected all instances from series B, got %q", in.SeriesUID)
+		}
+	}
+	if len(got) != 4 { // 3 VOLUMEs + 1 LABEL from B
+		t.Errorf("expected 4 instances, got %d", len(got))
+	}
+}
+
+func TestSelectDominantSeriesSingleSeries(t *testing.T) {
+	// Single series → returns the same slice (fast path).
+	parsed := []idicom.Instance{
+		inst("VOLUME", 512, 256),
+		inst("LABEL", 64, 64),
+	}
+	got := selectDominantSeries(parsed)
+	if len(got) != len(parsed) {
+		t.Errorf("single-series: got %d, want %d", len(got), len(parsed))
+	}
+}
+
+func TestSelectDominantSeriesTieBreak(t *testing.T) {
+	// Two series with equal VOLUME count → first by sorted UID.
+	parsed := []idicom.Instance{
+		instSeries("VOLUME", "Z", 512, 256),
+		instSeries("VOLUME", "A", 512, 256),
+	}
+	got := selectDominantSeries(parsed)
+	for _, in := range got {
+		if in.SeriesUID != "A" {
+			t.Errorf("tie-break: expected series A, got %q", in.SeriesUID)
+		}
+	}
+}
