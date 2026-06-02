@@ -41,4 +41,8 @@ const (
 	// WSI-specific private tags + ghost-area marker. Spec at
 	// docs/specs/2026-05-20-cog-wsi-format.md. Added in v0.19.
 	FormatCOGWSI Format = "cog-wsi"
+	// FormatDICOM identifies a DICOM VL Whole Slide Microscopy Image Storage
+	// series (one directory of .dcm instances per series). The first multi-file
+	// format in opentile-go; opened via OpenFile(directoryPath). Added in v0.32.
+	FormatDICOM Format = "dicom"
 )
