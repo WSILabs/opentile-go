@@ -46,10 +46,6 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	if opts.Scale != 0 && opts.Scale != 1 {
 		return nil, fmt.Errorf("decoder/htj2k: scale=%d not supported: %w", opts.Scale, decoder.ErrUnsupportedScale)
 	}
-	if opts.Format == decoder.PixelFormatRGBA {
-		return nil, fmt.Errorf("decoder/htj2k: RGBA output not supported: %w", decoder.ErrUnsupportedFormat)
-	}
-
 	// Phase 1: read header dimensions.
 	var cW, cH C.int
 	rc := C.wsi_htj2k_dimensions(
@@ -66,7 +62,48 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		return nil, fmt.Errorf("decoder/htj2k: invalid dimensions %dx%d: %w", w, h, decoder.ErrCorruptInput)
 	}
 
-	// Phase 2: allocate output and decode.
+	// Phase 2: RGBA path — decode RGB into scratch, then expand to RGBA.
+	if opts.Format == decoder.PixelFormatRGBA {
+		scratch := decoder.NewImage(w, h) // RGB scratch buffer, stride = w*3
+		rgbStride := w * 3
+		rc = C.wsi_htj2k_decode(
+			(*C.uint8_t)(unsafe.Pointer(&src[0])),
+			C.size_t(len(src)),
+			(*C.uint8_t)(unsafe.Pointer(&scratch.Pix[0])),
+			C.size_t(rgbStride),
+			&cW, &cH,
+		)
+		runtime.KeepAlive(src)
+		runtime.KeepAlive(scratch)
+		if rc != 0 {
+			return nil, fmt.Errorf("decoder/htj2k: decode failed: %w", decoder.ErrCorruptInput)
+		}
+
+		var dst *decoder.Image
+		if opts.Dst == nil {
+			dst = decoder.NewImageFormat(w, h, decoder.PixelFormatRGBA)
+		} else {
+			if opts.Dst.Width != w || opts.Dst.Height != h {
+				return nil, fmt.Errorf("decoder/htj2k: dst %dx%d != decoded %dx%d: %w",
+					opts.Dst.Width, opts.Dst.Height, w, h, decoder.ErrDestinationSize)
+			}
+			dst = opts.Dst
+		}
+
+		for y := 0; y < h; y++ {
+			srow := scratch.Pix[y*scratch.Stride:]
+			drow := dst.Pix[y*dst.Stride:]
+			for x := 0; x < w; x++ {
+				drow[x*4+0] = srow[x*3+0]
+				drow[x*4+1] = srow[x*3+1]
+				drow[x*4+2] = srow[x*3+2]
+				drow[x*4+3] = 0xFF
+			}
+		}
+		return dst, nil
+	}
+
+	// Phase 2 (RGB path): allocate output and decode directly.
 	var dst *decoder.Image
 	if opts.Dst == nil {
 		dst = decoder.NewImage(w, h)
