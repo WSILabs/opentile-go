@@ -11,6 +11,11 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-06-02
+
+DICOM WSI reader (opentile-go's 11th format and first multi-file format)
+plus an HTJ2K RGBA-output fix.
+
 ### Fixed — decoder/htj2k: RGBA output support
 
 - **`PixelFormatRGBA` now accepted** by the HTJ2K decoder. Previously
