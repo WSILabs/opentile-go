@@ -111,9 +111,6 @@ func buildMetadata(l0 idicom.Instance, s series) (opentile.Metadata, Metadata) {
 	return opentile.Metadata{}, Metadata{}
 }
 
-// TEMP: replaced in Task 7.
-func buildAssociated(s series, open instanceBytes) []opentile.AssociatedImage { return nil }
-
 // --- format.Reader methods ---
 
 func (t *Tiler) Format() opentile.Format                { return opentile.FormatDICOM }
