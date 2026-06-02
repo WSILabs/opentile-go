@@ -16,10 +16,6 @@ import (
 // Compile-time assertion: *Tiler satisfies format.Reader.
 var _ format.Reader = (*Tiler)(nil)
 
-// TEMP: replaced in Task 8.
-// Metadata is the DICOM-specific format metadata (Task 8 replaces this stub).
-type Metadata struct{ opentile.Metadata }
-
 // instanceBytes returns the (mmapped) bytes of an instance file plus a
 // closer. Production passes an mmap-backed opener; tests inject blobs.
 type instanceBytes func(path string) (data []byte, closeFn func() error, err error)
@@ -104,11 +100,6 @@ func ceilDiv(a, b int) int {
 		return 0
 	}
 	return (a + b - 1) / b
-}
-
-// TEMP: replaced in Task 8.
-func buildMetadata(l0 idicom.Instance, s series) (opentile.Metadata, Metadata) {
-	return opentile.Metadata{}, Metadata{}
 }
 
 // --- format.Reader methods ---
