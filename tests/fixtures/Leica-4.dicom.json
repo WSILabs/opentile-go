@@ -213,6 +213,15 @@
       ],
       "compression": "jpeg",
       "sha256": "b574e4880bc4e1883252bef52afb47c6d4bad5333b1662707b035d1390c20396"
+    },
+    {
+      "kind": "label",
+      "size": [
+        608,
+        547
+      ],
+      "compression": "none",
+      "sha256": "4b4f4f28cd89f426823ed75b1e86ae1de8dd8ed2122bd5a0396a95a6bb8ed315"
     }
   ]
 }

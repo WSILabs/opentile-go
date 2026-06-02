@@ -37,8 +37,9 @@ func dicomTypeToOpentile(role string) string {
 
 // buildAssociated extracts single-frame associated images (label/overview/
 // thumbnail) from the series. Each instance's bytes are read, the first
-// encapsulated frame is extracted into a heap []byte, then the mmap is closed.
-// Instances that cannot be read or have no frames are silently skipped.
+// frame is extracted (encapsulated or native) into a heap []byte, then
+// the mmap is closed. Instances that cannot be read or have no frames are
+// silently skipped.
 func buildAssociated(s series, open instanceBytes) []opentile.AssociatedImage {
 	var out []opentile.AssociatedImage
 	for _, a := range s.associated {
@@ -46,14 +47,13 @@ func buildAssociated(s series, open instanceBytes) []opentile.AssociatedImage {
 		if err != nil {
 			continue
 		}
-		spans, err := walkEncapsulatedFrames(data)
-		if err != nil || len(spans) == 0 {
+		frameData, _, err := extractFirstFrame(data)
+		if err != nil {
 			closeFn()
 			continue
 		}
-		sp := spans[0]
-		frame := make([]byte, sp.length)
-		copy(frame, data[sp.off:sp.off+sp.length])
+		frame := make([]byte, len(frameData))
+		copy(frame, frameData)
 		closeFn() // associated bytes are copied out; the mmap is no longer needed
 		out = append(out, &associatedImage{
 			typ:         dicomTypeToOpentile(a.role),

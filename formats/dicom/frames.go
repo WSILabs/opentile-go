@@ -12,6 +12,49 @@ type span struct {
 	length int
 }
 
+// extractFirstFrame returns the bytes of the first/only frame of an
+// instance's PixelData. For encapsulated PixelData (VR OB, undefined
+// length) it returns the first fragment. For native/uncompressed PixelData
+// (VR OW or OB, defined length) it returns the whole value blob.
+// encapsulated reports which form was found.
+func extractFirstFrame(b []byte) (data []byte, encapsulated bool, err error) {
+	tag := []byte{0xE0, 0x7F, 0x10, 0x00}
+	pos := bytes.Index(b, tag)
+	if pos < 0 {
+		return nil, false, fmt.Errorf("dicom: PixelData tag (7FE0,0010) not found")
+	}
+	// After the 4-byte tag we need at least 8 bytes: 2-byte VR + 2 reserved + 4-byte length.
+	if pos+12 > len(b) {
+		return nil, false, fmt.Errorf("dicom: PixelData element too short at %d", pos)
+	}
+	vr := b[pos+4 : pos+6]
+	isOW := bytes.Equal(vr, []byte{0x4F, 0x57}) // "OW"
+	isOB := bytes.Equal(vr, []byte{0x4F, 0x42}) // "OB"
+	if !isOW && !isOB {
+		return nil, false, fmt.Errorf("dicom: PixelData VR is %q, expected OW or OB", string(vr))
+	}
+	length32 := binary.LittleEndian.Uint32(b[pos+8 : pos+12])
+	if length32 == 0xFFFFFFFF {
+		// Undefined length → encapsulated; delegate to existing walker.
+		spans, werr := walkEncapsulatedFrames(b)
+		if werr != nil {
+			return nil, false, werr
+		}
+		if len(spans) == 0 {
+			return nil, false, fmt.Errorf("dicom: encapsulated PixelData has no frames")
+		}
+		sp := spans[0]
+		return b[sp.off : sp.off+sp.length], true, nil
+	}
+	// Defined length → native uncompressed; the pixel blob starts right after the header.
+	dataStart := pos + 12
+	dataLen := int(length32)
+	if dataStart+dataLen > len(b) {
+		return nil, false, fmt.Errorf("dicom: native PixelData length %d overruns file", dataLen)
+	}
+	return b[dataStart : dataStart+dataLen], false, nil
+}
+
 // walkEncapsulatedFrames locates the encapsulated PixelData (VR OB,
 // undefined length) and walks its fragment items, returning one span per
 // frame. Assumes one fragment per frame (true for all v1 fixtures; a
