@@ -1,0 +1,143 @@
+package opentile
+
+import (
+	"github.com/wsilabs/opentile-go/decoder"
+)
+
+// decodeWorker pulls tileKey requests from tileReqs, decodes via
+// ImageDecodedTile(WithScale), and stores into the cache.
+//
+// Exits when cancelCtx fires (Close cancels it). tileReqs is never
+// closed, so workers idle on the channel between work and shutdown
+// rather than exiting on a close signal — this keeps the channel
+// sender-safe (no send-on-closed-channel race with Next/lookahead).
+func (it *StripIterator) decodeWorker() {
+	defer it.workersDone.Done()
+	for {
+		select {
+		case k := <-it.tileReqs:
+			it.decodeAndStore(k)
+		case <-it.cancelCtx.Done():
+			return
+		}
+	}
+}
+
+// decodeAndStore decodes one tile and stores it in the cache (with
+// any error). The caller (lookahead) has already reserve()'d the
+// key, so this is unconditional put.
+func (it *StripIterator) decodeAndStore(k tileKey) {
+	opts := []DecodeOption{WithFormat(decoder.PixelFormatRGB)}
+	if it.idctScale > 1 {
+		opts = append(opts, WithScale(it.idctScale))
+	}
+	img, err := it.slide.ImageDecodedTile(it.imageIdx, it.sourceLevel.Index, k.tx, k.ty, opts...)
+	it.cache.put(k, img, err)
+}
+
+// lookahead walks output strips in order, enqueueing tile decode
+// requests for strips within [currentStrip, currentStrip + lookahead].
+// Exits when cancelCtx fires or all strips' tiles have been enqueued.
+func (it *StripIterator) lookahead() {
+	defer it.lookaheadDone.Done()
+
+	dispatchedStrip := 0 // last strip whose tiles we've enqueued
+
+	for {
+		// Compute the cap of strips we should have enqueued for, given
+		// the current consumer position.
+		it.mu.Lock()
+		consumerStrip := it.nextStrip
+		closed := it.closed
+		it.mu.Unlock()
+		if closed {
+			return
+		}
+		targetCap := consumerStrip + it.cfg.lookahead
+
+		// Enqueue tiles for strips up through targetCap (inclusive).
+		for dispatchedStrip <= targetCap && dispatchedStrip < it.stripsTotal {
+			tiles := it.tilesForStrip(dispatchedStrip)
+			for _, k := range tiles {
+				if !it.cache.reserve(k) {
+					continue // already requested or cached
+				}
+				select {
+				case it.tileReqs <- k:
+				case <-it.cancelCtx.Done():
+					return
+				}
+			}
+			dispatchedStrip++
+		}
+
+		if dispatchedStrip >= it.stripsTotal {
+			return // all done
+		}
+
+		// Wait for consumer to advance.
+		select {
+		case <-it.advance:
+		case <-it.cancelCtx.Done():
+			return
+		}
+	}
+}
+
+// tilesForStrip computes the set of source-level tile keys that
+// overlap the given output strip's source-level coverage.
+func (it *StripIterator) tilesForStrip(stripIdx int) []tileKey {
+	// Output strip rows: [stripIdx*stripHeight, min((stripIdx+1)*stripHeight, outSize.Y))
+	outY0 := stripIdx * it.stripHeight
+	outY1 := outY0 + it.stripHeight
+	if outY1 > it.outSize.Y {
+		outY1 = it.outSize.Y
+	}
+
+	// Simpler: source-level row range = floor(stripOutY0 * outSize.Y → l0 → level), ceil(stripOutY1 → l0 → level).
+	scaleY := float64(it.l0Rect.Dy()) / (it.sourceLevel.Downsample * float64(it.outSize.Y))
+	levelY0 := int(float64(outY0)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample)
+	levelY1 := int(float64(outY1)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample) + 1
+
+	// Source-level column range covers the full L0 x-range.
+	scaleX := 1.0 / it.sourceLevel.Downsample
+	levelX0 := int(float64(it.l0Rect.Min.X) * scaleX)
+	levelX1 := int(float64(it.l0Rect.Max.X)*scaleX) + 1
+
+	// Clip to level bounds.
+	if levelY0 < 0 {
+		levelY0 = 0
+	}
+	if levelY1 > it.sourceLevel.Size.H {
+		levelY1 = it.sourceLevel.Size.H
+	}
+	if levelX0 < 0 {
+		levelX0 = 0
+	}
+	if levelX1 > it.sourceLevel.Size.W {
+		levelX1 = it.sourceLevel.Size.W
+	}
+
+	if levelY0 >= levelY1 || levelX0 >= levelX1 {
+		return nil
+	}
+
+	tileW := it.sourceLevel.TileSize.W
+	tileH := it.sourceLevel.TileSize.H
+	if tileW <= 0 || tileH <= 0 {
+		return nil
+	}
+
+	txMin := levelX0 / tileW
+	tyMin := levelY0 / tileH
+	txMax := (levelX1 - 1) / tileW
+	tyMax := (levelY1 - 1) / tileH
+
+	keys := make([]tileKey, 0, (txMax-txMin+1)*(tyMax-tyMin+1))
+	for ty := tyMin; ty <= tyMax; ty++ {
+		for tx := txMin; tx <= txMax; tx++ {
+			keys = append(keys, tileKey{tx: tx, ty: ty})
+		}
+	}
+	return keys
+}
