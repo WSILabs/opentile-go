@@ -11,6 +11,14 @@ The Open Microscopy Environment's TIFF dialect, written by Bio-Formats and most 
 - **Compression**: JPEG only in our fixtures (the spec allows others; we error on non-JPEG).
 - **Metadata**: an OME-XML document in page 0's `ImageDescription`, namespace `http://www.openmicroscopy.org/Schemas/OME/2016-06`. Each `<Image Name="...">` has a `<Pixels>` child carrying `PhysicalSizeX/Y` (µm), `SizeX/Y`, and `Type` (uint8 only supported).
 
+## Specification grounding (normative)
+
+Distilled from the [OME-TIFF specification](https://ome-model.readthedocs.io/en/stable/ome-tiff/specification.html) and the [OME 2016-06 XSD](https://www.openmicroscopy.org/Schemas/OME/2016-06/ome.xsd) (© the Open Microscopy Environment, CC-BY 4.0). These are the spec rules the reader relies on; the writer side (wsitools `convert --to ome-tiff`) keeps a fuller normative excerpt at `wsitools/docs/references/ome-tiff-spec-notes.md`, which cites this reader as its round-trip reference.
+
+- **Sub-resolution (pyramid) IFDs.** Sub-resolutions are referenced from the full-resolution IFD via the **SubIFDs tag (330)**, ordered **largest → smallest**. They must appear **neither** in the primary IFD chain **nor** in any OME-XML `<TiffData>` element — so a `<TiffData IFD=…>` index always counts only top-level IFDs, never sub-resolutions (this is what makes the multi-Z IFD addressing below well-defined). Each sub-resolution **should** set **bit 0 of NewSubFileType (254)** to 1 (full-res L0 = 0); sub-resolutions may use a different compression than the full-res plane. Our traversal reaches them via `tiff.Page.SubIFDOffsets()` and keys off SubIFD *presence* and order, not the NewSubFileType bit.
+- **OME-XML storage.** The XML lives in **ImageDescription (270) of the first IFD**, UTF-8 encoded, trimmed-ending in `OME>` (the `is_ome` detection above). Writers prepend a recommended warning-comment preamble; it carries no semantics for reading.
+- **Associated-image classification is a reader convention, not spec.** The OME-TIFF spec does **not** define `label` / `macro` / `thumbnail`. Treating an `<Image>` whose trimmed `Name` exactly matches one of those as an associated image — and any other Name (including empty) as a main pyramid, mapped to its top-level page **positionally by document order** — is the Bio-Formats convention, implemented in `series.go classifyImages`. It is correct only because writers keep `<Image>` order aligned with top-level IFD order.
+
 ## What's supported
 
 | Capability | Status | Notes |
@@ -42,6 +50,7 @@ Matches upstream Python opentile. SZI/DZI is the exception — its readers retur
 | Non-RGB photometric / non-JPEG compression | ❌ errored | The spec allows them; our fixtures don't exercise them |
 | Per-image pyramid for macro/label | ❌ ignored | Macro pages have their own SubIFDs (the macro pyramid). We expose only macro L0 as the AssociatedImage, matching upstream |
 | Multi-Z / multi-T / multi-C OME `TileAt(z != 0)` | ⚠️ deferred — half-supported (since v0.7 multi-dim) | `Image.SizeZ()/SizeC()/SizeT()` reflect the OME-XML's `<Pixels SizeZ/SizeT>` + `<Channel>` count (per the T2 gate outcome); but `Level.TileAt(coord{Z != 0, ...})` returns `ErrDimensionUnavailable` because the per-IFD addressing logic isn't wired yet. See "Active limitations" below. |
+| Multi-file OME sets (companion `.ome.tif` + UUID) | ❌ single-file only | OME allows a logical image split across files via the OME-XML root `UUID` plus `<TiffData><UUID FileName="…">` children and `BinaryOnly` / `MetadataFile` companions. opentile-go reads a single self-contained `.ome.tiff`; it does not resolve cross-file `UUID FileName` references. (wsitools likewise emits single-file output only.) BigTIFF OME "should" use `.ome.tf2` / `.ome.tf8` / `.ome.btf` extensions but `.ome.tif(f)` is used regardless — we detect by content, not extension |
 
 ## Multi-dimensional reading (since v0.7)
 
@@ -75,7 +84,13 @@ has a reference:
 
 1. **Per-Image IFD ordering.** OME stores each (Z, C, T) plane as
    its own top-level IFD (or, for SubIFD-pyramid OMEs, as its own
-   SubIFD). The IFD index for a given `(Z, C, T)` tuple is computed
+   SubIFD). The **authoritative** plane→IFD map is the OME-XML
+   `<TiffData>` element, whose `IFD` / `FirstZ` / `FirstC` / `FirstT`
+   / `PlaneCount` attributes (all 0-indexed; `IFD` counts only the
+   primary top-level chain — sub-resolutions are excluded per
+   "Specification grounding" above) explicitly bind a plane range to
+   an IFD range. When `<TiffData>` is absent or coarse (a single
+   element covering all planes), fall back to computing the index
    from the `<Pixels DimensionOrder>` attribute. The standard
    orderings are XYZCT / XYZTC / XYCZT / XYCTZ / XYTZC / XYTCZ; for
    the most common (XYZCT):
