@@ -11,6 +11,48 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.32.1] — 2026-06-02
+
+Consumer-reported decoder fixes (wsitools + openscope), all memory-safety
+or output-contract bugs in the JPEG 2000 / HTJ2K decode paths.
+
+### Fixed — decoder/jpeg2000: heap OOB read on chroma-subsampled tiles (#7, #8)
+
+- **Out-of-bounds read on 4:2:2 / 4:2:0 codestreams.** The RGB packing
+  loop indexed all three component planes with a single luma index
+  `i ∈ [0, w·h)`, but subsampled chroma planes hold fewer than `w·h`
+  samples. For Aperio SVS JP2K (`Compression=33003`, 4:2:2) this read
+  2× past the end of each chroma plane — intermittent SIGBUS and silent
+  colour corruption (nondeterministic under a concurrent decode pool).
+  Now each component is indexed by its own geometry
+  (`(y/dy)·w + (x/dx)`), nearest-neighbour upsampling subsampled planes
+  (mirrors OpenJPEG's own `opj_decompress`). Added guards: require ≥3
+  components, floor `dx/dy` at 1, clamp the per-plane index. The YCbCr→RGB
+  colour math is unchanged, so 4:4:4 / RGB output is bit-identical.
+  Regression test decodes a real 4:2:2 tile and matches an independent
+  `opj_decompress` reference (max per-channel diff 1/255 over the tile).
+
+### Fixed — decoder/jpeg2000: honor `opts.Format` (RGBA output) (#8)
+
+- **`PixelFormatRGBA` now accepted** by the JPEG 2000 decoder. Previously
+  `Decode` always returned `PixelFormatRGB` regardless of `opts.Format` —
+  the lone codec ignoring it. It now allocates `NewImageFormat(w, h,
+  opts.Format)` and writes opaque alpha (`0xFF`) when RGBA is requested.
+  RGB path byte-identical. Brings `decoder/jpeg2000` to parity with the
+  other codecs.
+
+### Fixed — decoder/htj2k: subsampling-safe component read
+
+- **Defensive bound against a latent OOB on subsampled HTJ2K.** The decode
+  packing loop read `w` samples from each pulled component line, correct
+  only for 4:4:4. A horizontally-subsampled line (`line->size < w`) would
+  over-read. Not reachable today (wsi-tools emits 4:4:4) but possible for
+  subsampled DICOM HTJ2K. Reads are now bounded by openjph's authoritative
+  `line->size` (`sx = x·size/w`): identity when `size == w` (4:4:4
+  unchanged), in-bounds horizontal upsample when `size < w`. Full
+  subsampled-decode correctness (incl. 4:2:0 vertical) is validated with a
+  real fixture in the planned DICOM JP2K/HTJ2K milestone.
+
 ## [0.32.0] — 2026-06-02
 
 DICOM WSI reader (opentile-go's 11th format and first multi-file format)
