@@ -149,11 +149,26 @@ int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
                 if (!line || !line->p) { cs.close(); return -1; }
                 if (comp_num >= 3) { cs.close(); return -1; }
 
+                // line->size is the ACTUAL sample count of this component row.
+                // For a horizontally-subsampled component (e.g. 4:2:2 chroma)
+                // it is smaller than w, so we must never index p[] with the
+                // luma column x directly — that would read past the line buffer
+                // (heap OOB). Map each output column to its source sample by
+                // nearest neighbour: sx = x*lw/w. This is the identity when
+                // lw == w (the 4:4:4 case wsi-tools emits today), and a correct
+                // horizontal upsample when lw < w. Vertical subsampling under
+                // interleaved pull is validated separately once a subsampled
+                // HTJ2K fixture exists (see DICOM JP2K/HTJ2K milestone).
+                const int lw = (int)line->size;
+                if (lw <= 0) { cs.close(); return -1; }
+
                 if (line->flags & line_buf::LFT_INTEGER) {
                     // lossless path: i32 samples
                     const si32 *p = line->i32;
                     for (int x = 0; x < w; ++x) {
-                        int v = p[x];
+                        int sx = (int)((long long)x * lw / w);
+                        if (sx >= lw) sx = lw - 1;
+                        int v = p[sx];
                         if (v < 0) v = 0;
                         else if (v > 255) v = 255;
                         row[x * 3 + comp_num] = (uint8_t)v;
@@ -162,7 +177,9 @@ int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
                     // lossy path: f32 samples
                     const float *p = line->f32;
                     for (int x = 0; x < w; ++x) {
-                        float fv = p[x];
+                        int sx = (int)((long long)x * lw / w);
+                        if (sx >= lw) sx = lw - 1;
+                        float fv = p[sx];
                         int v = (int)(fv + 0.5f);
                         if (v < 0) v = 0;
                         else if (v > 255) v = 255;
