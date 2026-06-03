@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.32.2] — 2026-06-03
+
 ### Changed — resample/lanczos: separable + weight-cached (perf, output-equivalent) (#9)
 
 - **Lanczos resampling is now separable.** `lanczosInto` was a naive
