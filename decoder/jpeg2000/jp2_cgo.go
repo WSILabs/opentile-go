@@ -156,47 +156,79 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
 
     *color_space_out = (int)image->color_space;
 
+    // We emit 3-channel RGB; the packing below reads three components.
+    // Guard against an out-of-bounds read on the comps array for grayscale
+    // or 2-component codestreams (we don't support those here).
+    if (image->numcomps < 3) {
+        opj_image_destroy(image);
+        opj_destroy_codec(codec);
+        opj_stream_destroy(stream);
+        return -1;
+    }
+
     // Pack component planes into packed RGB (or YCbCr -> RGB).
     // For Aperio 33003 tiles, color_space is typically OPJ_CLRSPC_SYCC or
     // OPJ_CLRSPC_UNSPECIFIED; treat 3-component as YCbCr by default.
     // For Aperio 33005 (RGB), color_space == OPJ_CLRSPC_SRGB.
     int is_ycbcr = (image->numcomps == 3 && image->color_space != OPJ_CLRSPC_SRGB);
 
-    int n = w * h;
-    for (int i = 0; i < n; i++) {
-        int v0 = image->comps[0].data[i];
-        int v1 = image->comps[1].data[i];
-        int v2 = image->comps[2].data[i];
+    // Each component may be chroma-subsampled (4:2:2 / 4:2:0): comps[c].data
+    // holds only comps[c].w * comps[c].h samples, NOT w*h. Index every
+    // component by its OWN geometry, nearest-neighbour upsampling subsampled
+    // planes via the per-component subsampling factors dx/dy. Indexing all
+    // three by a single i in [0, w*h) over-reads subsampled chroma planes
+    // (heap over-read -> intermittent SIGBUS and colour corruption).
+    // Mirrors OpenJPEG's own opj_decompress colour packing. See GH #7.
+    opj_image_comp_t *c0 = &image->comps[0];
+    opj_image_comp_t *c1 = &image->comps[1];
+    opj_image_comp_t *c2 = &image->comps[2];
+    const int w0 = (int)c0->w, w1 = (int)c1->w, w2 = (int)c2->w;
+    const int n0 = w0 * (int)c0->h, n1 = w1 * (int)c1->h, n2 = w2 * (int)c2->h;
+    // Subsampling factors; floor at 1 so a malformed dx/dy can't divide by 0.
+    const int dx0 = c0->dx > 0 ? (int)c0->dx : 1, dy0 = c0->dy > 0 ? (int)c0->dy : 1;
+    const int dx1 = c1->dx > 0 ? (int)c1->dx : 1, dy1 = c1->dy > 0 ? (int)c1->dy : 1;
+    const int dx2 = c2->dx > 0 ? (int)c2->dx : 1, dy2 = c2->dy > 0 ? (int)c2->dy : 1;
 
-        int r, g, b;
-        if (is_ycbcr) {
-            // Standard YCbCr -> RGB:
-            // Y = v0, Cb = v1, Cr = v2
-            // Aperio stores as offset (signed) components; values are typically
-            // in range 0-255 for Y, -128..127 for Cb/Cr (or 0..255 with offset).
-            // OpenJPEG decodes them as unsigned integers for OPJ_CLRSPC_SYCC.
-            // For SYCC the chroma components have offset 128 already factored in
-            // by OpenJPEG; treat them directly here as 0..255 with 128 center.
-            int Y  = v0;
-            int Cb = v1 - 128;
-            int Cr = v2 - 128;
-            r = (int)(Y + 1.402  * Cr);
-            g = (int)(Y - 0.34414 * Cb - 0.71414 * Cr);
-            b = (int)(Y + 1.772  * Cb);
-        } else {
-            r = v0;
-            g = v1;
-            b = v2;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int i0 = (y / dy0) * w0 + (x / dx0);
+            int i1 = (y / dy1) * w1 + (x / dx1);
+            int i2 = (y / dy2) * w2 + (x / dx2);
+            // Defence in depth: clamp to each plane's sample count so an
+            // inconsistent declared geometry can never drive an OOB read.
+            if (i0 < 0) i0 = 0; else if (i0 >= n0) i0 = n0 - 1;
+            if (i1 < 0) i1 = 0; else if (i1 >= n1) i1 = n1 - 1;
+            if (i2 < 0) i2 = 0; else if (i2 >= n2) i2 = n2 - 1;
+
+            int v0 = c0->data[i0];
+            int v1 = c1->data[i1];
+            int v2 = c2->data[i2];
+
+            int r, g, b;
+            if (is_ycbcr) {
+                // Standard YCbCr -> RGB; chroma centred at 128.
+                int Y  = v0;
+                int Cb = v1 - 128;
+                int Cr = v2 - 128;
+                r = (int)(Y + 1.402  * Cr);
+                g = (int)(Y - 0.34414 * Cb - 0.71414 * Cr);
+                b = (int)(Y + 1.772  * Cb);
+            } else {
+                r = v0;
+                g = v1;
+                b = v2;
+            }
+
+            // Clamp to [0, 255].
+            r = r < 0 ? 0 : (r > 255 ? 255 : r);
+            g = g < 0 ? 0 : (g > 255 ? 255 : g);
+            b = b < 0 ? 0 : (b > 255 ? 255 : b);
+
+            int o = (y * w + x) * 3;
+            out[o+0] = (uint8_t)r;
+            out[o+1] = (uint8_t)g;
+            out[o+2] = (uint8_t)b;
         }
-
-        // Clamp to [0, 255].
-        r = r < 0 ? 0 : (r > 255 ? 255 : r);
-        g = g < 0 ? 0 : (g > 255 ? 255 : g);
-        b = b < 0 ? 0 : (b > 255 ? 255 : b);
-
-        out[i*3+0] = (uint8_t)r;
-        out[i*3+1] = (uint8_t)g;
-        out[i*3+2] = (uint8_t)b;
     }
 
     opj_image_destroy(image);
