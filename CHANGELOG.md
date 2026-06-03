@@ -11,6 +11,22 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed — resample/lanczos: separable + weight-cached (perf, output-equivalent) (#9)
+
+- **Lanczos resampling is now separable.** `lanczosInto` was a naive
+  non-separable 2-D convolution — `O(out·scale²)` with two `math.Sin` per
+  source pixel in the hot loop, too slow to be a default downsample kernel.
+  Rewritten as two 1-D passes (horizontal then vertical) over a float
+  intermediate, with per-axis weight tables precomputed once and
+  pre-normalized to sum 1 (mathematically identical to the old 2-D `wSum`
+  normalization). All `sin()` calls now happen once per output position,
+  never in the resample loops. **Output-equivalent to within 1 LSB per
+  channel** (RGB/RGBA, integer and non-integer ratios, edge clamping,
+  upsampling — see `TestLanczosSeparableEquivalence`). Public API,
+  `Kernel` constants, and `WithResampleKernel`/`WithStripKernel`
+  unchanged. Measured ~27× faster at 2× and ~33× at 4× downsample;
+  unblocks `lanczos3` as a default `downsample` kernel downstream.
+
 ## [0.32.1] — 2026-06-02
 
 Consumer-reported decoder fixes (wsitools + openscope), all memory-safety
