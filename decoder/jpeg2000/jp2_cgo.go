@@ -101,11 +101,12 @@ static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
 }
 
 // opj_jpeg2000_decode decodes the J2K/JP2 codestream and writes packed
-// RGB888 into out (which must be w*h*3 bytes). Returns 0 on success, -1 on failure.
+// pixels into out (which must be w*h*bpp bytes; bpp is 3 for RGB or 4 for
+// RGBA with opaque alpha). Returns 0 on success, -1 on failure.
 // The color_space_out argument receives the opj_image_t color_space value.
 static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
                                int codec_format,
-                               uint8_t *out, int w, int h,
+                               uint8_t *out, int w, int h, int bpp,
                                int *color_space_out) {
     buf_stream_state_t state = { in, in_len, 0 };
 
@@ -224,10 +225,11 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
             g = g < 0 ? 0 : (g > 255 ? 255 : g);
             b = b < 0 ? 0 : (b > 255 ? 255 : b);
 
-            int o = (y * w + x) * 3;
-            out[o+0] = (uint8_t)r;
-            out[o+1] = (uint8_t)g;
-            out[o+2] = (uint8_t)b;
+            uint8_t *px = out + ((size_t)(y * w + x)) * bpp;
+            px[0] = (uint8_t)r;
+            px[1] = (uint8_t)g;
+            px[2] = (uint8_t)b;
+            if (bpp == 4) px[3] = 0xFF;
         }
     }
 
@@ -297,16 +299,26 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		return nil, fmt.Errorf("decoder/jpeg2000: invalid dimensions %dx%d: %w", w, h, decoder.ErrCorruptInput)
 	}
 
-	// Phase 2: allocate output image and decode.
+	// Phase 2: allocate output image and decode. Honor the requested pixel
+	// format (RGB default, or RGBA with opaque alpha).
+	bpp := 3
+	if opts.Format == decoder.PixelFormatRGBA {
+		bpp = 4
+	}
 	var dst *decoder.Image
 	if opts.Dst == nil {
-		dst = decoder.NewImage(w, h)
+		dst = decoder.NewImageFormat(w, h, opts.Format)
 	} else {
 		if opts.Dst.Width != w || opts.Dst.Height != h {
 			return nil, fmt.Errorf("decoder/jpeg2000: dst %dx%d != decoded %dx%d: %w",
 				opts.Dst.Width, opts.Dst.Height, w, h, decoder.ErrDestinationSize)
 		}
 		dst = opts.Dst
+		if dst.Format == decoder.PixelFormatRGBA {
+			bpp = 4
+		} else {
+			bpp = 3
+		}
 	}
 
 	var colorSpaceOut C.int
@@ -315,7 +327,7 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		C.size_t(len(src)),
 		C.int(codecFmt),
 		(*C.uint8_t)(unsafe.Pointer(&dst.Pix[0])),
-		cW, cH,
+		cW, cH, C.int(bpp),
 		&colorSpaceOut,
 	)
 	runtime.KeepAlive(src)
