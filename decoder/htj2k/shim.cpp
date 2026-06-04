@@ -43,10 +43,11 @@ int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
 
 // wsi_htj2k_encode_test encodes RGB888 as a lossless HTJ2K codestream (test only).
 int wsi_htj2k_encode_test(const uint8_t *rgb, int width, int height,
+                           int num_decomp,
                            uint8_t **outbuf, size_t *outsize) {
     *outbuf = NULL;
     *outsize = 0;
-    if (!rgb || width <= 0 || height <= 0) return -1;
+    if (!rgb || width <= 0 || height <= 0 || num_decomp < 0) return -1;
     try {
         using namespace ojph;
         codestream cs;
@@ -61,7 +62,7 @@ int wsi_htj2k_encode_test(const uint8_t *rgb, int width, int height,
         siz.set_tile_offset(point(0, 0));
 
         param_cod cod = cs.access_cod();
-        cod.set_num_decomposition(1);  // at least 1 level required for correct lossless
+        cod.set_num_decomposition((ui32)num_decomp);  // resolution levels (>=1 for lossless)
         cod.set_block_dims(64, 64);
         cod.set_reversible(true);   // lossless
         cod.set_color_transform(false); // no YCbCr transform; components stay as-is

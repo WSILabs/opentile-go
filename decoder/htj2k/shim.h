@@ -26,6 +26,7 @@ int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
 // For test use only — not exposed by the decoder package API.
 // On success *outbuf is malloc'd; caller must free. Returns 0 on success, -1 on error.
 int wsi_htj2k_encode_test(const uint8_t *rgb, int width, int height,
+                           int num_decomp,
                            uint8_t **outbuf, size_t *outsize);
 
 #ifdef __cplusplus

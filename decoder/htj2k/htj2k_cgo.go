@@ -140,7 +140,7 @@ func (d *cgoDecoder) Close() error {
 // encodeTestLossless is a test helper that encodes packed RGB888 pixels as a
 // lossless HTJ2K codestream using wsi_htj2k_encode_test. Not part of the
 // public API — used only by htj2k_roundtrip_test.go.
-func encodeTestLossless(rgb []byte, w, h int) ([]byte, error) {
+func encodeTestLossless(rgb []byte, w, h, numDecomp int) ([]byte, error) {
 	if len(rgb) < w*h*3 {
 		return nil, fmt.Errorf("decoder/htj2k: encodeTestLossless: buffer too small")
 	}
@@ -148,7 +148,7 @@ func encodeTestLossless(rgb []byte, w, h int) ([]byte, error) {
 	var outsize C.size_t
 	rc := C.wsi_htj2k_encode_test(
 		(*C.uint8_t)(unsafe.Pointer(&rgb[0])),
-		C.int(w), C.int(h),
+		C.int(w), C.int(h), C.int(numDecomp),
 		&outbuf, &outsize,
 	)
 	runtime.KeepAlive(rgb)
