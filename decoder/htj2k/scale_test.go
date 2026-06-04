@@ -42,6 +42,24 @@ func TestHTJ2KScaleDims(t *testing.T) {
 	}
 }
 
+// TestHTJ2KScaleBoxFinish: a 1-level codestream can reduce at most 1 level
+// in the codec; Scale 4/8 must box-finish the residual to exact dims.
+func TestHTJ2KScaleBoxFinish(t *testing.T) {
+	enc, err := encodeTestLossless(makeTestRGB(256, 256), 256, 256, 1) // 1 decomposition only
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ scale, w int }{{1, 256}, {2, 128}, {4, 64}, {8, 32}} {
+		img, err := (&factory{}).New().Decode(enc, decoder.DecodeOptions{Scale: tc.scale})
+		if err != nil {
+			t.Fatalf("scale %d: %v", tc.scale, err)
+		}
+		if img.Width != tc.w || img.Height != tc.w {
+			t.Errorf("scale %d: %dx%d want %dx%d", tc.scale, img.Width, img.Height, tc.w, tc.w)
+		}
+	}
+}
+
 // TestHTJ2KScaleUnsupported: non-power-of-2 / >8 reject.
 func TestHTJ2KScaleUnsupported(t *testing.T) {
 	enc, _ := encodeTestLossless(makeTestRGB(64, 64), 64, 64, 1)

@@ -12,7 +12,8 @@ extern "C" {
 // width/height at the given resolution_factor (1/2^r). Returns 0 on success,
 // -1 on error.
 int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
-                          int resolution_factor, int *out_w, int *out_h);
+                          int resolution_factor, int *out_w, int *out_h,
+                          int *actual_reduce);
 
 // wsi_htj2k_decode decodes a HTJ2K codestream into packed RGB888 at the given
 // resolution_factor (DWT resolution-level downscale, 1/2^r). dst_rgb must be

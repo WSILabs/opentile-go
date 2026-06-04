@@ -20,8 +20,10 @@
 
 // wsi_htj2k_dimensions reads only the codestream header.
 int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
-                          int resolution_factor, int *out_w, int *out_h) {
-    if (!src || src_len == 0 || !out_w || !out_h || resolution_factor < 0) return -1;
+                          int resolution_factor, int *out_w, int *out_h,
+                          int *actual_reduce) {
+    if (!src || src_len == 0 || !out_w || !out_h || !actual_reduce ||
+        resolution_factor < 0) return -1;
     try {
         using namespace ojph;
         mem_infile in;
@@ -34,11 +36,14 @@ int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
         param_siz siz = cs.access_siz();
         int fw = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
         int fh = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
-        // Resolution-reduced dims = ceil(full / 2^r). The caller box-finishes
-        // any residual if the codestream has fewer levels than requested.
-        int r = resolution_factor;
-        *out_w = (fw + (1 << r) - 1) >> r;
+        // restrict_input_resolution beyond the codestream's decomposition
+        // levels FAILS (it does not clamp), so clamp the factor to what the
+        // codestream supports; the caller box-finishes the residual.
+        int maxr = (int)cs.access_cod().get_num_decompositions();
+        int r = resolution_factor > maxr ? maxr : resolution_factor;
+        *out_w = (fw + (1 << r) - 1) >> r; // ceil(full / 2^r)
         *out_h = (fh + (1 << r) - 1) >> r;
+        *actual_reduce = r;
         cs.close();
         return 0;
     } catch (...) {
