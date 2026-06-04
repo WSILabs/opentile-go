@@ -78,6 +78,38 @@ jobs:
           CGO_ENABLED: '0'
         run: go test ./... -tags nocgo -count=1 -timeout 5m
 
+  asan:
+    name: asan (cgo decoders)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Install cgo deps (Linux)
+        run: |
+          for i in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y \
+                libturbojpeg0-dev libopenjp2-7-dev libjxl-dev \
+                libavif-dev libwebp-dev pkg-config; then
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+      # AddressSanitizer over the cgo codec decoders. The committed
+      # decoder/jpeg2000/testdata fixtures (incl. the 4:2:2 subsampled tile
+      # that triggered the #7 heap over-read) are decoded here, so a
+      # regression of that bug class — in ANY cgo decoder exercised by a
+      # test — fails the build. Linux uses nohtj2k (openjph not in apt);
+      # the remaining cgo decoders (jpeg, jpeg2000, webp, avif, jpegxl) are
+      # covered. Leak detection is off (Go runtime + cgo are noisy there).
+      - name: go test -asan ./decoder/...
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+        run: go test -asan -tags nohtj2k ./decoder/... -count=1 -timeout 10m
+
   # Integration suite (TestSlideParity etc.) and the parity oracle
   # require sample slides that aren't checked into the repo (they're
   # ~10 GB of WSI data, gitignored). Both are run locally before
