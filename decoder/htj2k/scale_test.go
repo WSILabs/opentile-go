@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/boxhalve"
 )
 
 // makeTestRGB builds a deterministic, spatially-varying RGB image so that
@@ -16,9 +17,12 @@ func makeTestRGB(w, h int) []byte {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			i := (y*w + x) * 3
-			b[i+0] = byte((x*7 + y*3) & 0xFF)
-			b[i+1] = byte((x * x) & 0xFF)
-			b[i+2] = byte(int(40*math.Sin(float64(x+y)/3.0)) + 128)
+			// Smooth, non-wrapping gradients + low-frequency sine. Real WSI
+			// content is not near-Nyquist aliased, where the wavelet low-pass
+			// and a box average diverge most.
+			b[i+0] = byte(x % 256)
+			b[i+1] = byte(y % 256)
+			b[i+2] = byte(int(40*math.Sin(float64(x+y)/16.0)) + 128)
 		}
 	}
 	return b
@@ -67,6 +71,39 @@ func TestHTJ2KScaleUnsupported(t *testing.T) {
 		if _, err := (&factory{}).New().Decode(enc, decoder.DecodeOptions{Scale: s}); err == nil {
 			t.Errorf("scale %d: want ErrUnsupportedScale", s)
 		}
+	}
+}
+
+// TestHTJ2KScaleQualityClose: Scale 2 resolution decode should be in the
+// same ballpark as full-decode + box (not bit-equal — wavelet vs box).
+func TestHTJ2KScaleQualityClose(t *testing.T) {
+	enc, err := encodeTestLossless(makeTestRGB(256, 256), 256, 256, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dec := (&factory{}).New()
+	full, err := dec.Decode(enc, decoder.DecodeOptions{Scale: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := boxhalve.Halve(full, 1)
+	got, err := dec.Decode(enc, decoder.DecodeOptions{Scale: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Width != ref.Width || got.Height != ref.Height {
+		t.Fatalf("dims %dx%d vs %dx%d", got.Width, got.Height, ref.Width, ref.Height)
+	}
+	var sum int
+	for i := range got.Pix {
+		d := int(got.Pix[i]) - int(ref.Pix[i])
+		if d < 0 {
+			d = -d
+		}
+		sum += d
+	}
+	if mean := float64(sum) / float64(len(got.Pix)); mean > 12 {
+		t.Errorf("mean abs diff %.2f too large (resolution decode vs box)", mean)
 	}
 }
 
