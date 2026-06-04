@@ -72,6 +72,9 @@ func compressionForSyntax(ts string) opentile.Compression {
 		return opentile.CompressionJPEG
 	case "1.2.840.10008.1.2.1", "1.2.840.10008.1.2": // Explicit/Implicit VR Little Endian (uncompressed)
 		return opentile.CompressionNone
+	case "1.2.840.10008.1.2.4.90", // JPEG 2000 Image Compression (Lossless Only)
+		"1.2.840.10008.1.2.4.91": // JPEG 2000 Image Compression
+		return opentile.CompressionJP2K
 	default:
 		return opentile.CompressionJPEG // best-effort; all v1 fixture associated images are JPEG
 	}
