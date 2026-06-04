@@ -8,17 +8,18 @@
 extern "C" {
 #endif
 
-// wsi_htj2k_dimensions reads only the codestream header and returns width/height.
-// Returns 0 on success, -1 on error.
+// wsi_htj2k_dimensions reads only the codestream header and returns the
+// width/height at the given resolution_factor (1/2^r). Returns 0 on success,
+// -1 on error.
 int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
-                          int *out_w, int *out_h);
+                          int resolution_factor, int *out_w, int *out_h);
 
-// wsi_htj2k_decode decodes a HTJ2K codestream into packed RGB888.
-// dst_rgb must be pre-allocated to at least dst_stride * h bytes.
-// dst_stride must be >= w * 3.
-// Width and height are returned via out_w / out_h.
-// Returns 0 on success, -1 on error.
-int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
+// wsi_htj2k_decode decodes a HTJ2K codestream into packed RGB888 at the given
+// resolution_factor (DWT resolution-level downscale, 1/2^r). dst_rgb must be
+// pre-allocated to at least dst_stride * h bytes (reduced h). dst_stride must
+// be >= reduced_w * 3. The reduced width and height are returned via
+// out_w / out_h. Returns 0 on success, -1 on error.
+int wsi_htj2k_decode(const uint8_t *src, size_t src_len, int resolution_factor,
                      uint8_t *dst_rgb, size_t dst_stride,
                      int *out_w, int *out_h);
 

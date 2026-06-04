@@ -24,6 +24,34 @@ func makeTestRGB(w, h int) []byte {
 	return b
 }
 
+// TestHTJ2KScaleDims: a 3-level (numDecomp=3) codestream reduces fully in
+// the codec for all of {1,2,4,8} → exact ceil(src/Scale) dims.
+func TestHTJ2KScaleDims(t *testing.T) {
+	enc, err := encodeTestLossless(makeTestRGB(256, 256), 256, 256, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ scale, w int }{{1, 256}, {2, 128}, {4, 64}, {8, 32}} {
+		img, err := (&factory{}).New().Decode(enc, decoder.DecodeOptions{Scale: tc.scale})
+		if err != nil {
+			t.Fatalf("scale %d: %v", tc.scale, err)
+		}
+		if img.Width != tc.w || img.Height != tc.w {
+			t.Errorf("scale %d: %dx%d want %dx%d", tc.scale, img.Width, img.Height, tc.w, tc.w)
+		}
+	}
+}
+
+// TestHTJ2KScaleUnsupported: non-power-of-2 / >8 reject.
+func TestHTJ2KScaleUnsupported(t *testing.T) {
+	enc, _ := encodeTestLossless(makeTestRGB(64, 64), 64, 64, 1)
+	for _, s := range []int{3, 5, 7} {
+		if _, err := (&factory{}).New().Decode(enc, decoder.DecodeOptions{Scale: s}); err == nil {
+			t.Errorf("scale %d: want ErrUnsupportedScale", s)
+		}
+	}
+}
+
 // TestEncodeWithLevels proves the parameterized test encoder produces a
 // valid codestream at multiple decomposition levels (needed to exercise
 // Scale 4/8 resolution decode in later tests).

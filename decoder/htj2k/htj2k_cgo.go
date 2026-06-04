@@ -43,14 +43,31 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	if len(src) == 0 {
 		return nil, fmt.Errorf("decoder/htj2k: empty input: %w", decoder.ErrCorruptInput)
 	}
-	if opts.Scale != 0 && opts.Scale != 1 {
-		return nil, fmt.Errorf("decoder/htj2k: scale=%d not supported: %w", opts.Scale, decoder.ErrUnsupportedScale)
+	// Map DecodeOptions.Scale to a DWT resolution factor (1/2^r), matching
+	// the jpeg decoder's {1,2,4,8} contract.
+	scale := opts.Scale
+	if scale == 0 {
+		scale = 1
 	}
-	// Phase 1: read header dimensions.
+	var resFactor int
+	switch scale {
+	case 1:
+		resFactor = 0
+	case 2:
+		resFactor = 1
+	case 4:
+		resFactor = 2
+	case 8:
+		resFactor = 3
+	default:
+		return nil, fmt.Errorf("decoder/htj2k: scale=%d (want 1,2,4,8): %w", scale, decoder.ErrUnsupportedScale)
+	}
+	// Phase 1: read header dimensions (reduced by resFactor).
 	var cW, cH C.int
 	rc := C.wsi_htj2k_dimensions(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
 		C.size_t(len(src)),
+		C.int(resFactor),
 		&cW, &cH,
 	)
 	runtime.KeepAlive(src)
@@ -69,6 +86,7 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		rc = C.wsi_htj2k_decode(
 			(*C.uint8_t)(unsafe.Pointer(&src[0])),
 			C.size_t(len(src)),
+			C.int(resFactor),
 			(*C.uint8_t)(unsafe.Pointer(&scratch.Pix[0])),
 			C.size_t(rgbStride),
 			&cW, &cH,
@@ -119,6 +137,7 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	rc = C.wsi_htj2k_decode(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
 		C.size_t(len(src)),
+		C.int(resFactor),
 		(*C.uint8_t)(unsafe.Pointer(&dst.Pix[0])),
 		C.size_t(stride),
 		&cW, &cH,

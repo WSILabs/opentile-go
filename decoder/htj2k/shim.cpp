@@ -20,8 +20,8 @@
 
 // wsi_htj2k_dimensions reads only the codestream header.
 int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
-                          int *out_w, int *out_h) {
-    if (!src || src_len == 0 || !out_w || !out_h) return -1;
+                          int resolution_factor, int *out_w, int *out_h) {
+    if (!src || src_len == 0 || !out_w || !out_h || resolution_factor < 0) return -1;
     try {
         using namespace ojph;
         mem_infile in;
@@ -32,8 +32,13 @@ int wsi_htj2k_dimensions(const uint8_t *src, size_t src_len,
         cs.read_headers(&in);
 
         param_siz siz = cs.access_siz();
-        *out_w = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
-        *out_h = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
+        int fw = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
+        int fh = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
+        // Resolution-reduced dims = ceil(full / 2^r). The caller box-finishes
+        // any residual if the codestream has fewer levels than requested.
+        int r = resolution_factor;
+        *out_w = (fw + (1 << r) - 1) >> r;
+        *out_h = (fh + (1 << r) - 1) >> r;
         cs.close();
         return 0;
     } catch (...) {
@@ -105,10 +110,10 @@ int wsi_htj2k_encode_test(const uint8_t *rgb, int width, int height,
 // wsi_htj2k_decode decodes a HTJ2K codestream into packed RGB888.
 // Uses pull() which is the decode-side API (exchange() is encode-only).
 // Handles both lossless (i32) and lossy (f32) line buffers.
-int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
+int wsi_htj2k_decode(const uint8_t *src, size_t src_len, int resolution_factor,
                      uint8_t *dst_rgb, size_t dst_stride,
                      int *out_w, int *out_h) {
-    if (!src || src_len == 0 || !dst_rgb || !out_w || !out_h) return -1;
+    if (!src || src_len == 0 || !dst_rgb || !out_w || !out_h || resolution_factor < 0) return -1;
     try {
         using namespace ojph;
         mem_infile in;
@@ -118,9 +123,17 @@ int wsi_htj2k_decode(const uint8_t *src, size_t src_len,
         cs.enable_resilience();
         cs.read_headers(&in);
 
+        // DWT resolution-level downscale: skip the top `r` fine resolutions
+        // for both data and reconstruction (1/2^r, anti-aliased). Must be
+        // called after read_headers() and before create() (openjph contract).
+        int r = resolution_factor;
+        cs.restrict_input_resolution((ui32)r, (ui32)r);
+
         param_siz siz = cs.access_siz();
-        int w = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
-        int h = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
+        int fw = (int)(siz.get_image_extent().x - siz.get_image_offset().x);
+        int fh = (int)(siz.get_image_extent().y - siz.get_image_offset().y);
+        int w = (fw + (1 << r) - 1) >> r; // ceil(full / 2^r)
+        int h = (fh + (1 << r) - 1) >> r;
         *out_w = w;
         *out_h = h;
 
