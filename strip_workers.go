@@ -94,36 +94,36 @@ func (it *StripIterator) tilesForStrip(stripIdx int) []tileKey {
 		outY1 = it.outSize.Y
 	}
 
-	// Simpler: source-level row range = floor(stripOutY0 * outSize.Y → l0 → level), ceil(stripOutY1 → l0 → level).
-	scaleY := float64(it.l0Rect.Dy()) / (it.sourceLevel.Downsample * float64(it.outSize.Y))
-	levelY0 := int(float64(outY0)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample)
-	levelY1 := int(float64(outY1)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample) + 1
+	// Effective (codec-scaled) source-level row range covering this strip.
+	scaleY := float64(it.l0Rect.Dy()) / (it.effDownsample * float64(it.outSize.Y))
+	levelY0 := int(float64(outY0)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.effDownsample)
+	levelY1 := int(float64(outY1)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.effDownsample) + 1
 
-	// Source-level column range covers the full L0 x-range.
-	scaleX := 1.0 / it.sourceLevel.Downsample
+	// Effective column range covers the full L0 x-range.
+	scaleX := 1.0 / it.effDownsample
 	levelX0 := int(float64(it.l0Rect.Min.X) * scaleX)
 	levelX1 := int(float64(it.l0Rect.Max.X)*scaleX) + 1
 
-	// Clip to level bounds.
+	// Clip to effective level bounds.
 	if levelY0 < 0 {
 		levelY0 = 0
 	}
-	if levelY1 > it.sourceLevel.Size.H {
-		levelY1 = it.sourceLevel.Size.H
+	if levelY1 > it.effLevelH {
+		levelY1 = it.effLevelH
 	}
 	if levelX0 < 0 {
 		levelX0 = 0
 	}
-	if levelX1 > it.sourceLevel.Size.W {
-		levelX1 = it.sourceLevel.Size.W
+	if levelX1 > it.effLevelW {
+		levelX1 = it.effLevelW
 	}
 
 	if levelY0 >= levelY1 || levelX0 >= levelX1 {
 		return nil
 	}
 
-	tileW := it.sourceLevel.TileSize.W
-	tileH := it.sourceLevel.TileSize.H
+	tileW := it.effTileW
+	tileH := it.effTileH
 	if tileW <= 0 || tileH <= 0 {
 		return nil
 	}
