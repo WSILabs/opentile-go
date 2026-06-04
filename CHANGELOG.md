@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-06-04
+
 ### Added — dicom: JPEG 2000 + HTJ2K transfer-syntax decode (v0.34)
 
 - **DICOM WSM levels in JPEG 2000 (`.90` / `.91`) now decode.** Mapped the
