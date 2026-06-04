@@ -82,3 +82,46 @@ func TestStripIDCTScaleCorrect(t *testing.T) {
 		t.Errorf("strip scale-2 vs scale-1 mean abs diff = %.3f, want <= 2 (scaled blit geometry broken)", m)
 	}
 }
+
+func jp2kSVS(t *testing.T) string {
+	t.Helper()
+	base := os.Getenv("OPENTILE_TESTDIR")
+	if base == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	p := filepath.Join(base, "svs", "JP2K-33003-1.svs")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	return p
+}
+
+// TestStripCodecScaleJP2K: a JP2K source at a between-level downsample must
+// (a) actually engage codec-domain scale (>1) — not just JPEG — and
+// (b) stay correct (match the spatial-only scale-1 output).
+func TestStripCodecScaleJP2K(t *testing.T) {
+	s, err := opentile.OpenFile(jp2kSVS(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	// 2x downsample of a 2048-region: between L0 (down 1) and L1 (down 4),
+	// so bestLevel is L0 and the residual is 2 -> codec scale 2.
+	l0 := image.Rect(0, 0, 2048, 2048)
+	out := image.Pt(1024, 1024)
+
+	// (a) auto codec scale engages.
+	it := s.ScaledStrips(l0, out, 64)
+	got := it.IDCTScaleForTest()
+	it.Close()
+	if got <= 1 {
+		t.Fatalf("JP2K auto codec scale = %d, want > 1 (gate should not be JPEG-only)", got)
+	}
+
+	// (b) correctness vs the spatial-only path.
+	auto := assembleStrips(t, s, l0, out, 0) // 0 = auto codec scale
+	spatial := assembleStrips(t, s, l0, out, 1)
+	if m := meanAbsDiff(auto, spatial); m > 3 {
+		t.Errorf("JP2K codec-scale vs scale-1 mean abs diff = %.3f, want <= 3", m)
+	}
+}
