@@ -11,6 +11,25 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added — decoder/jpeg2000 + decoder/htj2k: codec-domain scaled decode (#10, #12, #11)
+
+- **`DecodeOptions.Scale ∈ {1,2,4,8}` now honored** by the JPEG 2000 and
+  HTJ2K decoders via DWT resolution-level decode (1/2^log2(Scale)),
+  matching the `jpeg` decoder's contract (output `ceil(srcDim/Scale)`,
+  else `ErrUnsupportedScale`). Decoding to a lower wavelet resolution
+  skips the high-frequency subbands — **faster** than a full decode,
+  **anti-aliased** (the wavelet low-pass is a real reconstruction filter,
+  not a box average), and **seam-free** (per-tile). JP2K uses OpenJPEG
+  `cp_reduce`; HTJ2K uses openjph `restrict_input_resolution`. When a
+  codestream has fewer decomposition levels than requested (the lib then
+  *fails* rather than clamps), the decoder reduces to the max available
+  and **box-finishes** the residual factor to land on exact dims (new
+  `internal/boxhalve`). Measured ~5× (JP2K) / ~4× (HTJ2K) faster than
+  full-decode-then-box at 2×. Composes with the #7 chroma-subsampling
+  fix. Unblocks wsitools' codec-agnostic `downsample` (try `Scale:N`,
+  fall back to full-decode + spatial reduce). The umbrella #11 remains
+  open for the later `webp` / `jpegxl` items.
+
 ## [0.32.2] — 2026-06-03
 
 ### Changed — resample/lanczos: separable + weight-cached (perf, output-equivalent) (#9)

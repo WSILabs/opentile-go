@@ -55,49 +55,55 @@ static void noop_handler(const char *msg, void *client_data) {
 // decoded image width/height. Returns 0 on success, -1 on failure.
 // codec_format: OPJ_CODEC_J2K or OPJ_CODEC_JP2
 static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
-                                   int codec_format,
-                                   int *out_w, int *out_h) {
-    buf_stream_state_t state = { in, in_len, 0 };
+                                   int codec_format, int resolution_factor,
+                                   int *out_w, int *out_h, int *actual_reduce) {
+    // cp_reduce beyond the codestream's available decomposition levels makes
+    // opj_read_header FAIL (it does not clamp). Retry from the requested
+    // factor down to 0; the caller box-finishes the residual difference.
+    for (int r = resolution_factor; r >= 0; r--) {
+        buf_stream_state_t state = { in, in_len, 0 };
+        opj_stream_t *stream = opj_stream_default_create(OPJ_TRUE);
+        if (!stream) return -1;
+        opj_stream_set_user_data(stream, &state, NULL);
+        opj_stream_set_user_data_length(stream, (OPJ_UINT64)in_len);
+        opj_stream_set_read_function(stream, buf_read);
+        opj_stream_set_skip_function(stream, buf_skip);
+        opj_stream_set_seek_function(stream, buf_seek);
 
-    opj_stream_t *stream = opj_stream_default_create(OPJ_TRUE);
-    if (!stream) return -1;
-    opj_stream_set_user_data(stream, &state, NULL);
-    opj_stream_set_user_data_length(stream, (OPJ_UINT64)in_len);
-    opj_stream_set_read_function(stream, buf_read);
-    opj_stream_set_skip_function(stream, buf_skip);
-    opj_stream_set_seek_function(stream, buf_seek);
+        opj_codec_t *codec = opj_create_decompress((OPJ_CODEC_FORMAT)codec_format);
+        if (!codec) { opj_stream_destroy(stream); return -1; }
+        opj_set_info_handler(codec, noop_handler, NULL);
+        opj_set_warning_handler(codec, noop_handler, NULL);
+        opj_set_error_handler(codec, noop_handler, NULL);
 
-    opj_codec_t *codec = opj_create_decompress((OPJ_CODEC_FORMAT)codec_format);
-    if (!codec) {
-        opj_stream_destroy(stream);
-        return -1;
-    }
-    opj_set_info_handler(codec, noop_handler, NULL);
-    opj_set_warning_handler(codec, noop_handler, NULL);
-    opj_set_error_handler(codec, noop_handler, NULL);
+        opj_dparameters_t params;
+        opj_set_default_decoder_parameters(&params);
+        params.cp_reduce = (OPJ_UINT32)r;
+        if (!opj_setup_decoder(codec, &params)) {
+            opj_destroy_codec(codec);
+            opj_stream_destroy(stream);
+            return -1;
+        }
 
-    opj_dparameters_t params;
-    opj_set_default_decoder_parameters(&params);
-    if (!opj_setup_decoder(codec, &params)) {
+        opj_image_t *image = NULL;
+        if (opj_read_header(stream, codec, &image) && image) {
+            // Under cp_reduce the canvas (x1-x0) stays full size; the
+            // reduction lands in the per-component dims. comps[0] is the
+            // full-resolution (luma) component → its w/h are the output dims.
+            *out_w = (int)image->comps[0].w;
+            *out_h = (int)image->comps[0].h;
+            *actual_reduce = r;
+            opj_image_destroy(image);
+            opj_destroy_codec(codec);
+            opj_stream_destroy(stream);
+            return 0;
+        }
+        if (image) opj_image_destroy(image);
         opj_destroy_codec(codec);
         opj_stream_destroy(stream);
-        return -1;
+        // try a smaller reduction
     }
-
-    opj_image_t *image = NULL;
-    if (!opj_read_header(stream, codec, &image)) {
-        opj_destroy_codec(codec);
-        opj_stream_destroy(stream);
-        return -1;
-    }
-
-    *out_w = (int)(image->x1 - image->x0);
-    *out_h = (int)(image->y1 - image->y0);
-
-    opj_image_destroy(image);
-    opj_destroy_codec(codec);
-    opj_stream_destroy(stream);
-    return 0;
+    return -1;
 }
 
 // opj_jpeg2000_decode decodes the J2K/JP2 codestream and writes packed
@@ -105,7 +111,7 @@ static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
 // RGBA with opaque alpha). Returns 0 on success, -1 on failure.
 // The color_space_out argument receives the opj_image_t color_space value.
 static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
-                               int codec_format,
+                               int codec_format, int resolution_factor,
                                uint8_t *out, int w, int h, int bpp,
                                int *color_space_out) {
     buf_stream_state_t state = { in, in_len, 0 };
@@ -129,6 +135,10 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
 
     opj_dparameters_t params;
     opj_set_default_decoder_parameters(&params);
+    // Resolution-level (DWT) downscale: 1/2^resolution_factor, clamped by
+    // OpenJPEG to the codestream's decomposition levels. The packing loop
+    // below reads the (now reduced) per-component comps[c].w/h.
+    params.cp_reduce = (OPJ_UINT32)resolution_factor;
     if (!opj_setup_decoder(codec, &params)) {
         opj_destroy_codec(codec);
         opj_stream_destroy(stream);
@@ -247,6 +257,7 @@ import (
 	"unsafe"
 
 	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/boxhalve"
 )
 
 func init() {
@@ -276,68 +287,106 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		return nil, fmt.Errorf("decoder/jpeg2000: empty input: %w", decoder.ErrCorruptInput)
 	}
 
+	// Map DecodeOptions.Scale to a DWT resolution-reduction factor
+	// (1/2^r), matching the jpeg decoder's {1,2,4,8} contract.
 	scale := opts.Scale
-	if scale != 0 && scale != 1 {
-		return nil, fmt.Errorf("decoder/jpeg2000: scale=%d not supported: %w", scale, decoder.ErrUnsupportedScale)
+	if scale == 0 {
+		scale = 1
+	}
+	var resFactor int
+	switch scale {
+	case 1:
+		resFactor = 0
+	case 2:
+		resFactor = 1
+	case 4:
+		resFactor = 2
+	case 8:
+		resFactor = 3
+	default:
+		return nil, fmt.Errorf("decoder/jpeg2000: scale=%d (want 1,2,4,8): %w", scale, decoder.ErrUnsupportedScale)
 	}
 
 	codecFmt := detectCodecFormat(src)
 
-	// Phase 1: read header to get dimensions.
-	var cW, cH C.int
+	// Phase 1: read header for the codec-reduced dimensions. Because
+	// cp_reduce beyond the codestream's levels fails (not clamps), the C
+	// side retries down to the max reduction it supports and reports the
+	// actual factor applied; we box-finish the residual to land on exactly
+	// ceil(src/Scale).
+	var cW, cH, cActualReduce C.int
 	rc := C.opj_jpeg2000_dimensions(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
 		C.size_t(len(src)),
-		C.int(codecFmt),
-		&cW, &cH,
+		C.int(codecFmt), C.int(resFactor),
+		&cW, &cH, &cActualReduce,
 	)
 	if rc != 0 {
 		return nil, fmt.Errorf("decoder/jpeg2000: failed to read header dimensions: %w", decoder.ErrCorruptInput)
 	}
-	w, h := int(cW), int(cH)
-	if w <= 0 || h <= 0 {
-		return nil, fmt.Errorf("decoder/jpeg2000: invalid dimensions %dx%d: %w", w, h, decoder.ErrCorruptInput)
+	codecW, codecH := int(cW), int(cH)
+	if codecW <= 0 || codecH <= 0 {
+		return nil, fmt.Errorf("decoder/jpeg2000: invalid dimensions %dx%d: %w", codecW, codecH, decoder.ErrCorruptInput)
+	}
+	boxTimes := resFactor - int(cActualReduce)
+
+	// Final dims = codec dims ceil-halved boxTimes times (== ceil(src/Scale)).
+	finalW, finalH := codecW, codecH
+	for i := 0; i < boxTimes; i++ {
+		finalW = (finalW + 1) / 2
+		finalH = (finalH + 1) / 2
 	}
 
-	// Phase 2: allocate output image and decode. Honor the requested pixel
-	// format (RGB default, or RGBA with opaque alpha).
+	// Pixel format / bpp (RGB default, RGBA with opaque alpha).
+	format := opts.Format
+	if opts.Dst != nil {
+		format = opts.Dst.Format
+	}
 	bpp := 3
-	if opts.Format == decoder.PixelFormatRGBA {
+	if format == decoder.PixelFormatRGBA {
 		bpp = 4
 	}
-	var dst *decoder.Image
-	if opts.Dst == nil {
-		dst = decoder.NewImageFormat(w, h, opts.Format)
+
+	// A caller-provided Dst is validated against the FINAL dimensions.
+	if opts.Dst != nil && (opts.Dst.Width != finalW || opts.Dst.Height != finalH) {
+		return nil, fmt.Errorf("decoder/jpeg2000: dst %dx%d != decoded %dx%d: %w",
+			opts.Dst.Width, opts.Dst.Height, finalW, finalH, decoder.ErrDestinationSize)
+	}
+
+	// Phase 2: decode at the codec-reduced resolution. With no box-finish we
+	// decode straight into Dst; otherwise into a scratch, then box-finish.
+	var decodeImg *decoder.Image
+	if boxTimes == 0 && opts.Dst != nil {
+		decodeImg = opts.Dst
 	} else {
-		if opts.Dst.Width != w || opts.Dst.Height != h {
-			return nil, fmt.Errorf("decoder/jpeg2000: dst %dx%d != decoded %dx%d: %w",
-				opts.Dst.Width, opts.Dst.Height, w, h, decoder.ErrDestinationSize)
-		}
-		dst = opts.Dst
-		if dst.Format == decoder.PixelFormatRGBA {
-			bpp = 4
-		} else {
-			bpp = 3
-		}
+		decodeImg = decoder.NewImageFormat(codecW, codecH, format)
 	}
 
 	var colorSpaceOut C.int
 	rc = C.opj_jpeg2000_decode(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
 		C.size_t(len(src)),
-		C.int(codecFmt),
-		(*C.uint8_t)(unsafe.Pointer(&dst.Pix[0])),
+		C.int(codecFmt), cActualReduce,
+		(*C.uint8_t)(unsafe.Pointer(&decodeImg.Pix[0])),
 		cW, cH, C.int(bpp),
 		&colorSpaceOut,
 	)
 	runtime.KeepAlive(src)
-	runtime.KeepAlive(dst)
+	runtime.KeepAlive(decodeImg)
 	if rc != 0 {
 		return nil, fmt.Errorf("decoder/jpeg2000: decode failed (color_space=%d): %w",
 			int(colorSpaceOut), decoder.ErrCorruptInput)
 	}
 
-	return dst, nil
+	if boxTimes == 0 {
+		return decodeImg, nil
+	}
+	finished := boxhalve.Halve(decodeImg, boxTimes)
+	if opts.Dst != nil {
+		copy(opts.Dst.Pix, finished.Pix)
+		return opts.Dst, nil
+	}
+	return finished, nil
 }
 
 func (d *cgoDecoder) Close() error { return nil }

@@ -3,10 +3,13 @@ package decoder
 // DecodeOptions configures a single Decode call. The zero value is
 // valid (Scale=1, Format=PixelFormatRGB, Dst=nil → allocate fresh RGB).
 type DecodeOptions struct {
-	// Scale is the IDCT-time scale factor (JPEG decoders only).
-	// Valid values: 1, 2, 4, 8. Other values return ErrUnsupportedScale.
-	// Non-JPEG decoders return ErrUnsupportedScale if Scale != 1.
-	// The zero value (0) is treated as 1 (no scaling).
+	// Scale is the in-codec downscale factor. Valid values: 1, 2, 4, 8;
+	// other values return ErrUnsupportedScale. The zero value (0) is
+	// treated as 1 (no scaling). Decode produces ceil(srcDim/Scale).
+	// Supported by: jpeg (libjpeg IDCT fast-scale), jpeg2000 and htj2k
+	// (DWT resolution-level decode, 1/2^log2(Scale), box-finishing any
+	// residual when the codestream has too few levels). Other decoders
+	// return ErrUnsupportedScale if Scale != 1.
 	Scale int
 
 	// Format is the requested output pixel format. Decoders return

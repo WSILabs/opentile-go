@@ -32,7 +32,7 @@ func TestRoundTrip(t *testing.T) {
 		}
 	}
 
-	cs, err := encodeTestLossless(orig, w, h)
+	cs, err := encodeTestLossless(orig, w, h, 1)
 	if err != nil {
 		t.Fatalf("encodeTestLossless: %v", err)
 	}
