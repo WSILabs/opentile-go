@@ -59,6 +59,34 @@ When `OpenFile` receives a path to a single `.dcm` file it reads the
 WSM instances sharing the same SeriesUID. The scan is bounded to the parent
 directory only — it does not recurse.
 
+## Choosing an entry point: file vs directory
+
+DICOM WSM is inherently multi-file (a *Series* = many *Instances*), so opening
+always gathers files. Two models, both supported:
+
+- **Single `.dcm` (precise, recommended for unattended use).** Anchors to that
+  file's `SeriesUID` and assembles only same-series siblings — *unambiguous*
+  even if the directory holds other series. The OpenSlide-style model.
+- **Directory (convenient).** Globs all WSM instances and **dominant-picks**
+  the series with the most VOLUME levels (ties by first SeriesUID). Mirrors
+  wsidicom's folder model. Convenient, but *silently* resolves a multi-series
+  directory.
+
+### `ListWSMSeries(path) ([]SeriesInfo, error)`
+
+Enumerates the WSM series under a path **without opening a slide**, so a caller
+(e.g. a CLI) can detect a multi-series directory and refuse with an actionable
+error instead of trusting the dominant-pick. Returns one `SeriesInfo`
+(`SeriesUID`, `LevelCount`, `InstanceCount`, `Manufacturer`, `Model`,
+`Magnification`) per distinct WSM series, sorted by `SeriesUID`; a single
+`.dcm` path returns exactly one anchored entry. The scan is metadata-only
+(skips PixelData), fast-rejects non-DICOM files by DICM magic, and parses with
+a bounded worker pool — but it is O(files) (a file's series is only knowable by
+reading it) and does **not** truncate, so it stays correct on large
+directories. A `DICOMDIR` fast-path (enumerate from the index in O(1) reads) is
+a deferred optimization. `OpenSeries`' dominant-pick is unchanged — this is a
+pure probe.
+
 ## Implementation references
 
 - Reader package: `formats/dicom/`

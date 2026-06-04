@@ -11,6 +11,20 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added — dicom: `ListWSMSeries` series enumeration (#13)
+
+- **`dicom.ListWSMSeries(path) ([]SeriesInfo, error)`** enumerates the WSM
+  series under a path **without opening a slide**, returning one `SeriesInfo`
+  (`SeriesUID`, `LevelCount`, `InstanceCount`, `Manufacturer`, `Model`,
+  `Magnification`) per distinct series, sorted by `SeriesUID`. A single `.dcm`
+  path returns one anchored entry. Lets a caller (CLI) detect a multi-series
+  directory (`len() > 1`) and refuse with an actionable error instead of
+  trusting `OpenSeries`' silent dominant-pick (which is unchanged). The scan is
+  metadata-only with a DICM-magic pre-filter and a bounded worker pool; it does
+  not truncate (correctness over a partial fast answer). `DICOMDIR` fast-path
+  deferred. Docs now recommend single-`.dcm` open as the precise, unambiguous
+  entry point.
+
 ### Added — decoder/jpeg2000 + decoder/htj2k: codec-domain scaled decode (#10, #12, #11)
 
 - **`DecodeOptions.Scale ∈ {1,2,4,8}` now honored** by the JPEG 2000 and
