@@ -11,18 +11,27 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
-### Added — dicom: JPEG 2000 transfer-syntax decode (v0.34 JP2K phase)
+### Added — dicom: JPEG 2000 + HTJ2K transfer-syntax decode (v0.34)
 
-- **DICOM WSM levels in JPEG 2000 (`1.2.840.10008.1.2.4.90` / `.91`) now
-  decode.** Mapped the JP2K transfer syntaxes to `CompressionJP2K` in
-  `compressionForSyntax`; `DecodedTile` then dispatches to the OpenJPEG
-  decoder. Frame extraction was already codec-agnostic (the mmap
-  fragment-offset-walk returns the raw J2K codestream), so this was a
-  one-line mapping on top of the decoder hardening from #7/#8/#10. Colour
-  is handled by OpenJPEG from the codestream (no `PhotometricInterpretation`
-  plumbing needed) — verified within 1 LSB against the original JPEG via a
-  lossless `gdcmconv --j2k` transcode fixture. HTJ2K (`.201`–`.203`) is the
-  next phase.
+- **DICOM WSM levels in JPEG 2000 (`.90` / `.91`) now decode.** Mapped the
+  JP2K transfer syntaxes to `CompressionJP2K` in `compressionForSyntax`;
+  `DecodedTile` dispatches to the OpenJPEG decoder. Frame extraction was
+  already codec-agnostic (the mmap fragment-offset-walk returns the raw J2K
+  codestream), so this was a one-line mapping on top of the decoder hardening
+  from #7/#8/#10. Colour is handled by OpenJPEG from the codestream (no
+  `PhotometricInterpretation` plumbing) — verified within 1 LSB against the
+  original JPEG via a lossless `gdcmconv --j2k` transcode fixture.
+- **DICOM WSM levels in HTJ2K (`.201` / `.202` / `.203`) now decode** (subject
+  to the `nohtj2k` build tag). Same one-line `compressionForSyntax` mapping to
+  `CompressionHTJ2K` → openjph decoder. Required a parser fix: `suyashkumar/`
+  `dicom` v1.1.0 (latest) doesn't know the HTJ2K syntaxes and **SIGSEGVs** (it
+  derives a nil byte order), which blocked reading *any* HTJ2K DICOM. Since
+  HTJ2K data sets use Explicit VR Little Endian — the same encoding as JPEG
+  2000 `.91` — `internal/dicom` substitutes a `.91` proxy UID in the meta
+  header for the cold-path parse and records the real syntax. `ParseInstance`
+  also gained a `recover` guard so malformed DICOM returns an error instead of
+  crashing. Colour verified within 5 LSB vs the original JPEG (ojph_compress +
+  pydicom lossless transcode fixture).
 
 ## [0.33.0] — 2026-06-04
 

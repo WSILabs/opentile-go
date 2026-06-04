@@ -28,6 +28,7 @@ associated image.
 | TILED_SPARSE organization | ✅ | Per-frame `(ColumnPosition, RowPosition)` map built at Open; Leica GT450 |
 | JPEG Baseline levels | ✅ | libjpeg-turbo decode via the existing decoder pool |
 | JPEG 2000 levels (`.90` / `.91`) | ✅ | OpenJPEG decode; frame extraction is codec-agnostic (raw J2K codestream), only the transfer-syntax → `CompressionJP2K` mapping was needed. Colour verified within 1 LSB vs the original JPEG via a lossless `gdcmconv --j2k` transcode |
+| HTJ2K levels (`.201` / `.202` / `.203`) | ✅ | openjph decode. Required a parser workaround: `suyashkumar/dicom` v1.1.0 doesn't know the HTJ2K syntaxes and SIGSEGVs (nil byte order), so `internal/dicom` substitutes a `.91` proxy (same Explicit VR LE encoding) in the meta header for the cold-path parse and records the real syntax. Colour verified within 5 LSB vs the original JPEG (ojph_compress + pydicom lossless transcode). Subject to the `nohtj2k` build tag |
 | Uncompressed associated images | ✅ | `decoder/none` raw passthrough; Leica GT450 label |
 | JPEG associated images | ✅ | label / overview / thumbnail per `ImageType` tokens |
 | `Levels()` / `Metadata()` / `RawTile` / `DecodedTile` / `ReadRegion` / `ScaledStrips` | ✅ | Standard opentile-go interfaces |
@@ -42,7 +43,7 @@ associated image.
 |---|---|
 | Concatenations (`ConcatenationUID 0020,9161`) — a level split across multiple instances | ❌ deferred; absent in all 3 fixture scanners |
 | Multi-fragment-per-frame pixel data | ❌ deferred; not present in fixture corpus |
-| HTJ2K / JPEG-LS / RLE transfer syntaxes | ❌ deferred; JP2K (`.90`/`.91`) now supported, HTJ2K (`.201`–`.203`) is the next phase, JPEG-LS / RLE remain deferred |
+| JPEG-LS / RLE transfer syntaxes | ❌ deferred; JP2K (`.90`/`.91`) and HTJ2K (`.201`–`.203`) now supported, JPEG-LS / RLE remain deferred |
 | Multi-optical-path / Z-stack / multi-pyramid series | ❌ deferred; opentile-go reads single-path brightfield WSM series |
 | DICOMweb / PACS network fetch | ❌ permanent YAGNI for this library |
 | Raw DICOM attribute access API | ❌ deferred; `TIFFDirectoriesOf` returns `ok=false` for DICOM |
@@ -136,8 +137,8 @@ pure probe.
   |---|---|---|
   | JPEG Baseline | `1.2.840.10008.1.2.4.50` | ✅ `decoder/jpeg` (libjpeg-turbo) |
   | Uncompressed (native) | `1.2.840.10008.1.2.1` | ✅ `decoder/none` (raw passthrough) |
-  | JPEG 2000 | `…4.90` / `…4.91` | ❌ deferred |
-  | HTJ2K | `…4.201`–`.203` | ❌ deferred |
+  | JPEG 2000 | `…4.90` / `…4.91` | ✅ `decoder/jpeg2000` (OpenJPEG) |
+  | HTJ2K | `…4.201`–`.203` | ✅ `decoder/htj2k` (openjph); needs the parser proxy-substitution |
   | JPEG-LS | `…4.80` / `…4.81` | ❌ deferred |
   | RLE Lossless | `1.2.840.10008.1.2.5` | ❌ deferred |
 
