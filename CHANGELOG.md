@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-06-04
+
 ### Added — dicom: `ListWSMSeries` series enumeration (#13)
 
 - **`dicom.ListWSMSeries(path) ([]SeriesInfo, error)`** enumerates the WSM
