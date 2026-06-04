@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
 	_ "github.com/wsilabs/opentile-go/decoder/all"
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
@@ -63,5 +64,58 @@ func TestDICOMJP2KDecode(t *testing.T) {
 	}
 	if img.Width != lvls[0].TileSize.W || img.Height != lvls[0].TileSize.H {
 		t.Fatalf("decoded %dx%d, want tile %dx%d", img.Width, img.Height, lvls[0].TileSize.W, lvls[0].TileSize.H)
+	}
+}
+
+// TestDICOMJP2KColorParity confirms color/photometric correctness without a
+// Python oracle: the JP2K fixture is a *lossless* gdcmconv transcode of the
+// original JPEG-baseline 3DHISTECH-1, so decoding the same-dimension tile
+// from both must match within a tile (any colour-space mishandling would
+// show large diffs). Skips unless both fixtures are present.
+func TestDICOMJP2KColorParity(t *testing.T) {
+	base := os.Getenv("OPENTILE_TESTDIR")
+	if base == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	const w, h = 1792, 1888
+	dec := func(name string) *decoder.Image {
+		dir := filepath.Join(base, "dicom", name)
+		if _, err := os.Stat(dir); err != nil {
+			t.Skipf("fixture %s absent", name)
+		}
+		s, err := opentile.OpenFile(dir)
+		if err != nil {
+			t.Fatalf("open %s: %v", name, err)
+		}
+		t.Cleanup(func() { s.Close() })
+		for _, lv := range s.Levels() {
+			if lv.Size.W == w && lv.Size.H == h {
+				img, err := s.DecodedTile(lv.Index, 0, 0)
+				if err != nil {
+					t.Fatalf("decode %s: %v", name, err)
+				}
+				return img
+			}
+		}
+		t.Fatalf("%s has no %dx%d level", name, w, h)
+		return nil
+	}
+	j2k := dec("3DHISTECH-JP2K")
+	jpg := dec("3DHISTECH-1")
+	if len(j2k.Pix) != len(jpg.Pix) {
+		t.Fatalf("pix len %d vs %d", len(j2k.Pix), len(jpg.Pix))
+	}
+	max := 0
+	for i := range j2k.Pix {
+		d := int(j2k.Pix[i]) - int(jpg.Pix[i])
+		if d < 0 {
+			d = -d
+		}
+		if d > max {
+			max = d
+		}
+	}
+	if max > 3 { // lossless transcode → within JPEG↔RGB↔J2K rounding
+		t.Errorf("JP2K vs original-JPEG max channel diff = %d, want <= 3", max)
 	}
 }
