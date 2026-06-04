@@ -72,6 +72,14 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	outW := (int(srcW) + scale - 1) / scale
 	outH := (int(srcH) + scale - 1) / scale
 
+	// tjDecompressHeader3 can report success with zero dimensions on some
+	// malformed/truncated inputs (observed on Linux libjpeg-turbo); guard
+	// before allocating/indexing so &dst.Pix[0] can't panic on an empty
+	// image.
+	if outW <= 0 || outH <= 0 {
+		return nil, fmt.Errorf("decoder/jpeg: invalid dimensions %dx%d: %w", outW, outH, decoder.ErrCorruptInput)
+	}
+
 	var pixelFormat C.int
 	bpp := 3
 	switch opts.Format {
