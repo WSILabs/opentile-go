@@ -42,14 +42,24 @@ func stripCacheCapacity(budgetBytes, bytesPerTile int64, workers, countFormulaCa
 	return capacity
 }
 
-// autoIDCTScale picks the IDCT scale factor for a JPEG source level
-// based on the effective downsample from level dims to output dims.
-//
-// Returns 1, 2, 4, or 8. Non-JPEG levels still get a return value
-// (the caller's WithScale option call may be a no-op for non-JPEG,
-// but the iterator passes it through).
+// scaleCapable reports whether a level's codec honors DecodeOptions.Scale
+// (decode to ceil(dim/Scale)): jpeg (IDCT), jpeg2000 + htj2k (DWT resolution
+// decode). Other codecs return ErrUnsupportedScale for Scale != 1, so the
+// strip path must not request a scale on them.
+func scaleCapable(c Compression) bool {
+	switch c {
+	case CompressionJPEG, CompressionJP2K, CompressionHTJ2K:
+		return true
+	default:
+		return false
+	}
+}
+
+// autoIDCTScale picks the codec-domain scale factor for a scale-capable
+// source level based on the effective downsample from level dims to output
+// dims. Returns 1, 2, 4, or 8 (1 for codecs that can't scale).
 func autoIDCTScale(level Level, l0Rect image.Rectangle, outSize image.Point) int {
-	if level.Compression != CompressionJPEG {
+	if !scaleCapable(level.Compression) {
 		return 1
 	}
 	// Effective downsample from level to output.

@@ -24,8 +24,19 @@ type StripIterator struct {
 
 	// Resolved at init.
 	sourceLevel Level // chosen pyramid level
-	idctScale   int   // 1, 2, 4, or 8 (JPEG); 1 otherwise
+	idctScale   int   // 1, 2, 4, or 8 codec-domain downscale; 1 if none
 	stripsTotal int   // ceil(outSize.Y / stripHeight)
+
+	// Effective (codec-scaled) source geometry. When idctScale = s, decoded
+	// tiles are ceil(TileSize/s) and the assembled strip intermediate lives
+	// at the level resolution / s. All strip geometry (region clip, tile
+	// selection, blit) runs on this virtual s-times-coarser level so the
+	// unscaled blit math stays correct for scaled tiles.
+	effDownsample float64
+	effLevelW     int
+	effLevelH     int
+	effTileW      int
+	effTileH      int
 
 	// Runtime state.
 	mu        sync.Mutex
@@ -81,6 +92,14 @@ func newStripIterator(s *Slide, imageIdx int, l0Rect image.Rectangle, outSize im
 	if it.idctScale == 0 {
 		it.idctScale = 1
 	}
+
+	// Effective (s-times-coarser) source geometry for the scaled tiles.
+	es := it.idctScale
+	it.effDownsample = level.Downsample * float64(es)
+	it.effLevelW = (level.Size.W + es - 1) / es
+	it.effLevelH = (level.Size.H + es - 1) / es
+	it.effTileW = (level.TileSize.W + es - 1) / es
+	it.effTileH = (level.TileSize.H + es - 1) / es
 
 	// Cache size: byte-budget-derived, floored at max(workers,8) and
 	// capped at the original count formula. The count formula
@@ -173,15 +192,16 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 	stripImg := decoder.NewImageFormat(it.outSize.X, stripH, decoder.PixelFormatRGB)
 	fillWhite(stripImg)
 
-	// Compute source-level region covering this strip.
-	scaleY := float64(it.l0Rect.Dy()) / (it.sourceLevel.Downsample * float64(it.outSize.Y))
-	levelY0 := int(float64(outY0)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample)
-	levelY1 := int(float64(outY1)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.sourceLevel.Downsample) + 1
-	scaleX := 1.0 / it.sourceLevel.Downsample
+	// Compute source-level region covering this strip, in EFFECTIVE
+	// (codec-scaled) coordinates so scaled tiles blit correctly.
+	scaleY := float64(it.l0Rect.Dy()) / (it.effDownsample * float64(it.outSize.Y))
+	levelY0 := int(float64(outY0)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.effDownsample)
+	levelY1 := int(float64(outY1)*scaleY) + int(float64(it.l0Rect.Min.Y)/it.effDownsample) + 1
+	scaleX := 1.0 / it.effDownsample
 	levelX0 := int(float64(it.l0Rect.Min.X) * scaleX)
 	levelX1 := int(float64(it.l0Rect.Max.X)*scaleX) + 1
 
-	// Clip to level bounds.
+	// Clip to effective level bounds.
 	cy0 := levelY0
 	cy1 := levelY1
 	cx0 := levelX0
@@ -189,29 +209,30 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 	if cy0 < 0 {
 		cy0 = 0
 	}
-	if cy1 > it.sourceLevel.Size.H {
-		cy1 = it.sourceLevel.Size.H
+	if cy1 > it.effLevelH {
+		cy1 = it.effLevelH
 	}
 	if cx0 < 0 {
 		cx0 = 0
 	}
-	if cx1 > it.sourceLevel.Size.W {
-		cx1 = it.sourceLevel.Size.W
+	if cx1 > it.effLevelW {
+		cx1 = it.effLevelW
 	}
 	if cy0 >= cy1 || cx0 >= cx1 {
 		// Entirely out of bounds; strip stays all white.
 		return stripImg, nil
 	}
 
-	// Allocate an intermediate image at level resolution for this strip's
-	// source-level region. We'll blit tiles into it then resample to output.
+	// Allocate an intermediate image at the EFFECTIVE (codec-scaled) level
+	// resolution for this strip's region. We'll blit tiles into it then
+	// resample to output.
 	intermediateW := cx1 - cx0
 	intermediateH := cy1 - cy0
 	intermediate := decoder.NewImageFormat(intermediateW, intermediateH, decoder.PixelFormatRGB)
 	fillWhite(intermediate)
 
-	tileW := it.sourceLevel.TileSize.W
-	tileH := it.sourceLevel.TileSize.H
+	tileW := it.effTileW
+	tileH := it.effTileH
 	txMin := cx0 / tileW
 	tyMin := cy0 / tileH
 	txMax := (cx1 - 1) / tileW

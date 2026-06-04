@@ -12,3 +12,8 @@ func (s *Slide) HandleCountForTest() int {
 	defer s.handlesMu.Unlock()
 	return len(s.handles)
 }
+
+// IDCTScaleForTest returns the codec-domain scale factor the iterator
+// selected (1 when no codec downscale is used). Used to assert the
+// codec-scale gate engages for JP2K/HTJ2K sources.
+func (it *StripIterator) IDCTScaleForTest() int { return it.idctScale }

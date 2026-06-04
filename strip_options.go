@@ -62,11 +62,10 @@ func WithStripLookahead(strips int) StripOption {
 	return func(c *stripConfig) { c.lookahead = strips }
 }
 
-// WithStripIDCTScale overrides the auto-selected IDCT-time scale
-// factor for JPEG sources. Valid: 1, 2, 4, 8. Default 0 = auto-
-// select based on output downsample.
-//
-// Non-JPEG sources ignore this option silently.
+// WithStripIDCTScale overrides the auto-selected codec-domain downscale
+// factor. Valid: 1, 2, 4, 8. Default 0 = auto-select based on output
+// downsample. Honored by scale-capable codecs (jpeg, jpeg2000, htj2k);
+// other codecs ignore it (decode at full level resolution).
 func WithStripIDCTScale(scale int) StripOption {
 	return func(c *stripConfig) { c.idctScale = scale }
 }

@@ -1,7 +1,10 @@
 package opentile
 
 import (
+	"errors"
 	"fmt"
+	imagelib "image"
+	"io"
 
 	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/resample"
@@ -62,6 +65,28 @@ func (s *Slide) ImageReadRegionScaled(image int, l0x, l0y, l0w, l0h, outW, outH 
 	lvl, err := s.r.Level(image, level)
 	if err != nil {
 		return nil, err
+	}
+
+	// Fast path: route through the codec-scaling strip machinery when it
+	// applies — RGB output, no explicit scale override, and the source
+	// level's codec can downscale in the codec domain with a residual > 1.
+	// This decodes part of the residual in the codec (faster + anti-aliased)
+	// instead of full-decode + spatial resample. Other cases fall through.
+	l0Rect := imagelib.Rect(l0x, l0y, l0x+l0w, l0y+l0h)
+	outSize := imagelib.Pt(outW, outH)
+	if cfg.format == decoder.PixelFormatRGB && cfg.scale <= 1 &&
+		scaleCapable(lvl.Compression) && autoIDCTScale(lvl, l0Rect, outSize) > 1 {
+		sc := newStripConfig([]StripOption{WithStripKernel(cfg.kernel)})
+		it := newStripIterator(s, image, l0Rect, outSize, outH, sc)
+		defer it.Close()
+		strip, err := it.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, ErrRegionEmpty
+			}
+			return nil, err
+		}
+		return strip, nil
 	}
 
 	// Translate L0 rect to level rect via the chosen level's Downsample.
