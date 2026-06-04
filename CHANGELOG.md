@@ -11,6 +11,19 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added — dicom: JPEG 2000 transfer-syntax decode (v0.34 JP2K phase)
+
+- **DICOM WSM levels in JPEG 2000 (`1.2.840.10008.1.2.4.90` / `.91`) now
+  decode.** Mapped the JP2K transfer syntaxes to `CompressionJP2K` in
+  `compressionForSyntax`; `DecodedTile` then dispatches to the OpenJPEG
+  decoder. Frame extraction was already codec-agnostic (the mmap
+  fragment-offset-walk returns the raw J2K codestream), so this was a
+  one-line mapping on top of the decoder hardening from #7/#8/#10. Colour
+  is handled by OpenJPEG from the codestream (no `PhotometricInterpretation`
+  plumbing needed) — verified within 1 LSB against the original JPEG via a
+  lossless `gdcmconv --j2k` transcode fixture. HTJ2K (`.201`–`.203`) is the
+  next phase.
+
 ## [0.33.0] — 2026-06-04
 
 ### Added — dicom: `ListWSMSeries` series enumeration (#13)

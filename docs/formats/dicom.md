@@ -27,6 +27,7 @@ associated image.
 | TILED_FULL organization | ✅ | Raster frame-index (`ty*tilesAcross + tx`); 3DHISTECH + Grundium |
 | TILED_SPARSE organization | ✅ | Per-frame `(ColumnPosition, RowPosition)` map built at Open; Leica GT450 |
 | JPEG Baseline levels | ✅ | libjpeg-turbo decode via the existing decoder pool |
+| JPEG 2000 levels (`.90` / `.91`) | ✅ | OpenJPEG decode; frame extraction is codec-agnostic (raw J2K codestream), only the transfer-syntax → `CompressionJP2K` mapping was needed. Colour verified within 1 LSB vs the original JPEG via a lossless `gdcmconv --j2k` transcode |
 | Uncompressed associated images | ✅ | `decoder/none` raw passthrough; Leica GT450 label |
 | JPEG associated images | ✅ | label / overview / thumbnail per `ImageType` tokens |
 | `Levels()` / `Metadata()` / `RawTile` / `DecodedTile` / `ReadRegion` / `ScaledStrips` | ✅ | Standard opentile-go interfaces |
@@ -41,7 +42,7 @@ associated image.
 |---|---|
 | Concatenations (`ConcatenationUID 0020,9161`) — a level split across multiple instances | ❌ deferred; absent in all 3 fixture scanners |
 | Multi-fragment-per-frame pixel data | ❌ deferred; not present in fixture corpus |
-| JP2K / HTJ2K / JPEG-LS / RLE transfer syntaxes | ❌ deferred; only JPEG Baseline + uncompressed shipped |
+| HTJ2K / JPEG-LS / RLE transfer syntaxes | ❌ deferred; JP2K (`.90`/`.91`) now supported, HTJ2K (`.201`–`.203`) is the next phase, JPEG-LS / RLE remain deferred |
 | Multi-optical-path / Z-stack / multi-pyramid series | ❌ deferred; opentile-go reads single-path brightfield WSM series |
 | DICOMweb / PACS network fetch | ❌ permanent YAGNI for this library |
 | Raw DICOM attribute access API | ❌ deferred; `TIFFDirectoriesOf` returns `ok=false` for DICOM |
