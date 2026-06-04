@@ -6,6 +6,7 @@
 package dicom
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -70,12 +71,16 @@ var (
 	tRowPos         = tag.Tag{Group: 0x0048, Element: 0x021F}
 )
 
-// ParseInstance parses one instance's metadata (pixel data skipped).
-func ParseInstance(path string) (Instance, error) {
-	ds, err := dicom.ParseFile(path, nil,
-		dicom.SkipPixelData(),
-		dicom.AllowMismatchPixelDataLength(),
-	)
+// ParseInstance parses one instance's metadata (pixel data skipped). It never
+// panics: a malformed instance (e.g. an input that trips a parser bug)
+// returns an error. HTJ2K transfer syntaxes are handled via parseDataset.
+func ParseInstance(path string) (inst Instance, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			inst, err = Instance{}, fmt.Errorf("dicom: recovered from panic parsing %q: %v", path, r)
+		}
+	}()
+	ds, realTS, err := parseDataset(path)
 	if err != nil {
 		return Instance{}, err
 	}
@@ -111,6 +116,11 @@ func ParseInstance(path string) (Instance, error) {
 		if v, ok := e.Value.GetValue().([]byte); ok {
 			in.ICCProfile = v
 		}
+	}
+	// parseDataset substitutes a proxy transfer syntax for HTJ2K; restore the
+	// real one it reported.
+	if realTS != "" {
+		in.TransferSyntax = realTS
 	}
 	return in, nil
 }
