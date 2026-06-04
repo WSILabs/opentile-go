@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.34.1] — 2026-06-04
+
 ### Fixed — strips: corrupted output at between-level downsamples
 
 - **`ScaledStrips` / `ReadRegionScaled` produced squished/gapped output**
