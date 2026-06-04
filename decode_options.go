@@ -37,9 +37,10 @@ func WithFormat(f decoder.PixelFormat) DecodeOption {
 	return func(c *decodeConfig) { c.format = f }
 }
 
-// WithScale sets the IDCT-time scale factor (JPEG decoders only).
-// Valid values: 1, 2, 4, 8. Non-JPEG sources return ErrUnsupportedScale
-// from the underlying decoder if Scale != 1.
+// WithScale sets the in-codec downscale factor, decoding to
+// ceil(dim/scale). Valid values: 1, 2, 4, 8. Honored by jpeg (IDCT
+// fast-scale), jpeg2000 (cp_reduce) and htj2k (restrict_input_resolution);
+// other codecs return ErrUnsupportedScale for scale != 1.
 func WithScale(s int) DecodeOption {
 	return func(c *decodeConfig) { c.scale = s }
 }

@@ -11,6 +11,31 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Fixed — strips: corrupted output at between-level downsamples
+
+- **`ScaledStrips` / `ReadRegionScaled` produced squished/gapped output**
+  whenever the codec-domain scale factor (`idctScale`) was > 1 — which
+  `autoIDCTScale` auto-selects for any source whose target downsample falls
+  *between* pyramid levels (a common case for DZI generation). Decoded tiles
+  are `ceil(TileSize/scale)`, but the strip region, intermediate, and blit
+  positions were computed in **full-level** coordinates, so scaled tiles were
+  dropped at full-level positions covering only `1/scale` of their footprint.
+  Fixed by running all strip geometry on an effective `scale`-times-coarser
+  virtual level. (Regression: strip scale-2 vs scale-1 mean abs diff
+  8.26 → 0.07.)
+
+### Added — strips + regions: codec-domain Scale for JP2K/HTJ2K
+
+- **`ScaledStrips` and `ReadRegionScaled` now use codec-domain downscale for
+  JP2K and HTJ2K sources**, not just JPEG. `autoIDCTScale`'s gate widened from
+  `CompressionJPEG` to a scale-capable predicate (`jpeg | jpeg2000 | htj2k`),
+  riding the `DecodeOptions.Scale` contract those decoders gained in v0.33/
+  v0.34. `ReadRegionScaled` (which previously did full-level read + spatial
+  resample for every codec) now routes the common case through the strip
+  machinery. Faster + anti-aliased downsampling on SVS-JP2K and DICOM
+  JP2K/HTJ2K. `WithScale` / `WithStripIDCTScale` docs corrected (no longer
+  "JPEG only").
+
 ## [0.34.0] — 2026-06-04
 
 ### Added — dicom: JPEG 2000 + HTJ2K transfer-syntax decode (v0.34)
