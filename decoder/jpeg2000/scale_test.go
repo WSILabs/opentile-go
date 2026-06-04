@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/boxhalve"
 )
 
 func readJP2KFixture(t *testing.T) []byte {
@@ -54,6 +55,36 @@ func TestJP2KScaleBoxFinish(t *testing.T) {
 		if img.Width != tc.w || img.Height != tc.w {
 			t.Errorf("scale %d: dims %dx%d, want %dx%d", tc.scale, img.Width, img.Height, tc.w, tc.w)
 		}
+	}
+}
+
+// TestJP2KScaleQualityClose: resolution decode at Scale 2 should be in the
+// same ballpark as full-decode-then-box (NOT bit-equal — the wavelet
+// low-pass is a real reconstruction filter, not a box average).
+func TestJP2KScaleQualityClose(t *testing.T) {
+	src := readJP2KFixture(t)
+	full, err := (&factory{}).New().Decode(src, decoder.DecodeOptions{Scale: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := boxhalve.Halve(full, 1) // 128x128 box reference
+	got, err := (&factory{}).New().Decode(src, decoder.DecodeOptions{Scale: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Width != ref.Width || got.Height != ref.Height {
+		t.Fatalf("dims %dx%d vs %dx%d", got.Width, got.Height, ref.Width, ref.Height)
+	}
+	var sum int
+	for i := range got.Pix {
+		d := int(got.Pix[i]) - int(ref.Pix[i])
+		if d < 0 {
+			d = -d
+		}
+		sum += d
+	}
+	if mean := float64(sum) / float64(len(got.Pix)); mean > 12 {
+		t.Errorf("mean abs diff %.2f too large (resolution decode vs box)", mean)
 	}
 }
 
