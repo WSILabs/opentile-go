@@ -125,3 +125,25 @@ func TestStripCodecScaleJP2K(t *testing.T) {
 		t.Errorf("JP2K codec-scale vs scale-1 mean abs diff = %.3f, want <= 3", m)
 	}
 }
+
+// TestReadRegionScaledCodecScale: ReadRegionScaled on a JP2K between-level
+// target must stay correct — equal to the verified spatial-only strip path.
+// (It now routes through the codec-scaling strip machinery internally.)
+func TestReadRegionScaledCodecScale(t *testing.T) {
+	s, err := opentile.OpenFile(jp2kSVS(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	got, err := s.ReadRegionScaled(0, 0, 2048, 2048, 1024, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := assembleStrips(t, s, image.Rect(0, 0, 2048, 2048), image.Pt(1024, 1024), 1)
+	if got.Width != ref.Width || got.Height != ref.Height {
+		t.Fatalf("dims %dx%d vs %dx%d", got.Width, got.Height, ref.Width, ref.Height)
+	}
+	if m := meanAbsDiff(got, ref); m > 3 {
+		t.Errorf("ReadRegionScaled vs strip-scale-1 reference mean abs diff = %.3f, want <= 3", m)
+	}
+}
