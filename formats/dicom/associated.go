@@ -75,6 +75,10 @@ func compressionForSyntax(ts string) opentile.Compression {
 	case "1.2.840.10008.1.2.4.90", // JPEG 2000 Image Compression (Lossless Only)
 		"1.2.840.10008.1.2.4.91": // JPEG 2000 Image Compression
 		return opentile.CompressionJP2K
+	case "1.2.840.10008.1.2.4.201", // HTJ2K (Lossless Only)
+		"1.2.840.10008.1.2.4.202", // HTJ2K with RPCL Options (Lossless Only)
+		"1.2.840.10008.1.2.4.203": // HTJ2K
+		return opentile.CompressionHTJ2K
 	default:
 		return opentile.CompressionJPEG // best-effort; all v1 fixture associated images are JPEG
 	}
