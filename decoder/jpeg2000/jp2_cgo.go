@@ -55,7 +55,7 @@ static void noop_handler(const char *msg, void *client_data) {
 // decoded image width/height. Returns 0 on success, -1 on failure.
 // codec_format: OPJ_CODEC_J2K or OPJ_CODEC_JP2
 static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
-                                   int codec_format,
+                                   int codec_format, int resolution_factor,
                                    int *out_w, int *out_h) {
     buf_stream_state_t state = { in, in_len, 0 };
 
@@ -78,6 +78,9 @@ static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
 
     opj_dparameters_t params;
     opj_set_default_decoder_parameters(&params);
+    // Resolution-level (DWT) downscale: 1/2^resolution_factor. OpenJPEG
+    // clamps to the codestream's available decomposition levels.
+    params.cp_reduce = (OPJ_UINT32)resolution_factor;
     if (!opj_setup_decoder(codec, &params)) {
         opj_destroy_codec(codec);
         opj_stream_destroy(stream);
@@ -91,8 +94,12 @@ static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
         return -1;
     }
 
-    *out_w = (int)(image->x1 - image->x0);
-    *out_h = (int)(image->y1 - image->y0);
+    // Under cp_reduce the canvas (x1-x0) stays full size; the reduction is
+    // carried in the per-component dims. comps[0] is the full-resolution
+    // (luma) component, so its w/h are the decoded output dimensions —
+    // equal to the canvas when resolution_factor == 0.
+    *out_w = (int)image->comps[0].w;
+    *out_h = (int)image->comps[0].h;
 
     opj_image_destroy(image);
     opj_destroy_codec(codec);
@@ -105,7 +112,7 @@ static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
 // RGBA with opaque alpha). Returns 0 on success, -1 on failure.
 // The color_space_out argument receives the opj_image_t color_space value.
 static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
-                               int codec_format,
+                               int codec_format, int resolution_factor,
                                uint8_t *out, int w, int h, int bpp,
                                int *color_space_out) {
     buf_stream_state_t state = { in, in_len, 0 };
@@ -129,6 +136,10 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
 
     opj_dparameters_t params;
     opj_set_default_decoder_parameters(&params);
+    // Resolution-level (DWT) downscale: 1/2^resolution_factor, clamped by
+    // OpenJPEG to the codestream's decomposition levels. The packing loop
+    // below reads the (now reduced) per-component comps[c].w/h.
+    params.cp_reduce = (OPJ_UINT32)resolution_factor;
     if (!opj_setup_decoder(codec, &params)) {
         opj_destroy_codec(codec);
         opj_stream_destroy(stream);
@@ -276,19 +287,34 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		return nil, fmt.Errorf("decoder/jpeg2000: empty input: %w", decoder.ErrCorruptInput)
 	}
 
+	// Map DecodeOptions.Scale to a DWT resolution-reduction factor
+	// (1/2^r), matching the jpeg decoder's {1,2,4,8} contract.
 	scale := opts.Scale
-	if scale != 0 && scale != 1 {
-		return nil, fmt.Errorf("decoder/jpeg2000: scale=%d not supported: %w", scale, decoder.ErrUnsupportedScale)
+	if scale == 0 {
+		scale = 1
+	}
+	var resFactor int
+	switch scale {
+	case 1:
+		resFactor = 0
+	case 2:
+		resFactor = 1
+	case 4:
+		resFactor = 2
+	case 8:
+		resFactor = 3
+	default:
+		return nil, fmt.Errorf("decoder/jpeg2000: scale=%d (want 1,2,4,8): %w", scale, decoder.ErrUnsupportedScale)
 	}
 
 	codecFmt := detectCodecFormat(src)
 
-	// Phase 1: read header to get dimensions.
+	// Phase 1: read header to get dimensions (reduced by resFactor).
 	var cW, cH C.int
 	rc := C.opj_jpeg2000_dimensions(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
 		C.size_t(len(src)),
-		C.int(codecFmt),
+		C.int(codecFmt), C.int(resFactor),
 		&cW, &cH,
 	)
 	if rc != 0 {
@@ -325,7 +351,7 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	rc = C.opj_jpeg2000_decode(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
 		C.size_t(len(src)),
-		C.int(codecFmt),
+		C.int(codecFmt), C.int(resFactor),
 		(*C.uint8_t)(unsafe.Pointer(&dst.Pix[0])),
 		cW, cH, C.int(bpp),
 		&colorSpaceOut,
