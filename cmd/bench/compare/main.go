@@ -134,12 +134,23 @@ func timeOpenslideRegion(path string) float64 {
 	}
 	defer s.Close()
 	w, h := s.LevelDimensions(0)
+	// Formats like Leica SCN (and MIRAX) embed the tissue at a large pixel
+	// offset inside a much larger multi-region level-0 canvas; openslide
+	// reports it via bounds-x/bounds-y, and its bounds-width/height equal
+	// opentile-go's offset-corrected L0 size. Without this offset a fixed
+	// (tx*ts, ty*ts) read lands in the empty margin and returns near-
+	// instantly — a bogus ~50000 Mpix/s that isn't a real openslide win.
+	// Aligning to the bounds origin makes both backends read the SAME
+	// tissue. Non-bounded formats (SVS, NDPI, …) have no bounds-x → 0.
+	var bx, by int64
+	fmt.Sscan(s.Property("openslide.bounds-x"), &bx)
+	fmt.Sscan(s.Property("openslide.bounds-y"), &by)
 	buf := make([]uint32, ts*ts)
 	n := 0
 	t0 := time.Now()
 	for ty := int64(1); ty < 17 && (ty+1)*ts <= h; ty++ {
 		for tx := int64(1); tx < 17 && (tx+1)*ts <= w; tx++ {
-			if err := s.ReadRegion(buf, 0, tx*ts, ty*ts, ts, ts); err == nil {
+			if err := s.ReadRegion(buf, 0, bx+tx*ts, by+ty*ts, ts, ts); err == nil {
 				n++
 			}
 		}

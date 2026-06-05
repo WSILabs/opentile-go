@@ -61,6 +61,21 @@ func (s *Slide) ReadRegion(dst []uint32, level int, x, y, w, h int64) error {
 	return nil
 }
 
+// Property returns the openslide property value for name, or "" if the
+// property is absent. Used to read bounds-x/bounds-y for formats (Leica
+// SCN, MIRAX) whose level-0 reference frame embeds the tissue at a large
+// pixel offset inside a much larger multi-region canvas — without the
+// offset, a fixed (x,y) read lands in empty margin.
+func (s *Slide) Property(name string) string {
+	cn := C.CString(name)
+	defer C.free(unsafe.Pointer(cn))
+	v := C.openslide_get_property_value(s.h, cn)
+	if v == nil {
+		return ""
+	}
+	return C.GoString(v)
+}
+
 // Close releases the handle.
 func (s *Slide) Close() {
 	if s.h != nil {
