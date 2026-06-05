@@ -104,28 +104,28 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			FocalPlane:   0,
 			Downsample:   float64(l0Width) / float64(l.size.W),
 		})
-		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirLevel, level: i})
+		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirLevel, level: i})
 	}
 	if levelZeroDepth < 1 {
 		levelZeroDepth = 1
 	}
 	associated := make([]opentile.AssociatedImage, 0, len(associatedIFDs))
 	for _, c := range associatedIFDs {
-		kind := kindFromIFDRole(c.Role)
-		if kind == "" {
-			dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirOther})
+		imageType := typeFromIFDRole(c.Role)
+		if imageType == "" {
+			dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirOther})
 			continue
 		}
-		a, err := newAssociatedImage(kind, c.Page, file.ReaderAt())
+		a, err := newAssociatedImage(imageType, c.Page, file.ReaderAt())
 		if err != nil {
 			return nil, err
 		}
 		associated = append(associated, a)
-		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirAssociated, assoc: kind})
+		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirAssociated, assoc: imageType})
 	}
 	// Capture orphan pages (IFDs not surfaced as a level or associated image).
 	for _, c := range unknownIFDs {
-		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, kind: opentile.DirOther})
+		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirOther})
 	}
 	zSpacing := 0.0
 	if iscan != nil {
@@ -200,7 +200,6 @@ type Tiler struct {
 	// at Open time so TIFFDirectories() can build the public view lazily.
 	dirSpecs []bifDirSpec
 }
-
 
 // bifImage holds BIF-specific multi-Z metadata for the level-0 IFD.
 // The v0.24 opentile.Image value-type struct doesn't carry SizeZ or
@@ -469,9 +468,9 @@ func (t *Tiler) ICCProfile() []byte {
 // so we store the page pointer directly rather than a page index.
 type bifDirSpec struct {
 	page  *tiff.Page
-	kind  opentile.DirectoryKind
-	level int    // valid when kind==DirLevel
-	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+	typ   opentile.DirectoryType
+	level int    // valid when typ==DirLevel
+	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
@@ -483,11 +482,11 @@ func (t *Tiler) TIFFDirectories() []opentile.TIFFDirectory {
 			continue
 		}
 		out = append(out, opentile.TIFFDirectory{
-			Kind:       ds.kind,
-			Image:      0, // BIF is single-image
-			Level:      ds.level,
-			Associated: ds.assoc,
-			Tags:       opentile.TIFFTagsFromPage(ds.page),
+			Type:           ds.typ,
+			Image:          0, // BIF is single-image
+			Level:          ds.level,
+			AssociatedType: ds.assoc,
+			Tags:           opentile.TIFFTagsFromPage(ds.page),
 		})
 	}
 	return out

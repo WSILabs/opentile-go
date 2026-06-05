@@ -114,8 +114,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	var dirSpecs []ndpiDirSpec
 	levelIdx := 0
 	for _, p := range pages {
-		kind := classifyPage(p)
-		switch kind {
+		pt := classifyPage(p)
+		switch pt {
 		case pageLevel:
 			// Stripped vs one-frame: NDPI tag 65426 (McuStarts) is the
 			// authoritative discriminator — present iff the level stores
@@ -133,7 +133,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				}
 				levelImpls = append(levelImpls, lvl)
 			}
-			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, kind: opentile.DirLevel, level: levelIdx})
+			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, typ: opentile.DirLevel, level: levelIdx})
 			levelIdx++
 		case pageMacro:
 			ov, err := newOverviewImage(p, file.ReaderAt())
@@ -143,7 +143,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			overview = ov
 			associated = append(associated, ov)
 			// overview.Type() == "overview"
-			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, kind: opentile.DirAssociated, assoc: ov.Type()})
+			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, typ: opentile.DirAssociated, assoc: ov.Type()})
 		case pageMap:
 			// L6 / R13 (v0.4): surface Map pages as AssociatedImage with
 			// Type() == "map". Deliberate Go-side extension — Python
@@ -155,12 +155,12 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			}
 			associated = append(associated, mp)
 			// mp.Type() == "map"; surfaced via Associated() → DirAssociated
-			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, kind: opentile.DirAssociated, assoc: mp.Type()})
+			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, typ: opentile.DirAssociated, assoc: mp.Type()})
 		case pageUnknown:
 			// Skip pages with no magnification tag; they're malformed or not
 			// part of the standard NDPI layout. Surface as DirOther so every
 			// physical IFD is represented in TIFFDirectories().
-			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, kind: opentile.DirOther})
+			dirSpecs = append(dirSpecs, ndpiDirSpec{page: p, typ: opentile.DirOther})
 		}
 	}
 	if overview != nil && cfg.NDPISynthesizedLabel {
@@ -190,4 +190,3 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}}
 	return &tiler{md: md, images: images, levelImpls: levelImpls, associated: associated, dirSpecs: dirSpecs}, nil
 }
-

@@ -71,7 +71,7 @@ func TestFactorySupports(t *testing.T) {
 
 // TestFactoryOpen_CMU1 round-trips CMU-1.tiff through the factory
 // and verifies the Tiler reports the expected level count, dims, and
-// associated kinds. CMU-1.tiff has 9 pyramid levels and no associated
+// associated types. CMU-1.tiff has 9 pyramid levels and no associated
 // images (the canonical generic pyramid fixture).
 func TestFactoryOpen_CMU1(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
@@ -123,7 +123,7 @@ func TestFactoryOpen_CMU1(t *testing.T) {
 
 // TestFactoryOpen_StrippedSVS round-trips CMU-1.stripped.tiff and
 // verifies the 3 stripped associated IFDs are surfaced with the
-// classifier-assigned kinds.
+// classifier-assigned types.
 func TestFactoryOpen_StrippedSVS(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -149,14 +149,14 @@ func TestFactoryOpen_StrippedSVS(t *testing.T) {
 	}
 	defer tlr.Close()
 
-	gotKinds := make(map[string]int)
+	gotTypes := make(map[string]int)
 	for _, a := range tlr.Associated() {
-		gotKinds[a.Type()]++
+		gotTypes[a.Type()]++
 	}
 	for _, k := range []string{TypeThumbnail, TypeLabel, TypeOverview} {
-		if gotKinds[k] != 1 {
-			t.Errorf("Associated kind %q count = %d, want 1; got map = %v",
-				k, gotKinds[k], gotKinds)
+		if gotTypes[k] != 1 {
+			t.Errorf("Associated type %q count = %d, want 1; got map = %v",
+				k, gotTypes[k], gotTypes)
 		}
 	}
 }
@@ -436,7 +436,7 @@ func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
 				got = append(got, a.Type())
 			}
 			if len(got) != len(tc.wantAssociated) {
-				t.Fatalf("associated kinds = %v, want %v", got, tc.wantAssociated)
+				t.Fatalf("associated types = %v, want %v", got, tc.wantAssociated)
 			}
 			for i, want := range tc.wantAssociated {
 				if got[i] != want {

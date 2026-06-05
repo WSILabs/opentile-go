@@ -27,7 +27,7 @@ func buildPageWithMag(t *testing.T, mag float32) []byte {
 func TestClassifyPage(t *testing.T) {
 	cases := []struct {
 		mag  float32
-		want pageKind
+		want pageType
 	}{
 		{20.0, pageLevel},
 		{10.0, pageLevel},

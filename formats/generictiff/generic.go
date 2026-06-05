@@ -108,7 +108,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			FocalPlane:   0,
 			Downsample:   float64(l0Width) / float64(lvl.size.W),
 		})
-		dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: info.Index, kind: opentile.DirLevel, level: i})
+		dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: info.Index, typ: opentile.DirLevel, level: i})
 		seenPages[info.Index] = true
 	}
 
@@ -118,9 +118,9 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		// v0.19: WSI-tag-aware classification. Honors COG-WSI's
 		// authoritative WSIImageType tag when present; falls back to
 		// the pre-v0.19 dimension/aspect heuristics otherwise.
-		kind := ClassifyAssociatedFromPage(pages[info.Index], info, baseline)
+		imageType := ClassifyAssociatedFromPage(pages[info.Index], info, baseline)
 		src := associatedSourceInfoFromClassified(pages[info.Index], info)
-		a, err := newAssociatedImage(kind, src, r)
+		a, err := newAssociatedImage(imageType, src, r)
 		if err != nil {
 			if errors.Is(err, errUnsupportedAssociatedShape) {
 				// Spec §6: silently drop unsupported IFDs (multi-strip
@@ -129,16 +129,16 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				// so the page is still visible via TIFFDirectories.
 				continue
 			}
-			return nil, fmt.Errorf("generic: associated %s (page %d): %w", kind, info.Index, err)
+			return nil, fmt.Errorf("generic: associated %s (page %d): %w", imageType, info.Index, err)
 		}
 		associated = append(associated, a)
-		dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: info.Index, kind: opentile.DirAssociated, assoc: kind})
+		dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: info.Index, typ: opentile.DirAssociated, assoc: imageType})
 		seenPages[info.Index] = true
 	}
 	// Capture orphan pages (IFDs not surfaced as a level or associated image).
 	for i := range pages {
 		if !seenPages[i] {
-			dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: i, kind: opentile.DirOther})
+			dirSpecs = append(dirSpecs, genericDirSpec{pageIdx: i, typ: opentile.DirOther})
 		}
 	}
 

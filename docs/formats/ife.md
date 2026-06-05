@@ -67,7 +67,7 @@ SZI/DZI is the exception — its readers return border-sized tiles per spec; see
 
 ## v0.15 note: `"overview"` and `"macro"` are distinct in IFE
 
-The Iris IFE spec defines `LABEL_OVERVIEW` and `LABEL_MACRO` as separate kind values. opentile-go's IFE reader preserves this distinction: an IFE file may carry both. **This is the only opentile-go format where `"macro"` is a valid Type() value.** Other formats (SVS, NDPI, Philips, OME-TIFF, BIF, generic-TIFF, Leica SCN) all use `"overview"` for the wide-field slide image (per the DICOM PS3.3 convention).
+The Iris IFE spec defines `LABEL_OVERVIEW` and `LABEL_MACRO` as separate type values. opentile-go's IFE reader preserves this distinction: an IFE file may carry both. **This is the only opentile-go format where `"macro"` is a valid Type() value.** Other formats (SVS, NDPI, Philips, OME-TIFF, BIF, generic-TIFF, Leica SCN) all use `"overview"` for the wide-field slide image (per the DICOM PS3.3 convention).
 
 Additionally, the `AssociatedImage.Kind()` method was renamed to `Type()` (DICOM ImageType convention) in v0.15, but the associated-image type values themselves are unchanged.
 

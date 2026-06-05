@@ -64,7 +64,7 @@ func TestTIFFTagsAllFormats(t *testing.T) {
 			}
 			var hasL0 bool
 			for _, d := range dirs {
-				if d.Kind == opentile.DirLevel && d.Image == 0 && d.Level == 0 {
+				if d.Type == opentile.DirLevel && d.Image == 0 && d.Level == 0 {
 					hasL0 = true
 				}
 			}

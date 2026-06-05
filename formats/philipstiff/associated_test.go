@@ -12,7 +12,7 @@ import (
 // was set at construction.
 func TestAssociatedImageInterface(t *testing.T) {
 	a := &associatedImage{
-		kind:        "label",
+		imageType:   "label",
 		size:        opentile.Size{W: 387, H: 403},
 		compression: opentile.CompressionJPEG,
 	}
@@ -34,7 +34,7 @@ func TestAssociatedImageInterface(t *testing.T) {
 // future-proofing guard.
 func TestAssociatedImageMultiStripErrors(t *testing.T) {
 	a := &associatedImage{
-		kind:         "overview",
+		imageType:    "overview",
 		stripOffsets: []uint64{0, 100},
 		stripCounts:  []uint64{50, 50},
 		reader:       bytes.NewReader(make([]byte, 200)),
@@ -48,7 +48,7 @@ func TestAssociatedImageMultiStripErrors(t *testing.T) {
 // returning empty bytes.
 func TestAssociatedImageEmptyErrors(t *testing.T) {
 	a := &associatedImage{
-		kind:         "label",
+		imageType:    "label",
 		stripOffsets: nil,
 		stripCounts:  nil,
 		reader:       bytes.NewReader(nil),

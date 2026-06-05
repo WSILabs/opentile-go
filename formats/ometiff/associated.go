@@ -19,7 +19,7 @@ import (
 // resolutions via the page's own SubIFDs) is NOT exposed by upstream
 // or by us.
 type associatedImage struct {
-	kind         string
+	imageType    string
 	size         opentile.Size
 	compression  opentile.Compression
 	stripOffsets []uint64
@@ -28,13 +28,13 @@ type associatedImage struct {
 	reader       io.ReaderAt
 }
 
-func (a *associatedImage) Type() string                      { return a.kind }
+func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
 func (a *associatedImage) Bytes() ([]byte, error) {
 	if len(a.stripOffsets) == 0 {
-		return nil, fmt.Errorf("ome: associated %s has no strips", a.kind)
+		return nil, fmt.Errorf("ome: associated %s has no strips", a.imageType)
 	}
 	// OME associated images on planar=2 pages carry rowsperstrip *
 	// samplesperpixel strips (e.g. Leica-1 macro: 14004 strips for a
@@ -45,21 +45,21 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 	// exposure.
 	buf := make([]byte, a.stripCounts[0])
 	if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[0])); err != nil {
-		return nil, fmt.Errorf("ome: read associated %s strip: %w", a.kind, err)
+		return nil, fmt.Errorf("ome: read associated %s strip: %w", a.imageType, err)
 	}
 	if a.compression != opentile.CompressionJPEG || len(a.jpegTables) == 0 {
 		return buf, nil
 	}
 	out, err := jpeg.InsertTables(buf, a.jpegTables)
 	if err != nil {
-		return nil, fmt.Errorf("ome: splice tables for associated %s: %w", a.kind, err)
+		return nil, fmt.Errorf("ome: splice tables for associated %s: %w", a.imageType, err)
 	}
 	return out, nil
 }
 
 // newAssociatedImage builds an AssociatedImage from a macro / label /
 // thumbnail page. Reads StripOffsets / StripByteCounts and JPEGTables.
-// The kind label ("macro" / "label" / "thumbnail") is supplied by the
+// The type label ("macro" / "label" / "thumbnail") is supplied by the
 // caller from the OME-XML classifier output.
 //
 // One Open quirk: Python opentile names its overview accessor
@@ -67,26 +67,26 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // → Type() == "overview" to keep our public AssociatedImage.Type()
 // semantics consistent across all formats (SVS / NDPI / Philips
 // already use "overview").
-func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
-		return nil, fmt.Errorf("ome: associated %s missing ImageWidth", kind)
+		return nil, fmt.Errorf("ome: associated %s missing ImageWidth", imageType)
 	}
 	il, ok := p.ImageLength()
 	if !ok {
-		return nil, fmt.Errorf("ome: associated %s missing ImageLength", kind)
+		return nil, fmt.Errorf("ome: associated %s missing ImageLength", imageType)
 	}
 	soffs, err := p.ScalarArrayU64(tiff.TagStripOffsets)
 	if err != nil {
-		return nil, fmt.Errorf("ome: associated %s StripOffsets: %w", kind, err)
+		return nil, fmt.Errorf("ome: associated %s StripOffsets: %w", imageType, err)
 	}
 	scnts, err := p.ScalarArrayU64(tiff.TagStripByteCounts)
 	if err != nil {
-		return nil, fmt.Errorf("ome: associated %s StripByteCounts: %w", kind, err)
+		return nil, fmt.Errorf("ome: associated %s StripByteCounts: %w", imageType, err)
 	}
 	if len(soffs) != len(scnts) {
 		return nil, fmt.Errorf("ome: associated %s strip table mismatch: offsets=%d counts=%d",
-			kind, len(soffs), len(scnts))
+			imageType, len(soffs), len(scnts))
 	}
 	comp, _ := p.Compression()
 	ocomp := tiffCompressionToOpentile(comp)
@@ -99,7 +99,7 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedIm
 	}
 
 	return &associatedImage{
-		kind:         kind,
+		imageType:    imageType,
 		size:         opentile.Size{W: int(iw), H: int(il)},
 		compression:  ocomp,
 		stripOffsets: soffs,

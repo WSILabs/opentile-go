@@ -8098,7 +8098,7 @@
   },
   "associated": [
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         1191,
         408
@@ -8107,7 +8107,7 @@
       "sha256": "1f864cf4233901bbe5b2784943422153008440fc551ab0a7ff3b14347b15d57a"
     },
     {
-      "kind": "label",
+      "type": "label",
       "size": [
         352,
         408

@@ -463,7 +463,7 @@ func readImageArray(r io.ReaderAt, off uint64, fileSize int64) ([]opentile.Assoc
 			return nil, fmt.Errorf("image[%d]: %w", i, err)
 		}
 		out = append(out, &associatedImage{
-			kind:        normaliseAssociatedKind(title),
+			imageType:   normaliseAssociatedType(title),
 			rawTitle:    title,
 			size:        opentile.Size{W: int(w), H: int(h)},
 			compression: comp,
@@ -528,12 +528,12 @@ func compressionFromImageEncoding(e uint8) (opentile.Compression, error) {
 	}
 }
 
-// normaliseAssociatedKind maps an IFE associated-image free-form
+// normaliseAssociatedType maps an IFE associated-image free-form
 // title (case-insensitive) onto opentile-go's existing taxonomy
 // ("label" / "overview" / "thumbnail" / "macro" / "map" /
 // "probability"). Unrecognised titles surface as the raw lowercased
 // string so consumers see what the encoder actually wrote.
-func normaliseAssociatedKind(title string) string {
+func normaliseAssociatedType(title string) string {
 	lower := make([]byte, len(title))
 	for i := 0; i < len(title); i++ {
 		c := title[i]
@@ -601,14 +601,14 @@ func readICCProfile(r io.ReaderAt, off uint64, fileSize int64) ([]byte, error) {
 // implementation simplicity. (If a future fixture carries a 100 MB
 // macro image we can revisit and read on demand.)
 type associatedImage struct {
-	kind        string
+	imageType   string
 	rawTitle    string
 	size        opentile.Size
 	compression opentile.Compression
 	bytes       []byte
 }
 
-func (a *associatedImage) Type() string                      { return a.kind }
+func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {

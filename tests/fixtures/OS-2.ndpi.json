@@ -47825,7 +47825,7 @@
   },
   "associated": [
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         1160,
         396
@@ -47834,7 +47834,7 @@
       "sha256": "c0027e3fcebdea13ad5b6a87ed0dc65e2ddc62782201c7c4a6f9c84812902d5d"
     },
     {
-      "kind": "map",
+      "type": "map",
       "size": [
         580,
         198
@@ -47843,7 +47843,7 @@
       "sha256": "27a097cf81b07ba09bcd1ce481d780fed4fe1e3cf590db0986deaf7c4b1d86c2"
     },
     {
-      "kind": "label",
+      "type": "label",
       "size": [
         344,
         396

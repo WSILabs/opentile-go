@@ -324,7 +324,7 @@
   },
   "associated": [
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         1251,
         3685

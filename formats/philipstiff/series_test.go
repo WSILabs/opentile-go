@@ -124,7 +124,7 @@ func TestClassifyPagesBaseNotTiledError(t *testing.T) {
 
 func TestClassifyPagesUnknownAssociated(t *testing.T) {
 	// Non-tiled trailing page with a description that doesn't match any
-	// known kind — silently ignored, matching upstream.
+	// known type — silently ignored, matching upstream.
 	metas := []philipsPageMeta{
 		{Tiled: true, Description: "<DataObject>"},
 		{Tiled: false, Description: "SomethingElse"},

@@ -28,13 +28,13 @@ var errUnsupportedAssociatedShape = errors.New("generic: associated image shape 
 // are typically <2 MB so the memory cost is fine, and it lets the
 // constructor enforce the supported-shape check up front.
 type associatedImage struct {
-	kind        string
+	imageType   string
 	size        opentile.Size
 	compression opentile.Compression
 	bytes       []byte
 }
 
-func (a *associatedImage) Type() string                      { return a.kind }
+func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {
@@ -47,17 +47,17 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // vs multi-strip × compression) and reads the associated-image
 // bytes. Returns errUnsupportedAssociatedShape for the v0.10
 // out-of-scope variants (multi-strip JPEG / Deflate, tiled).
-func newAssociatedImage(kind string, info associatedSourceInfo, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType string, info associatedSourceInfo, r io.ReaderAt) (*associatedImage, error) {
 	if info.tiled {
 		// Tiled associated images out of scope for v0.10.
 		return nil, fmt.Errorf("%w: tiled associated image", errUnsupportedAssociatedShape)
 	}
 	if len(info.stripOffsets) == 0 {
-		return nil, fmt.Errorf("generic: associated %s has no strips", kind)
+		return nil, fmt.Errorf("generic: associated %s has no strips", imageType)
 	}
 	if len(info.stripOffsets) != len(info.stripCounts) {
 		return nil, fmt.Errorf("generic: associated %s strip-table mismatch (%d offsets, %d counts)",
-			kind, len(info.stripOffsets), len(info.stripCounts))
+			imageType, len(info.stripOffsets), len(info.stripCounts))
 	}
 
 	// Read every strip into memory. Limit total to a sanity ceiling
@@ -69,24 +69,24 @@ func newAssociatedImage(kind string, info associatedSourceInfo, r io.ReaderAt) (
 	}
 	if total > maxAssocBytes {
 		return nil, fmt.Errorf("generic: associated %s strips total %d bytes > %d max",
-			kind, total, maxAssocBytes)
+			imageType, total, maxAssocBytes)
 	}
 
 	stripBytes := make([][]byte, len(info.stripOffsets))
 	for i := range info.stripOffsets {
 		buf := make([]byte, info.stripCounts[i])
 		if _, err := r.ReadAt(buf, int64(info.stripOffsets[i])); err != nil {
-			return nil, fmt.Errorf("generic: associated %s read strip %d: %w", kind, i, err)
+			return nil, fmt.Errorf("generic: associated %s read strip %d: %w", imageType, i, err)
 		}
 		stripBytes[i] = buf
 	}
 
-	out, ocomp, err := assembleAssociated(kind, info, stripBytes)
+	out, ocomp, err := assembleAssociated(imageType, info, stripBytes)
 	if err != nil {
 		return nil, err
 	}
 	return &associatedImage{
-		kind:        kind,
+		imageType:   imageType,
 		size:        opentile.Size{W: int(info.width), H: int(info.height)},
 		compression: ocomp,
 		bytes:       out,
@@ -119,7 +119,7 @@ type associatedSourceInfo struct {
 //	                                              concat raw, re-encode
 //	                                              as single LZW
 //	Multi-strip Deflate                        → unsupported in v0.10
-func assembleAssociated(kind string, info associatedSourceInfo, strips [][]byte) ([]byte, opentile.Compression, error) {
+func assembleAssociated(imageType string, info associatedSourceInfo, strips [][]byte) ([]byte, opentile.Compression, error) {
 	if len(strips) == 1 {
 		// Single-strip path: the strip bytes ARE the associated
 		// image bytes for any compression we support.
@@ -145,16 +145,16 @@ func assembleAssociated(kind string, info associatedSourceInfo, strips [][]byte)
 	case 5: // LZW
 		out, err := reconstructMultiStripLZW(strips, info)
 		if err != nil {
-			return nil, opentile.CompressionUnknown, fmt.Errorf("generic: associated %s LZW: %w", kind, err)
+			return nil, opentile.CompressionUnknown, fmt.Errorf("generic: associated %s LZW: %w", imageType, err)
 		}
 		return out, opentile.CompressionLZW, nil
 	case 8, 32946: // Deflate / Adobe Deflate (multi-strip)
 		return nil, opentile.CompressionUnknown,
-			fmt.Errorf("%w: multi-strip Deflate (associated %s)", errUnsupportedAssociatedShape, kind)
+			fmt.Errorf("%w: multi-strip Deflate (associated %s)", errUnsupportedAssociatedShape, imageType)
 	default:
 		return nil, opentile.CompressionUnknown,
 			fmt.Errorf("%w: multi-strip compression %d (associated %s)",
-				errUnsupportedAssociatedShape, info.compression, kind)
+				errUnsupportedAssociatedShape, info.compression, imageType)
 	}
 }
 

@@ -15,8 +15,8 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
-	"github.com/wsilabs/opentile-go/formats/bif"
 	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/formats/bif"
 )
 
 // bifLevelExpect captures one Level's expected geometry. Values
@@ -196,24 +196,24 @@ func TestBIFGeometry(t *testing.T) {
 
 			// Associated images per fixture.
 			ai := tiler.Associated()
-			gotKinds := map[string]opentile.Size{}
+			gotTypes := map[string]opentile.Size{}
 			for _, a := range ai {
-				gotKinds[a.Type()] = a.Size()
+				gotTypes[a.Type()] = a.Size()
 			}
-			ovS, ovOK := gotKinds["overview"]
+			ovS, ovOK := gotTypes["overview"]
 			if !ovOK {
-				t.Error("missing associated kind=overview")
+				t.Error("missing associated type=overview")
 			} else if ovS.W != fx.overviewWxH[0] || ovS.H != fx.overviewWxH[1] {
 				t.Errorf("overview size: got %v, want %dx%d", ovS, fx.overviewWxH[0], fx.overviewWxH[1])
 			}
 			if fx.hasProbability {
-				if _, ok := gotKinds["probability"]; !ok {
-					t.Error("missing associated kind=probability (expected on spec-compliant fixture)")
+				if _, ok := gotTypes["probability"]; !ok {
+					t.Error("missing associated type=probability (expected on spec-compliant fixture)")
 				}
 			}
 			if fx.hasThumbnail {
-				if _, ok := gotKinds["thumbnail"]; !ok {
-					t.Error("missing associated kind=thumbnail (expected on legacy fixture)")
+				if _, ok := gotTypes["thumbnail"]; !ok {
+					t.Error("missing associated type=thumbnail (expected on legacy fixture)")
 				}
 			}
 			_ = bytes.Compare // keep the import

@@ -33,12 +33,12 @@ func TestAssociatedSpecCompliantHasOverviewAndProbability(t *testing.T) {
 	want := map[string]bool{"overview": true, "probability": true}
 	for _, a := range ai {
 		if !want[a.Type()] {
-			t.Errorf("unexpected associated kind %q", a.Type())
+			t.Errorf("unexpected associated type %q", a.Type())
 		}
 		delete(want, a.Type())
 	}
 	if len(want) != 0 {
-		t.Errorf("missing associated kinds: %v", want)
+		t.Errorf("missing associated types: %v", want)
 	}
 }
 
@@ -65,12 +65,12 @@ func TestAssociatedLegacyHasOverviewAndThumbnail(t *testing.T) {
 	wantSet := map[string]bool{"overview": true, "thumbnail": true}
 	for _, a := range ai {
 		if !wantSet[a.Type()] {
-			t.Errorf("unexpected associated kind %q", a.Type())
+			t.Errorf("unexpected associated type %q", a.Type())
 		}
 		delete(wantSet, a.Type())
 	}
 	if len(wantSet) != 0 {
-		t.Errorf("missing associated kinds: %v", wantSet)
+		t.Errorf("missing associated types: %v", wantSet)
 	}
 }
 
@@ -113,9 +113,9 @@ func TestAssociatedReturnsCopy(t *testing.T) {
 	}
 }
 
-// TestKindFromIFDRoleMapping pins the role→kind mapping that
-// ties layout classification (T12) to public AssociatedImage kinds.
-func TestKindFromIFDRoleMapping(t *testing.T) {
+// TestTypeFromIFDRoleMapping pins the role→type mapping that
+// ties layout classification (T12) to public AssociatedImage types.
+func TestTypeFromIFDRoleMapping(t *testing.T) {
 	cases := []struct {
 		role ifdRole
 		want string
@@ -127,8 +127,8 @@ func TestKindFromIFDRoleMapping(t *testing.T) {
 		{ifdRoleUnknown, ""},
 	}
 	for _, c := range cases {
-		if got := kindFromIFDRole(c.role); got != c.want {
-			t.Errorf("kindFromIFDRole(%v): got %q, want %q", c.role, got, c.want)
+		if got := typeFromIFDRole(c.role); got != c.want {
+			t.Errorf("typeFromIFDRole(%v): got %q, want %q", c.role, got, c.want)
 		}
 	}
 }

@@ -34,7 +34,7 @@ import (
 // IFD's StripByteCounts tag). This matches BIF's "metadata reader"
 // scope; if a real consumer surfaces, we can add a richer accessor.
 type associatedImage struct {
-	kind        string
+	imageType   string
 	size        opentile.Size
 	compression opentile.Compression
 
@@ -48,7 +48,7 @@ type associatedImage struct {
 	reader     io.ReaderAt
 }
 
-func (a *associatedImage) Type() string                      { return a.kind }
+func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
@@ -59,17 +59,17 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 		// Single-tile path (legacy iScan IFD 0/1).
 		b := make([]byte, a.tileCounts[0])
 		if err := tiff.ReadAtFull(a.reader, b, int64(a.tileOffsets[0])); err != nil {
-			return nil, fmt.Errorf("bif: read associated %s tile: %w", a.kind, err)
+			return nil, fmt.Errorf("bif: read associated %s tile: %w", a.imageType, err)
 		}
 		buf = b
 
 	case len(a.tileOffsets) > 1:
 		// Multi-tile associated page — not seen in our fixtures.
 		// Defensive: refuse rather than silently returning tile 0.
-		return nil, fmt.Errorf("bif: associated %s has %d tiles; multi-tile not supported on associated pages", a.kind, len(a.tileOffsets))
+		return nil, fmt.Errorf("bif: associated %s has %d tiles; multi-tile not supported on associated pages", a.imageType, len(a.tileOffsets))
 
 	case len(a.stripOffsets) == 0:
-		return nil, fmt.Errorf("bif: associated %s has no strips or tiles", a.kind)
+		return nil, fmt.Errorf("bif: associated %s has no strips or tiles", a.imageType)
 
 	default:
 		// Multi-strip path (spec-compliant IFD 0/1). Concatenate
@@ -83,7 +83,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 		for i, off := range a.stripOffsets {
 			n := a.stripCounts[i]
 			if err := tiff.ReadAtFull(a.reader, b[cursor:cursor+n], int64(off)); err != nil {
-				return nil, fmt.Errorf("bif: read associated %s strip %d: %w", a.kind, i, err)
+				return nil, fmt.Errorf("bif: read associated %s strip %d: %w", a.imageType, i, err)
 			}
 			cursor += n
 		}
@@ -96,7 +96,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 	if a.compression == opentile.CompressionJPEG && len(a.jpegTables) > 0 {
 		out, err := jpeg.InsertTables(buf, a.jpegTables)
 		if err != nil {
-			return nil, fmt.Errorf("bif: splice tables for associated %s: %w", a.kind, err)
+			return nil, fmt.Errorf("bif: splice tables for associated %s: %w", a.imageType, err)
 		}
 		return out, nil
 	}
@@ -104,23 +104,23 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 }
 
 // newAssociatedImage builds the AssociatedImage from a classified
-// IFD. The kind label ("overview" / "probability" / "thumbnail") is
+// IFD. The type label ("overview" / "probability" / "thumbnail") is
 // supplied by the caller per the IFD-classification table in spec
 // §5.3.
-func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
-		return nil, fmt.Errorf("bif: associated %s missing ImageWidth", kind)
+		return nil, fmt.Errorf("bif: associated %s missing ImageWidth", imageType)
 	}
 	il, ok := p.ImageLength()
 	if !ok {
-		return nil, fmt.Errorf("bif: associated %s missing ImageLength", kind)
+		return nil, fmt.Errorf("bif: associated %s missing ImageLength", imageType)
 	}
 	comp, _ := p.Compression()
 	ocomp := tiffCompressionToOpentile(comp)
 
 	out := &associatedImage{
-		kind:        kind,
+		imageType:   imageType,
 		size:        opentile.Size{W: int(iw), H: int(il)},
 		compression: ocomp,
 		reader:      r,
@@ -130,28 +130,28 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedIm
 	if _, hasTW := p.TileWidth(); hasTW {
 		toffs, err := p.TileOffsets64()
 		if err != nil {
-			return nil, fmt.Errorf("bif: associated %s TileOffsets: %w", kind, err)
+			return nil, fmt.Errorf("bif: associated %s TileOffsets: %w", imageType, err)
 		}
 		tcnts, err := p.TileByteCounts64()
 		if err != nil {
-			return nil, fmt.Errorf("bif: associated %s TileByteCounts: %w", kind, err)
+			return nil, fmt.Errorf("bif: associated %s TileByteCounts: %w", imageType, err)
 		}
 		if len(toffs) != len(tcnts) {
-			return nil, fmt.Errorf("bif: associated %s tile table mismatch: offsets=%d counts=%d", kind, len(toffs), len(tcnts))
+			return nil, fmt.Errorf("bif: associated %s tile table mismatch: offsets=%d counts=%d", imageType, len(toffs), len(tcnts))
 		}
 		out.tileOffsets = toffs
 		out.tileCounts = tcnts
 	} else {
 		soffs, err := p.ScalarArrayU64(tiff.TagStripOffsets)
 		if err != nil {
-			return nil, fmt.Errorf("bif: associated %s StripOffsets: %w", kind, err)
+			return nil, fmt.Errorf("bif: associated %s StripOffsets: %w", imageType, err)
 		}
 		scnts, err := p.ScalarArrayU64(tiff.TagStripByteCounts)
 		if err != nil {
-			return nil, fmt.Errorf("bif: associated %s StripByteCounts: %w", kind, err)
+			return nil, fmt.Errorf("bif: associated %s StripByteCounts: %w", imageType, err)
 		}
 		if len(soffs) != len(scnts) {
-			return nil, fmt.Errorf("bif: associated %s strip table mismatch: offsets=%d counts=%d", kind, len(soffs), len(scnts))
+			return nil, fmt.Errorf("bif: associated %s strip table mismatch: offsets=%d counts=%d", imageType, len(soffs), len(scnts))
 		}
 		out.stripOffsets = soffs
 		out.stripCounts = scnts
@@ -167,9 +167,9 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedIm
 	return out, nil
 }
 
-// kindFromIFDRole maps the layout-classified role to the public
+// typeFromIFDRole maps the layout-classified role to the public
 // AssociatedImage.Type() string. Per spec §5.3 + opentile-go's
-// existing kind taxonomy:
+// existing type taxonomy:
 //
 //	ifdRoleLabel       → "overview" (matches SVS / NDPI / Philips
 //	                     convention; BIF whitepaper calls it "label")
@@ -177,7 +177,7 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (*associatedIm
 //	ifdRoleThumbnail   → "thumbnail"
 //
 // Returns an empty string for any other role; the caller skips it.
-func kindFromIFDRole(role ifdRole) string {
+func typeFromIFDRole(role ifdRole) string {
 	switch role {
 	case ifdRoleLabel:
 		return "overview"

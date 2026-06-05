@@ -6,7 +6,7 @@ import (
 )
 
 // omeClassification names which OME Image indices map to which series
-// kind. Multi-image OME files (Leica-2.ome.tiff) carry multiple main
+// type. Multi-image OME files (Leica-2.ome.tiff) carry multiple main
 // pyramids — LevelImages exposes them all, in document order.
 //
 // Upstream Python opentile silently drops all but the last main
@@ -35,7 +35,7 @@ var errNoLevelImages = errors.New("ome: no main pyramid Images in OME document")
 // Behaviour deviates from upstream for multi-image OME files: rather
 // than overwriting `level_series_index` on each match (last wins),
 // we collect every main-pyramid Image index in LevelImages. The
-// associated kinds (Macro / Label / Thumbnail) preserve last-wins
+// associated types (Macro / Label / Thumbnail) preserve last-wins
 // semantics since by convention an OME file carries at most one of
 // each, and upstream's behaviour is well-defined when more than one
 // appears.

@@ -22,7 +22,7 @@ type associatedImage struct {
 	height  int
 }
 
-// Type returns the v0.15-aligned associated-image kind. Per the
+// Type returns the v0.15-aligned associated-image type. Per the
 // v0.16 spec mapping, macro.jpg surfaces as "overview" (the DICOM-
 // canonical wide-field-slide-image term used by SVS / Philips /
 // OME / BIF / leicascn / generictiff); label.jpg as "label"; and

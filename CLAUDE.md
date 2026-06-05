@@ -57,7 +57,7 @@ Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpictur
 - **API additions (public):** `TIFFTag` (`Number`, `Name`, `Type`,
   `Count`, `Raw []byte`, getters `ASCII`/`Uints`/`Rationals`),
   `TIFFType` (+consts), `Rational`, `TIFFTags` (`Tag`/`ByName`),
-  `TIFFDirectory`/`DirectoryKind`, `TIFFDirectoriesOf`, and
+  `TIFFDirectory`/`DirectoryType`, `TIFFDirectoriesOf`, and
   `Slide.LevelTIFFTags`/`ImageLevelTIFFTags`/`AssociatedTIFFTags` — tags
   anchored to the same `(image, level)` coords as `ImageRawTile`, with a
   `TIFFDirectoriesOf` completeness view over orphan IFDs. Internal:

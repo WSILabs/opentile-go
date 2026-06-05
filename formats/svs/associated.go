@@ -9,17 +9,17 @@ import (
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
-// newAssociatedImage dispatches construction by kind. Thumbnail and overview
+// newAssociatedImage dispatches construction by type. Thumbnail and overview
 // are striped JPEG assembled via ConcatenateScans; label is raw strip
 // passthrough (codec as advertised by the TIFF Compression tag).
-func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (opentile.AssociatedImage, error) {
-	switch kind {
+func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (opentile.AssociatedImage, error) {
+	switch imageType {
 	case "thumbnail", "overview":
-		return newStripedJPEGAssociated(kind, p, r)
+		return newStripedJPEGAssociated(imageType, p, r)
 	case "label":
 		return newStripedLabel(p, r)
 	}
-	return nil, fmt.Errorf("svs: unknown associated kind %q", kind)
+	return nil, fmt.Errorf("svs: unknown associated type %q", imageType)
 }
 
 // stripedJPEGAssociated is the SVS AssociatedImage implementation for
@@ -33,7 +33,7 @@ func newAssociatedImage(kind string, p *tiff.Page, r io.ReaderAt) (opentile.Asso
 // the strips themselves don't carry SOF tables). Used for DRI / restart-
 // interval computation in Bytes().
 type stripedJPEGAssociated struct {
-	kind         string
+	imageType    string
 	size         opentile.Size
 	stripOffsets []uint64
 	stripCounts  []uint64
@@ -42,7 +42,7 @@ type stripedJPEGAssociated struct {
 	reader       io.ReaderAt
 }
 
-func (a *stripedJPEGAssociated) Type() string                      { return a.kind }
+func (a *stripedJPEGAssociated) Type() string                      { return a.imageType }
 func (a *stripedJPEGAssociated) Size() opentile.Size               { return a.size }
 func (a *stripedJPEGAssociated) Compression() opentile.Compression { return opentile.CompressionJPEG }
 
@@ -56,7 +56,7 @@ func (a *stripedJPEGAssociated) Bytes() ([]byte, error) {
 		fragments[i] = buf
 	}
 	if a.size.W > 0xFFFF || a.size.H > 0xFFFF {
-		return nil, fmt.Errorf("svs: associated %s %dx%d exceeds SOF uint16", a.kind, a.size.W, a.size.H)
+		return nil, fmt.Errorf("svs: associated %s %dx%d exceeds SOF uint16", a.imageType, a.size.W, a.size.H)
 	}
 
 	// RestartInterval matches Python opentile's Jpeg.concatenate_scans:
@@ -70,7 +70,7 @@ func (a *stripedJPEGAssociated) Bytes() ([]byte, error) {
 	// avoid emitting a useless DRI.
 	ri, err := computeRestartInterval(fragments, a.mcuW, a.mcuH)
 	if err != nil {
-		return nil, fmt.Errorf("svs: associated %s restart interval: %w", a.kind, err)
+		return nil, fmt.Errorf("svs: associated %s restart interval: %w", a.imageType, err)
 	}
 
 	return jpeg.ConcatenateScans(fragments, jpeg.ConcatOpts{
@@ -127,28 +127,28 @@ func parseFirstSOF(frag []byte) (*jpeg.SOF, error) {
 	return jpeg.FirstFragmentSOF(frag)
 }
 
-func newStripedJPEGAssociated(kind string, p *tiff.Page, r io.ReaderAt) (*stripedJPEGAssociated, error) {
+func newStripedJPEGAssociated(imageType string, p *tiff.Page, r io.ReaderAt) (*stripedJPEGAssociated, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
-		return nil, fmt.Errorf("svs: associated %s ImageWidth missing", kind)
+		return nil, fmt.Errorf("svs: associated %s ImageWidth missing", imageType)
 	}
 	il, ok := p.ImageLength()
 	if !ok {
-		return nil, fmt.Errorf("svs: associated %s ImageLength missing", kind)
+		return nil, fmt.Errorf("svs: associated %s ImageLength missing", imageType)
 	}
 	offsets, err := p.ScalarArrayU64(tiff.TagStripOffsets)
 	if err != nil {
-		return nil, fmt.Errorf("svs: associated %s strip offsets: %w", kind, err)
+		return nil, fmt.Errorf("svs: associated %s strip offsets: %w", imageType, err)
 	}
 	counts, err := p.ScalarArrayU64(tiff.TagStripByteCounts)
 	if err != nil {
-		return nil, fmt.Errorf("svs: associated %s strip counts: %w", kind, err)
+		return nil, fmt.Errorf("svs: associated %s strip counts: %w", imageType, err)
 	}
 	if len(offsets) != len(counts) {
-		return nil, fmt.Errorf("svs: associated %s strip tag mismatch: offsets=%d counts=%d", kind, len(offsets), len(counts))
+		return nil, fmt.Errorf("svs: associated %s strip tag mismatch: offsets=%d counts=%d", imageType, len(offsets), len(counts))
 	}
 	if len(offsets) == 0 {
-		return nil, fmt.Errorf("svs: associated %s has no strips", kind)
+		return nil, fmt.Errorf("svs: associated %s has no strips", imageType)
 	}
 	tables, _ := p.JPEGTables()
 
@@ -179,7 +179,7 @@ func newStripedJPEGAssociated(kind string, p *tiff.Page, r io.ReaderAt) (*stripe
 	}
 
 	return &stripedJPEGAssociated{
-		kind:         kind,
+		imageType:    imageType,
 		size:         opentile.Size{W: int(iw), H: int(il)},
 		stripOffsets: offsets,
 		stripCounts:  counts,

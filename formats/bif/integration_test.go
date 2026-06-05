@@ -20,7 +20,7 @@ import (
 //
 // Both fixtures must Open cleanly, expose at least one Image with
 // non-empty Levels, return decodable JPEG bytes from RawTile(0,0,0),
-// expose the expected associated-image kinds for their generation,
+// expose the expected associated-image types for their generation,
 // and surface MetadataOf with the right Generation.
 func TestBIFAccessors(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
@@ -32,7 +32,7 @@ func TestBIFAccessors(t *testing.T) {
 		name        string
 		filename    string
 		wantGen     string
-		wantKinds   map[string]bool
+		wantTypes   map[string]bool
 		wantScanRes float64
 		hasICC      bool
 	}{
@@ -40,7 +40,7 @@ func TestBIFAccessors(t *testing.T) {
 			name:        "spec-compliant Ventana-1",
 			filename:    "Ventana-1.bif",
 			wantGen:     "spec-compliant",
-			wantKinds:   map[string]bool{"overview": true, "probability": true},
+			wantTypes:   map[string]bool{"overview": true, "probability": true},
 			wantScanRes: 0.25,
 			hasICC:      true,
 		},
@@ -48,7 +48,7 @@ func TestBIFAccessors(t *testing.T) {
 			name:        "legacy iScan OS-1",
 			filename:    "OS-1.bif",
 			wantGen:     "legacy-iscan",
-			wantKinds:   map[string]bool{"overview": true, "thumbnail": true},
+			wantTypes:   map[string]bool{"overview": true, "thumbnail": true},
 			wantScanRes: 0.2325,
 			hasICC:      false,
 		},
@@ -130,18 +130,18 @@ func TestBIFAccessors(t *testing.T) {
 				t.Error("RangeTiles iterator yielded zero entries")
 			}
 
-			// Associated kinds match expectation.
+			// Associated types match expectation.
 			ai := tiler.Associated()
-			gotKinds := make(map[string]bool)
+			gotTypes := make(map[string]bool)
 			for _, a := range ai {
-				gotKinds[a.Type()] = true
+				gotTypes[a.Type()] = true
 				if _, err := a.Bytes(); err != nil {
 					t.Errorf("Associated[%q].Bytes: %v", a.Type(), err)
 				}
 			}
-			for k := range tc.wantKinds {
-				if !gotKinds[k] {
-					t.Errorf("missing associated kind %q (got %v)", k, gotKinds)
+			for k := range tc.wantTypes {
+				if !gotTypes[k] {
+					t.Errorf("missing associated type %q (got %v)", k, gotTypes)
 				}
 			}
 

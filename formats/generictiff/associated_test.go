@@ -45,7 +45,7 @@ func associatedSourceInfoFromPage(t *testing.T, p *tiff.Page) associatedSourceIn
 	}
 }
 
-// TestAssociated_StrippedSVS_All3Kinds reads CMU-1.stripped.tiff
+// TestAssociated_StrippedSVS_All3Types reads CMU-1.stripped.tiff
 // (the T2-generated reference fixture) and confirms each of its
 // 3 stripped associated IFDs (thumbnail / label / macro) reads
 // correctly via the generic associated reader. This is the
@@ -56,7 +56,7 @@ func associatedSourceInfoFromPage(t *testing.T, p *tiff.Page) associatedSourceIn
 //	IFD 1: 1024×732 JPEG stripped — thumbnail
 //	IFD 4: 387×463 LZW stripped multi-strip — label
 //	IFD 5: 1280×431 JPEG stripped — macro
-func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
+func TestAssociated_StrippedSVS_All3Types(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
 		t.Skip("OPENTILE_TESTDIR not set")
@@ -79,7 +79,7 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 
 	for _, tc := range []struct {
 		ifdIdx          int
-		kind            string
+		imageType       string
 		wantW, wantH    int
 		wantCompression opentile.Compression
 		wantSOI         []byte // first 2 bytes if applicable
@@ -88,14 +88,14 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 		{4, TypeLabel, 387, 463, opentile.CompressionLZW, nil}, // LZW: no SOI marker
 		{5, TypeOverview, 1280, 431, opentile.CompressionJPEG, []byte{0xFF, 0xD8}},
 	} {
-		t.Run(tc.kind, func(t *testing.T) {
+		t.Run(tc.imageType, func(t *testing.T) {
 			info := associatedSourceInfoFromPage(t, pages[tc.ifdIdx])
-			a, err := newAssociatedImage(tc.kind, info, f)
+			a, err := newAssociatedImage(tc.imageType, info, f)
 			if err != nil {
 				t.Fatalf("newAssociatedImage: %v", err)
 			}
-			if a.Type() != tc.kind {
-				t.Errorf("Type() = %q, want %q", a.Type(), tc.kind)
+			if a.Type() != tc.imageType {
+				t.Errorf("Type() = %q, want %q", a.Type(), tc.imageType)
 			}
 			if a.Size().W != tc.wantW || a.Size().H != tc.wantH {
 				t.Errorf("Size() = %v, want %dx%d", a.Size(), tc.wantW, tc.wantH)
@@ -115,7 +115,7 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 					t.Errorf("first %d bytes = % x, want % x", len(tc.wantSOI), b[:len(tc.wantSOI)], tc.wantSOI)
 				}
 			}
-			t.Logf("✓ %s: %dx%d %v %d bytes", tc.kind, tc.wantW, tc.wantH, tc.wantCompression, len(b))
+			t.Logf("✓ %s: %dx%d %v %d bytes", tc.imageType, tc.wantW, tc.wantH, tc.wantCompression, len(b))
 		})
 	}
 }
@@ -125,7 +125,7 @@ func TestAssociated_StrippedSVS_All3Kinds(t *testing.T) {
 // the cached buffer or the next call's return.
 func TestAssociated_BytesAreCallerOwned(t *testing.T) {
 	a := &associatedImage{
-		kind:        "thumbnail",
+		imageType:   "thumbnail",
 		size:        opentile.Size{W: 1, H: 1},
 		compression: opentile.CompressionNone,
 		bytes:       []byte{1, 2, 3, 4, 5},

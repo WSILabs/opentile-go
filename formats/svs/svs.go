@@ -120,7 +120,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			FocalPlane:   0,
 			Downsample:   float64(baseSize.W) / float64(lvl.size.W),
 		})
-		dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: pageIdx, kind: opentile.DirLevel, level: levelIdx})
+		dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: pageIdx, typ: opentile.DirLevel, level: levelIdx})
 		seenPages[pageIdx] = true
 	}
 	images := []opentile.Image{{
@@ -130,8 +130,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}}
 	var associated []opentile.AssociatedImage
 	for _, spec := range []struct {
-		kind    string
-		pageIdx int
+		imageType string
+		pageIdx   int
 	}{
 		{"thumbnail", class.Thumbnail},
 		{"label", class.Label},
@@ -140,18 +140,18 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		if spec.pageIdx < 0 {
 			continue
 		}
-		a, err := newAssociatedImage(spec.kind, pages[spec.pageIdx], file.ReaderAt())
+		a, err := newAssociatedImage(spec.imageType, pages[spec.pageIdx], file.ReaderAt())
 		if err != nil {
-			return nil, fmt.Errorf("svs: associated %s (page %d): %w", spec.kind, spec.pageIdx, err)
+			return nil, fmt.Errorf("svs: associated %s (page %d): %w", spec.imageType, spec.pageIdx, err)
 		}
 		associated = append(associated, a)
-		dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: spec.pageIdx, kind: opentile.DirAssociated, assoc: spec.kind})
+		dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: spec.pageIdx, typ: opentile.DirAssociated, assoc: spec.imageType})
 		seenPages[spec.pageIdx] = true
 	}
 	// Capture orphan pages (IFDs not surfaced as a level or associated image).
 	for i := range pages {
 		if !seenPages[i] {
-			dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: i, kind: opentile.DirOther})
+			dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: i, typ: opentile.DirOther})
 		}
 	}
 	icc, _ := basePage.ICCProfile()
@@ -175,9 +175,9 @@ func pageSize(p *tiff.Page) (opentile.Size, error) {
 // recorded at Open time so TIFFDirectories() can build the public view lazily.
 type svsDirSpec struct {
 	pageIdx int
-	kind    opentile.DirectoryKind
-	level   int    // valid when kind==DirLevel
-	assoc   string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+	typ     opentile.DirectoryType
+	level   int    // valid when typ==DirLevel
+	assoc   string // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the SVS implementation of format.Reader.
@@ -191,8 +191,8 @@ type tiler struct {
 	dirSpecs   []svsDirSpec // page→role mapping captured at Open
 }
 
-func (t *tiler) Format() opentile.Format      { return opentile.FormatSVS }
-func (t *tiler) Images() []opentile.Image     { return t.images }
+func (t *tiler) Format() opentile.Format                { return opentile.FormatSVS }
+func (t *tiler) Images() []opentile.Image               { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
@@ -208,11 +208,11 @@ func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 			continue
 		}
 		out = append(out, opentile.TIFFDirectory{
-			Kind:       ds.kind,
-			Image:      0, // SVS is single-image
-			Level:      ds.level,
-			Associated: ds.assoc,
-			Tags:       opentile.TIFFTagsFromPage(pages[ds.pageIdx]),
+			Type:           ds.typ,
+			Image:          0, // SVS is single-image
+			Level:          ds.level,
+			AssociatedType: ds.assoc,
+			Tags:           opentile.TIFFTagsFromPage(pages[ds.pageIdx]),
 		})
 	}
 	return out

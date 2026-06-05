@@ -186,10 +186,10 @@ func buildLevels(
 // pyramid index (k) in the cls.LevelImages loop — NOT always 0.
 type omeDirSpec struct {
 	page  *tiff.Page
-	kind  opentile.DirectoryKind
-	image int    // valid when kind==DirLevel; equals pyramid index k
-	level int    // valid when kind==DirLevel
-	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+	typ   opentile.DirectoryType
+	image int    // valid when typ==DirLevel; equals pyramid index k
+	level int    // valid when typ==DirLevel
+	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the OME implementation of format.Reader.
@@ -210,8 +210,8 @@ type tiler struct {
 	dirSpecs []omeDirSpec
 }
 
-func (t *tiler) Format() opentile.Format    { return opentile.FormatOMETIFF }
-func (t *tiler) Images() []opentile.Image   { return t.images }
+func (t *tiler) Format() opentile.Format                { return opentile.FormatOMETIFF }
+func (t *tiler) Images() []opentile.Image               { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.cross }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
@@ -224,7 +224,7 @@ func (t *tiler) Close() error                           { return nil }
 // counter from the cls.LevelImages loop, not always 0). Level 0 is the
 // base page; L1..Ln are SubIFD pages read by buildLevels. Associated
 // images (macro/label/thumbnail) are stored at their OME page with the
-// kind string ("overview", "label", "thumbnail") that matches Type().
+// type string ("overview", "label", "thumbnail") that matches Type().
 func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 	out := make([]opentile.TIFFDirectory, 0, len(t.dirSpecs))
 	for _, ds := range t.dirSpecs {
@@ -232,11 +232,11 @@ func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 			continue
 		}
 		out = append(out, opentile.TIFFDirectory{
-			Kind:       ds.kind,
-			Image:      ds.image,
-			Level:      ds.level,
-			Associated: ds.assoc,
-			Tags:       opentile.TIFFTagsFromPage(ds.page),
+			Type:           ds.typ,
+			Image:          ds.image,
+			Level:          ds.level,
+			AssociatedType: ds.assoc,
+			Tags:           opentile.TIFFTagsFromPage(ds.page),
 		})
 	}
 	return out

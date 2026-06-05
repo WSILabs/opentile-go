@@ -60,7 +60,7 @@ type Level struct {
 // (Whole Slide Microscopic Image IOD), where the Image Type
 // attribute (0008,0008) value 3 enumerates: VOLUME / LABEL /
 // OVERVIEW / THUMBNAIL. opentile-go uses the lowercase form,
-// extended with format-specific kinds where the underlying file
+// extended with format-specific types where the underlying file
 // surfaces them:
 //
 //	"label"       — slide label / barcode
@@ -75,11 +75,11 @@ type Level struct {
 //	                slide image
 //	"probability" — Ventana BIF / IFE: confidence / classification map
 //	"macro"       — Iris IFE only. The IFE spec defines LABEL_MACRO
-//	                as a kind distinct from LABEL_OVERVIEW. Other
+//	                as a type distinct from LABEL_OVERVIEW. Other
 //	                formats' wide-field slide images surface as
 //	                "overview", not "macro".
 //	"associated"  — generic-TIFF heuristic-fallback (v0.10+) when the
-//	                classifier can't confidently match a kind above
+//	                classifier can't confidently match a type above
 //
 // Format readers use the string literals directly; the values above
 // are stable and part of the public API contract from v0.15 onward.

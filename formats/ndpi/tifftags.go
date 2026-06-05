@@ -14,9 +14,9 @@ import (
 // page and is NOT a separate IFD; it does not appear in dirSpecs.
 type ndpiDirSpec struct {
 	page  *tiff.Page
-	kind  opentile.DirectoryKind
-	level int    // valid when kind==DirLevel; equals levelIdx at construction
-	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+	typ   opentile.DirectoryType
+	level int    // valid when typ==DirLevel; equals levelIdx at construction
+	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
@@ -36,11 +36,11 @@ func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 			continue
 		}
 		out = append(out, opentile.TIFFDirectory{
-			Kind:       ds.kind,
-			Image:      0, // NDPI is single-image
-			Level:      ds.level,
-			Associated: ds.assoc,
-			Tags:       opentile.TIFFTagsFromPage(ds.page),
+			Type:           ds.typ,
+			Image:          0, // NDPI is single-image
+			Level:          ds.level,
+			AssociatedType: ds.assoc,
+			Tags:           opentile.TIFFTagsFromPage(ds.page),
 		})
 	}
 	return out

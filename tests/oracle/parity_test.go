@@ -109,7 +109,7 @@ func runParityOnSlide(t *testing.T, slide string) {
 	// the Python equivalent. Python opentile exposes label/overview/thumbnail
 	// via tiler.labels / tiler.overviews / tiler.thumbnails; the runner
 	// dispatches on argv count and fetches the first image of the requested
-	// kind. If Python has no image of that kind on this slide, the runner
+	// type. If Python has no image of that type on this slide, the runner
 	// emits zero-length stdout and we treat that as "skip" (the Go side may
 	// still expose a synthesized image, e.g. NDPI's cropped-overview label).
 	for _, a := range tiler.Associated() {

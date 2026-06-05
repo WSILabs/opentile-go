@@ -11,7 +11,7 @@ import (
 // mapPage is an NDPI "Map" page (Magnification tag 65421 == -2.0)
 // exposed as an AssociatedImage with Type() == "map". Bytes() passes
 // the raw strip payload through verbatim — same shape as overviewImage
-// but for the Map page kind.
+// but for the Map page type.
 //
 // Map pages on every Hamamatsu fixture we've seen are 8-bit grayscale
 // uncompressed raster (TIFF Compression tag = 1, Photometric = 1

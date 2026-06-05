@@ -82,7 +82,7 @@ func TestTiler_CMU1SmallRegion_FullPyramid(t *testing.T) {
 	// spec §6).
 	want := []string{"thumbnail", "label", "overview"}
 	if len(got) != len(want) {
-		t.Fatalf("associated kinds = %v, want %v", got, want)
+		t.Fatalf("associated types = %v, want %v", got, want)
 	}
 	for i, w := range want {
 		if got[i] != w {

@@ -109,14 +109,14 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		// (matches ImageRawTile's image parameter); levelPages[li] is the
 		// actual *tiff.Page (base page for li==0, SubIFD page for li>0).
 		for li, lp := range levelPages {
-			dirSpecs = append(dirSpecs, omeDirSpec{page: lp, kind: opentile.DirLevel, image: k, level: li})
+			dirSpecs = append(dirSpecs, omeDirSpec{page: lp, typ: opentile.DirLevel, image: k, level: li})
 		}
 	}
 
 	var associated []opentile.AssociatedImage
 	for _, spec := range []struct {
-		kind   string
-		omeIdx int
+		imageType string
+		omeIdx    int
 	}{
 		{"thumbnail", cls.Thumbnail},
 		{"label", cls.Label},
@@ -126,15 +126,15 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			continue
 		}
 		if spec.omeIdx >= len(pages) {
-			return nil, fmt.Errorf("ome: associated %s OME Image %d has no corresponding TIFF page", spec.kind, spec.omeIdx)
+			return nil, fmt.Errorf("ome: associated %s OME Image %d has no corresponding TIFF page", spec.imageType, spec.omeIdx)
 		}
-		a, err := newAssociatedImage(spec.kind, pages[spec.omeIdx], file.ReaderAt())
+		a, err := newAssociatedImage(spec.imageType, pages[spec.omeIdx], file.ReaderAt())
 		if err != nil {
-			return nil, fmt.Errorf("ome: associated %s: %w", spec.kind, err)
+			return nil, fmt.Errorf("ome: associated %s: %w", spec.imageType, err)
 		}
 		associated = append(associated, a)
-		// Capture associated dirSpec; spec.kind matches AssociatedImage.Type().
-		dirSpecs = append(dirSpecs, omeDirSpec{page: pages[spec.omeIdx], kind: opentile.DirAssociated, assoc: spec.kind})
+		// Capture associated dirSpec; spec.imageType matches AssociatedImage.Type().
+		dirSpecs = append(dirSpecs, omeDirSpec{page: pages[spec.omeIdx], typ: opentile.DirAssociated, assoc: spec.imageType})
 	}
 
 	icc, _ := pages[0].ICCProfile()
@@ -168,4 +168,3 @@ func defaultOneFrameTileSizeFromFile(pages []*tiff.Page, levelImageIndices []int
 	}
 	return opentile.Size{W: int(tw), H: int(tl)}, nil
 }
-

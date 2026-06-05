@@ -115,7 +115,7 @@ var sziFixtures = []sziFixture{
 // Skipped cleanly when OPENTILE_TESTDIR is unset; otherwise locates
 // the fixture under dir/szi/ and asserts level count, dimensions,
 // tile size, grid, compression, format identifier, the L0 (0,0)
-// encoding magic, and per-associated-image kind / size / compression
+// encoding magic, and per-associated-image type / size / compression
 // / byte count.
 func TestSZIGeometry(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")

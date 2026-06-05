@@ -238,7 +238,7 @@ func (mb *metadataBuilder) build() []byte {
 
 func TestMetadataBuilderRoundtrip(t *testing.T) {
 	mb := &metadataBuilder{
-		codecMajor:    2025, codecMinor: 2, codecBuild: 0,
+		codecMajor: 2025, codecMinor: 2, codecBuild: 0,
 		mpp:           0.5,
 		magnification: 20,
 		attrs: []kv{
@@ -302,10 +302,10 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	if len(assoc) != 3 {
 		t.Fatalf("associated count = %d, want 3", len(assoc))
 	}
-	wantKinds := []string{"thumbnail", "macro", "overview"}
+	wantTypes := []string{"thumbnail", "macro", "overview"}
 	for i, a := range assoc {
-		if a.Type() != wantKinds[i] {
-			t.Errorf("assoc[%d] kind = %q, want %q", i, a.Type(), wantKinds[i])
+		if a.Type() != wantTypes[i] {
+			t.Errorf("assoc[%d] type = %q, want %q", i, a.Type(), wantTypes[i])
 		}
 	}
 	// Sizes + compression.
@@ -429,7 +429,7 @@ func TestMetadataWrongRecoveryRejected(t *testing.T) {
 	}
 }
 
-func TestNormaliseAssociatedKind(t *testing.T) {
+func TestNormaliseAssociatedType(t *testing.T) {
 	for _, tc := range []struct {
 		in, want string
 	}{
@@ -444,8 +444,8 @@ func TestNormaliseAssociatedKind(t *testing.T) {
 		{"freetext", "freetext"},
 		{"Custom Label", "custom label"},
 	} {
-		if got := normaliseAssociatedKind(tc.in); got != tc.want {
-			t.Errorf("normaliseAssociatedKind(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := normaliseAssociatedType(tc.in); got != tc.want {
+			t.Errorf("normaliseAssociatedType(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

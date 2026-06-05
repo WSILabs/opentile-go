@@ -83,12 +83,12 @@ func (s *Session) Tile(level, x, y int) ([]byte, error) {
 	return s.readBlob()
 }
 
-// Associated requests an associated image of the given kind ("label",
+// Associated requests an associated image of the given type ("label",
 // "overview", "thumbnail"). Returns (nil, nil) if Python opentile does
-// not expose that kind on this slide — matches the v0.2 one-shot helper
+// not expose that type on this slide — matches the v0.2 one-shot helper
 // semantics so callers that t.Skip on empty bytes keep working.
-func (s *Session) Associated(kind string) ([]byte, error) {
-	if _, err := fmt.Fprintf(s.stdin, "associated %s\n", kind); err != nil {
+func (s *Session) Associated(imageType string) ([]byte, error) {
+	if _, err := fmt.Fprintf(s.stdin, "associated %s\n", imageType); err != nil {
 		return nil, fmt.Errorf("oracle: send associated request: %w", err)
 	}
 	return s.readBlob()
@@ -140,12 +140,12 @@ func Tile(slide string, level, x, y, tileSize int) ([]byte, error) {
 }
 
 // Associated invokes Python opentile for an associated image of the given
-// kind ("label", "overview", "thumbnail") and returns its raw bytes.
+// type ("label", "overview", "thumbnail") and returns its raw bytes.
 //
 // Deprecated for inner-loop use: prefer Session.Associated. Kept for one-
 // shot diagnostic invocations.
 //
-// If Python opentile does not expose that kind on this slide (e.g. NDPI
+// If Python opentile does not expose that type on this slide (e.g. NDPI
 // CMU-1 has no labels or thumbnails), the runner emits zero-length stdout
 // with exit 0; the caller receives a nil/empty slice and should skip the
 // comparison. A non-nil error means the subprocess itself failed.
@@ -153,14 +153,14 @@ func Tile(slide string, level, x, y, tileSize int) ([]byte, error) {
 // tileSize is passed via OPENTILE_TILE_SIZE for parity with Tile, though
 // for associated images it does not affect the returned bytes — the
 // associated image is always a single, fixed-size blob.
-func Associated(slide, kind string, tileSize int) ([]byte, error) {
-	cmd := exec.Command(PythonBin(), RunnerScript(), slide, kind)
+func Associated(slide, imageType string, tileSize int) ([]byte, error) {
+	cmd := exec.Command(PythonBin(), RunnerScript(), slide, imageType)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("OPENTILE_TILE_SIZE=%d", tileSize))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("python oracle associated %q failed (%s): %w\nstderr:\n%s", kind, cmd.Path, err, stderr.String())
+		return nil, fmt.Errorf("python oracle associated %q failed (%s): %w\nstderr:\n%s", imageType, cmd.Path, err, stderr.String())
 	}
 	return stdout.Bytes(), nil
 }

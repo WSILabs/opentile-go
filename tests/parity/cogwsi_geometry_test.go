@@ -226,7 +226,7 @@ var cogwsiFixtures = []cogwsiFixture{
 // files. Skipped cleanly when OPENTILE_TESTDIR is unset; otherwise
 // locates the fixture under dir/cog-wsi/ and asserts level count,
 // dimensions, tile size, grid, compression, format identifier, the
-// L0 (0,0) encoding magic, and per-associated-image kind / size /
+// L0 (0,0) encoding magic, and per-associated-image type / size /
 // compression / byte count.
 func TestCOGWSIGeometry(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")

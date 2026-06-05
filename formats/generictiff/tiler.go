@@ -59,9 +59,9 @@ func MetadataOf(v any) (*Metadata, bool) {
 // recorded at Open time so TIFFDirectories() can build the public view lazily.
 type genericDirSpec struct {
 	pageIdx int
-	kind    opentile.DirectoryKind
-	level   int    // valid when kind==DirLevel
-	assoc   string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+	typ     opentile.DirectoryType
+	level   int    // valid when typ==DirLevel
+	assoc   string // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the generic-TIFF implementation of format.Reader.
@@ -71,12 +71,12 @@ type tiler struct {
 	images      []opentile.Image
 	associated  []opentile.AssociatedImage
 	icc         []byte
-	file        *tiff.File      // retained for lazy TIFF-tag exposure
+	file        *tiff.File       // retained for lazy TIFF-tag exposure
 	dirSpecs    []genericDirSpec // page→role mapping captured at Open
 }
 
-func (t *tiler) Format() opentile.Format            { return opentile.FormatGenericTIFF }
-func (t *tiler) Images() []opentile.Image           { return t.images }
+func (t *tiler) Format() opentile.Format                { return opentile.FormatGenericTIFF }
+func (t *tiler) Images() []opentile.Image               { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
@@ -95,11 +95,11 @@ func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 			continue
 		}
 		out = append(out, opentile.TIFFDirectory{
-			Kind:       ds.kind,
-			Image:      0, // generic-TIFF is single-image
-			Level:      ds.level,
-			Associated: ds.assoc,
-			Tags:       opentile.TIFFTagsFromPage(pages[ds.pageIdx]),
+			Type:           ds.typ,
+			Image:          0, // generic-TIFF is single-image
+			Level:          ds.level,
+			AssociatedType: ds.assoc,
+			Tags:           opentile.TIFFTagsFromPage(pages[ds.pageIdx]),
 		})
 	}
 	return out

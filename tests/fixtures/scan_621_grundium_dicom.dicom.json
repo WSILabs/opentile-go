@@ -173,7 +173,7 @@
   },
   "associated": [
     {
-      "kind": "label",
+      "type": "label",
       "size": [
         1200,
         848
@@ -182,7 +182,7 @@
       "sha256": "42d8680aa2d85ac07e78fa71b2be316c8a65bf438941338268225058d44cb38d"
     },
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         1200,
         400
@@ -191,7 +191,7 @@
       "sha256": "6eaec9638234a98561140fbf30e2082e10418bd29726c4b2a95694365a3c37ac"
     },
     {
-      "kind": "thumbnail",
+      "type": "thumbnail",
       "size": [
         1024,
         1024

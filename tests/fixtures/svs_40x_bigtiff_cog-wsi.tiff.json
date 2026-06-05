@@ -227,7 +227,7 @@
   },
   "associated": [
     {
-      "kind": "thumbnail",
+      "type": "thumbnail",
       "size": [
         1472,
         832
@@ -236,7 +236,7 @@
       "sha256": "2d212b14613b1cdbb7db298d28853f6950b22f73768b3858f2e7a745eae3feeb"
     },
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         1200,
         400

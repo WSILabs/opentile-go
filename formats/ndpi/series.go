@@ -4,11 +4,11 @@ import (
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
-// pageKind classifies an NDPI TIFF page by its semantic role.
-type pageKind int
+// pageType classifies an NDPI TIFF page by its semantic role.
+type pageType int
 
 const (
-	pageUnknown pageKind = iota
+	pageUnknown pageType = iota
 	pageLevel            // pyramid level (tiled or one-frame)
 	pageMacro            // overview / macro (associated image)
 	pageMap              // map-view (skipped in v0.2; associated in v0.3+)
@@ -25,7 +25,7 @@ const (
 // tifffile.py at the time of writing). If tag 65421 is missing or not
 // parseable, the page is classified as pageUnknown — upstream treats such
 // pages as skip-worthy rather than erroring, and we match that behavior.
-func classifyPage(p *tiff.Page) pageKind {
+func classifyPage(p *tiff.Page) pageType {
 	mag, ok := p.Float32(65421)
 	if !ok {
 		return pageUnknown

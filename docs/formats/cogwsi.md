@@ -45,7 +45,7 @@ Tags 65080-65087 carry WSI-domain semantics that generic-TIFF + COG don't model:
 
 | Tag ID | Name | Type | Purpose |
 |---:|---|---|---|
-| 65080 | `WSIImageType` | ASCII | One of `"base"`, `"label"`, `"overview"`, `"thumbnail"`, `"macro"`. Authoritative — overrides heuristic classification. `"macro"` maps to associated-image kind `"overview"` per v0.15 canonical-naming alignment. |
+| 65080 | `WSIImageType` | ASCII | One of `"base"`, `"label"`, `"overview"`, `"thumbnail"`, `"macro"`. Authoritative — overrides heuristic classification. `"macro"` maps to associated-image type `"overview"` per v0.15 canonical-naming alignment. |
 | 65081 | `WSIPyramidIndex` | LONG | Reserved for multi-pyramid files; unused in v0.19 single-pyramid fixtures. |
 | 65082 | `WSILevelIndex` | LONG | 0-based level within the base pyramid (0 = native). Drives native-first level ordering without re-deriving from IFD geometry. |
 | 65083 | `WSIMPP` | DOUBLE | Symmetric microns-per-pixel (when X == Y). |
@@ -69,7 +69,7 @@ Pyramid construction short-circuits when every tiled IFD carries `WSILevelIndex`
 | `Tiles(ctx)` row-major iterator | ✅ | Standard pattern |
 | `WarmLevel(i)` page-cache pre-warm | ✅ | Standard v0.9 pattern |
 | Cross-format `opentile.Metadata` | ✅ | Populated from WSI private tags (see Metadata below) |
-| Associated images: label / overview / thumbnail | ✅ | Classification driven by `WSIImageType`; `"macro"` → kind `"overview"` per v0.15 |
+| Associated images: label / overview / thumbnail | ✅ | Classification driven by `WSIImageType`; `"macro"` → type `"overview"` per v0.15 |
 | Spec validation at `Open` | ✅ | `ErrNotConformantCOGWSI` returned on ghost-area / IFD-ordering / WSI-tag violations |
 | Source-format preservation parity gate | ✅ | Cross-fixture: each `<source>_cog-wsi.tiff` tile bytes vs the original `<source>` confirms bit-exact passthrough |
 | BigTIFF | ✅ | Header-length dispatch (8-byte classic vs 16-byte BigTIFF) picks the right ghost-area offset |

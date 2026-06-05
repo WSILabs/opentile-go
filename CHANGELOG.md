@@ -11,6 +11,27 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-06-04
+
+### Changed (breaking) — one "type" vocabulary for image classification
+
+- Completed the v0.15 `Kind()`→`Type()` rename that the public TIFF-tag
+  API (v0.31) had missed. The associated-image classification vocabulary
+  is now uniformly **"type"**, never "kind".
+- **Breaking (public API):** in the v0.31 `TIFFDirectoriesOf` surface —
+  - `DirectoryKind` type → **`DirectoryType`**
+  - `TIFFDirectory.Kind` field → **`TIFFDirectory.Type`**
+  - `TIFFDirectory.Associated` field → **`TIFFDirectory.AssociatedType`**
+  - Value names (`DirOther` / `DirLevel` / `DirAssociated`) are unchanged.
+  - **Consumer migration:** `d.Kind` → `d.Type`, `d.Associated` →
+    `d.AssociatedType`. Only affects code using `TIFFDirectoriesOf`
+    (added v0.31, ~3 days prior); no other public symbol changed.
+- Non-breaking: the `AssociatedImage.Type()` godoc no longer calls the
+  values "kinds"; internal naming (`associated.go` fields/params, the
+  `kindFromIFDRole`/`normaliseAssociatedKind` helpers) and format/README
+  docs now say "type". NDPI's internal `pageKind` page-role enum is left
+  as-is — it classifies pages, not associated images.
+
 ## [0.34.1] — 2026-06-04
 
 ### Fixed — strips: corrupted output at between-level downsamples

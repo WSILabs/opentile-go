@@ -35,7 +35,7 @@ type Metadata struct {
 	Barcode string
 
 	// Auxiliaries carries one entry per auxiliary <image>
-	// (one element with kind="overview" in the AssociatedImage list,
+	// (one element with type="overview" in the AssociatedImage list,
 	// per sealed Q8, updated in v0.15). Order matches AssociatedImage iteration order.
 	Auxiliaries []AuxiliaryInfo
 
@@ -114,9 +114,9 @@ func MetadataOf(v any) (*Metadata, bool) {
 // level become DirOther.
 type scnDirSpec struct {
 	page  *tiff.Page
-	kind  opentile.DirectoryKind
-	level int    // valid when kind==DirLevel
-	assoc string // valid when kind==DirAssociated; matches AssociatedImage.Type()
+	typ   opentile.DirectoryType
+	level int    // valid when typ==DirLevel
+	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the Leica SCN implementation of format.Reader.
@@ -134,8 +134,8 @@ type tiler struct {
 	dirSpecs []scnDirSpec
 }
 
-func (t *tiler) Format() opentile.Format    { return opentile.FormatLeicaSCN }
-func (t *tiler) Images() []opentile.Image   { return t.images }
+func (t *tiler) Format() opentile.Format                { return opentile.FormatLeicaSCN }
+func (t *tiler) Images() []opentile.Image               { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
@@ -158,11 +158,11 @@ func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 			continue
 		}
 		out = append(out, opentile.TIFFDirectory{
-			Kind:       ds.kind,
-			Image:      0, // SCN exposes a single main image
-			Level:      ds.level,
-			Associated: ds.assoc,
-			Tags:       opentile.TIFFTagsFromPage(ds.page),
+			Type:           ds.typ,
+			Image:          0, // SCN exposes a single main image
+			Level:          ds.level,
+			AssociatedType: ds.assoc,
+			Tags:           opentile.TIFFTagsFromPage(ds.page),
 		})
 	}
 	return out

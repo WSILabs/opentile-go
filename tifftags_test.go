@@ -79,10 +79,10 @@ func (f fakeTagReader) TIFFDirectories() []TIFFDirectory { return f.dirs }
 
 func TestSlideTIFFAccessors(t *testing.T) {
 	s := &Slide{r: fakeTagReader{dirs: []TIFFDirectory{
-		{Kind: DirLevel, Image: 0, Level: 0, Tags: TIFFTags{{Number: 270, Name: "ImageDescription", Type: TIFFASCII}}},
-		{Kind: DirLevel, Image: 0, Level: 1, Tags: TIFFTags{{Number: 256, Name: "ImageWidth", Type: TIFFShort}}},
-		{Kind: DirAssociated, Associated: "label", Tags: TIFFTags{{Number: 305, Name: "Software", Type: TIFFASCII}}},
-		{Kind: DirOther, Tags: TIFFTags{{Number: 65500, Type: TIFFLong}}},
+		{Type: DirLevel, Image: 0, Level: 0, Tags: TIFFTags{{Number: 270, Name: "ImageDescription", Type: TIFFASCII}}},
+		{Type: DirLevel, Image: 0, Level: 1, Tags: TIFFTags{{Number: 256, Name: "ImageWidth", Type: TIFFShort}}},
+		{Type: DirAssociated, AssociatedType: "label", Tags: TIFFTags{{Number: 305, Name: "Software", Type: TIFFASCII}}},
+		{Type: DirOther, Tags: TIFFTags{{Number: 65500, Type: TIFFLong}}},
 	}}}
 
 	tags, ok := s.LevelTIFFTags(0)
@@ -112,22 +112,22 @@ func TestSlideTIFFAccessors(t *testing.T) {
 // tiffTagProvider. Used to verify that non-TIFF accessors return ok=false.
 type nonTIFFReader struct{}
 
-func (nonTIFFReader) Format() Format                   { return Format("test") }
-func (nonTIFFReader) Images() []Image                  { return nil }
-func (nonTIFFReader) Level(_, _ int) (Level, error)    { return Level{}, errors.New("stub") }
-func (nonTIFFReader) Associated() []AssociatedImage    { return nil }
-func (nonTIFFReader) Metadata() Metadata               { return Metadata{} }
-func (nonTIFFReader) ICCProfile() []byte               { return nil }
-func (nonTIFFReader) WarmLevel(_, _ int) error         { return nil }
+func (nonTIFFReader) Format() Format                { return Format("test") }
+func (nonTIFFReader) Images() []Image               { return nil }
+func (nonTIFFReader) Level(_, _ int) (Level, error) { return Level{}, errors.New("stub") }
+func (nonTIFFReader) Associated() []AssociatedImage { return nil }
+func (nonTIFFReader) Metadata() Metadata            { return Metadata{} }
+func (nonTIFFReader) ICCProfile() []byte            { return nil }
+func (nonTIFFReader) WarmLevel(_, _ int) error      { return nil }
 func (nonTIFFReader) ImageRawTile(_, _, _, _ int) ([]byte, error) {
 	return nil, errors.New("stub")
 }
 func (nonTIFFReader) ImageRawTileInto(_, _, _, _ int, _ []byte) (int, error) {
 	return 0, errors.New("stub")
 }
-func (nonTIFFReader) ImageTileMaxSize(_, _ int) int      { return 0 }
-func (nonTIFFReader) ImageTilePrefix(_, _ int) []byte    { return nil }
-func (nonTIFFReader) ImageTileBodyMaxSize(_, _ int) int  { return 0 }
+func (nonTIFFReader) ImageTileMaxSize(_, _ int) int     { return 0 }
+func (nonTIFFReader) ImageTilePrefix(_, _ int) []byte   { return nil }
+func (nonTIFFReader) ImageTileBodyMaxSize(_, _ int) int { return 0 }
 func (nonTIFFReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) {
 	return 0, errors.New("stub")
 }

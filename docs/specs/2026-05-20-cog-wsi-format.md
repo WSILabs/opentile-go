@@ -124,7 +124,7 @@ COG_WSI_VERSION=0.1
 
 `COG_WSI_VERSION` follows semver-style numbering. The minor version (0.x) is
 bumped for backward-compatible additions (new optional tags, new associated
-image kinds). The major version is bumped only for breaking changes (new
+image types). The major version is bumped only for breaking changes (new
 required tags, layout changes that break existing readers).
 
 ## 5. Pyramid IFDs
@@ -190,7 +190,7 @@ The following wsitools private tags (range ≥ 65000) MAY appear:
 
 | Tag                | TIFF ID | Type   | IFDs        | Meaning                              |
 |--------------------|---------|--------|-------------|--------------------------------------|
-| `WSIImageType`     | 65080   | ASCII  | every IFD   | Image kind (see §5, §6).             |
+| `WSIImageType`     | 65080   | ASCII  | every IFD   | Image type (see §5, §6).             |
 | `WSILevelIndex`    | 65081   | LONG   | pyramid only| 0-based pyramid level index.         |
 | `WSILevelCount`    | 65082   | LONG   | pyramid only| Total pyramid level count.           |
 | `WSISourceFormat`  | 65083   | ASCII  | L0 only     | Original source container (`svs`, `philips`, etc.). |

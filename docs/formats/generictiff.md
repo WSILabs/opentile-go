@@ -74,7 +74,7 @@ Generic TIFF has no upstream Python opentile counterpart, so v0.7's tifffile + o
 
 1. **Sampled-tile SHA256 fixtures** (`tests/integration_test.go::TestSlideParity`) — both fixtures, full-walk under the 5 MB JSON cap. Records every (level, x, y) tile's SHA256 in `tests/fixtures/CMU-1.tiff.json` (2.6 MB) and `CMU-1.stripped.tiff.json` (2.0 MB). Regenerate via `OPENTILE_TESTDIR=$PWD/sample_files go test ./tests -tags generate -run TestGenerateFixtures -generate -v`.
 
-2. **Geometry pinning + cross-backing byte parity** (`tests/parity/generic_geometry_test.go`) — both fixtures, no build tag, runs in `make test`. Pins per-level Size / TileSize / Grid / Compression, the L0 (0,0) JPEG SOI marker, per-associated-image kind / size / compression / byte count, and confirms tile bytes are byte-identical across mmap (default) and pread backings.
+2. **Geometry pinning + cross-backing byte parity** (`tests/parity/generic_geometry_test.go`) — both fixtures, no build tag, runs in `make test`. Pins per-level Size / TileSize / Grid / Compression, the L0 (0,0) JPEG SOI marker, per-associated-image type / size / compression / byte count, and confirms tile bytes are byte-identical across mmap (default) and pread backings.
 
 3. **Unit tests** (`formats/generictiff/*_test.go`) — synthetic + real-fixture coverage on the validator (`classify_pyramid_test.go`), the heuristic classifier (`classifier_test.go`), Factory + Detection (`generic_test.go`), tiledImage Level (`tiled_test.go`), and associatedImage AssociatedImage (`associated_test.go`).
 

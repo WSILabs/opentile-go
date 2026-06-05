@@ -497,7 +497,7 @@
   },
   "associated": [
     {
-      "kind": "label",
+      "type": "label",
       "size": [
         387,
         403
@@ -506,7 +506,7 @@
       "sha256": "2608c1dabd02b635054c585b53e33a63065b5acfc201960f750167a22341714c"
     },
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         791,
         403

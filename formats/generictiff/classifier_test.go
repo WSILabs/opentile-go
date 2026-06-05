@@ -155,7 +155,7 @@ func TestClassifyAssociated_BoundaryThresholds(t *testing.T) {
 // TestClassifyAssociated_AgainstStrippedSVSCMU1 is the integration-
 // level pin: against the actual IFD shapes from the v0.10
 // stripped-SVS fixture (sample_files/generic-tiff/CMU-1.stripped.tiff),
-// the classifier returns the right Kind for each associated IFD.
+// the classifier returns the right type for each associated IFD.
 // Doesn't open the file (avoids fixture dependency in unit tests);
 // hand-codes the IFD dims from the T2 probe finding.
 func TestClassifyAssociated_AgainstStrippedSVSCMU1(t *testing.T) {
@@ -163,7 +163,7 @@ func TestClassifyAssociated_AgainstStrippedSVSCMU1(t *testing.T) {
 	baseline := tiled(0, 46000, 32914)
 	for _, tc := range []struct {
 		ifd      tiff.PyramidLevelInfo
-		wantKind string
+		wantType string
 		desc     string
 	}{
 		{stripped(1, 1024, 732, 7), TypeThumbnail, "IFD 1: thumbnail JPEG"},
@@ -171,8 +171,8 @@ func TestClassifyAssociated_AgainstStrippedSVSCMU1(t *testing.T) {
 		{stripped(5, 1280, 431, 7), TypeOverview, "IFD 5: macro JPEG"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			if got := ClassifyAssociated(tc.ifd, baseline); got != tc.wantKind {
-				t.Errorf("%s: got %q, want %q", tc.desc, got, tc.wantKind)
+			if got := ClassifyAssociated(tc.ifd, baseline); got != tc.wantType {
+				t.Errorf("%s: got %q, want %q", tc.desc, got, tc.wantType)
 			}
 		})
 	}

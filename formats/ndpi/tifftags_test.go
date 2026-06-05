@@ -59,7 +59,7 @@ func TestNDPIMapPageInDirectories(t *testing.T) {
 	// directories than levels (i.e. extra IFDs are surfaced).
 	var levelCount int
 	for _, d := range dirs {
-		if d.Kind == opentile.DirLevel {
+		if d.Type == opentile.DirLevel {
 			levelCount++
 		}
 	}

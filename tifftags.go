@@ -136,24 +136,24 @@ func (ts TIFFTags) ByName(name string) (TIFFTag, bool) {
 	return TIFFTag{}, false
 }
 
-// DirectoryKind classifies a TIFF IFD's semantic role.
-type DirectoryKind uint8
+// DirectoryType classifies a TIFF IFD's semantic role.
+type DirectoryType uint8
 
 const (
-	DirOther      DirectoryKind = iota // hidden / Map / SubIFD not surfaced elsewhere
+	DirOther      DirectoryType = iota // hidden / Map / SubIFD not surfaced elsewhere
 	DirLevel                           // a pyramid level
 	DirAssociated                      // an associated image
 )
 
 // TIFFDirectory is one IFD with structured identity. Image/Level are valid
-// when Kind==DirLevel; Associated is the associated image Type() when
-// Kind==DirAssociated.
+// when Type==DirLevel; AssociatedType is the associated image Type() when
+// Type==DirAssociated.
 type TIFFDirectory struct {
-	Kind       DirectoryKind
-	Image      int
-	Level      int
-	Associated string
-	Tags       TIFFTags
+	Type           DirectoryType
+	Image          int
+	Level          int
+	AssociatedType string
+	Tags           TIFFTags
 }
 
 // Tag is a convenience for d.Tags.Tag(number).
@@ -204,7 +204,7 @@ func (s *Slide) ImageLevelTIFFTags(image, level int) (TIFFTags, bool) {
 		return nil, false
 	}
 	for _, d := range dirs {
-		if d.Kind == DirLevel && d.Image == image && d.Level == level {
+		if d.Type == DirLevel && d.Image == image && d.Level == level {
 			return d.Tags, true
 		}
 	}
@@ -224,7 +224,7 @@ func (s *Slide) AssociatedTIFFTags(a AssociatedImage) (TIFFTags, bool) {
 		return nil, false
 	}
 	for _, d := range dirs {
-		if d.Kind == DirAssociated && d.Associated == a.Type() {
+		if d.Type == DirAssociated && d.AssociatedType == a.Type() {
 			return d.Tags, true
 		}
 	}

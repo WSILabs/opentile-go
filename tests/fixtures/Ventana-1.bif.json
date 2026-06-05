@@ -325,7 +325,7 @@
   },
   "associated": [
     {
-      "kind": "overview",
+      "type": "overview",
       "size": [
         1251,
         3685
@@ -334,7 +334,7 @@
       "sha256": "4cf1d4afe22752b69a770554607fa8ffeb82060f4da0cff9beed3d137e90c990"
     },
     {
-      "kind": "probability",
+      "type": "probability",
       "size": [
         1251,
         3685

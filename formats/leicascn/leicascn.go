@@ -88,7 +88,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				// All dimension IFDs for this skipped auxiliary become DirOther.
 				for _, d := range aux.Dimensions {
 					if d.IFD >= 0 && d.IFD < len(pages) && !seenIFDs[d.IFD] {
-						dirSpecs = append(dirSpecs, scnDirSpec{page: pages[d.IFD], kind: opentile.DirOther})
+						dirSpecs = append(dirSpecs, scnDirSpec{page: pages[d.IFD], typ: opentile.DirOther})
 						seenIFDs[d.IFD] = true
 					}
 				}
@@ -106,7 +106,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			}
 		}
 		if lo.IFD >= 0 && lo.IFD < len(pages) && !seenIFDs[lo.IFD] {
-			dirSpecs = append(dirSpecs, scnDirSpec{page: pages[lo.IFD], kind: opentile.DirAssociated, assoc: "overview"})
+			dirSpecs = append(dirSpecs, scnDirSpec{page: pages[lo.IFD], typ: opentile.DirAssociated, assoc: "overview"})
 			seenIFDs[lo.IFD] = true
 		}
 		// Remaining aux dimension IFDs become DirOther.
@@ -115,7 +115,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				continue
 			}
 			if d.IFD >= 0 && d.IFD < len(pages) && !seenIFDs[d.IFD] {
-				dirSpecs = append(dirSpecs, scnDirSpec{page: pages[d.IFD], kind: opentile.DirOther})
+				dirSpecs = append(dirSpecs, scnDirSpec{page: pages[d.IFD], typ: opentile.DirOther})
 				seenIFDs[d.IFD] = true
 			}
 		}
@@ -149,9 +149,9 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 				}
 				if ri == 0 && chi == 0 {
 					// Canonical page for this composite level.
-					dirSpecs = append(dirSpecs, scnDirSpec{page: pages[ifdIdx], kind: opentile.DirLevel, level: li})
+					dirSpecs = append(dirSpecs, scnDirSpec{page: pages[ifdIdx], typ: opentile.DirLevel, level: li})
 				} else {
-					dirSpecs = append(dirSpecs, scnDirSpec{page: pages[ifdIdx], kind: opentile.DirOther})
+					dirSpecs = append(dirSpecs, scnDirSpec{page: pages[ifdIdx], typ: opentile.DirOther})
 				}
 				seenIFDs[ifdIdx] = true
 			}
@@ -179,7 +179,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	// as DirOther.
 	for i, pg := range pages {
 		if !seenIFDs[i] {
-			dirSpecs = append(dirSpecs, scnDirSpec{page: pg, kind: opentile.DirOther})
+			dirSpecs = append(dirSpecs, scnDirSpec{page: pg, typ: opentile.DirOther})
 		}
 	}
 
@@ -204,4 +204,3 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		dirSpecs:   dirSpecs,
 	}, nil
 }
-

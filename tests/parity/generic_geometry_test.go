@@ -198,7 +198,7 @@ var genericFixtures = []genericFixture{
 // otherwise locates the fixture under dir/generic-tiff/ and asserts
 // level count, dimensions, tile size, grid, compression, format
 // identifier, the L0 (0,0) encoding magic, and per-associated-image
-// kind / size / compression / byte count.
+// type / size / compression / byte count.
 func TestGenericGeometry(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
