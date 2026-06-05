@@ -1,5 +1,7 @@
 # opentile-go
 
+> ⚠️ **Status: pre-1.0, under rapid active development.** The public API is not yet stable and may change between releases — pin a version and check the [CHANGELOG](./CHANGELOG.md) before upgrading.
+
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Go Reference](https://pkg.go.dev/badge/github.com/wsilabs/opentile-go.svg)](https://pkg.go.dev/github.com/wsilabs/opentile-go)
 [![CI](https://github.com/WSILabs/opentile-go/actions/workflows/ci.yml/badge.svg)](https://github.com/WSILabs/opentile-go/actions/workflows/ci.yml)
