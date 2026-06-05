@@ -1,8 +1,9 @@
 //go:build openslidebench
 
 // Command compare emits the cross-language competitive benchmark report:
-// opentile-go vs openslide (ReadRegion) and vs python opentile (Tile),
-// across the format overlap. Build with -tags openslidebench (needs
+// opentile-go vs openslide (ReadRegion + DecodedTile, both against
+// openslide read_region — its only decode path) and vs python opentile
+// (RawTile), across the format overlap. Build with -tags openslidebench (needs
 // libopenslide); the python axis needs a python-opentile interpreter via
 // OPENTILE_ORACLE_PYTHON. Run from the repository root (it shells out to
 // cmd/bench/compare/opentile_perf.py by relative path).
@@ -30,6 +31,7 @@ type row struct {
 	Format          string  `json:"format"`
 	OpentileRegion  float64 `json:"opentile_readregion_mpixs"`
 	OpenslideRegion float64 `json:"openslide_readregion_mpixs"`
+	OpentileDecoded float64 `json:"opentile_decodedtile_mpixs"`
 	OpentileTile    float64 `json:"opentile_tile_mpixs"`
 	PythonTile      float64 `json:"python_tile_mpixs"`
 }
@@ -72,6 +74,31 @@ func timeOpentileRegion(path string) float64 {
 	t0 := time.Now()
 	for _, c := range coords {
 		if _, err := s.ReadRegion(0, c[0]*tw, c[1]*th, tw, th); err == nil {
+			n++
+		}
+	}
+	el := time.Since(t0)
+	return bench.MpixPerSec(int64(n)*int64(tw)*int64(th), el)
+}
+
+// timeOpentileDecoded times opentile-go ImageDecodedTile (the v0.27 fast
+// decode path) over a bounded grid. This is the truest decode-vs-decode
+// counterpart to openslide read_region (charted in the same column group),
+// and the path ScaledStrips/DZI actually consume — leaner than ReadRegion,
+// which adds fill/scratch machinery on top of the same decode.
+func timeOpentileDecoded(path string) float64 {
+	s, err := opentile.OpenFile(path)
+	if err != nil {
+		return 0
+	}
+	defer s.Close()
+	base := s.Levels()[0]
+	tw, th := base.TileSize.W, base.TileSize.H
+	coords := interiorCoords(base.Grid.W, base.Grid.H)
+	n := 0
+	t0 := time.Now()
+	for _, c := range coords {
+		if _, err := s.ImageDecodedTile(0, base.Index, c[0], c[1]); err == nil {
 			n++
 		}
 	}
@@ -148,6 +175,7 @@ func main() {
 		}
 		r := row{Format: e.Format}
 		r.OpentileRegion = timeOpentileRegion(path)
+		r.OpentileDecoded = timeOpentileDecoded(path)
 		r.OpentileTile = timeOpentileTile(path)
 		if e.Openslide {
 			r.OpenslideRegion = timeOpenslideRegion(path)
@@ -171,12 +199,15 @@ func main() {
 		return fmt.Sprintf("%.0f", v)
 	}
 
-	fmt.Println("| format | ReadRegion: opentile-go | openslide | ratio | Tile: opentile-go | python | ratio |")
-	fmt.Println("|---|---|---|---|---|---|---|")
+	// openslide's only decode path is read_region, so it serves as the
+	// baseline for BOTH the ReadRegion and DecodedTile column groups.
+	fmt.Println("| format | ReadRegion: opentile-go | openslide | ratio | DecodedTile: opentile-go | openslide | ratio | RawTile: opentile-go | python | ratio |")
+	fmt.Println("|---|---|---|---|---|---|---|---|---|---|")
 	for _, r := range rows {
-		fmt.Printf("| %s | %s | %s | %s | %s | %s | %s |\n",
+		fmt.Printf("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
 			r.Format,
 			num(r.OpentileRegion), num(r.OpenslideRegion), ratio(r.OpentileRegion, r.OpenslideRegion),
+			num(r.OpentileDecoded), num(r.OpenslideRegion), ratio(r.OpentileDecoded, r.OpenslideRegion),
 			num(r.OpentileTile), num(r.PythonTile), ratio(r.OpentileTile, r.PythonTile))
 	}
 
