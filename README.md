@@ -1,10 +1,24 @@
 # opentile-go
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/wsilabs/opentile-go.svg)](https://pkg.go.dev/github.com/wsilabs/opentile-go)
+[![CI](https://github.com/WSILabs/opentile-go/actions/workflows/ci.yml/badge.svg)](https://github.com/WSILabs/opentile-go/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wsilabs/opentile-go)](https://goreportcard.com/report/github.com/wsilabs/opentile-go)
+[![Release](https://img.shields.io/github/v/tag/WSILabs/opentile-go?label=release&sort=semver)](https://github.com/WSILabs/opentile-go/releases)
+[![Go 1.23+](https://img.shields.io/github/go-mod/go-version/WSILabs/opentile-go)](./go.mod)
 
-A Go library for reading raw compressed tiles from whole-slide imaging (WSI) files used in digital pathology, including TIFF dialects (Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, and Cloud-Optimized GeoTIFF WSI), the bleeding-edge non-TIFF [Iris File Extension](https://github.com/IrisDigitalPathology/Iris-File-Extension), the ZIP-wrapped Microsoft Deep Zoom-based [Smart Zoom Image](https://github.com/smartinmedia/SZI-Format) format, and **DICOM WSI** (VL Whole Slide Microscopy Image — multi-file / directory-based). opentile-go **began as a Go port** of the Python [opentile](https://github.com/imi-bigpicture/opentile) library and stays byte-identical to it on the four formats opentile covers (SVS, NDPI, Philips, OME-TIFF). Its functionality is **now a superset of opentile that also incorporates openslide-like decoded-region reading** — `ReadRegion` and scaled-strip (DZI) output, associated images, and raw vendor TIFF-tag access — and it reads seven more formats than upstream (BIF, IFE, generic-TIFF, Leica SCN, SZI, COG-WSI, DICOM WSI).
+**opentile-go reads whole-slide pathology images in Go** — extracting raw compressed tiles *and* decoding pixel regions from **11 WSI formats**, with pure-Go raw-tile reads and a single cgo dependency for codec decode.
 
-Beyond raw passthrough, opentile-go adds: memory-mapped reads + pool-friendly `TileInto` (v0.9), bandwidth-deduplication `TilePrefix` / `TileBodyInto` (v0.13), a libvips-style `ScaledStrips` region/DZI iterator with byte-bounded peak memory (v0.26 / v0.30), and raw vendor TIFF-tag access (v0.31). Per-thread decode throughput is competitive with [openslide](#performance) — typically exceeding it on the in-repo cross-format benchmark. See [docs/perf.md](./docs/perf.md).
+It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library — staying byte-identical on the four formats opentile covers (SVS, NDPI, Philips, OME-TIFF) — and is now a **superset**: it adds openslide-style decoded-region reading and seven more formats than upstream.
+
+**What it does:**
+
+- **Raw tile extraction** — `Tile(x, y)` / `RawTile` return the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
+- **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), and `ReadRegionScaled` (downsampled output) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
+- **Scaled strips / DZI** — `ScaledStrips`, a libvips-style whole-slide region iterator with **byte-bounded** peak memory, for Deep Zoom / tile-pyramid generation.
+- **11 formats, auto-detected** — Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, COG-WSI, [Iris IFE](https://github.com/IrisDigitalPathology/Iris-File-Extension), [SZI](https://github.com/smartinmedia/SZI-Format), and multi-file **DICOM WSI**.
+- **Associated images & metadata** — label / overview / thumbnail / macro, MPP, magnification, vendor properties, and raw per-level / per-image **TIFF-tag** access.
+- **Built for throughput** — mmap-backed reads, pool-friendly zero-alloc `TileInto`, concurrent-safe hot path; decoded-region throughput **3–14× openslide** on the in-repo benchmark ([Performance](#performance)).
 
 ```go
 import (
@@ -20,19 +34,19 @@ base, _ := t.Level(0)
 tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 ```
 
-`Tile(x, y)` returns the raw compressed bitstream as stored on disk — opentile-go is a tile-extraction library, not a decoder. Decode the returned bytes with whatever JPEG / JPEG 2000 / etc. library suits your downstream pipeline.
+`Tile(x, y)` returns the raw compressed bitstream exactly as stored on disk — pure Go, no cgo, zero-copy. Hand it to any JPEG / JPEG 2000 / etc. decoder downstream, or let opentile-go decode for you — see [decoded pixel regions](#reading-pixel-regions-and-scaled-strips) below.
 
-**v0.22+ decoded-pixel access (preview):** A `decoder/` package and 9 codec subpackages are now available for callers that want decoded `image.RGBA`-equivalent pixels rather than raw bytes. Add a blanket side-effect import to opt in:
+**Decoded pixels (shipped).** For decoded regions instead of raw bytes — `ReadRegion`, `DecodedTile`, `ReadRegionScaled`, `ScaledStrips`, all returning `*decoder.Image` — also register the codec decoders, the same side-effect-import pattern as `formats/all`:
 
 ```go
 import (
     opentile "github.com/wsilabs/opentile-go"
-    _ "github.com/wsilabs/opentile-go/formats/all"
-    _ "github.com/wsilabs/opentile-go/decoder/all" // enables decoded-tile access in v1.0+
+    _ "github.com/wsilabs/opentile-go/formats/all" // register format readers
+    _ "github.com/wsilabs/opentile-go/decoder/all" // register codec decoders (enables decode)
 )
 ```
 
-The decoded-tile `*Slide` methods that consume this layer are planned for v1.0. See [`decoder/`](./decoder/) and [`resample/`](./resample/) for the current public API.
+See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-strips) for the API, and [`decoder/`](./decoder/) / [`resample/`](./resample/) for the codec and resampling layers.
 
 ## Supported formats
 
@@ -331,14 +345,16 @@ The repo carries a standing cross-format benchmark suite (`bench/`):
   opentile (compressed `get_tile`). Requires libopenslide + a
   python-opentile interpreter.
 
-On the in-repo benchmark (one fixture per format, bounded interior
-grid), opentile-go's decoded-region throughput typically exceeds
-openslide, and raw compressed-tile fetch is substantially faster than
-Python opentile. These are early, favorable, self-run numbers — a more
-thorough cross-machine benchmark is future work; run `make bench-compare`
-for current figures on your hardware, and see [`docs/perf.md`](./docs/perf.md)
-for methodology and caveats (region alignment, single machine, the
-multi-region SCN exception).
+On the in-repo benchmark (one fixture per format, bounded interior grid,
+v0.34.1, 10-core Apple Silicon), opentile-go's **decoded-region
+throughput is 3–14× openslide** (e.g. generic-TIFF 14.3×, Philips 11.1×,
+SVS 9.5×, NDPI 3.2×). Raw compressed-tile fetch is ≈parity with Python
+opentile — both return the same compressed bytes, so it's an mmap-slice
+on both sides. These are single-machine, single-run figures; run `make
+bench-compare` for current numbers on your hardware, and see
+[`docs/perf.md`](./docs/perf.md#measured-competitive-numbers-v0341) for
+the full table, methodology, and caveats (region alignment, single
+machine, the multi-region SCN bounds offset).
 
 ## Deviations from upstream Python opentile
 

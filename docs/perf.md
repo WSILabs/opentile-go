@@ -377,3 +377,50 @@ The openslide comparison uses an in-house ~40-line cgo shim
 the shipping library keeps its single cgo dependency
 (`internal/jpegturbo`) — normal builds, `go test ./...`, and CI never
 compile it.
+
+### Measured competitive numbers (v0.34.1)
+
+A representative `make bench-compare` run — 10-core Apple Silicon (M-series)
+laptop, macOS, one fixture per format, bounded interior tile grid, single
+run. **Absolute `Mpix/s` vary with hardware and run-to-run; the ratios are
+the stable takeaway.** Reproduce on your own machine with `make
+bench-compare` (needs libopenslide + a python-opentile interpreter).
+
+| Format | DecodedTile (Mpix/s) | openslide `read_region` | **ratio** | ReadRegion | openslide | ratio |
+|---|--:|--:|:-:|--:|--:|:-:|
+| generic-tiff | 1067 | 74 | **14.3×** | 951 | 74 | 12.8× |
+| philips-tiff | 779 | 70 | **11.1×** | 698 | 70 | 9.9× |
+| svs | 685 | 72 | **9.5×** | 527 | 72 | 7.3× |
+| leica-scn | 645 | 73 | **8.9×** | 618 | 73 | 8.5× |
+| ndpi | 666 | 207 | **3.2×** | 624 | 207 | 3.0× |
+| ome-tiff | 729 | — | — | 688 | — | — |
+| ife | 817 | — | — | 616 | — | — |
+| szi | 685 | — | — | 508 | — | — |
+| cog-wsi | 788 | — | — | 741 | — | — |
+| bif | 379 | — | — | 367 | — | — |
+
+(openslide can't read OME-TIFF / IFE / SZI / COG-WSI / BIF here → "—".)
+
+**Decode is the competitive headline: 3–14× openslide** across the
+overlapping formats. `DecodedTile` (the v0.27 per-tile fast path that
+`ScaledStrips` / DZI consume) edges `ReadRegion`, which layers
+fill/scratch machinery over the same decode. NDPI's 3× (vs 9–14×
+elsewhere) reflects its single-monolithic-JPEG layout, not a slow
+decoder — see the NDPI per-tile-decode note above.
+
+**Raw compressed-tile fetch vs Python opentile is ≈parity** (~0.8–2.6×,
+and noisy run-to-run): both opentile-go `RawTile` and python `get_tile`
+return the *same compressed bytes*, so for a tiled TIFF it's an
+mmap-slice on both sides and the residual is just per-call overhead. The
+one structural case is **NDPI raw-tile (~1.1×)**: both libraries must
+*transcode* — an NDPI level has no stored per-tile stream — so neither
+can slice. (An earlier note claimed "5–17× python opentile"; that figure
+was actually the openslide *decode* comparison, mislabeled. Raw-tile vs
+python was always parity.)
+
+Caveats: single machine, one fixture per format, single run (not
+`benchstat`-averaged). Leica SCN reads are aligned to openslide's
+`bounds-x`/`bounds-y` so both backends read the same tissue — without the
+offset a fixed coordinate lands openslide in the empty multi-region
+margin and reports a meaningless ~50,000 Mpix/s. DICOM (the 11th format)
+is multi-file and not in the single-file bench matrix.
