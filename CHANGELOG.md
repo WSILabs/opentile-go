@@ -11,6 +11,17 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added — `Slide.AssociatedIFDOffset` (#15)
+
+- `func (s *Slide) AssociatedIFDOffset(a AssociatedImage) (offset int64, ok bool)`
+  maps a typed associated image back to its source IFD byte offset, for
+  raw-TIFF in-place editing (wsitools' associated-image editor). Opt-in per
+  format — implemented for **SVS** and **generic-TIFF**; other TIFF readers
+  and formats with synthesized associated images (no on-disk IFD) return
+  `ok=false`, as do non-TIFF slides. Additive; no API break.
+- Internal: `internal/tiff` now retains each IFD's byte offset
+  (`tiff.Page.IFDOffset()`), populated during the IFD walk.
+
 ## [0.35.0] — 2026-06-04
 
 ### Changed (breaking) — one "type" vocabulary for image classification

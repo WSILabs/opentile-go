@@ -230,3 +230,35 @@ func (s *Slide) AssociatedTIFFTags(a AssociatedImage) (TIFFTags, bool) {
 	}
 	return nil, false
 }
+
+// associatedIFDOffsetProvider is implemented by TIFF-family readers that
+// can map a typed AssociatedImage back to its source IFD byte offset.
+// Opt-in per format (SVS + generic-TIFF as of the initial wiring); formats
+// with synthesized associated images (no on-disk IFD) deliberately don't
+// implement it.
+type associatedIFDOffsetProvider interface {
+	AssociatedIFDOffset(a AssociatedImage) (int64, bool)
+}
+
+// AssociatedIFDOffset returns the byte offset of the IFD backing associated
+// image a, for TIFF-family slides whose reader supports it (currently SVS
+// and generic-TIFF). ok is false when the slide is not TIFF-backed, the
+// format hasn't opted in, or a is not one of s.Associated().
+//
+// Intended for raw-TIFF in-place editing (e.g. mapping a typed associated
+// image back to its source IFD to splice/replace it). Uses the same
+// lazy UnwrapReader-chain dispatch as TIFFDirectoriesOf.
+func (s *Slide) AssociatedIFDOffset(a AssociatedImage) (offset int64, ok bool) {
+	var cur any = s.r
+	for cur != nil {
+		if p, ok := cur.(associatedIFDOffsetProvider); ok {
+			return p.AssociatedIFDOffset(a)
+		}
+		u, uok := cur.(interface{ UnwrapReader() any })
+		if !uok {
+			break
+		}
+		cur = u.UnwrapReader()
+	}
+	return 0, false
+}

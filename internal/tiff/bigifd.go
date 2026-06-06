@@ -33,7 +33,7 @@ func walkBigIFDs(b *byteReader, offset int64) ([]*ifd, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tiff: BigTIFF IFD body at %d: %w", offset, err)
 		}
-		ifd := &ifd{entries: make(map[uint16]Entry, count)}
+		ifd := &ifd{entries: make(map[uint16]Entry, count), offset: offset}
 		for i := 0; i < count; i++ {
 			entry := decodeBigEntry(body[i*20:i*20+20], b.order)
 			ifd.entries[entry.Tag] = entry

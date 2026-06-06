@@ -133,7 +133,7 @@ func readSingleClassicIFD(b *byteReader, offset int64) (*ifd, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tiff: SubIFD body at %d: %w", offset, err)
 	}
-	out := &ifd{entries: make(map[uint16]Entry, count)}
+	out := &ifd{entries: make(map[uint16]Entry, count), offset: offset}
 	for i := 0; i < int(count); i++ {
 		entry := decodeClassicEntry(body[i*12:i*12+12], b.order)
 		entry.inlineCap = 4
@@ -157,7 +157,7 @@ func readSingleBigIFD(b *byteReader, offset int64) (*ifd, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tiff: BigTIFF SubIFD body at %d: %w", offset, err)
 	}
-	out := &ifd{entries: make(map[uint16]Entry, count)}
+	out := &ifd{entries: make(map[uint16]Entry, count), offset: offset}
 	for i := 0; i < count; i++ {
 		entry := decodeBigEntry(body[i*20:i*20+20], b.order)
 		out.entries[entry.Tag] = entry

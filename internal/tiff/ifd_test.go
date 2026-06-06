@@ -63,6 +63,29 @@ func TestWalkIFDs(t *testing.T) {
 	}
 }
 
+// TestIFDOffsetRetained verifies the walk records each IFD's byte offset and
+// that Page.IFDOffset surfaces it. buildClassicTIFF places the sole IFD at
+// the header's first-IFD offset (8).
+func TestIFDOffsetRetained(t *testing.T) {
+	data := buildClassicTIFF(t, [][3]uint32{{256, 3, 1024}})
+	r := bytes.NewReader(data)
+	h, err := parseHeader(r)
+	if err != nil {
+		t.Fatalf("parseHeader: %v", err)
+	}
+	b := newByteReader(r, h.littleEndian)
+	ifds, err := walkIFDs(b, int64(h.firstIFD), modeClassic)
+	if err != nil {
+		t.Fatalf("walkIFDs: %v", err)
+	}
+	if got := ifds[0].offset; got != int64(h.firstIFD) {
+		t.Errorf("ifd.offset = %d, want %d", got, h.firstIFD)
+	}
+	if got := newPage(ifds[0], b).IFDOffset(); got != int64(h.firstIFD) {
+		t.Errorf("Page.IFDOffset() = %d, want %d", got, h.firstIFD)
+	}
+}
+
 // buildClassicTIFFChain builds a TIFF with a chain of empty IFDs whose
 // next-IFD pointers walk in the order given by nextOffsets. nextOffsets[i]
 // is the next-IFD pointer to write for IFD i; pass 0 to terminate the

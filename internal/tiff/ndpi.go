@@ -47,7 +47,7 @@ func walkNDPIIFDs(b *byteReader, offset int64) ([]*ifd, error) {
 		nextIFDOff := entriesBase + 12*count
 		hibitsBase := nextIFDOff + 8
 
-		ifd := &ifd{entries: make(map[uint16]Entry, count)}
+		ifd := &ifd{entries: make(map[uint16]Entry, count), offset: offset}
 		for i := 0; i < count; i++ {
 			entry := decodeClassicEntry(body[entriesBase+i*12:entriesBase+i*12+12], b.order)
 			valHi := b.order.Uint32(body[hibitsBase+i*4 : hibitsBase+i*4+4])

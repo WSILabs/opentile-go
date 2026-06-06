@@ -79,15 +79,20 @@ func (p *Page) scalarU32(tag uint16) (uint32, bool) {
 // accessors.
 func (p *Page) ScalarU32(tag uint16) (uint32, bool) { return p.scalarU32(tag) }
 
-func (p *Page) ImageWidth() (uint32, bool)       { return p.scalarU32(TagImageWidth) }
-func (p *Page) ImageLength() (uint32, bool)      { return p.scalarU32(TagImageLength) }
-func (p *Page) TileWidth() (uint32, bool)        { return p.scalarU32(TagTileWidth) }
-func (p *Page) TileLength() (uint32, bool)       { return p.scalarU32(TagTileLength) }
-func (p *Page) Compression() (uint32, bool)      { return p.scalarU32(TagCompression) }
-func (p *Page) Photometric() (uint32, bool)      { return p.scalarU32(TagPhotometric) }
-func (p *Page) SamplesPerPixel() (uint32, bool)  { return p.scalarU32(TagSamplesPerPixel) }
-func (p *Page) BitsPerSample() (uint32, bool)    { return p.scalarU32(TagBitsPerSample) }
-func (p *Page) ResolutionUnit() (uint32, bool)   { return p.scalarU32(TagResolutionUnit) }
+// IFDOffset returns the byte offset of this page's backing IFD in the
+// file. Populated during the IFD walk; 0 for synthetic pages with no
+// on-disk IFD (e.g. test-constructed pages).
+func (p *Page) IFDOffset() int64 { return p.ifd.offset }
+
+func (p *Page) ImageWidth() (uint32, bool)      { return p.scalarU32(TagImageWidth) }
+func (p *Page) ImageLength() (uint32, bool)     { return p.scalarU32(TagImageLength) }
+func (p *Page) TileWidth() (uint32, bool)       { return p.scalarU32(TagTileWidth) }
+func (p *Page) TileLength() (uint32, bool)      { return p.scalarU32(TagTileLength) }
+func (p *Page) Compression() (uint32, bool)     { return p.scalarU32(TagCompression) }
+func (p *Page) Photometric() (uint32, bool)     { return p.scalarU32(TagPhotometric) }
+func (p *Page) SamplesPerPixel() (uint32, bool) { return p.scalarU32(TagSamplesPerPixel) }
+func (p *Page) BitsPerSample() (uint32, bool)   { return p.scalarU32(TagBitsPerSample) }
+func (p *Page) ResolutionUnit() (uint32, bool)  { return p.scalarU32(TagResolutionUnit) }
 
 // ImageDepth returns the ImageDepth tag (32997, SGI private) used by
 // Ventana BIF to store Z-stack depth, or (1, false) if absent or zero.

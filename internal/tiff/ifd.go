@@ -14,6 +14,7 @@ var ErrTooManyIFDs = errors.New("internal/tiff: TIFF IFD chain exceeded the safe
 // ifd is a parsed Image File Directory: a collection of Entry values indexed by tag id.
 type ifd struct {
 	entries map[uint16]Entry
+	offset  int64 // byte offset of this IFD in the file (0 for synthetic/test ifds)
 }
 
 func (i *ifd) get(tag uint16) (Entry, bool) {
@@ -82,7 +83,7 @@ func walkClassicIFDs(b *byteReader, offset int64) ([]*ifd, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tiff: IFD body at %d: %w", offset, err)
 		}
-		ifd := &ifd{entries: make(map[uint16]Entry, count)}
+		ifd := &ifd{entries: make(map[uint16]Entry, count), offset: offset}
 		for i := 0; i < int(count); i++ {
 			entry := decodeClassicEntry(body[i*12:i*12+12], b.order)
 			entry.inlineCap = 4
