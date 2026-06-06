@@ -11,6 +11,16 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-06-05
+
+### Fixed — htj2k cgo build on non-macOS toolchains (#16)
+
+- `decoder/htj2k` hardcoded `#cgo LDFLAGS: -lc++` (Apple clang's libc++),
+  which broke GNU-toolchain cgo builds (Linux gcc, Windows mingw-w64) with
+  `ld: cannot find -lc++` — blocking the openscope Windows sidecar. Made
+  the C++ runtime flag platform-conditional: `-lc++` on darwin, `-lstdc++`
+  elsewhere. (Linux CI was masking it via `-tags nohtj2k`.)
+
 ### Added — `Slide.AssociatedIFDOffset` (#15)
 
 - `func (s *Slide) AssociatedIFDOffset(a AssociatedImage) (offset int64, ok bool)`

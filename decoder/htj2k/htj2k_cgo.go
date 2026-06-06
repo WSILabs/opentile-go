@@ -8,7 +8,11 @@ package htj2k
 /*
 #cgo pkg-config: openjph
 #cgo CXXFLAGS: -std=c++17
-#cgo LDFLAGS: -lc++
+// C++ runtime: Apple clang ships libc++; GNU toolchains (Linux gcc,
+// Windows mingw-w64) ship libstdc++. Hardcoding -lc++ broke non-macOS
+// cgo builds with "ld: cannot find -lc++" (GH #16).
+#cgo darwin LDFLAGS: -lc++
+#cgo !darwin LDFLAGS: -lstdc++
 #include <stdlib.h>
 #include "shim.h"
 */
