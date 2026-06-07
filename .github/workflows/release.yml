@@ -1,0 +1,54 @@
+name: Release
+
+# Create a GitHub Release whenever a vMAJOR.MINOR.PATCH tag is pushed.
+# Notes are the matching CHANGELOG section; the title is the annotated
+# tag's subject line. Tags are expected to be cut from a green main
+# (the test matrix runs on push to main, not on tags), so this job only
+# publishes the release — it does not re-run the suite.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write # required for the GITHUB_TOKEN to create releases
+
+jobs:
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the annotated tag object for its subject line
+
+      - name: Build release notes from CHANGELOG
+        id: notes
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          # Title: the annotated tag's subject; fall back to the tag name.
+          TITLE="$(git tag -l "$TAG" --format='%(contents:subject)')"
+          [ -n "$TITLE" ] || TITLE="$TAG"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          # Body: the "## [VERSION]" section of CHANGELOG.md (up to the next "## [").
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" {flag=1; next}
+            flag && /^## \[/ {flag=0}
+            flag {print}
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            printf 'Release %s. See [CHANGELOG](./CHANGELOG.md).\n' "$TAG" > notes.md
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.notes.outputs.title }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "$TITLE" \
+            --notes-file notes.md \
+            --verify-tag
