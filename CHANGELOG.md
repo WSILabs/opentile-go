@@ -11,6 +11,18 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-06-06
+
+### Changed — OpenJPEG/JPEG2000 decode is now optional (`nojp2k`) (#17)
+
+- `decoder/jpeg2000` gains a `nojp2k` build tag, mirroring the existing
+  `nojxl`/`nowebp`/`noavif`/`nohtj2k` pattern: `-tags nojp2k` excludes the
+  `libopenjp2` cgo file and falls back to the existing stub factory (JP2K tiles,
+  TIFF compression 33003/34712, return `ErrCodecUnavailable`).
+- **libjpeg-turbo is now the only codec linked under every cgo build.** JPEG2000
+  is a legacy Aperio codec, rarely seen in modern WSI; making it opt-out enables
+  JPEG-only minimal installs. Additive — default builds are unchanged.
+
 ## [0.36.0] — 2026-06-05
 
 ### Fixed — htj2k cgo build on non-macOS toolchains (#16)

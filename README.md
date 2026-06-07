@@ -76,8 +76,7 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 
 - **Go 1.23+** (uses `iter.Seq2`).
 - **libjpeg-turbo 2.1+** — JPEG decode + tile-domain ops (NDPI edge-tile fill, Philips sparse-tile fill, OME OneFrame). macOS: `brew install jpeg-turbo`; Debian / Ubuntu: `apt-get install libturbojpeg0-dev`.
-- **OpenJPEG** — JPEG 2000 decode; linked under any cgo build (no per-codec opt-out).
-- **Optional codec libraries**, each disableable with a `no<codec>` build tag if you don't have it: libjxl (`nojxl`), libwebp (`nowebp`), libavif (`noavif`), openjph / HTJ2K (`nohtj2k`).
+- **Optional codec libraries**, each disableable with a `no<codec>` build tag if you don't have it: OpenJPEG / JPEG 2000 (`nojp2k`), libjxl (`nojxl`), libwebp (`nowebp`), libavif (`noavif`), openjph / HTJ2K (`nohtj2k`). libjpeg-turbo is the only codec linked under every cgo build.
 - **`pkg-config`** to resolve the above at build time.
 
 opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`RawTile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-striped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.

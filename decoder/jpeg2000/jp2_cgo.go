@@ -1,4 +1,4 @@
-//go:build cgo && !nocgo
+//go:build cgo && !nocgo && !nojp2k
 
 // Package jpeg2000 implements the JPEG 2000 decoder via openjp2.
 // TIFF Compression=33003 (Aperio convention) and 34712 (libtiff

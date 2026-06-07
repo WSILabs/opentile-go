@@ -1,4 +1,4 @@
-//go:build cgo && !nocgo
+//go:build cgo && !nocgo && !nojp2k
 
 package jpeg2000
 
