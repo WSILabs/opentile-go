@@ -28,9 +28,17 @@ jobs:
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          # Title: the annotated tag's subject; fall back to the tag name.
-          TITLE="$(git tag -l "$TAG" --format='%(contents:subject)')"
-          [ -n "$TITLE" ] || TITLE="$TAG"
+          # actions/checkout fetches the tag REF but not always the annotated
+          # tag OBJECT; without it, %(contents:subject) dereferences to the
+          # commit and yields the commit subject. Fetch tag objects, then only
+          # read the subject when this is a true annotated tag (cat-file -t ==
+          # "tag"); otherwise fall back to the tag name — never the commit.
+          git fetch --force --tags --quiet || true
+          TITLE="$TAG"
+          if [ "$(git cat-file -t "$TAG" 2>/dev/null)" = "tag" ]; then
+            sub="$(git tag -l "$TAG" --format='%(contents:subject)')"
+            [ -n "$sub" ] && TITLE="$sub"
+          fi
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
           # Body: the "## [VERSION]" section of CHANGELOG.md (up to the next "## [").
           awk -v ver="$VERSION" '
