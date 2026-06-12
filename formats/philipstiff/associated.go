@@ -28,12 +28,41 @@ type associatedImage struct {
 	stripOffsets []uint64
 	stripCounts  []uint64
 	jpegTables   []byte
+	samples      int
+	photometric  int
+	predictor    int
+	rowsPerStrip int
 	reader       io.ReaderAt
 }
 
 func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
+
+// AssociatedSource returns the strip source + tags for faithful standalone
+// re-emission (GH #22).
+func (a *associatedImage) AssociatedSource() (opentile.AssociatedSource, bool) {
+	if len(a.stripOffsets) == 0 {
+		return opentile.AssociatedSource{}, false
+	}
+	strips := make([][]byte, len(a.stripOffsets))
+	for i := range a.stripOffsets {
+		buf := make([]byte, a.stripCounts[i])
+		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+			return opentile.AssociatedSource{}, false
+		}
+		strips[i] = buf
+	}
+	return opentile.AssociatedSource{
+		Strips:       strips,
+		Compression:  a.compression,
+		Predictor:    a.predictor,
+		JPEGTables:   a.jpegTables,
+		RowsPerStrip: a.rowsPerStrip,
+		Samples:      a.samples,
+		Photometric:  a.photometric,
+	}, true
+}
 
 // Decode returns the decoded associated-image pixels via the registered
 // codec decoder (GH #20). Bytes() already returns a faithful standalone
@@ -99,6 +128,10 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associa
 	}
 	comp, _ := p.Compression()
 	ocomp := tiffCompressionToOpentile(comp)
+	spp, _ := p.SamplesPerPixel()
+	photo, _ := p.Photometric()
+	pred, _ := p.Predictor()
+	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
 
 	var jpegTables []byte
 	if ocomp == opentile.CompressionJPEG {
@@ -114,6 +147,10 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associa
 		stripOffsets: soffs,
 		stripCounts:  scnts,
 		jpegTables:   jpegTables,
+		samples:      int(spp),
+		photometric:  int(photo),
+		predictor:    int(pred),
+		rowsPerStrip: int(rps),
 		reader:       r,
 	}, nil
 }

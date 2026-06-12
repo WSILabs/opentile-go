@@ -225,6 +225,25 @@ func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, er
 	}
 }
 
+// AssociatedSource returns the source strips + TIFF tags for faithful
+// standalone re-emission (GH #22): the original strips (not the re-encoded
+// Bytes()) plus Compression/Predictor/JPEGTables/RowsPerStrip. ok=false for
+// tiled associated images (no strip layout retained).
+func (a *associatedImage) AssociatedSource() (opentile.AssociatedSource, bool) {
+	if len(a.rawStrips) == 0 {
+		return opentile.AssociatedSource{}, false
+	}
+	return opentile.AssociatedSource{
+		Strips:       a.rawStrips,
+		Compression:  a.compression,
+		Predictor:    int(a.info.predictor),
+		JPEGTables:   a.info.jpegTables,
+		RowsPerStrip: int(a.info.rowsPerStrip),
+		Samples:      int(a.info.samples),
+		Photometric:  int(a.info.photometric),
+	}, true
+}
+
 // associatedSourceInfo carries the IFD-level metadata the
 // associated reader needs. Built by the Tiler from the *tiff.Page
 // at Open time and passed in as a value.

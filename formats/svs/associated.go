@@ -42,6 +42,9 @@ type stripedJPEGAssociated struct {
 	stripCounts  []uint64
 	jpegTables   []byte
 	mcuW, mcuH   int
+	rowsPerStrip int
+	samples      int
+	photometric  int
 	reader       io.ReaderAt
 }
 
@@ -194,6 +197,24 @@ func parseFirstSOF(frag []byte) (*jpeg.SOF, error) {
 	return jpeg.FirstFragmentSOF(frag)
 }
 
+// AssociatedSource returns the abbreviated-JPEG strips + JPEGTables for
+// faithful standalone re-emission (GH #22). A consumer writes the strips +
+// tag 347 (JPEGTables) verbatim into a fresh IFD.
+func (a *stripedJPEGAssociated) AssociatedSource() (opentile.AssociatedSource, bool) {
+	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
+	if err != nil {
+		return opentile.AssociatedSource{}, false
+	}
+	return opentile.AssociatedSource{
+		Strips:       strips,
+		Compression:  opentile.CompressionJPEG,
+		JPEGTables:   a.jpegTables,
+		RowsPerStrip: a.rowsPerStrip,
+		Samples:      a.samples,
+		Photometric:  a.photometric,
+	}, true
+}
+
 func newStripedJPEGAssociated(imageType string, p *tiff.Page, r io.ReaderAt) (*stripedJPEGAssociated, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
@@ -245,6 +266,9 @@ func newStripedJPEGAssociated(imageType string, p *tiff.Page, r io.ReaderAt) (*s
 		}
 	}
 
+	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
+	spp, _ := p.SamplesPerPixel()
+	photo, _ := p.Photometric()
 	return &stripedJPEGAssociated{
 		imageType:    imageType,
 		size:         opentile.Size{W: int(iw), H: int(il)},
@@ -253,6 +277,9 @@ func newStripedJPEGAssociated(imageType string, p *tiff.Page, r io.ReaderAt) (*s
 		jpegTables:   tables,
 		mcuW:         mcuW,
 		mcuH:         mcuH,
+		rowsPerStrip: int(rps),
+		samples:      int(spp),
+		photometric:  int(photo),
 		reader:       r,
 	}, nil
 }
@@ -342,6 +369,24 @@ func (a *stripedLabel) Bytes() ([]byte, error) {
 	return reconstructLZWLabel(strips, a.rowsPerStrip, a.size.H, a.size.W, a.samples)
 }
 
+// AssociatedSource returns the LZW label's source strips + tags for faithful
+// standalone re-emission (GH #22). The label keeps Predictor (typically 2);
+// a consumer MUST emit tag 317 or the differencing isn't reversed.
+func (a *stripedLabel) AssociatedSource() (opentile.AssociatedSource, bool) {
+	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
+	if err != nil {
+		return opentile.AssociatedSource{}, false
+	}
+	return opentile.AssociatedSource{
+		Strips:       strips,
+		Compression:  a.compression,
+		Predictor:    a.predictor,
+		RowsPerStrip: a.rowsPerStrip,
+		Samples:      a.samples,
+		Photometric:  a.photometric,
+	}, true
+}
+
 func newStripedLabel(p *tiff.Page, r io.ReaderAt) (*stripedLabel, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
@@ -397,4 +442,17 @@ func tiffCompressionToOpentile(tiffCode uint32) opentile.Compression {
 		return opentile.CompressionJP2K
 	}
 	return opentile.CompressionUnknown
+}
+
+// readStrips reads the strips at the given offsets/counts into memory.
+func readStrips(r io.ReaderAt, offsets, counts []uint64) ([][]byte, error) {
+	strips := make([][]byte, len(offsets))
+	for i := range offsets {
+		buf := make([]byte, counts[i])
+		if err := tiff.ReadAtFull(r, buf, int64(offsets[i])); err != nil {
+			return nil, fmt.Errorf("svs: read associated strip %d: %w", i, err)
+		}
+		strips[i] = buf
+	}
+	return strips, nil
 }

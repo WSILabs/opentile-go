@@ -107,6 +107,22 @@ func (m *mapPage) Type() string                      { return "map" }
 func (m *mapPage) Size() opentile.Size               { return m.size }
 func (m *mapPage) Compression() opentile.Compression { return m.compression }
 
+// AssociatedSource returns the single uncompressed strip + tags for faithful
+// standalone re-emission (GH #22).
+func (m *mapPage) AssociatedSource() (opentile.AssociatedSource, bool) {
+	buf := make([]byte, m.length)
+	if err := tiff.ReadAtFull(m.reader, buf, int64(m.offset)); err != nil {
+		return opentile.AssociatedSource{}, false
+	}
+	return opentile.AssociatedSource{
+		Strips:       [][]byte{buf},
+		Compression:  m.compression,
+		RowsPerStrip: m.size.H,
+		Samples:      m.samples,
+		Photometric:  m.photometric,
+	}, true
+}
+
 // Decode returns the decoded map pixels (GH #20). JPEG maps decode via the
 // registry; uncompressed maps (the common Hamamatsu case) decode via the
 // strip path with sample interpretation.

@@ -30,12 +30,38 @@ type associatedImage struct {
 	samples      int // SamplesPerPixel (planar JPEG reassembly)
 	rowsPerStrip int
 	planar       int // PlanarConfiguration (2 = separate R/G/B planes)
+	photometric  int
 	reader       io.ReaderAt
 }
 
 func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
+
+// AssociatedSource returns the strip source + tags for faithful standalone
+// re-emission (GH #22). ok=false for PlanarConfiguration=2 pages (Leica
+// macro) — not representable as a simple single-IFD strip copy.
+func (a *associatedImage) AssociatedSource() (opentile.AssociatedSource, bool) {
+	if a.planar == 2 || len(a.stripOffsets) == 0 {
+		return opentile.AssociatedSource{}, false
+	}
+	strips := make([][]byte, len(a.stripOffsets))
+	for i := range a.stripOffsets {
+		buf := make([]byte, a.stripCounts[i])
+		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+			return opentile.AssociatedSource{}, false
+		}
+		strips[i] = buf
+	}
+	return opentile.AssociatedSource{
+		Strips:       strips,
+		Compression:  a.compression,
+		JPEGTables:   a.jpegTables,
+		RowsPerStrip: a.rowsPerStrip,
+		Samples:      a.samples,
+		Photometric:  a.photometric,
+	}, true
+}
 
 // Decode returns the faithfully-decoded associated-image pixels (GH #20).
 // Planar (PlanarConfiguration=2) multi-strip JPEG pages — Leica's macro is
@@ -194,6 +220,7 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associa
 	spp, _ := p.SamplesPerPixel()
 	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
 	planar, _ := p.ScalarU32(284) // PlanarConfiguration
+	photo, _ := p.Photometric()
 
 	return &associatedImage{
 		imageType:    imageType,
@@ -205,6 +232,7 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associa
 		samples:      int(spp),
 		rowsPerStrip: int(rps),
 		planar:       int(planar),
+		photometric:  int(photo),
 		reader:       r,
 	}, nil
 }

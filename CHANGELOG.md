@@ -11,6 +11,28 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.39.0] — 2026-06-12
+
+### Added — `Slide.AssociatedSourceOf` (faithful no-re-encode source) (#22)
+
+- New type `AssociatedSource` and method `Slide.AssociatedSourceOf(a
+  AssociatedImage) (AssociatedSource, bool)` expose an associated image's
+  **on-disk encoded source** — the strip bytes in document order plus the TIFF
+  tags (`Compression`, `Predictor`, `JPEGTables`, `RowsPerStrip`, `Samples`,
+  `Photometric`) a consumer must set to re-emit them into a fresh standalone
+  single-IFD TIFF with **no re-encode**. Unlike `Bytes()` (whose JPEG output is
+  abbreviated and depends on the source IFD's `JPEGTables`) or `Decode()` (which
+  decodes to pixels), this is a byte-identical copy path — for tools that want
+  to extract a label/overview as its own TIFF without round-tripping pixels.
+- `ok=false` for associated images with no faithful single-IFD strip
+  representation: self-contained JPEGs (NDPI/Leica overview — use `Bytes()`),
+  DICOM frames, OME planar (`PlanarConfiguration=2`) pages, tiled associated
+  images, and NDPI's synthesized label. Implemented across SVS (LZW label +
+  JPEG associated), generic-TIFF (and COG-WSI via delegation), BIF, Philips,
+  OME-TIFF (strip, non-planar), and the NDPI map page.
+- Discovered by type assertion on an unexported `associatedSourcer` capability
+  — **additive, no breaking change** to the `AssociatedImage` interface.
+
 ## [0.38.1] — 2026-06-12
 
 ### Fixed — native DICOM associated images decoded RGB as grayscale (#21)

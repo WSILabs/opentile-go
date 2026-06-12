@@ -59,6 +59,31 @@ func (a *associatedImage) Type() string                      { return a.imageTyp
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
+// AssociatedSource returns the strip source + tags for faithful standalone
+// re-emission (GH #22). Strip-based only; ok=false for tiled associated pages.
+func (a *associatedImage) AssociatedSource() (opentile.AssociatedSource, bool) {
+	if len(a.stripOffsets) == 0 {
+		return opentile.AssociatedSource{}, false // tiled / no strips
+	}
+	strips := make([][]byte, len(a.stripOffsets))
+	for i := range a.stripOffsets {
+		buf := make([]byte, a.stripCounts[i])
+		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+			return opentile.AssociatedSource{}, false
+		}
+		strips[i] = buf
+	}
+	return opentile.AssociatedSource{
+		Strips:       strips,
+		Compression:  a.compression,
+		Predictor:    a.predictor,
+		JPEGTables:   a.jpegTables,
+		RowsPerStrip: a.rowsPerStrip,
+		Samples:      a.samples,
+		Photometric:  a.photometric,
+	}, true
+}
+
 // Decode returns the faithfully-decoded associated-image pixels (GH #20).
 // JPEG decodes via the registry; strip-based None/LZW/Deflate (BIF overview
 // is uncompressed, probability is LZW) decode via the strip path with
