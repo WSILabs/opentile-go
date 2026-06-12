@@ -5,8 +5,11 @@ import (
 	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
 // newAssociatedImage dispatches construction by type. Thumbnail and overview
@@ -45,6 +48,16 @@ type stripedJPEGAssociated struct {
 func (a *stripedJPEGAssociated) Type() string                      { return a.imageType }
 func (a *stripedJPEGAssociated) Size() opentile.Size               { return a.size }
 func (a *stripedJPEGAssociated) Compression() opentile.Compression { return opentile.CompressionJPEG }
+
+// Decode returns the decoded pixels by assembling the standalone JPEG
+// (Bytes()) and running it through the registered JPEG decoder.
+func (a *stripedJPEGAssociated) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	data, err := a.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts)
+}
 
 func (a *stripedJPEGAssociated) Bytes() ([]byte, error) {
 	fragments := make([][]byte, len(a.stripOffsets))
@@ -202,12 +215,40 @@ type stripedLabel struct {
 	stripCounts  []uint64
 	rowsPerStrip int
 	samples      int
+	predictor    int
+	photometric  int
 	reader       io.ReaderAt
 }
 
 func (a *stripedLabel) Type() string                      { return "label" }
 func (a *stripedLabel) Size() opentile.Size               { return a.size }
 func (a *stripedLabel) Compression() opentile.Compression { return a.compression }
+
+// Decode returns the faithfully-decoded label pixels. Unlike Bytes() — which
+// re-encodes LZW and drops the predictor — this decompresses the strips,
+// reverses Predictor=2 horizontal differencing, and interprets the samples
+// as RGB(A) (GH #20). Strip-based codecs only (LZW / Deflate / none); the
+// CMU Aperio labels are LZW + Predictor=2.
+func (a *stripedLabel) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	strips := make([][]byte, len(a.stripOffsets))
+	for i := range a.stripOffsets {
+		buf := make([]byte, a.stripCounts[i])
+		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+			return nil, fmt.Errorf("svs: read label strip %d: %w", i, err)
+		}
+		strips[i] = buf
+	}
+	return tiffstrip.Decode(tiffstrip.Params{
+		Width:        a.size.W,
+		Height:       a.size.H,
+		Samples:      a.samples,
+		Photometric:  a.photometric,
+		Predictor:    a.predictor,
+		Compression:  int(opentile.CompressionToTIFFTag(a.compression)),
+		RowsPerStrip: a.rowsPerStrip,
+		Strips:       strips,
+	}, opts)
+}
 
 // Bytes returns the full label as a single compressed bytestream.
 //
@@ -267,12 +308,16 @@ func newStripedLabel(p *tiff.Page, r io.ReaderAt) (*stripedLabel, error) {
 	comp, _ := p.Compression()
 	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
 	spp, _ := p.SamplesPerPixel()
+	pred, _ := p.Predictor()
+	photo, _ := p.Photometric()
 	return &stripedLabel{
 		size:         opentile.Size{W: int(iw), H: int(il)},
 		compression:  tiffCompressionToOpentile(comp),
 		stripOffsets: offsets,
 		stripCounts:  counts,
 		rowsPerStrip: int(rps),
+		predictor:    int(pred),
+		photometric:  int(photo),
 		samples:      int(spp),
 		reader:       r,
 	}, nil

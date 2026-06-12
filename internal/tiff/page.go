@@ -14,6 +14,7 @@ const (
 	TagBitsPerSample     uint16 = 258
 	TagCompression       uint16 = 259
 	TagPhotometric       uint16 = 262
+	TagPredictor         uint16 = 317
 	TagImageDescription  uint16 = 270
 	TagStripOffsets      uint16 = 273
 	TagSamplesPerPixel   uint16 = 277
@@ -90,6 +91,7 @@ func (p *Page) TileWidth() (uint32, bool)       { return p.scalarU32(TagTileWidt
 func (p *Page) TileLength() (uint32, bool)      { return p.scalarU32(TagTileLength) }
 func (p *Page) Compression() (uint32, bool)     { return p.scalarU32(TagCompression) }
 func (p *Page) Photometric() (uint32, bool)     { return p.scalarU32(TagPhotometric) }
+func (p *Page) Predictor() (uint32, bool)       { return p.scalarU32(TagPredictor) }
 func (p *Page) SamplesPerPixel() (uint32, bool) { return p.scalarU32(TagSamplesPerPixel) }
 func (p *Page) BitsPerSample() (uint32, bool)   { return p.scalarU32(TagBitsPerSample) }
 func (p *Page) ResolutionUnit() (uint32, bool)  { return p.scalarU32(TagResolutionUnit) }
