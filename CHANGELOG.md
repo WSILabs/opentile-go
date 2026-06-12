@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-06-12
+
 ### Added — `AssociatedImage.Decode` (faithful decoded associated images) (#20)
 
 - New interface method `AssociatedImage.Decode(opts decoder.DecodeOptions)
