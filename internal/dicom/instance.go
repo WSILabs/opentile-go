@@ -23,27 +23,28 @@ type FramePos struct{ Col, Row int }
 
 // Instance is the parsed metadata of one WSM SOP instance.
 type Instance struct {
-	Path           string
-	SOPClassUID    string
-	SeriesUID      string
-	ImageType      []string
-	TransferSyntax string
-	TotalCols      int
-	TotalRows      int
-	TileCols       int
-	TileRows       int
-	NumFrames      int
-	DimOrg         string // TILED_FULL | TILED_SPARSE
-	Photometric    string
-	PixelSpacingX  float64
-	PixelSpacingY  float64
-	ObjectivePower float64
-	Manufacturer   string
-	Model          string
-	Software       string
-	Writer         string
-	ICCProfile     []byte
-	FramePositions []FramePos // len == NumFrames for SPARSE; nil for FULL
+	Path            string
+	SOPClassUID     string
+	SeriesUID       string
+	ImageType       []string
+	TransferSyntax  string
+	TotalCols       int
+	TotalRows       int
+	TileCols        int
+	TileRows        int
+	NumFrames       int
+	DimOrg          string // TILED_FULL | TILED_SPARSE
+	Photometric     string
+	SamplesPerPixel int // 0028,0002 (1 monochrome, 3 RGB); authoritative for native decode
+	PixelSpacingX   float64
+	PixelSpacingY   float64
+	ObjectivePower  float64
+	Manufacturer    string
+	Model           string
+	Software        string
+	Writer          string
+	ICCProfile      []byte
+	FramePositions  []FramePos // len == NumFrames for SPARSE; nil for FULL
 }
 
 var (
@@ -62,6 +63,7 @@ var (
 	tCols           = tag.Tag{Group: 0x0028, Element: 0x0011}
 	tNumFrames      = tag.Tag{Group: 0x0028, Element: 0x0008}
 	tPhotometric    = tag.Tag{Group: 0x0028, Element: 0x0004}
+	tSamplesPerPix  = tag.Tag{Group: 0x0028, Element: 0x0002}
 	tDimOrg         = tag.Tag{Group: 0x0020, Element: 0x9311}
 	tObjective      = tag.Tag{Group: 0x0048, Element: 0x0112}
 	tPixelSpacing   = tag.Tag{Group: 0x0028, Element: 0x0030}
@@ -85,21 +87,22 @@ func ParseInstance(path string) (inst Instance, err error) {
 		return Instance{}, err
 	}
 	in := Instance{
-		Path:           path,
-		SOPClassUID:    firstStr(ds, tSOPClass),
-		SeriesUID:      firstStr(ds, tSeries),
-		ImageType:      allStr(ds, tImageType),
-		TransferSyntax: firstStr(ds, tTransferSyntax),
-		TotalCols:      firstInt(ds, tTotalCols),
-		TotalRows:      firstInt(ds, tTotalRows),
-		TileCols:       firstInt(ds, tCols),
-		TileRows:       firstInt(ds, tRows),
-		DimOrg:         firstStr(ds, tDimOrg),
-		Photometric:    firstStr(ds, tPhotometric),
-		ObjectivePower: nestedFloat(ds, tObjective),
-		Manufacturer:   firstStr(ds, tManufacturer),
-		Model:          firstStr(ds, tModel),
-		Software:       firstStr(ds, tSoftware),
+		Path:            path,
+		SOPClassUID:     firstStr(ds, tSOPClass),
+		SeriesUID:       firstStr(ds, tSeries),
+		ImageType:       allStr(ds, tImageType),
+		TransferSyntax:  firstStr(ds, tTransferSyntax),
+		TotalCols:       firstInt(ds, tTotalCols),
+		TotalRows:       firstInt(ds, tTotalRows),
+		TileCols:        firstInt(ds, tCols),
+		TileRows:        firstInt(ds, tRows),
+		DimOrg:          firstStr(ds, tDimOrg),
+		Photometric:     firstStr(ds, tPhotometric),
+		SamplesPerPixel: firstInt(ds, tSamplesPerPix),
+		ObjectivePower:  nestedFloat(ds, tObjective),
+		Manufacturer:    firstStr(ds, tManufacturer),
+		Model:           firstStr(ds, tModel),
+		Software:        firstStr(ds, tSoftware),
 	}
 	in.NumFrames = atoiSafe(firstStr(ds, tNumFrames))
 	in.Writer = firstStr(ds, tWriter)

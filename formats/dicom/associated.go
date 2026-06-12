@@ -14,6 +14,8 @@ type associatedImage struct {
 	size        opentile.Size
 	compression opentile.Compression
 	data        []byte // the single frame's bytes (already extracted at open time)
+	samples     int    // SamplesPerPixel (0028,0002); authoritative for native decode
+	photometric string // PhotometricInterpretation (0028,0004)
 }
 
 func (a *associatedImage) Type() string                      { return a.typ }
@@ -26,23 +28,47 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 }
 
 // Decode returns the decoded associated-image pixels (GH #20). Encapsulated
-// frames (JPEG / JPEG 2000) decode via the registry; native/uncompressed
-// frames decode via the strip path, inferring SamplesPerPixel from the frame
-// length (1 = monochrome, 3 = RGB).
+// frames (JPEG / JPEG 2000 / HTJ2K) decode via the registry; native/
+// uncompressed frames decode via the strip path using the instance's
+// authoritative SamplesPerPixel / PhotometricInterpretation. DICOM PixelData
+// is padded to even length (PS3.5 §7.1.1), so the buffer can be one byte
+// longer than w*h*samples — that pad byte is tolerated and trimmed (GH #21).
 func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
 	if a.compression != opentile.CompressionNone {
 		return assocdecode.ViaCodec(a.compression, a.data, opts)
 	}
 	w, h := a.size.W, a.size.H
-	samples := 1
-	if w > 0 && h > 0 && len(a.data)%(w*h) == 0 {
-		if s := len(a.data) / (w * h); s == 1 || s == 3 || s == 4 {
-			samples = s
+	samples := a.samples
+	if samples != 1 && samples != 3 && samples != 4 {
+		// No usable SamplesPerPixel — infer from length, tolerating the ≤1-byte
+		// even-length pad (len == w*h*s or w*h*s+1).
+		samples = 0
+		if w > 0 && h > 0 {
+			for _, s := range []int{3, 4, 1} {
+				if len(a.data) == w*h*s || len(a.data) == w*h*s+1 {
+					samples = s
+					break
+				}
+			}
+		}
+		if samples == 0 {
+			samples = 1
 		}
 	}
-	photo := 1
-	if samples >= 3 {
-		photo = 2
+	photo := 1 // BlackIsZero
+	switch a.photometric {
+	case "MONOCHROME1":
+		photo = 0 // WhiteIsZero
+	case "MONOCHROME2":
+		photo = 1
+	default:
+		if samples >= 3 {
+			photo = 2 // RGB
+		}
+	}
+	data := a.data
+	if need := w * h * samples; need > 0 && len(data) > need {
+		data = data[:need] // drop the even-length pad byte
 	}
 	return tiffstrip.Decode(tiffstrip.Params{
 		Width:       w,
@@ -50,7 +76,7 @@ func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, er
 		Samples:     samples,
 		Photometric: photo,
 		Compression: tiffstrip.CompNone,
-		Strips:      [][]byte{a.data},
+		Strips:      [][]byte{data},
 	}, opts)
 }
 
@@ -92,6 +118,8 @@ func buildAssociated(s series, open instanceBytes) []opentile.AssociatedImage {
 			size:        opentile.Size{W: a.inst.TotalCols, H: a.inst.TotalRows},
 			compression: compressionForSyntax(a.inst.TransferSyntax),
 			data:        frame,
+			samples:     a.inst.SamplesPerPixel,
+			photometric: a.inst.Photometric,
 		})
 	}
 	return out

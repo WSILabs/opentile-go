@@ -11,6 +11,20 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.38.1] — 2026-06-12
+
+### Fixed — native DICOM associated images decoded RGB as grayscale (#21)
+
+- `AssociatedImage.Decode()` on a **native (uncompressed)** DICOM associated
+  image inferred `SamplesPerPixel` from the frame byte-length, which breaks on
+  the ≤1-byte even-length PixelData pad (PS3.5 §7.1.1): when `w*h*samples` is
+  odd the modulo fails and it fell back to `samples=1`, collapsing interleaved
+  RGB to grayscale. Now uses the instance's authoritative `SamplesPerPixel`
+  (0028,0002) / `PhotometricInterpretation` (0028,0004), tolerates + trims the
+  pad byte, and falls back to a pad-aware length inference. Encapsulated
+  (JPEG / JP2K / HTJ2K) associated images are unaffected. This is the read-back
+  path for wsitools' DICOM writer (LZW labels re-stored as native DICOM).
+
 ## [0.38.0] — 2026-06-12
 
 ### Added — `AssociatedImage.Decode` (faithful decoded associated images) (#20)
