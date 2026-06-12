@@ -86,11 +86,12 @@ var errOutOfCodes = errors.New("tifflzw: out of codes")
 // this transition exactly or the decoded code stream desyncs.
 func (w *Writer) incHi() error {
 	w.hi++
-	// NOTE: TIFF "off by one" — switch width one code earlier than stdlib.
-	if w.hi+1 == w.overflow {
-		w.width++
-		w.overflow <<= 1
-	}
+	// Table full: emit Clear and reset BEFORE any width transition. This
+	// MUST precede the off-by-one width bump below — otherwise at hi==maxCode
+	// the bump pushes width to 13 and the Clear is written at width 13, while
+	// the reader caps at maxWidth (12) and reads it at 12, desyncing the
+	// stream (it truncates a few KB later). Reproduced as the large-LZW
+	// round-trip truncation (GH #20).
 	if w.hi == maxCode {
 		clear := uint32(1) << w.litWidth
 		if err := w.write(w, clear); err != nil {
@@ -103,6 +104,11 @@ func (w *Writer) incHi() error {
 			w.table[i] = invalidEntry
 		}
 		return errOutOfCodes
+	}
+	// NOTE: TIFF "off by one" — switch width one code earlier than stdlib.
+	if w.hi+1 == w.overflow {
+		w.width++
+		w.overflow <<= 1
 	}
 	return nil
 }
