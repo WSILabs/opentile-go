@@ -49,14 +49,68 @@ func (a *stripedJPEGAssociated) Type() string                      { return a.im
 func (a *stripedJPEGAssociated) Size() opentile.Size               { return a.size }
 func (a *stripedJPEGAssociated) Compression() opentile.Compression { return opentile.CompressionJPEG }
 
-// Decode returns the decoded pixels by assembling the standalone JPEG
-// (Bytes()) and running it through the registered JPEG decoder.
+// Decode returns the decoded pixels. It first tries the assembled standalone
+// JPEG (Bytes() via ConcatenateScans); if libjpeg rejects it (some Aperio
+// strip layouts produce "extraneous bytes before marker"), it falls back to
+// decoding each strip's abbreviated JPEG independently and stacking them.
 func (a *stripedJPEGAssociated) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
-	data, err := a.Bytes()
-	if err != nil {
-		return nil, err
+	if data, err := a.Bytes(); err == nil {
+		if img, derr := assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts); derr == nil {
+			return img, nil
+		}
 	}
-	return assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts)
+	return a.decodeStripStack(opts)
+}
+
+// decodeStripStack decodes each strip's abbreviated JPEG (tables in
+// JPEGTables, RGB via APP14) and stacks them vertically by decoded height.
+func (a *stripedJPEGAssociated) decodeStripStack(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if opts.Scale > 1 {
+		return nil, decoder.ErrUnsupportedScale
+	}
+	fac, ok := decoder.GetByCompressionTag(7) // JPEG
+	if !ok {
+		return nil, fmt.Errorf("svs: no JPEG decoder: %w", decoder.ErrCodecUnavailable)
+	}
+	dec := fac.New()
+	defer dec.Close()
+	full := decoder.NewImageFormat(a.size.W, a.size.H, opts.Format)
+	bpp := 3
+	if opts.Format == decoder.PixelFormatRGBA {
+		bpp = 4
+	}
+	y0 := 0
+	for i := range a.stripOffsets {
+		buf := make([]byte, a.stripCounts[i])
+		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+			return nil, fmt.Errorf("svs: read associated strip %d: %w", i, err)
+		}
+		data := buf
+		if len(a.jpegTables) > 0 {
+			d, err := jpeg.InsertTablesAndAPP14(buf, a.jpegTables)
+			if err != nil {
+				return nil, fmt.Errorf("svs: splice tables strip %d: %w", i, err)
+			}
+			data = d
+		}
+		sub, err := dec.Decode(data, decoder.DecodeOptions{Format: opts.Format})
+		if err != nil {
+			return nil, fmt.Errorf("svs: decode associated strip %d: %w", i, err)
+		}
+		rows := sub.Height
+		if y0+rows > full.Height {
+			rows = full.Height - y0
+		}
+		w := sub.Width
+		if w > full.Width {
+			w = full.Width
+		}
+		for y := 0; y < rows; y++ {
+			copy(full.Pix[(y0+y)*full.Stride:(y0+y)*full.Stride+w*bpp], sub.Pix[y*sub.Stride:y*sub.Stride+w*bpp])
+		}
+		y0 += sub.Height
+	}
+	return full, nil
 }
 
 func (a *stripedJPEGAssociated) Bytes() ([]byte, error) {

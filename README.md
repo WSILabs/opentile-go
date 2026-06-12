@@ -220,13 +220,20 @@ knob and tuning.
 
 ```go
 for _, a := range t.Associated() {
+    // Raw: compressed bytes as stored on disk.
     b, err := a.Bytes()
     if err != nil { continue }
     fmt.Printf("%s: %v, %s, %d bytes\n", a.Type(), a.Size(), a.Compression(), len(b))
+
+    // Decoded: faithful RGB(A) pixels (needs `_ "…/decoder/all"`).
+    img, err := a.Decode(decoder.DecodeOptions{}) // or {Format: decoder.PixelFormatRGBA}
+    // img is *decoder.Image{Width, Height, Stride, Format, Pix}
 }
 ```
 
-`a.Bytes()` returns a self-contained, decoder-ready blob in whatever codec the source TIFF carries (typically JPEG or LZW). `a.Type()` is `"label"`, `"overview"`, `"thumbnail"`, or `"map"` (NDPI only).
+- `a.Bytes()` returns the compressed bytes in whatever codec the source carries (JPEG, LZW, …). For multi-strip **LZW** labels this is a re-encoded stream — use `Decode` if you need pixels.
+- `a.Decode(opts)` returns faithfully-decoded pixels for **any** codec (JPEG / JP2K / HTJ2K / WebP / AVIF / JPEG XL / LZW incl. Predictor=2 / Deflate / uncompressed), owning all codec / strip / predictor handling. Returns `decoder.ErrCodecUnavailable` when the codec isn't compiled in (e.g. JP2K under `nojp2k`).
+- `a.Type()` is `"label"`, `"overview"`, `"thumbnail"`, `"macro"` (IFE), `"map"` (NDPI/IFE), `"probability"` (BIF/IFE), or `"associated"`.
 
 ### Format-specific metadata
 

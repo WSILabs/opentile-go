@@ -11,6 +11,40 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added — `AssociatedImage.Decode` (faithful decoded associated images) (#20)
+
+- New interface method `AssociatedImage.Decode(opts decoder.DecodeOptions)
+  (*decoder.Image, error)` returns faithfully-decoded RGB(A) pixels for every
+  associated image (label / overview / thumbnail / macro / map / probability /
+  associated) across every codec — JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL,
+  and **LZW (incl. Predictor=2)**, Deflate, and uncompressed. Honors
+  `Format` (RGB/RGBA); `Scale` on codec-backed images. Consumers no longer need
+  to re-parse the source file (e.g. wsitools' DICOM writer for LZW labels).
+  Additive: a new method on the public `AssociatedImage` interface.
+- New `internal/tiffstrip` (strip decode + Predictor=2 + sample→RGB) and
+  `internal/assocdecode` (codec-registry path); `tiff.Page.Predictor()`.
+
+### Fixed
+
+- **`internal/tifflzw` writer corrupted large LZW streams** (>~47 KB output):
+  at the code-table-full point the TIFF off-by-one width bump fired before the
+  Clear, writing the Clear at width 13 while readers cap at 12 — desyncing and
+  truncating. Reorder to emit Clear before the width bump. This is the GH #20
+  "LZW decodes only a fraction for large images" bug (it was the writer; the
+  reader and tifffile fail identically on streams it produced). Affects the
+  multi-strip-LZW re-encode in `Bytes()` for large labels (SVS / generic-TIFF
+  label fixtures' `associated` SHA regenerated to the now-valid bytes).
+- Faithful decode of associated images that `Bytes()` couldn't deliver:
+  generic-TIFF stripped JPEG (splice JPEGTables + concat-or-stack), BIF
+  None/LZW (strip path), SVS thumbnail (per-strip decode + stack fallback for
+  Aperio restart-marker layouts), OME planar (PlanarConfiguration=2 multi-strip
+  JPEG reassembled per channel).
+
+> NOTE: existing wsitools-generated `cog-wsi` fixtures carry a label encoded by
+> the same LZW writer bug (wsitools' `cogwsiwriter` has its own copy) — it is
+> objectively corrupt (tifffile rejects it too) and must be regenerated after
+> the same fix lands in wsitools.
+
 ## [0.37.0] — 2026-06-06
 
 ### Changed — OpenJPEG/JPEG2000 decode is now optional (`nojp2k`) (#17)

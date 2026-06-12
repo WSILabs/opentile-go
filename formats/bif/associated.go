@@ -5,8 +5,11 @@ import (
 	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
 // associatedImage is the BIF AssociatedImage implementation. BIF
@@ -44,13 +47,53 @@ type associatedImage struct {
 	tileOffsets  []uint64
 	tileCounts   []uint64
 
-	jpegTables []byte // tag 347 if present (typically nil on associated pages)
-	reader     io.ReaderAt
+	jpegTables   []byte // tag 347 if present (typically nil on associated pages)
+	samples      int    // strip-codec decode (None/LZW): SamplesPerPixel
+	photometric  int
+	predictor    int
+	rowsPerStrip int
+	reader       io.ReaderAt
 }
 
 func (a *associatedImage) Type() string                      { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
+
+// Decode returns the faithfully-decoded associated-image pixels (GH #20).
+// JPEG decodes via the registry; strip-based None/LZW/Deflate (BIF overview
+// is uncompressed, probability is LZW) decode via the strip path with
+// predictor + sample interpretation.
+func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	switch a.compression {
+	case opentile.CompressionNone, opentile.CompressionLZW, opentile.CompressionDeflate:
+		if len(a.stripOffsets) == 0 {
+			break // tiled None/LZW unsupported; fall through to a clean error
+		}
+		strips := make([][]byte, len(a.stripOffsets))
+		for i := range a.stripOffsets {
+			buf := make([]byte, a.stripCounts[i])
+			if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+				return nil, fmt.Errorf("bif: read associated %s strip %d: %w", a.imageType, i, err)
+			}
+			strips[i] = buf
+		}
+		return tiffstrip.Decode(tiffstrip.Params{
+			Width:        a.size.W,
+			Height:       a.size.H,
+			Samples:      a.samples,
+			Photometric:  a.photometric,
+			Predictor:    a.predictor,
+			Compression:  int(opentile.CompressionToTIFFTag(a.compression)),
+			RowsPerStrip: a.rowsPerStrip,
+			Strips:       strips,
+		}, opts)
+	}
+	data, err := a.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(a.Compression(), data, opts)
+}
 
 func (a *associatedImage) Bytes() ([]byte, error) {
 	var buf []byte
@@ -118,12 +161,20 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associa
 	}
 	comp, _ := p.Compression()
 	ocomp := tiffCompressionToOpentile(comp)
+	spp, _ := p.SamplesPerPixel()
+	photo, _ := p.Photometric()
+	pred, _ := p.Predictor()
+	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
 
 	out := &associatedImage{
-		imageType:   imageType,
-		size:        opentile.Size{W: int(iw), H: int(il)},
-		compression: ocomp,
-		reader:      r,
+		imageType:    imageType,
+		size:         opentile.Size{W: int(iw), H: int(il)},
+		compression:  ocomp,
+		samples:      int(spp),
+		photometric:  int(photo),
+		predictor:    int(pred),
+		rowsPerStrip: int(rps),
+		reader:       r,
 	}
 
 	// Tile-based vs strip-based discrimination by tag presence.

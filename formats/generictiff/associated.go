@@ -7,7 +7,11 @@ import (
 	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
+	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tifflzw"
+	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
 // errUnsupportedAssociatedShape is returned by [newAssociatedImage]
@@ -32,6 +36,11 @@ type associatedImage struct {
 	size        opentile.Size
 	compression opentile.Compression
 	bytes       []byte
+	// Retained for the faithful Decode() strip path (LZW/Deflate/None),
+	// where bytes (re-encoded) is lossy. nil for image-codec associated
+	// images, which decode bytes directly via the registry.
+	info      associatedSourceInfo
+	rawStrips [][]byte
 }
 
 func (a *associatedImage) Type() string                      { return a.imageType }
@@ -85,12 +94,135 @@ func newAssociatedImage(imageType string, info associatedSourceInfo, r io.Reader
 	if err != nil {
 		return nil, err
 	}
-	return &associatedImage{
+	ai := &associatedImage{
 		imageType:   imageType,
 		size:        opentile.Size{W: int(info.width), H: int(info.height)},
 		compression: ocomp,
 		bytes:       out,
-	}, nil
+		info:        info,
+	}
+	ai.rawStrips = stripBytes // faithful Decode needs the original strips
+	return ai, nil
+}
+
+// bytesPerPixel for a decoder pixel format.
+func bytesPerPixel(f decoder.PixelFormat) int {
+	if f == decoder.PixelFormatRGBA {
+		return 4
+	}
+	return 3
+}
+
+// decodeJPEGStripStack decodes each strip as an independent JPEG (the
+// libtiff "one complete JPEG per strip" layout — abbreviated, tables in
+// JPEGTables) and stacks them vertically into the full image. Used when the
+// strips are separate JPEGs (strip[1] starts with SOI) rather than one
+// restart-marker-split stream.
+func (a *associatedImage) decodeJPEGStripStack(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if opts.Scale > 1 {
+		return nil, decoder.ErrUnsupportedScale
+	}
+	fac, ok := decoder.GetByCompressionTag(7) // JPEG
+	if !ok {
+		return nil, fmt.Errorf("generic: no JPEG decoder: %w", decoder.ErrCodecUnavailable)
+	}
+	dec := fac.New()
+	defer dec.Close()
+	full := decoder.NewImageFormat(a.size.W, a.size.H, opts.Format)
+	bpp := bytesPerPixel(opts.Format)
+	rps := int(a.info.rowsPerStrip)
+	if rps <= 0 {
+		rps = a.size.H
+	}
+	for i, strip := range a.rawStrips {
+		data := strip
+		if len(a.info.jpegTables) > 0 {
+			var err error
+			if a.info.photometric == 2 {
+				data, err = jpeg.InsertTablesAndAPP14(strip, a.info.jpegTables)
+			} else {
+				data, err = jpeg.InsertTables(strip, a.info.jpegTables)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("generic: splice tables strip %d: %w", i, err)
+			}
+		}
+		sub, err := dec.Decode(data, decoder.DecodeOptions{Format: opts.Format})
+		if err != nil {
+			return nil, fmt.Errorf("generic: decode JPEG strip %d: %w", i, err)
+		}
+		y0 := i * rps
+		rows := sub.Height
+		if y0+rows > full.Height {
+			rows = full.Height - y0
+		}
+		w := sub.Width
+		if w > full.Width {
+			w = full.Width
+		}
+		for y := 0; y < rows; y++ {
+			copy(full.Pix[(y0+y)*full.Stride:(y0+y)*full.Stride+w*bpp], sub.Pix[y*sub.Stride:y*sub.Stride+w*bpp])
+		}
+	}
+	return full, nil
+}
+
+// Decode returns the faithfully-decoded associated-image pixels (GH #20).
+// Image-codec associated images decode bytes through the registry; strip
+// codecs (LZW/Deflate/None) decode the original strips with predictor +
+// sample interpretation (bytes is a lossy re-encode for those).
+func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	switch a.compression {
+	case opentile.CompressionNone, opentile.CompressionLZW, opentile.CompressionDeflate:
+		return tiffstrip.Decode(tiffstrip.Params{
+			Width:        a.size.W,
+			Height:       a.size.H,
+			Samples:      int(a.info.samples),
+			Photometric:  int(a.info.photometric),
+			Predictor:    int(a.info.predictor),
+			Compression:  int(a.info.compression),
+			RowsPerStrip: int(a.info.rowsPerStrip),
+			Strips:       a.rawStrips,
+		}, opts)
+	case opentile.CompressionJPEG:
+		// Stripped JPEG associated images store DQT/DHT in JPEGTables (tag
+		// 347), not inline. Two libtiff layouts: (1) one restart-marker-split
+		// JPEG across strips → concat + splice tables + patch SOF height;
+		// (2) one complete JPEG per strip (strip[1] starts with SOI) → decode
+		// each and stack. Try (1) and fall back to (2).
+		separateJPEGs := len(a.rawStrips) > 1 && len(a.rawStrips[1]) >= 2 &&
+			a.rawStrips[1][0] == 0xFF && a.rawStrips[1][1] == 0xD8
+		if separateJPEGs {
+			return a.decodeJPEGStripStack(opts)
+		}
+		data := a.bytes
+		if len(a.info.jpegTables) > 0 {
+			var err error
+			if a.info.photometric == 2 { // RGB stored
+				data, err = jpeg.InsertTablesAndAPP14(a.bytes, a.info.jpegTables)
+			} else {
+				data, err = jpeg.InsertTables(a.bytes, a.info.jpegTables)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("generic: splice JPEGTables for associated %s: %w", a.imageType, err)
+			}
+		}
+		// A restart-marker-split multi-strip JPEG's SOF carries the first
+		// strip's height (RowsPerStrip); patch it to the full image size.
+		if a.size.W <= 0xFFFF && a.size.H <= 0xFFFF {
+			if patched, perr := jpeg.ReplaceSOFDimensions(data, uint16(a.size.W), uint16(a.size.H)); perr == nil {
+				data = patched
+			}
+		}
+		if img, err := assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts); err == nil {
+			return img, nil
+		}
+		// Fall back to per-strip decode + stack (separate JPEGs we couldn't
+		// detect from the SOI sniff).
+		return a.decodeJPEGStripStack(opts)
+	default:
+		return assocdecode.ViaCodec(a.compression, a.bytes, opts)
+	}
 }
 
 // associatedSourceInfo carries the IFD-level metadata the
@@ -103,6 +235,9 @@ type associatedSourceInfo struct {
 	rowsPerStrip uint32 // RowsPerStrip; 0 means "all rows in one strip"
 	samples      uint32 // SamplesPerPixel
 	compression  uint32 // TIFF tag 259 raw value
+	predictor    uint32 // TIFF tag 317 (1/0 none, 2 horizontal differencing)
+	photometric  uint32 // TIFF tag 262
+	jpegTables   []byte // tag 347 (DQT/DHT), spliced before decoding stripped JPEG
 	stripOffsets []uint64
 	stripCounts  []uint64
 }

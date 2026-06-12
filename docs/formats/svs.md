@@ -16,7 +16,7 @@ Aperio's scanned-slide format, produced by Leica Aperio scanners (most common di
 |---|---|---|
 | Tiled levels (JPEG) | ✅ | JPEGTables spliced + Adobe APP14 prepended for Aperio's RGB-not-YCbCr colourspace; matches Python opentile byte-for-byte |
 | Tiled levels (JPEG 2000) | ✅ passthrough | We emit raw JP2K codestream bytes; downstream caller decodes. Decode/encode is parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) |
-| Associated label | ✅ | LZW-compressed strip page; multi-strip decode → raster restitch → re-encode as single LZW stream (L10 fix in v0.3) |
+| Associated label | ✅ | LZW-compressed strip page (often Predictor=2). `Bytes()` restitches multi-strip → single re-encoded LZW stream (L10, v0.3); `Decode()` returns faithful RGB(A) pixels with the predictor reversed (#20) — prefer it for pixels |
 | Associated overview | ✅ | JPEG strip page; assembled via `internal/jpeg.ConcatenateScans` with restart-interval byte-equality vs Python |
 | Associated thumbnail | ✅ | Same shape as overview |
 | BigTIFF | ✅ since v0.2 (`scan_620_.svs`, `svs_40x_bigtiff.svs` exercise this) |
@@ -99,7 +99,7 @@ Aperio's `ImageDescription` carries `key = value` pairs (`MPP`, `AppMag`, `User`
 
 ## Known issues + history
 
-- **L10** (closed v0.3): SVS LZW labels in multi-strip layout previously returned strip 0 only. Now decoded/restitched/re-encoded as a single LZW stream.
+- **L10** (closed v0.3): SVS LZW labels in multi-strip layout previously returned strip 0 only. Now decoded/restitched/re-encoded as a single LZW stream. (#20: the re-encoder's large-stream LZW corruption was fixed in `internal/tifflzw`, and `AssociatedImage.Decode()` now returns faithful pixels with Predictor=2 reversed — the recommended path for label pixels.)
 - **L18** (closed v0.3): `ConcatenateScans` rejected `ColorspaceFix=true` without JPEGTables; matches Python's gate now (skip splice + APP14 when tables absent — required for Grundium SVS).
 - **L7 + L11** (closed v0.3): MCU size derived from SOF rather than hard-coded 16×16. Affected NDPI overview crop and SVS associated-image DRI; CMU-1-Small-Region.svs uses 4:4:4 (MCU 8×8) and tripped the hardcode.
 - **L1** (closed v0.3): `SoftwareLine` had a trailing `\r` (CRLF parsing fix in `formats/svs/metadata.go`).

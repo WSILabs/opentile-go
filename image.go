@@ -1,6 +1,10 @@
 package opentile
 
-import "image"
+import (
+	"image"
+
+	"github.com/wsilabs/opentile-go/decoder"
+)
 
 // Level is value-type pyramid-level metadata. All fields are
 // inspection-only (read at *Slide.Open time). Tile reads use
@@ -88,6 +92,13 @@ type AssociatedImage interface {
 	Size() Size
 	Compression() Compression
 	Bytes() ([]byte, error)
+	// Decode returns the faithfully-decoded pixels for this associated
+	// image, honoring opts (Format RGB/RGBA; Scale on codec-backed images
+	// only). Unlike Bytes() — which is a re-encoded, predictor-dropping
+	// stream for LZW labels — Decode owns all codec / TIFF-strip / predictor
+	// handling. Returns decoder.ErrCodecUnavailable when the codec isn't
+	// compiled in (e.g. a JPEG 2000 image under a nojp2k build).
+	Decode(opts decoder.DecodeOptions) (*decoder.Image, error)
 }
 
 // Image identifies one pyramid group within a slide. Single-image

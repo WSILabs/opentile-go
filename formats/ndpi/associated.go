@@ -5,6 +5,8 @@ import (
 	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/jpegturbo"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
@@ -54,6 +56,15 @@ func newOverviewImage(p *tiff.Page, r io.ReaderAt) (*overviewImage, error) {
 func (o *overviewImage) Type() string                      { return "overview" }
 func (o *overviewImage) Size() opentile.Size               { return o.size }
 func (o *overviewImage) Compression() opentile.Compression { return o.compression }
+
+// Decode returns the decoded overview pixels via the registered JPEG decoder (GH #20).
+func (o *overviewImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	data, err := o.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(o.compression, data, opts)
+}
 
 func (o *overviewImage) Bytes() ([]byte, error) {
 	buf := make([]byte, o.length)
@@ -109,6 +120,16 @@ func newLabelImage(overview *overviewImage, crop float64, mcuW int) *labelImage 
 func (l *labelImage) Type() string                      { return "label" }
 func (l *labelImage) Size() opentile.Size               { return opentile.Size{W: l.cropTo - l.cropFrom, H: l.cropH} }
 func (l *labelImage) Compression() opentile.Compression { return l.overview.compression }
+
+// Decode returns the decoded synthesized-label pixels (a JPEG crop of the
+// macro) via the registered JPEG decoder (GH #20).
+func (l *labelImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	data, err := l.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(l.overview.compression, data, opts)
+}
 
 func (l *labelImage) Bytes() ([]byte, error) {
 	src, err := l.overview.Bytes()

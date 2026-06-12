@@ -6,6 +6,8 @@ import (
 	_ "image/jpeg" // register JPEG decoder for stdimage.DecodeConfig
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 )
 
 // associatedImage is the SZI-format opentile.AssociatedImage
@@ -38,6 +40,16 @@ func (a *associatedImage) Size() opentile.Size {
 // JPEG for associated_images/ entries.
 func (a *associatedImage) Compression() opentile.Compression {
 	return opentile.CompressionJPEG
+}
+
+// Decode returns the decoded associated-image pixels via the registered
+// JPEG decoder (GH #20).
+func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	data, err := a.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(a.Compression(), data, opts)
 }
 
 // Bytes returns the raw JPEG bytes of the associated image.

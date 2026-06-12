@@ -254,6 +254,9 @@ func classifyByWSITag(pages []*tiff.Page, infos []tiff.PyramidLevelInfo) (tiff.C
 // constructor will reject the IFD with a clear message.
 func associatedSourceInfoFromClassified(p *tiff.Page, info tiff.PyramidLevelInfo) associatedSourceInfo {
 	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
+	pred, _ := p.Predictor()
+	photo, _ := p.Photometric()
+	jt, _ := p.JPEGTables()
 	stripOff, _ := p.ScalarArrayU64(tiff.TagStripOffsets)
 	stripCnt, _ := p.ScalarArrayU64(tiff.TagStripByteCounts)
 	return associatedSourceInfo{
@@ -263,6 +266,9 @@ func associatedSourceInfoFromClassified(p *tiff.Page, info tiff.PyramidLevelInfo
 		rowsPerStrip: rps,
 		samples:      info.SamplesPerPixel,
 		compression:  info.Compression,
+		predictor:    pred,
+		photometric:  photo,
+		jpegTables:   jt,
 		stripOffsets: stripOff,
 		stripCounts:  stripCnt,
 	}

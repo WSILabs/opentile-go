@@ -6,6 +6,8 @@ import (
 	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
@@ -39,6 +41,16 @@ type associatedImage struct {
 func (a *associatedImage) Type() string                      { return "overview" }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
+
+// Decode returns the decoded associated-image pixels via the registered
+// codec decoder (GH #20).
+func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	data, err := a.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(a.Compression(), data, opts)
+}
 func (a *associatedImage) Bytes() ([]byte, error) {
 	out := make([]byte, len(a.bytes))
 	copy(out, a.bytes)

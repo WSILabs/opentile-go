@@ -2,6 +2,9 @@ package dicom
 
 import (
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
+	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
 // associatedImage serves a single-frame WSM instance (label/overview/
@@ -20,6 +23,35 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 	out := make([]byte, len(a.data))
 	copy(out, a.data)
 	return out, nil
+}
+
+// Decode returns the decoded associated-image pixels (GH #20). Encapsulated
+// frames (JPEG / JPEG 2000) decode via the registry; native/uncompressed
+// frames decode via the strip path, inferring SamplesPerPixel from the frame
+// length (1 = monochrome, 3 = RGB).
+func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if a.compression != opentile.CompressionNone {
+		return assocdecode.ViaCodec(a.compression, a.data, opts)
+	}
+	w, h := a.size.W, a.size.H
+	samples := 1
+	if w > 0 && h > 0 && len(a.data)%(w*h) == 0 {
+		if s := len(a.data) / (w * h); s == 1 || s == 3 || s == 4 {
+			samples = s
+		}
+	}
+	photo := 1
+	if samples >= 3 {
+		photo = 2
+	}
+	return tiffstrip.Decode(tiffstrip.Params{
+		Width:       w,
+		Height:      h,
+		Samples:     samples,
+		Photometric: photo,
+		Compression: tiffstrip.CompNone,
+		Strips:      [][]byte{a.data},
+	}, opts)
 }
 
 // dicomTypeToOpentile maps a WSM ImageType token to an opentile Type() string.

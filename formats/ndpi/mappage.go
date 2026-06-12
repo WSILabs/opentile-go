@@ -5,7 +5,10 @@ import (
 	"io"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
 // mapPage is an NDPI "Map" page (Magnification tag 65421 == -2.0)
@@ -34,6 +37,8 @@ type mapPage struct {
 	compression opentile.Compression
 	offset      uint64
 	length      uint64
+	samples     int
+	photometric int
 	reader      io.ReaderAt
 }
 
@@ -66,11 +71,19 @@ func newMapPage(p *tiff.Page, r io.ReaderAt) (*mapPage, error) {
 	// to CompressionUnknown rather than asserting JPEG like overview /
 	// stripped / oneframe do.
 	compTag, _ := p.Compression()
+	spp, _ := p.SamplesPerPixel()
+	photo, _ := p.Photometric()
+	samples := int(spp)
+	if samples == 0 {
+		samples = 1
+	}
 	return &mapPage{
 		size:        opentile.Size{W: int(iw), H: int(il)},
 		compression: ndpiCompressionToOpentile(compTag),
 		offset:      offsets[0],
 		length:      counts[0],
+		samples:     samples,
+		photometric: int(photo),
 		reader:      r,
 	}, nil
 }
@@ -93,6 +106,31 @@ func ndpiCompressionToOpentile(tiffCode uint32) opentile.Compression {
 func (m *mapPage) Type() string                      { return "map" }
 func (m *mapPage) Size() opentile.Size               { return m.size }
 func (m *mapPage) Compression() opentile.Compression { return m.compression }
+
+// Decode returns the decoded map pixels (GH #20). JPEG maps decode via the
+// registry; uncompressed maps (the common Hamamatsu case) decode via the
+// strip path with sample interpretation.
+func (m *mapPage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if m.compression == opentile.CompressionJPEG {
+		data, err := m.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		return assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts)
+	}
+	buf := make([]byte, m.length)
+	if err := tiff.ReadAtFull(m.reader, buf, int64(m.offset)); err != nil {
+		return nil, fmt.Errorf("ndpi: read map strip: %w", err)
+	}
+	return tiffstrip.Decode(tiffstrip.Params{
+		Width:       m.size.W,
+		Height:      m.size.H,
+		Samples:     m.samples,
+		Photometric: m.photometric,
+		Compression: int(opentile.CompressionToTIFFTag(m.compression)),
+		Strips:      [][]byte{buf},
+	}, opts)
+}
 
 func (m *mapPage) Bytes() ([]byte, error) {
 	buf := make([]byte, m.length)
