@@ -180,7 +180,7 @@ func checkSlideAgainstFixture(t *testing.T, slide, fixturePath string) {
 			checkLevels(t, img.Levels, fixImg.Levels, fixImg.TileSHA256, fixImg.SampledTileSHA256, fmt.Sprintf("image %d ", ii), tiler, ii)
 		}
 	} else {
-		levels := tiler.Levels()
+		levels := tiler.Pyramids()[0].Levels
 		if len(levels) != len(fix.Levels) {
 			t.Fatalf("level count: got %d, want %d", len(levels), len(fix.Levels))
 		}

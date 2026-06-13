@@ -62,6 +62,46 @@ type Slide struct {
 	// Open from WithMemoryBudget / OPENTILE_READ_MEMORY_BUDGET /
 	// default. Read by newStripIterator to size the C1 tile cache.
 	readBudget int64
+
+	// v1.0: lazily-materialized navigation cache backing the
+	// receiver-method read API. Populated exactly once by
+	// ensurePyramids (sync.Once), then read-only — so navigation
+	// (Pyramids/Pyramid/Levels/Level and the *Pyramid/*Level methods)
+	// returns stable pointers into this slice across calls, satisfying
+	// both pointer-identity and the lock-free hot-path contract.
+	pyramidsOnce sync.Once
+	pyramids     []Pyramid
+}
+
+// ensurePyramids materializes the navigation cache exactly once. After
+// the sync.Once fires, s.pyramids is immutable and every Level/Pyramid
+// carries its back-reference to s, so the receiver-method read API can
+// delegate. PyramidIndex / Index are normalized from loop indices when a
+// reader leaves them zero, guaranteeing l.PyramidIndex + l.Index are the
+// correct delegation coordinates.
+func (s *Slide) ensurePyramids() {
+	s.pyramidsOnce.Do(func() {
+		s.pyramids = s.r.Pyramids()
+		for pi := range s.pyramids {
+			p := &s.pyramids[pi]
+			p.slide = s
+			// Normalize the pyramid index from document order if the
+			// reader didn't set it (only pyramid 0 is ambiguous).
+			if p.Index == 0 {
+				p.Index = pi
+			}
+			for li := range p.Levels {
+				l := &p.Levels[li]
+				l.slide = s
+				// Normalize level index + pyramid index from loop
+				// position when the reader left them at the zero value.
+				if l.Index == 0 {
+					l.Index = li
+				}
+				l.PyramidIndex = p.Index
+			}
+		}
+	})
 }
 
 // Format returns the canonical format identifier.
@@ -70,19 +110,64 @@ func (s *Slide) Format() Format { return s.r.Format() }
 // Pyramids returns the main pyramids carried by this file. Always
 // returns at least one Pyramid; multi-image OME-TIFF exposes multiple.
 // Index 0 is the legacy Levels() / Level(i) shortcut target.
-func (s *Slide) Pyramids() []Pyramid { return s.r.Pyramids() }
-
-// Levels is a shortcut for s.Pyramids()[0].Levels.
-func (s *Slide) Levels() []Level {
-	pyrs := s.r.Pyramids()
-	if len(pyrs) == 0 {
-		return nil
+//
+// v1.0: returns []*Pyramid — stable pointers into the Slide's internal
+// navigation cache. The same *Pyramid is returned across calls (pointer
+// identity is preserved), and each *Pyramid / *Level carries the
+// receiver-method read API.
+func (s *Slide) Pyramids() []*Pyramid {
+	s.ensurePyramids()
+	out := make([]*Pyramid, len(s.pyramids))
+	for i := range s.pyramids {
+		out[i] = &s.pyramids[i]
 	}
-	return pyrs[0].Levels
+	return out
 }
 
-// Level is a shortcut for s.Pyramids()[0].Levels[i].
-func (s *Slide) Level(i int) (Level, error) { return s.r.Level(0, i) }
+// Pyramid returns the i-th pyramid, or nil if i is out of range.
+//
+// v1.0: returns a stable *Pyramid into the navigation cache.
+func (s *Slide) Pyramid(i int) *Pyramid {
+	s.ensurePyramids()
+	if i < 0 || i >= len(s.pyramids) {
+		return nil
+	}
+	return &s.pyramids[i]
+}
+
+// Levels is a shortcut for s.Pyramid(0).Levels(). Returns nil if the
+// slide carries no pyramids.
+//
+// v1.0: returns []*Level — stable pointers into the navigation cache.
+func (s *Slide) Levels() []*Level {
+	s.ensurePyramids()
+	if len(s.pyramids) == 0 {
+		return nil
+	}
+	levels := s.pyramids[0].Levels
+	out := make([]*Level, len(levels))
+	for i := range levels {
+		out[i] = &levels[i]
+	}
+	return out
+}
+
+// Level is a shortcut for s.Pyramid(0).Level(i). Returns
+// ErrLevelOutOfRange if i is out of range (or the slide carries no
+// pyramids).
+//
+// v1.0: returns a stable *Level into the navigation cache.
+func (s *Slide) Level(i int) (*Level, error) {
+	s.ensurePyramids()
+	if len(s.pyramids) == 0 {
+		return nil, ErrLevelOutOfRange
+	}
+	levels := s.pyramids[0].Levels
+	if i < 0 || i >= len(levels) {
+		return nil, ErrLevelOutOfRange
+	}
+	return &levels[i], nil
+}
 
 // AssociatedImages returns the auxiliary images (label, macro, thumbnail,
 // overview, ...) embedded in this slide.

@@ -30,7 +30,7 @@ func TestImage_Level_Valid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Slide.Level(0): %v", err)
 	}
-	if got != levels[0] {
+	if *got != levels[0] {
 		t.Errorf("Slide.Level(0) mismatch with Pyramids()[0].Levels[0]")
 	}
 }
@@ -132,14 +132,18 @@ func TestLevel_Index_ReturnsOpentileSideIndex(t *testing.T) {
 	}
 }
 
-func TestLevel_PyramidIndex_MatchesIndex(t *testing.T) {
+func TestLevel_PyramidIndex_IsZero(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
+	// SZI is a single-pyramid format: every level belongs to pyramid 0,
+	// so Level.PyramidIndex is 0 for all levels (the field contract:
+	// "single-image formats always have PyramidIndex = 0"). The v1.0
+	// navigation cache normalizes this regardless of reader population.
 	levels := tlr.Levels()
 	for i, level := range levels {
-		if got := level.PyramidIndex; got != level.Index {
-			t.Errorf("Level[%d].PyramidIndex = %d, want %d (= Index)", i, got, level.Index)
+		if got := level.PyramidIndex; got != 0 {
+			t.Errorf("Level[%d].PyramidIndex = %d, want 0 (single-pyramid)", i, got)
 		}
 	}
 }

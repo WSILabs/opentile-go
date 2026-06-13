@@ -36,7 +36,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 0.5,
-      "pyramid_index": 1
+      "pyramid_index": 0
     },
     {
       "index": 2,
@@ -54,7 +54,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 1,
-      "pyramid_index": 2
+      "pyramid_index": 0
     },
     {
       "index": 3,
@@ -72,7 +72,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 2,
-      "pyramid_index": 3
+      "pyramid_index": 0
     },
     {
       "index": 4,
@@ -90,7 +90,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 4,
-      "pyramid_index": 4
+      "pyramid_index": 0
     },
     {
       "index": 5,
@@ -108,7 +108,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 8,
-      "pyramid_index": 5
+      "pyramid_index": 0
     },
     {
       "index": 6,
@@ -126,7 +126,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 16,
-      "pyramid_index": 6
+      "pyramid_index": 0
     },
     {
       "index": 7,
@@ -144,7 +144,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 32,
-      "pyramid_index": 7
+      "pyramid_index": 0
     }
   ],
   "metadata": {

@@ -36,7 +36,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 486.18799999999993,
-      "pyramid_index": 1
+      "pyramid_index": 0
     },
     {
       "index": 2,
@@ -54,7 +54,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 972.3559427392738,
-      "pyramid_index": 2
+      "pyramid_index": 0
     },
     {
       "index": 3,
@@ -72,7 +72,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 1944.7118854785476,
-      "pyramid_index": 3
+      "pyramid_index": 0
     },
     {
       "index": 4,
@@ -90,7 +90,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 3889.4237709570953,
-      "pyramid_index": 4
+      "pyramid_index": 0
     },
     {
       "index": 5,
@@ -108,7 +108,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 7778.8475419141905,
-      "pyramid_index": 5
+      "pyramid_index": 0
     },
     {
       "index": 6,
@@ -126,7 +126,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 15557.695083828381,
-      "pyramid_index": 6
+      "pyramid_index": 0
     },
     {
       "index": 7,
@@ -144,7 +144,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 31094.865503957782,
-      "pyramid_index": 7
+      "pyramid_index": 0
     },
     {
       "index": 8,
@@ -162,7 +162,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 62189.731007915565,
-      "pyramid_index": 8
+      "pyramid_index": 0
     },
     {
       "index": 9,
@@ -180,7 +180,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 124052.14764210525,
-      "pyramid_index": 9
+      "pyramid_index": 0
     }
   ],
   "metadata": {

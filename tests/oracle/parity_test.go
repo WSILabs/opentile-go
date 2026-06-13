@@ -130,7 +130,7 @@ func runParityOnSlide(t *testing.T, slide string) {
 			t.Errorf("slide %s associated %q: Go error: %v", filepath.Base(slide), a.Type(), err)
 			continue
 		}
-		theirB, err := sess.Associated(a.Type())
+		theirB, err := sess.Associated(string(a.Type()))
 		if err != nil {
 			t.Errorf("slide %s associated %q: Python oracle error: %v", filepath.Base(slide), a.Type(), err)
 			continue

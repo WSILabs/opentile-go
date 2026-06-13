@@ -89,7 +89,12 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	seenPages := make(map[int]bool)
 	var l0Width int
 	for i, info := range res.Pyramid {
-		lvl, err := newTiledImage(i, i, pages[info.Index], r)
+		// pyrIndex is 0: generic-TIFF (and the cog-wsi reader that wraps
+		// it) build exactly one pyramid (Index 0). The level's pyramid
+		// index is the pyramid's index, NOT the level index — passing i
+		// here was a latent bug that mis-set Level.PyramidIndex to the
+		// level number, surfaced by the v1.0 receiver-method restructure.
+		lvl, err := newTiledImage(i, 0, pages[info.Index], r)
 		if err != nil {
 			return nil, fmt.Errorf("generic: level %d (page %d): %w", i, info.Index, err)
 		}

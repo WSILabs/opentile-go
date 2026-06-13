@@ -75,7 +75,7 @@ func BenchmarkRead(b *testing.B) {
 			b.Run(e.Format, func(b *testing.B) { b.Fatalf("open %s: %v", path, err) })
 			continue
 		}
-		base := s.Levels()[0]
+		base := *s.Levels()[0]
 		coords := coordGrid(base)
 		tilePix := int64(base.TileSize.W) * int64(base.TileSize.H)
 

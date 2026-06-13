@@ -140,7 +140,7 @@ func generateFixture(slide string) error {
 		if !useSampled {
 			imgFix.TileSHA256 = make(map[string]string)
 		}
-		if err := generateImageFixture(&imgFix, tiler.Levels(), tiler, useSampled, 0); err != nil {
+		if err := generateImageFixture(&imgFix, tiler.Pyramids()[0].Levels, tiler, useSampled, 0); err != nil {
 			return err
 		}
 		f.Levels = imgFix.Levels
@@ -154,7 +154,7 @@ func generateFixture(slide string) error {
 		}
 		sum := sha256.Sum256(b)
 		f.AssociatedImages = append(f.AssociatedImages, tests.AssociatedFixture{
-			Type:        a.Type(),
+			Type:        string(a.Type()),
 			Size:        [2]int{a.Size().W, a.Size().H},
 			Compression: a.Compression().String(),
 			SHA256:      hex.EncodeToString(sum[:]),

@@ -55,6 +55,14 @@ type Level struct {
 	//
 	// Added in v0.25 alongside the ReadRegion family.
 	Downsample float64
+
+	// slide is the unexported back-reference to the owning Slide,
+	// populated lazily by (*Slide).ensurePyramids. It backs the
+	// receiver-method read API (Tile/DecodedTile/ReadRegion/…) so a
+	// *Level obtained via navigation can delegate to the Slide's
+	// Image* read methods. Nil on a zero-value Level constructed
+	// outside a Slide (those carry metadata only).
+	slide *Slide
 }
 
 // AssociatedType is the type of an associated image (label, overview,
@@ -157,6 +165,13 @@ type Pyramid struct {
 	// is the full-resolution base; subsequent indices are progressively
 	// downsampled.
 	Levels []Level
+
+	// slide is the unexported back-reference to the owning Slide,
+	// populated lazily by (*Slide).ensurePyramids. It backs the
+	// cross-level receiver-method read API (ReadRegionScaled /
+	// ScaledStrips / BestLevelForDownsample). Nil on a zero-value
+	// Pyramid constructed outside a Slide.
+	slide *Slide
 }
 
 // TileResult carries the yield from RangeTiles.

@@ -36,7 +36,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 1.996,
-      "pyramid_index": 2
+      "pyramid_index": 0
     },
     {
       "index": 2,
@@ -54,7 +54,7 @@
       ],
       "compression": "jpeg",
       "mpp_um": 7.984,
-      "pyramid_index": 4
+      "pyramid_index": 0
     }
   ],
   "metadata": {
