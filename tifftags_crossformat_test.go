@@ -58,9 +58,9 @@ func TestTIFFTagsAllFormats(t *testing.T) {
 			if _, ok := tags.Tag(324); ok {
 				t.Errorf("%s: TileOffsets (324) should be filtered", tc.format)
 			}
-			dirs, ok := opentile.TIFFDirectoriesOf(s)
+			dirs, ok := s.TIFFDirectories()
 			if !ok || len(dirs) == 0 {
-				t.Errorf("%s: TIFFDirectoriesOf empty: %d %v", tc.format, len(dirs), ok)
+				t.Errorf("%s: TIFFDirectories empty: %d %v", tc.format, len(dirs), ok)
 			}
 			var hasL0 bool
 			for _, d := range dirs {
@@ -85,8 +85,8 @@ func TestTIFFTagsNonTIFFExcluded(t *testing.T) {
 		if _, ok := s.LevelTIFFTags(0); ok {
 			t.Errorf("%s: non-TIFF LevelTIFFTags should be ok=false", rel)
 		}
-		if _, ok := opentile.TIFFDirectoriesOf(s); ok {
-			t.Errorf("%s: non-TIFF TIFFDirectoriesOf should be ok=false", rel)
+		if _, ok := s.TIFFDirectories(); ok {
+			t.Errorf("%s: non-TIFF TIFFDirectories should be ok=false", rel)
 		}
 		s.Close()
 	}

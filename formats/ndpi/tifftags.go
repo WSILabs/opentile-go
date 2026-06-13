@@ -21,7 +21,7 @@ type ndpiDirSpec struct {
 
 // TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.
 // Implements opentile's (unexported) tiffTagProvider interface so that
-// LevelTIFFTags, AssociatedTIFFTags, and TIFFDirectoriesOf all work for
+// LevelTIFFTags, AssociatedTIFFTags, and TIFFDirectories all work for
 // NDPI slides.
 //
 // NDPI is single-image: Image is always 0. The overview page is surfaced

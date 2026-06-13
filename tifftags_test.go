@@ -102,9 +102,9 @@ func TestSlideTIFFAccessors(t *testing.T) {
 	if _, ok := s.LevelTIFFTags(9); ok {
 		t.Fatal("out-of-range level should be ok=false")
 	}
-	all, ok := TIFFDirectoriesOf(s)
+	all, ok := s.TIFFDirectories()
 	if !ok || len(all) != 4 {
-		t.Fatalf("TIFFDirectoriesOf = %d dirs, ok=%v", len(all), ok)
+		t.Fatalf("TIFFDirectories = %d dirs, ok=%v", len(all), ok)
 	}
 }
 
@@ -144,7 +144,7 @@ func TestSlideTIFFAccessorsNonTIFF(t *testing.T) {
 	if _, ok := s.LevelTIFFTags(0); ok {
 		t.Fatal("non-TIFF should return ok=false")
 	}
-	if _, ok := TIFFDirectoriesOf(s); ok {
-		t.Fatal("non-TIFF TIFFDirectoriesOf should be ok=false")
+	if _, ok := s.TIFFDirectories(); ok {
+		t.Fatal("non-TIFF TIFFDirectories should be ok=false")
 	}
 }

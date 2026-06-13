@@ -38,8 +38,8 @@ func TestCOGWSITIFFTags(t *testing.T) {
 	if _, ok := tags.Tag(324); ok {
 		t.Error("TileOffsets (324) should be filtered")
 	}
-	dirs, ok := opentile.TIFFDirectoriesOf(s)
+	dirs, ok := s.TIFFDirectories()
 	if !ok || len(dirs) == 0 {
-		t.Fatalf("TIFFDirectoriesOf empty: %d %v", len(dirs), ok)
+		t.Fatalf("TIFFDirectories empty: %d %v", len(dirs), ok)
 	}
 }

@@ -38,9 +38,9 @@ func TestNDPITIFFTags(t *testing.T) {
 	if _, ok := tags.Tag(324); ok {
 		t.Error("TileOffsets (324) should be filtered")
 	}
-	dirs, ok := opentile.TIFFDirectoriesOf(s)
+	dirs, ok := s.TIFFDirectories()
 	if !ok || len(dirs) == 0 {
-		t.Fatalf("TIFFDirectoriesOf empty: %d %v", len(dirs), ok)
+		t.Fatalf("TIFFDirectories empty: %d %v", len(dirs), ok)
 	}
 }
 
@@ -50,9 +50,9 @@ func TestNDPIMapPageInDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	dirs, ok := opentile.TIFFDirectoriesOf(s)
+	dirs, ok := s.TIFFDirectories()
 	if !ok {
-		t.Fatal("TIFFDirectoriesOf ok=false")
+		t.Fatal("TIFFDirectories ok=false")
 	}
 	// OS-2 carries a Map page; it must appear somewhere in the enumeration
 	// (as DirOther or DirAssociated). Just assert the enumeration has more

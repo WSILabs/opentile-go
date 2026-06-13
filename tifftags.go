@@ -183,11 +183,11 @@ func tiffProviderOf(s *Slide) (tiffTagProvider, bool) {
 	return nil, false
 }
 
-// TIFFDirectoriesOf enumerates every TIFF IFD (including orphan IFDs not
+// TIFFDirectories enumerates every TIFF IFD (including orphan IFDs not
 // surfaced as a level or associated image). ok=false for non-TIFF formats
 // (IFE, SZI). The escape hatch for "dump all"; prefer LevelTIFFTags /
 // AssociatedTIFFTags for everyday access.
-func TIFFDirectoriesOf(s *Slide) ([]TIFFDirectory, bool) {
+func (s *Slide) TIFFDirectories() ([]TIFFDirectory, bool) {
 	p, ok := tiffProviderOf(s)
 	if !ok {
 		return nil, false
@@ -199,7 +199,7 @@ func TIFFDirectoriesOf(s *Slide) ([]TIFFDirectory, bool) {
 // keyed exactly like ImageRawTile(image, level, ...). ok=false for non-TIFF
 // formats or an out-of-range (image, level).
 func (s *Slide) ImageLevelTIFFTags(image, level int) (TIFFTags, bool) {
-	dirs, ok := TIFFDirectoriesOf(s)
+	dirs, ok := s.TIFFDirectories()
 	if !ok {
 		return nil, false
 	}
@@ -219,7 +219,7 @@ func (s *Slide) LevelTIFFTags(level int) (TIFFTags, bool) {
 // AssociatedTIFFTags returns the TIFF tags of an associated image's IFD,
 // matched on a.Type(). ok=false for non-TIFF or if not found.
 func (s *Slide) AssociatedTIFFTags(a AssociatedImage) (TIFFTags, bool) {
-	dirs, ok := TIFFDirectoriesOf(s)
+	dirs, ok := s.TIFFDirectories()
 	if !ok {
 		return nil, false
 	}
@@ -247,7 +247,7 @@ type associatedIFDOffsetProvider interface {
 //
 // Intended for raw-TIFF in-place editing (e.g. mapping a typed associated
 // image back to its source IFD to splice/replace it). Uses the same
-// lazy UnwrapReader-chain dispatch as TIFFDirectoriesOf.
+// lazy UnwrapReader-chain dispatch as TIFFDirectories.
 func (s *Slide) AssociatedIFDOffset(a AssociatedImage) (offset int64, ok bool) {
 	var cur any = s.r
 	for cur != nil {

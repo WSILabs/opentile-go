@@ -38,8 +38,8 @@ func TestOMETIFFTags(t *testing.T) {
 	if _, ok := tags.Tag(324); ok {
 		t.Error("TileOffsets (324) should be filtered")
 	}
-	if dirs, ok := opentile.TIFFDirectoriesOf(s); !ok || len(dirs) == 0 {
-		t.Fatalf("TIFFDirectoriesOf empty: %d %v", len(dirs), ok)
+	if dirs, ok := s.TIFFDirectories(); !ok || len(dirs) == 0 {
+		t.Fatalf("TIFFDirectories empty: %d %v", len(dirs), ok)
 	}
 }
 

@@ -27,7 +27,7 @@ func TestNonTIFFReturnsFalse(t *testing.T) {
 	if _, ok := s.LevelTIFFTags(0); ok {
 		t.Fatal("SZI (non-TIFF) LevelTIFFTags should be ok=false")
 	}
-	if _, ok := opentile.TIFFDirectoriesOf(s); ok {
-		t.Fatal("SZI (non-TIFF) TIFFDirectoriesOf should be ok=false")
+	if _, ok := s.TIFFDirectories(); ok {
+		t.Fatal("SZI (non-TIFF) TIFFDirectories should be ok=false")
 	}
 }
