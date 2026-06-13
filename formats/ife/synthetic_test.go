@@ -326,7 +326,7 @@ func TestSynthTilesIterator(t *testing.T) {
 	tiler := openIFETiler(t, data)
 	defer tiler.Close()
 
-	var positions []opentile.TilePos
+	var positions []opentile.Point
 	var bodies []string
 	for pos, res := range tiler.levelImpls[0].Tiles(context.Background()) {
 		if res.Err != nil {
@@ -339,7 +339,7 @@ func TestSynthTilesIterator(t *testing.T) {
 	if len(positions) != 6 {
 		t.Errorf("position count = %d, want 6", len(positions))
 	}
-	wantPositions := []opentile.TilePos{
+	wantPositions := []opentile.Point{
 		{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0},
 		{X: 0, Y: 1}, {X: 1, Y: 1}, {X: 2, Y: 1},
 	}

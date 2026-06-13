@@ -134,8 +134,8 @@ func (nonTIFFReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) {
 func (nonTIFFReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error) {
 	return nil, errors.New("stub")
 }
-func (nonTIFFReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[TilePos, TileResult] {
-	return func(yield func(TilePos, TileResult) bool) {}
+func (nonTIFFReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[Point, TileResult] {
+	return func(yield func(Point, TileResult) bool) {}
 }
 func (nonTIFFReader) Close() error { return nil }
 

@@ -39,7 +39,7 @@ func TestReadRegionFullTile(t *testing.T) {
 	lvl := slide.Levels()[0]
 	tileW := lvl.TileSize.W
 	tileH := lvl.TileSize.H
-	img, err := slide.ReadRegion(0, 0, 0, tileW, tileH)
+	img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: tileW, H: tileH}})
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestReadRegionAcrossTileBoundary(t *testing.T) {
 	if tileW < 4 || lvl.Size.W < tileW*2 {
 		t.Skip("slide too small for boundary test")
 	}
-	img, err := slide.ReadRegion(0, tileW/2, 0, tileW, 64)
+	img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: tileW / 2, Y: 0}, Size: opentile.Size{W: tileW, H: 64}})
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestReadRegionOutOfBoundsRightEdge(t *testing.T) {
 	slide := openSampleSlide(t)
 	lvl := slide.Levels()[0]
 	x := lvl.Size.W - 64
-	img, err := slide.ReadRegion(0, x, 0, 192, 64)
+	img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: x, Y: 0}, Size: opentile.Size{W: 192, H: 64}})
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestReadRegionOutOfBoundsRightEdge(t *testing.T) {
 
 func TestReadRegionOutOfBoundsNegative(t *testing.T) {
 	slide := openSampleSlide(t)
-	img, err := slide.ReadRegion(0, -64, 0, 128, 64)
+	img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: -64, Y: 0}, Size: opentile.Size{W: 128, H: 64}})
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestReadRegionOutOfBoundsNegative(t *testing.T) {
 func TestReadRegionEntirelyOutOfBounds(t *testing.T) {
 	slide := openSampleSlide(t)
 	lvl := slide.Levels()[0]
-	_, err := slide.ReadRegion(0, lvl.Size.W+100, 0, 64, 64)
+	_, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: lvl.Size.W + 100, Y: 0}, Size: opentile.Size{W: 64, H: 64}})
 	if !errors.Is(err, opentile.ErrRegionEmpty) {
 		t.Errorf("got %v, want ErrRegionEmpty", err)
 	}
@@ -151,7 +151,7 @@ func TestReadRegionEntirelyOutOfBounds(t *testing.T) {
 
 func TestReadRegionWithRGBA(t *testing.T) {
 	slide := openSampleSlide(t)
-	img, err := slide.ReadRegion(0, 0, 0, 64, 64, opentile.WithFormat(decoder.PixelFormatRGBA))
+	img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 64, H: 64}}, opentile.WithFormat(decoder.PixelFormatRGBA))
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestReadRegionInto(t *testing.T) {
 	for i := range dst.Pix {
 		dst.Pix[i] = 0xAA // marker
 	}
-	if err := slide.ReadRegionInto(0, 0, 0, dst); err != nil {
+	if err := slide.ReadRegionInto(0, opentile.Point{X: 0, Y: 0}, dst); err != nil {
 		t.Fatalf("ReadRegionInto: %v", err)
 	}
 	// Some byte must have changed from 0xAA.
@@ -221,7 +221,7 @@ func TestReadRegionAllFormats(t *testing.T) {
 			if lvl.Size.H < h {
 				h = lvl.Size.H
 			}
-			img, err := slide.ReadRegion(0, 0, 0, w, h)
+			img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: w, H: h}})
 			if err != nil {
 				t.Fatalf("ReadRegion: %v", err)
 			}

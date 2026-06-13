@@ -1,7 +1,6 @@
 package opentile_test
 
 import (
-	"image"
 	"io"
 	"os"
 	"path/filepath"
@@ -34,8 +33,8 @@ func TestScaledStripsWholeSlideSVS(t *testing.T) {
 	slide := openStripSample(t, "svs/CMU-1-Small-Region.svs")
 	lvl := slide.Levels()[0]
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, lvl.Size.W, lvl.Size.H),
-		image.Point{X: 512, Y: 512},
+		opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size},
+		opentile.Size{W: 512, H: 512},
 		64,
 	)
 	defer it.Close()
@@ -78,8 +77,8 @@ func TestScaledStripsCrossFormat(t *testing.T) {
 			slide := openStripSample(t, s.rel)
 			lvl := slide.Levels()[0]
 			it := slide.ScaledStrips(
-				image.Rect(0, 0, lvl.Size.W, lvl.Size.H),
-				image.Point{X: 128, Y: 128},
+				opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size},
+				opentile.Size{W: 128, H: 128},
 				64,
 			)
 			defer it.Close()
@@ -109,8 +108,8 @@ func TestScaledStripsCancellation(t *testing.T) {
 	slide := openStripSample(t, "svs/CMU-1.svs")
 	lvl := slide.Levels()[0]
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, lvl.Size.W, lvl.Size.H),
-		image.Point{X: 2048, Y: 2048},
+		opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size},
+		opentile.Size{W: 2048, H: 2048},
 		64,
 	)
 	// Read one strip then close mid-stream.

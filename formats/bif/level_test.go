@@ -3,7 +3,6 @@ package bif
 import (
 	"bytes"
 	"context"
-	"image"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -100,8 +99,8 @@ func TestLevelTileOverlapZeroByDefault(t *testing.T) {
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
 	lvl, _ := tiler.Level(0, 0)
-	if got := lvl.TileOverlap; got != (image.Point{}) {
-		t.Errorf("TileOverlap: got %v, want image.Point{}", got)
+	if got := lvl.TileOverlap; got != (opentile.Point{}) {
+		t.Errorf("TileOverlap: got %v, want opentile.Point{}", got)
 	}
 }
 
@@ -134,13 +133,13 @@ func TestLevelTileOverlapNonZero(t *testing.T) {
 	// Level 0 → TileOverlap.X == 24 (weighted average of two
 	// equal-weight joints, both OverlapX=24).
 	l0, _ := tiler.Level(0, 0)
-	if got := l0.TileOverlap; got != (image.Point{X: 24, Y: 0}) {
+	if got := l0.TileOverlap; got != (opentile.Point{X: 24, Y: 0}) {
 		t.Errorf("Level 0 TileOverlap: got %v, want {24, 0}", got)
 	}
 	// Level 1 (pyramid level 1) → TileOverlap zero (per spec, only
 	// level=0 carries overlap; pyramid IFDs 1+ never overlap).
 	l1, _ := tiler.Level(0, 1)
-	if got := l1.TileOverlap; got != (image.Point{}) {
+	if got := l1.TileOverlap; got != (opentile.Point{}) {
 		t.Errorf("Level 1 TileOverlap: got %v, want zero", got)
 	}
 }

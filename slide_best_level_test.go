@@ -29,7 +29,7 @@ func (r *bestLevelTestReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, 
 	return 0, nil
 }
 func (r *bestLevelTestReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error) { return nil, nil }
-func (r *bestLevelTestReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[TilePos, TileResult] {
+func (r *bestLevelTestReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[Point, TileResult] {
 	return nil
 }
 func (r *bestLevelTestReader) Close() error { return nil }

@@ -162,7 +162,7 @@ func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 }
 
 // ImageRangeTiles returns a range-over-function tile iterator. Delegates to inner.
-func (t *Tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (t *Tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	return t.inner.ImageRangeTiles(ctx, image, level)
 }
 

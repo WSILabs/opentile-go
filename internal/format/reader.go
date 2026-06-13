@@ -36,7 +36,7 @@ type Reader interface {
 	ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 
 	// Range-over-function iterator.
-	ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult]
+	ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.Point, opentile.TileResult]
 
 	Close() error
 }

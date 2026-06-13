@@ -31,7 +31,7 @@ func (*nilReader) ImageTilePrefix(_, _ int) []byte                         { ret
 func (*nilReader) ImageTileBodyMaxSize(_, _ int) int                       { return 0 }
 func (*nilReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) { return 0, nil }
 func (*nilReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error)   { return nil, nil }
-func (*nilReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (*nilReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	return nil
 }
 func (*nilReader) Close() error { return nil }

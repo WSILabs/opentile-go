@@ -3,7 +3,6 @@ package opentile
 import (
 	bytes_lib "bytes"
 	"context"
-	"image"
 	image_lib "image"
 	stdjpeg "image/jpeg"
 	"io"
@@ -26,8 +25,8 @@ func TestScaledStripsStripsCount(t *testing.T) {
 	slide := newTestSlideForStrips()
 	for _, c := range cases {
 		it := slide.ScaledStrips(
-			image.Rect(0, 0, 1000, 1000),
-			image.Point{X: 200, Y: c.outH},
+			Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
+			Size{W: 200, H: c.outH},
 			c.stripH,
 		)
 		got := it.Strips()
@@ -40,7 +39,7 @@ func TestScaledStripsStripsCount(t *testing.T) {
 
 func TestScaledStripsCloseIdempotent(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(image.Rect(0, 0, 100, 100), image.Point{X: 50, Y: 50}, 25)
+	it := slide.ScaledStrips(Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}}, Size{W: 50, H: 50}, 25)
 	if err := it.Close(); err != nil {
 		t.Errorf("first Close: %v", err)
 	}
@@ -51,7 +50,7 @@ func TestScaledStripsCloseIdempotent(t *testing.T) {
 
 func TestScaledStripsNextAfterClose(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(image.Rect(0, 0, 100, 100), image.Point{X: 50, Y: 50}, 25)
+	it := slide.ScaledStrips(Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}}, Size{W: 50, H: 50}, 25)
 	it.Close()
 	_, err := it.Next()
 	if err != io.ErrClosedPipe {
@@ -63,8 +62,8 @@ func TestScaledStripsContextCancel(t *testing.T) {
 	slide := newTestSlideForStrips()
 	ctx, cancel := context.WithCancel(context.Background())
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, 100, 100),
-		image.Point{X: 50, Y: 50},
+		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}},
+		Size{W: 50, H: 50},
 		25,
 		WithStripContext(ctx),
 	)
@@ -131,7 +130,7 @@ func (r *stripsTestReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, err
 	return 0, nil
 }
 func (r *stripsTestReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error) { return nil, nil }
-func (r *stripsTestReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[TilePos, TileResult] {
+func (r *stripsTestReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[Point, TileResult] {
 	return nil
 }
 func (r *stripsTestReader) Close() error { return nil }

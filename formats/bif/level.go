@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"io"
 	"iter"
 
@@ -38,7 +37,7 @@ type levelImpl struct {
 	grid        opentile.Size // tile grid dimensions (cols × rows)
 	compression opentile.Compression
 	mpp         opentile.MPP
-	tileOverlap image.Point // non-zero only on level 0 of overlapping spec-compliant slides
+	tileOverlap opentile.Point // non-zero only on level 0 of overlapping spec-compliant slides
 
 	offsets []uint64 // TileOffsets, in serpentine storage order
 	counts  []uint64 // TileByteCounts, in serpentine storage order
@@ -159,8 +158,8 @@ func newLevelImpl(
 	// level-0 IFD's EncodeInfo carries TileJointInfo entries; we
 	// collapse them into a single weighted-average value per spec
 	// §8 (matches openslide). Pyramid levels 1+ are non-overlapping
-	// per the whitepaper, so they always return image.Point{}.
-	var tileOverlap image.Point
+	// per the whitepaper, so they always return opentile.Point{}.
+	var tileOverlap opentile.Point
 	if c.Level == 0 && encodeInfo != nil {
 		tileOverlap = weightedAverageOverlap(encodeInfo)
 	}
@@ -208,9 +207,9 @@ func newLevelImpl(
 }
 
 // weightedAverageOverlap collapses EncodeInfo's per-tile-pair
-// `<TileJointInfo>` entries into a single (X, Y) image.Point using
+// `<TileJointInfo>` entries into a single (X, Y) opentile.Point using
 // pixel-count weighting — matches openslide's
-// `tile_advance_x / tile_advance_y` computation. Returns image.Point{}
+// `tile_advance_x / tile_advance_y` computation. Returns opentile.Point{}
 // if there are no joint entries.
 //
 // The whitepaper says DP 200 only ever produces horizontal overlap
@@ -218,7 +217,7 @@ func newLevelImpl(
 // Both local fixtures record OverlapX = OverlapY = 0, so this fold
 // returns {0, 0} on real data and the non-zero path is exercised
 // only by synthetic-XMP unit tests.
-func weightedAverageOverlap(ei *bifxml.EncodeInfo) image.Point {
+func weightedAverageOverlap(ei *bifxml.EncodeInfo) opentile.Point {
 	var sumX, sumY, count int
 	for _, info := range ei.ImageInfos {
 		for _, j := range info.Joints {
@@ -228,9 +227,9 @@ func weightedAverageOverlap(ei *bifxml.EncodeInfo) image.Point {
 		}
 	}
 	if count == 0 {
-		return image.Point{}
+		return opentile.Point{}
 	}
-	return image.Point{X: sumX / count, Y: sumY / count}
+	return opentile.Point{X: sumX / count, Y: sumY / count}
 }
 
 func (l *levelImpl) Index() int                        { return l.index }
@@ -241,7 +240,7 @@ func (l *levelImpl) Grid() opentile.Size               { return l.grid }
 func (l *levelImpl) Compression() opentile.Compression { return l.compression }
 func (l *levelImpl) MPP() opentile.MPP                  { return l.mpp }
 func (l *levelImpl) FocalPlane() float64               { return 0 }
-func (l *levelImpl) TileOverlap() image.Point          { return l.tileOverlap }
+func (l *levelImpl) TileOverlap() opentile.Point          { return l.tileOverlap }
 
 // indexOf validates (z, col, row) and returns the storage index
 // into offsets/counts. For non-volumetric IFDs (imageDepth == 1)
@@ -523,15 +522,15 @@ func (l *levelImpl) isEmpty(idx int) bool {
 
 // Tiles iterates every tile position in image-space row-major order.
 // Serial — callers parallelise on top of Tile(c, r) if needed.
-func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult] {
-	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
+func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult] {
+	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		for r := 0; r < l.grid.H; r++ {
 			for c := 0; c < l.grid.W; c++ {
 				if ctx.Err() != nil {
 					return
 				}
 				b, err := l.Tile(c, r)
-				if !yield(opentile.TilePos{X: c, Y: r}, opentile.TileResult{Bytes: b, Err: err}) {
+				if !yield(opentile.Point{X: c, Y: r}, opentile.TileResult{Bytes: b, Err: err}) {
 					return
 				}
 			}

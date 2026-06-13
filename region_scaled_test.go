@@ -33,7 +33,7 @@ func openScaledSample(t *testing.T) *opentile.Slide {
 func TestReadRegionScaledOutDims(t *testing.T) {
 	slide := openScaledSample(t)
 	lvl := slide.Levels()[0]
-	img, err := slide.ReadRegionScaled(0, 0, lvl.Size.W, lvl.Size.H, 256, 256)
+	img, err := slide.ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 256, H: 256})
 	if err != nil {
 		t.Fatalf("ReadRegionScaled: %v", err)
 	}
@@ -45,12 +45,12 @@ func TestReadRegionScaledOutDims(t *testing.T) {
 func TestReadRegionScaledKernelChoice(t *testing.T) {
 	slide := openScaledSample(t)
 	lvl := slide.Levels()[0]
-	lanczos, err := slide.ReadRegionScaled(0, 0, lvl.Size.W, lvl.Size.H, 128, 128,
+	lanczos, err := slide.ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 128, H: 128},
 		opentile.WithResampleKernel(resample.Lanczos))
 	if err != nil {
 		t.Fatalf("Lanczos: %v", err)
 	}
-	box, err := slide.ReadRegionScaled(0, 0, lvl.Size.W, lvl.Size.H, 128, 128,
+	box, err := slide.ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 128, H: 128},
 		opentile.WithResampleKernel(resample.Box))
 	if err != nil {
 		t.Fatalf("Box: %v", err)
@@ -63,7 +63,7 @@ func TestReadRegionScaledKernelChoice(t *testing.T) {
 func TestReadRegionScaledTinyOutput(t *testing.T) {
 	slide := openScaledSample(t)
 	lvl := slide.Levels()[0]
-	img, err := slide.ReadRegionScaled(0, 0, lvl.Size.W, lvl.Size.H, 10, 10)
+	img, err := slide.ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 10, H: 10})
 	if err != nil {
 		t.Fatalf("ReadRegionScaled tiny: %v", err)
 	}

@@ -316,9 +316,9 @@ func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 	return t.levels[level].TileReader(tx, ty)
 }
 
-func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	if image != 0 || level < 0 || level >= len(t.levels) {
-		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+		return func(yield func(opentile.Point, opentile.TileResult) bool) {}
 	}
 	return t.levels[level].Tiles(ctx)
 }

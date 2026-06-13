@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"io"
 	"iter"
 
@@ -86,7 +85,7 @@ func (t *Tiler) buildLevels() []opentile.Level {
 			Size:         opentile.Size{W: e.info.inst.TotalCols, H: e.info.inst.TotalRows},
 			TileSize:     opentile.Size{W: e.info.inst.TileCols, H: e.info.inst.TileRows},
 			Grid:         e.grid,
-			TileOverlap:  image.Point{},
+			TileOverlap:  opentile.Point{},
 			Compression:  compressionForSyntax(e.info.inst.TransferSyntax),
 			Downsample:   e.info.downsample,
 		}
@@ -189,8 +188,8 @@ func (t *Tiler) WarmLevel(imageIdx, level int) error {
 	return err // bytes already mapped; warming is a no-op
 }
 
-func (t *Tiler) ImageRangeTiles(ctx context.Context, imageIdx, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
-	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
+func (t *Tiler) ImageRangeTiles(ctx context.Context, imageIdx, level int) iter.Seq2[opentile.Point, opentile.TileResult] {
+	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		e, err := t.engine(imageIdx, level)
 		if err != nil {
 			return
@@ -203,7 +202,7 @@ func (t *Tiler) ImageRangeTiles(ctx context.Context, imageIdx, level int) iter.S
 				default:
 				}
 				b, err := t.ImageRawTile(imageIdx, level, tx, ty)
-				if !yield(opentile.TilePos{X: tx, Y: ty}, opentile.TileResult{Bytes: b, Err: err}) {
+				if !yield(opentile.Point{X: tx, Y: ty}, opentile.TileResult{Bytes: b, Err: err}) {
 					return
 				}
 			}

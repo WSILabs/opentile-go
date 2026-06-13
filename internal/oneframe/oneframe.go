@@ -16,7 +16,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"io"
 	"iter"
 	"sync"
@@ -134,7 +133,7 @@ func (l *Image) Grid() opentile.Size               { return l.grid }
 func (l *Image) Compression() opentile.Compression { return l.compression }
 func (l *Image) MPP() opentile.MPP                  { return l.mpp }
 func (l *Image) FocalPlane() float64               { return 0 }
-func (l *Image) TileOverlap() image.Point          { return image.Point{} }
+func (l *Image) TileOverlap() opentile.Point          { return opentile.Point{} }
 
 // TileAt is the multi-dim entry point. NDPI/OME OneFrame levels
 // are 2D-only; non-zero Z/C/T yields ErrDimensionUnavailable.
@@ -249,16 +248,16 @@ func (l *Image) TileReader(x, y int) (io.ReadCloser, error) {
 }
 
 // Tiles iterates every tile position in row-major order.
-func (l *Image) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult] {
-	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
+func (l *Image) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult] {
+	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		for y := 0; y < l.grid.H; y++ {
 			for x := 0; x < l.grid.W; x++ {
 				if err := ctx.Err(); err != nil {
-					yield(opentile.TilePos{X: x, Y: y}, opentile.TileResult{Err: err})
+					yield(opentile.Point{X: x, Y: y}, opentile.TileResult{Err: err})
 					return
 				}
 				b, err := l.Tile(x, y)
-				if !yield(opentile.TilePos{X: x, Y: y}, opentile.TileResult{Bytes: b, Err: err}) {
+				if !yield(opentile.Point{X: x, Y: y}, opentile.TileResult{Bytes: b, Err: err}) {
 					return
 				}
 			}

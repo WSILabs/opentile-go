@@ -37,7 +37,7 @@ type omeLevel interface {
 	TileBodyMaxSize() int
 	TileBodyInto(x, y int, dst []byte) (int, error)
 	TileReader(x, y int) (io.ReadCloser, error)
-	Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult]
+	Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult]
 }
 
 // omeWarmer is optionally implemented by omeLevel types that support page
@@ -332,10 +332,10 @@ func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 	return eng.TileReader(tx, ty)
 }
 
-func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	eng, err := t.engine(image, level)
 	if err != nil {
-		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+		return func(yield func(opentile.Point, opentile.TileResult) bool) {}
 	}
 	return eng.Tiles(ctx)
 }

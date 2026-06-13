@@ -158,17 +158,17 @@ func runParityOnSlide(t *testing.T, slide string) {
 // covers ~10x10 = 100 interior samples on grids large enough to support
 // the stride. Smaller grids contribute fewer samples (capped by the grid
 // size itself). Deduplicated; ordering is row-major after the dedup.
-func samplePositions(grid opentile.Size, full bool) []opentile.TilePos {
+func samplePositions(grid opentile.Size, full bool) []opentile.Point {
 	if full {
-		out := make([]opentile.TilePos, 0, grid.W*grid.H)
+		out := make([]opentile.Point, 0, grid.W*grid.H)
 		for y := 0; y < grid.H; y++ {
 			for x := 0; x < grid.W; x++ {
-				out = append(out, opentile.TilePos{X: x, Y: y})
+				out = append(out, opentile.Point{X: x, Y: y})
 			}
 		}
 		return out
 	}
-	cand := []opentile.TilePos{
+	cand := []opentile.Point{
 		{X: 0, Y: 0},
 		{X: grid.W - 1, Y: 0},
 		{X: 0, Y: grid.H - 1},
@@ -193,10 +193,10 @@ func samplePositions(grid opentile.Size, full bool) []opentile.TilePos {
 	}
 	for y := 0; y < grid.H; y += stepY {
 		for x := 0; x < grid.W; x += stepX {
-			cand = append(cand, opentile.TilePos{X: x, Y: y})
+			cand = append(cand, opentile.Point{X: x, Y: y})
 		}
 	}
-	seen := make(map[opentile.TilePos]bool)
+	seen := make(map[opentile.Point]bool)
 	out := cand[:0]
 	for _, p := range cand {
 		if p.X < 0 || p.Y < 0 || p.X >= grid.W || p.Y >= grid.H {

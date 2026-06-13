@@ -55,8 +55,8 @@ func (r *knownPixelReader) ImageTileBodyInto(image, level, tx, ty int, dst []byt
 func (r *knownPixelReader) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error) {
 	return nil, errors.New("knownPixelReader: ImageTileReader unused")
 }
-func (r *knownPixelReader) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[TilePos, TileResult] {
-	return func(yield func(TilePos, TileResult) bool) {}
+func (r *knownPixelReader) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[Point, TileResult] {
+	return func(yield func(Point, TileResult) bool) {}
 }
 func (r *knownPixelReader) Close() error { return nil }
 
@@ -96,7 +96,7 @@ func TestReadRegionFullyInBoundsPathSkipsFillWhite(t *testing.T) {
 		dst.Pix[i] = 0xAA // sentinel: NOT 0xFF (fillWhite) and NOT 0x42 (blit)
 	}
 
-	if err := s.ImageReadRegionInto(0, 0, 128, 128, dst); err != nil {
+	if err := s.ImageReadRegionInto(0, 0, Point{X: 128, Y: 128}, dst); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,7 +121,7 @@ func TestReadRegionEdgeRegionForceFillWhite(t *testing.T) {
 	}
 
 	// Region crossing the right edge: x=768, w=512 → right half is OOB.
-	if err := s.ImageReadRegionInto(0, 0, 768, 128, dst); err != nil {
+	if err := s.ImageReadRegionInto(0, 0, Point{X: 768, Y: 128}, dst); err != nil {
 		t.Fatal(err)
 	}
 

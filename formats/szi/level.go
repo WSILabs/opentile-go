@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	stdimage "image"
 	"io"
 	"iter"
 
@@ -62,7 +61,7 @@ func (l *level) Grid() opentile.Size { return opentile.Size{W: l.cols, H: l.rows
 // TileOverlap returns the inter-tile pixel overlap. SZI-supported
 // DZI manifests typically declare Overlap=0; this is currently
 // hardcoded zero per Q-decision (full overlap support is deferred).
-func (l *level) TileOverlap() stdimage.Point { return stdimage.Point{} }
+func (l *level) TileOverlap() opentile.Point { return opentile.Point{} }
 
 // Compression reports the codec of the on-disk tile bitstream
 // (JPEG or PNG, per the manifest's Format attribute).
@@ -173,16 +172,16 @@ func (l *level) TileReader(x, y int) (io.ReadCloser, error) {
 }
 
 // Tiles iterates all tile positions in row-major order.
-func (l *level) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult] {
-	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
+func (l *level) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult] {
+	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		for y := 0; y < l.rows; y++ {
 			for x := 0; x < l.cols; x++ {
 				if err := ctx.Err(); err != nil {
-					yield(opentile.TilePos{X: x, Y: y}, opentile.TileResult{Err: err})
+					yield(opentile.Point{X: x, Y: y}, opentile.TileResult{Err: err})
 					return
 				}
 				b, err := l.Tile(x, y)
-				if !yield(opentile.TilePos{X: x, Y: y}, opentile.TileResult{Bytes: b, Err: err}) {
+				if !yield(opentile.Point{X: x, Y: y}, opentile.TileResult{Bytes: b, Err: err}) {
 					return
 				}
 			}

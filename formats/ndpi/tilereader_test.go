@@ -81,13 +81,13 @@ func TestNDPITilesIterRowMajor(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := lvl.Grid
-	want := make([]opentile.TilePos, 0, g.W*g.H)
+	want := make([]opentile.Point, 0, g.W*g.H)
 	for y := 0; y < g.H; y++ {
 		for x := 0; x < g.W; x++ {
-			want = append(want, opentile.TilePos{X: x, Y: y})
+			want = append(want, opentile.Point{X: x, Y: y})
 		}
 	}
-	got := make([]opentile.TilePos, 0, len(want))
+	got := make([]opentile.Point, 0, len(want))
 	for pos, res := range tiler.RangeTiles(context.Background(), levelIdx) {
 		if res.Err != nil {
 			t.Errorf("RangeTiles iter at %v: %v", pos, res.Err)

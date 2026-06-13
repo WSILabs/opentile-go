@@ -10,14 +10,13 @@ import (
 	"github.com/wsilabs/opentile-go/resample"
 )
 
-// ReadRegionScaled reads an L0-coord rectangle and resamples it to
-// (outW, outH). The library picks the best source pyramid level via
+// ReadRegionScaled reads an L0-coord rectangle and resamples it to out.
+// The library picks the best source pyramid level via
 // BestLevelForDownsample, reads at that level, then resamples to the
 // target.
 //
-// All input coords (l0x, l0y, l0w, l0h) are at L0 (full-resolution)
-// coordinates. Output dimensions (outW, outH) are the desired final
-// pixel size — any value, regardless of level resolutions.
+// src is at L0 (full-resolution) coordinates. out dimensions are the
+// desired final pixel size — any value, regardless of level resolutions.
 //
 // Use WithResampleKernel to choose the resample quality. Default:
 // resample.Lanczos. Use WithFormat / WithScale as with DecodedTile.
@@ -28,26 +27,28 @@ import (
 //
 // Returns ErrRegionEmpty if the L0 rectangle has no in-bounds pixels.
 //
-// Shortcut for ImageReadRegionScaled(0, l0x, l0y, l0w, l0h, outW, outH, opts...).
+// Shortcut for ImageReadRegionScaled(0, src, out, opts...).
 //
 // Added in v0.25.
-func (s *Slide) ReadRegionScaled(l0x, l0y, l0w, l0h, outW, outH int, opts ...DecodeOption) (*decoder.Image, error) {
-	return s.ImageReadRegionScaled(0, l0x, l0y, l0w, l0h, outW, outH, opts...)
+func (s *Slide) ReadRegionScaled(src Region, out Size, opts ...DecodeOption) (*decoder.Image, error) {
+	return s.ImageReadRegionScaled(0, src, out, opts...)
 }
 
 // ReadRegionScaledInto fills caller-provided dst. dst.Width / dst.Height
 // define the output dimensions.
-func (s *Slide) ReadRegionScaledInto(l0x, l0y, l0w, l0h int, dst *decoder.Image, opts ...DecodeOption) error {
-	return s.ImageReadRegionScaledInto(0, l0x, l0y, l0w, l0h, dst, opts...)
+func (s *Slide) ReadRegionScaledInto(src Region, dst *decoder.Image, opts ...DecodeOption) error {
+	return s.ImageReadRegionScaledInto(0, src, dst, opts...)
 }
 
 // ImageReadRegionScaled is the multi-image variant of ReadRegionScaled.
-func (s *Slide) ImageReadRegionScaled(image int, l0x, l0y, l0w, l0h, outW, outH int, opts ...DecodeOption) (*decoder.Image, error) {
+func (s *Slide) ImageReadRegionScaled(image int, src Region, out Size, opts ...DecodeOption) (*decoder.Image, error) {
+	l0x, l0y, l0w, l0h := src.Origin.X, src.Origin.Y, src.Size.W, src.Size.H
+	outW, outH := out.W, out.H
 	if l0w <= 0 || l0h <= 0 {
 		return nil, ErrRegionEmpty
 	}
 	if outW <= 0 || outH <= 0 {
-		return nil, fmt.Errorf("opentile: ReadRegionScaled: outW and outH must be positive")
+		return nil, fmt.Errorf("opentile: ReadRegionScaled: out dims must be positive")
 	}
 	cfg := newDecodeConfig(opts)
 
@@ -105,7 +106,7 @@ func (s *Slide) ImageReadRegionScaled(image int, l0x, l0y, l0w, l0h, outW, outH 
 		levelH = 1
 	}
 
-	intermediate, err := s.ImageReadRegion(image, level, levelX, levelY, levelW, levelH, opts...)
+	intermediate, err := s.ImageReadRegion(image, level, Region{Origin: Point{X: levelX, Y: levelY}, Size: Size{W: levelW, H: levelH}}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -114,22 +115,22 @@ func (s *Slide) ImageReadRegionScaled(image int, l0x, l0y, l0w, l0h, outW, outH 
 		return intermediate, nil // no resample needed; exact-match
 	}
 
-	dst := decoder.NewImageFormat(outW, outH, cfg.format)
-	if err := resample.ImageInto(intermediate, dst, cfg.kernel); err != nil {
+	dstImg := decoder.NewImageFormat(outW, outH, cfg.format)
+	if err := resample.ImageInto(intermediate, dstImg, cfg.kernel); err != nil {
 		return nil, fmt.Errorf("opentile: ReadRegionScaled resample: %w", err)
 	}
-	return dst, nil
+	return dstImg, nil
 }
 
 // ImageReadRegionScaledInto is the multi-image variant.
-func (s *Slide) ImageReadRegionScaledInto(image int, l0x, l0y, l0w, l0h int, dst *decoder.Image, opts ...DecodeOption) error {
+func (s *Slide) ImageReadRegionScaledInto(image int, src Region, dst *decoder.Image, opts ...DecodeOption) error {
 	if dst == nil {
 		return fmt.Errorf("opentile: ReadRegionScaledInto: dst is nil")
 	}
 	if dst.Width <= 0 || dst.Height <= 0 {
 		return fmt.Errorf("opentile: ReadRegionScaledInto: dst dims must be positive")
 	}
-	out, err := s.ImageReadRegionScaled(image, l0x, l0y, l0w, l0h, dst.Width, dst.Height, opts...)
+	out, err := s.ImageReadRegionScaled(image, src, Size{W: dst.Width, H: dst.Height}, opts...)
 	if err != nil {
 		return err
 	}

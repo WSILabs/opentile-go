@@ -240,9 +240,9 @@ func (t *tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 	return t.levelImpls[level].TileReader(tx, ty)
 }
 
-func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	if image != 0 || level < 0 || level >= len(t.levelImpls) {
-		return func(yield func(opentile.TilePos, opentile.TileResult) bool) {}
+		return func(yield func(opentile.Point, opentile.TileResult) bool) {}
 	}
 	return t.levelImpls[level].Tiles(ctx)
 }
@@ -420,8 +420,8 @@ func (l *levelImpl) TileReader(col, row int) (io.ReadCloser, error) {
 	return io.NopCloser(sr), nil
 }
 
-func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult] {
-	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
+func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult] {
+	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		grid := l.grid()
 		for r := 0; r < grid.H; r++ {
 			for c := 0; c < grid.W; c++ {
@@ -429,7 +429,7 @@ func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opent
 					return
 				}
 				bytes, err := l.Tile(c, r)
-				if !yield(opentile.TilePos{X: c, Y: r}, opentile.TileResult{Bytes: bytes, Err: err}) {
+				if !yield(opentile.Point{X: c, Y: r}, opentile.TileResult{Bytes: bytes, Err: err}) {
 					return
 				}
 			}

@@ -3,7 +3,6 @@
 package opentile
 
 import (
-	"image"
 	"io"
 	"testing"
 
@@ -14,8 +13,8 @@ import (
 func TestScaledStripsSingleStripWholeSlide(t *testing.T) {
 	slide := newTestSlideForStrips()
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, 1000, 1000),
-		image.Point{X: 100, Y: 100},
+		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
+		Size{W: 100, H: 100},
 		100, // stripHeight = outH → 1 strip
 	)
 	defer it.Close()
@@ -41,8 +40,8 @@ func TestScaledStripsSingleStripWholeSlide(t *testing.T) {
 func TestScaledStripsMultipleStrips(t *testing.T) {
 	slide := newTestSlideForStrips()
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, 1000, 1000),
-		image.Point{X: 100, Y: 200},
+		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
+		Size{W: 100, H: 200},
 		50, // stripHeight = 50 → 4 strips
 	)
 	defer it.Close()
@@ -70,8 +69,8 @@ func TestScaledStripsMultipleStrips(t *testing.T) {
 func TestScaledStripsShortLastStrip(t *testing.T) {
 	slide := newTestSlideForStrips()
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, 1000, 1000),
-		image.Point{X: 100, Y: 130},
+		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
+		Size{W: 100, H: 130},
 		50, // 130 / 50 = 2 strips of 50 + last of 30
 	)
 	defer it.Close()

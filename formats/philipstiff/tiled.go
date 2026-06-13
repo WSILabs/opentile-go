@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"io"
 	"iter"
 	"math"
@@ -189,7 +188,7 @@ func (l *tiledImage) Grid() opentile.Size               { return l.grid }
 func (l *tiledImage) Compression() opentile.Compression { return l.compression }
 func (l *tiledImage) MPP() opentile.MPP                  { return l.mpp }
 func (l *tiledImage) FocalPlane() float64               { return 0 }
-func (l *tiledImage) TileOverlap() image.Point          { return image.Point{} }
+func (l *tiledImage) TileOverlap() opentile.Point          { return opentile.Point{} }
 
 // Tile returns the tile at (x, y) as a standalone valid JPEG. Drives
 // upstream's NativeTiledTiffImage.get_tile shape: the per-tile bytes
@@ -384,16 +383,16 @@ func (l *tiledImage) TileReader(x, y int) (io.ReadCloser, error) {
 }
 
 // Tiles iterates all tiles in row-major order.
-func (l *tiledImage) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, opentile.TileResult] {
-	return func(yield func(opentile.TilePos, opentile.TileResult) bool) {
+func (l *tiledImage) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult] {
+	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		for y := 0; y < l.grid.H; y++ {
 			for x := 0; x < l.grid.W; x++ {
 				if err := ctx.Err(); err != nil {
-					yield(opentile.TilePos{X: x, Y: y}, opentile.TileResult{Err: err})
+					yield(opentile.Point{X: x, Y: y}, opentile.TileResult{Err: err})
 					return
 				}
 				b, err := l.Tile(x, y)
-				if !yield(opentile.TilePos{X: x, Y: y}, opentile.TileResult{Bytes: b, Err: err}) {
+				if !yield(opentile.Point{X: x, Y: y}, opentile.TileResult{Bytes: b, Err: err}) {
 					return
 				}
 			}

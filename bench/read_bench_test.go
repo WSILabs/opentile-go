@@ -57,7 +57,7 @@ var patterns = []pattern{
 		return int64(base.TileSize.W) * int64(base.TileSize.H), err
 	}},
 	{"readregion", func(s *opentile.Slide, base opentile.Level, tx, ty int) (int64, error) {
-		img, err := s.ReadRegion(base.Index, tx*base.TileSize.W, ty*base.TileSize.H, base.TileSize.W, base.TileSize.H)
+		img, err := s.ReadRegion(base.Index, opentile.Region{Origin: opentile.Point{X: tx * base.TileSize.W, Y: ty * base.TileSize.H}, Size: base.TileSize})
 		_ = img
 		return int64(base.TileSize.W) * int64(base.TileSize.H), err
 	}},

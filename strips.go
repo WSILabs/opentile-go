@@ -1,7 +1,7 @@
 package opentile
 
 import (
-	"image"
+	imagelib "image"
 )
 
 // ScaledStrips returns an iterator over a slide's L0 rectangle,
@@ -20,11 +20,14 @@ import (
 //
 // Added in v0.26.
 func (s *Slide) ScaledStrips(
-	l0Rect image.Rectangle,
-	outSize image.Point,
+	l0Rect Region,
+	outSize Size,
 	stripHeight int,
 	opts ...StripOption,
 ) *StripIterator {
 	cfg := newStripConfig(opts)
-	return newStripIterator(s, 0, l0Rect, outSize, stripHeight, cfg)
+	r := imagelib.Rect(l0Rect.Origin.X, l0Rect.Origin.Y,
+		l0Rect.Origin.X+l0Rect.Size.W, l0Rect.Origin.Y+l0Rect.Size.H)
+	p := imagelib.Pt(outSize.W, outSize.H)
+	return newStripIterator(s, 0, r, p, stripHeight, cfg)
 }

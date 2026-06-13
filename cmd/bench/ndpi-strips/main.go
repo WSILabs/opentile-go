@@ -15,7 +15,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"image"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -85,8 +84,8 @@ func main() {
 		opentile.WithStripLookahead(*lookahead),
 	}
 	it := slide.ScaledStrips(
-		image.Rect(0, 0, w, h),
-		image.Point{X: w, Y: h},
+		opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: w, H: h}},
+		opentile.Size{W: w, H: h},
 		*dziTile,
 		opts...,
 	)

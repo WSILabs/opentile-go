@@ -1,7 +1,6 @@
 package opentile_test
 
 import (
-	"image"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -25,7 +24,7 @@ func TestLevelLiteralFields(t *testing.T) {
 		Compression:  opentile.CompressionJPEG,
 		MPP:          opentile.MPP{X: 0.25, Y: 0.25},
 		FocalPlane:   0,
-		TileOverlap:  image.Point{},
+		TileOverlap:  opentile.Point{},
 	}
 	if lvl.Size.W != 1024 || lvl.TileSize.H != 256 || lvl.Grid.H != 3 {
 		t.Errorf("literal fields not preserved: %+v", lvl)

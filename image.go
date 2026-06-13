@@ -1,8 +1,6 @@
 package opentile
 
 import (
-	"image"
-
 	"github.com/wsilabs/opentile-go/decoder"
 )
 
@@ -31,7 +29,7 @@ type Level struct {
 
 	// TileOverlap is the per-tile overlap (BIF / NDPI in overlapping
 	// modes). Zero for non-overlapping tile formats.
-	TileOverlap image.Point
+	TileOverlap Point
 
 	// Compression identifies the codec for tile bytes at this level.
 	// Used by *Slide.DecodedTile to dispatch to the right decoder.
@@ -141,9 +139,6 @@ type Pyramid struct {
 	// downsampled.
 	Levels []Level
 }
-
-// TilePos is a (column, row) pair returned by RangeTiles.
-type TilePos struct{ X, Y int }
 
 // TileResult carries the yield from RangeTiles.
 type TileResult struct {

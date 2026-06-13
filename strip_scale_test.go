@@ -2,7 +2,6 @@ package opentile_test
 
 import (
 	"errors"
-	"image"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,11 +26,11 @@ func cmu1(t *testing.T) string {
 	return p
 }
 
-func assembleStrips(t *testing.T, s *opentile.Slide, l0 image.Rectangle, out image.Point, scale int) *decoder.Image {
+func assembleStrips(t *testing.T, s *opentile.Slide, l0 opentile.Region, out opentile.Size, scale int) *decoder.Image {
 	t.Helper()
 	it := s.ScaledStrips(l0, out, 64, opentile.WithStripIDCTScale(scale))
 	defer it.Close()
-	full := decoder.NewImage(out.X, out.Y)
+	full := decoder.NewImage(out.W, out.H)
 	y := 0
 	for {
 		strip, err := it.Next()
@@ -74,8 +73,8 @@ func TestStripIDCTScaleCorrect(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	l0 := image.Rect(0, 0, 4096, 4096)
-	out := image.Pt(512, 512)
+	l0 := opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 4096, H: 4096}}
+	out := opentile.Size{W: 512, H: 512}
 	s1 := assembleStrips(t, s, l0, out, 1)
 	s2 := assembleStrips(t, s, l0, out, 2)
 	if m := meanAbsDiff(s1, s2); m > 2 {
@@ -107,8 +106,8 @@ func TestStripCodecScaleJP2K(t *testing.T) {
 	defer s.Close()
 	// 2x downsample of a 2048-region: between L0 (down 1) and L1 (down 4),
 	// so bestLevel is L0 and the residual is 2 -> codec scale 2.
-	l0 := image.Rect(0, 0, 2048, 2048)
-	out := image.Pt(1024, 1024)
+	l0 := opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 2048, H: 2048}}
+	out := opentile.Size{W: 1024, H: 1024}
 
 	// (a) auto codec scale engages.
 	it := s.ScaledStrips(l0, out, 64)
@@ -135,11 +134,11 @@ func TestReadRegionScaledCodecScale(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	got, err := s.ReadRegionScaled(0, 0, 2048, 2048, 1024, 1024)
+	got, err := s.ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 2048, H: 2048}}, opentile.Size{W: 1024, H: 1024})
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref := assembleStrips(t, s, image.Rect(0, 0, 2048, 2048), image.Pt(1024, 1024), 1)
+	ref := assembleStrips(t, s, opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 2048, H: 2048}}, opentile.Size{W: 1024, H: 1024}, 1)
 	if got.Width != ref.Width || got.Height != ref.Height {
 		t.Fatalf("dims %dx%d vs %dx%d", got.Width, got.Height, ref.Width, ref.Height)
 	}

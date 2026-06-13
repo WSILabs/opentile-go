@@ -27,7 +27,7 @@ func (r *fakeReader) ImageTilePrefix(_, _ int) []byte                         { 
 func (r *fakeReader) ImageTileBodyMaxSize(_, _ int) int                       { return 0 }
 func (r *fakeReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) { return 0, nil }
 func (r *fakeReader) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error)   { return nil, nil }
-func (r *fakeReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (r *fakeReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	return nil
 }
 func (r *fakeReader) Close() error { return nil }

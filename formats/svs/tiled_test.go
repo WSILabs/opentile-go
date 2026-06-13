@@ -317,7 +317,7 @@ func (f *fakeNonSVSTiler) ImageTilePrefix(_, _ int) []byte        { return nil }
 func (f *fakeNonSVSTiler) ImageTileBodyMaxSize(_, _ int) int      { return 0 }
 func (f *fakeNonSVSTiler) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) { return 0, nil }
 func (f *fakeNonSVSTiler) ImageTileReader(_, _, _, _ int) (io.ReadCloser, error)   { return nil, nil }
-func (f *fakeNonSVSTiler) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.TilePos, opentile.TileResult] {
+func (f *fakeNonSVSTiler) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq2[opentile.Point, opentile.TileResult] {
 	return nil
 }
 

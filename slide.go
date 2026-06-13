@@ -35,7 +35,7 @@ type slideReader interface {
 	ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 
 	// Range-over-function iterator.
-	ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[TilePos, TileResult]
+	ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[Point, TileResult]
 
 	Close() error
 }
@@ -219,11 +219,11 @@ func (s *Slide) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 
 // RangeTiles returns a range-over-function iterator over all tiles in
 // the given level within image 0.
-func (s *Slide) RangeTiles(ctx context.Context, level int) iter.Seq2[TilePos, TileResult] {
+func (s *Slide) RangeTiles(ctx context.Context, level int) iter.Seq2[Point, TileResult] {
 	return s.r.ImageRangeTiles(ctx, 0, level)
 }
 
 // ImageRangeTiles is the multi-image variant of RangeTiles.
-func (s *Slide) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[TilePos, TileResult] {
+func (s *Slide) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2[Point, TileResult] {
 	return s.r.ImageRangeTiles(ctx, image, level)
 }
