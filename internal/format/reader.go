@@ -19,7 +19,7 @@ type Reader interface {
 	Format() opentile.Format
 	Pyramids() []opentile.Pyramid
 	Level(image, level int) (opentile.Level, error)
-	Associated() []opentile.AssociatedImage
+	AssociatedImages() []opentile.AssociatedImage
 	Metadata() opentile.Metadata
 	ICCProfile() []byte
 	WarmLevel(image, level int) error
@@ -53,7 +53,7 @@ type Config struct {
 	// CorruptTilePolicy controls how corrupt-edge tiles are reported.
 	CorruptTilePolicy opentile.CorruptTilePolicy
 
-	// NDPISynthesizedLabel controls whether NDPI Associated() includes a
+	// NDPISynthesizedLabel controls whether NDPI AssociatedImages() includes a
 	// synthesized label cropped from the overview. Default true.
 	NDPISynthesizedLabel bool
 

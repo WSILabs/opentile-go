@@ -116,7 +116,7 @@ func TestFactoryOpen_CMU1(t *testing.T) {
 			t.Errorf("L0 size = %v, want 46000×32914", l0.Size)
 		}
 	}
-	if got := len(tlr.Associated()); got != 0 {
+	if got := len(tlr.AssociatedImages()); got != 0 {
 		t.Errorf("len(Associated()) = %d, want 0 (CMU-1.tiff has no associated images)", got)
 	}
 }
@@ -150,7 +150,7 @@ func TestFactoryOpen_StrippedSVS(t *testing.T) {
 	defer tlr.Close()
 
 	gotTypes := make(map[string]int)
-	for _, a := range tlr.Associated() {
+	for _, a := range tlr.AssociatedImages() {
 		gotTypes[a.Type()]++
 	}
 	for _, k := range []string{TypeThumbnail, TypeLabel, TypeOverview} {
@@ -431,8 +431,8 @@ func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
 			if sz := levels[0].Size; uint32(sz.W) != tc.wantBaselineW || uint32(sz.H) != tc.wantBaselineH {
 				t.Errorf("baseline = %dx%d, want %dx%d", sz.W, sz.H, tc.wantBaselineW, tc.wantBaselineH)
 			}
-			got := make([]string, 0, len(tiler.Associated()))
-			for _, a := range tiler.Associated() {
+			got := make([]string, 0, len(tiler.AssociatedImages()))
+			for _, a := range tiler.AssociatedImages() {
 				got = append(got, a.Type())
 			}
 			if len(got) != len(tc.wantAssociated) {

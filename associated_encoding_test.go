@@ -133,7 +133,7 @@ func TestAssociatedEncodingRoundtrip(t *testing.T) {
 			}
 			defer s.Close()
 			got := 0
-			for _, a := range s.Associated() {
+			for _, a := range s.AssociatedImages() {
 				// (Previously skipped cog-wsi/CMU-1_cog-wsi.tiff's label as
 				// corrupt under WSILabs/wsitools#1. The cog-wsi fixtures were
 				// regenerated with a fixed cogwsiwriter; the label now

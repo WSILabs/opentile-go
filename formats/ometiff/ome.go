@@ -212,7 +212,7 @@ type tiler struct {
 
 func (t *tiler) Format() opentile.Format                  { return opentile.FormatOMETIFF }
 func (t *tiler) Pyramids() []opentile.Pyramid             { return t.images }
-func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
+func (t *tiler) AssociatedImages() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.cross }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }
 func (t *tiler) Close() error                           { return nil }

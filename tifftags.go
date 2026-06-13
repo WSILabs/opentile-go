@@ -243,7 +243,7 @@ type associatedIFDOffsetProvider interface {
 // AssociatedIFDOffset returns the byte offset of the IFD backing associated
 // image a, for TIFF-family slides whose reader supports it (currently SVS
 // and generic-TIFF). ok is false when the slide is not TIFF-backed, the
-// format hasn't opted in, or a is not one of s.Associated().
+// format hasn't opted in, or a is not one of s.AssociatedImages().
 //
 // Intended for raw-TIFF in-place editing (e.g. mapping a typed associated
 // image back to its source IFD to splice/replace it). Uses the same

@@ -112,7 +112,7 @@ func runParityOnSlide(t *testing.T, slide string) {
 	// type. If Python has no image of that type on this slide, the runner
 	// emits zero-length stdout and we treat that as "skip" (the Go side may
 	// still expose a synthesized image, e.g. NDPI's cropped-overview label).
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		// Skip parity for label images on every format. Python opentile
 		// 0.20.0 returns only strip 0 of multi-strip labels (an upstream
 		// bug — see L10); our Go side decode-restitch-encodes the full

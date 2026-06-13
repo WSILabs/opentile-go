@@ -332,12 +332,12 @@ func (t *Tiler) Level(image, level int) (opentile.Level, error) {
 	return t.sziImage.Levels[level], nil
 }
 
-// Associated returns the optional associated_images/ entries
+// AssociatedImages returns the optional associated_images/ entries
 // (macro.jpg → "overview", label.jpg → "label", thumbnail.jpg →
 // "thumbnail" per the v0.15 alignment). Returns a fresh slice;
 // callers may mutate the slice header without affecting the
 // Tiler's internal state.
-func (t *Tiler) Associated() []opentile.AssociatedImage {
+func (t *Tiler) AssociatedImages() []opentile.AssociatedImage {
 	return append([]opentile.AssociatedImage(nil), t.associated...)
 }
 

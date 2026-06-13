@@ -298,7 +298,7 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	}
 
 	// Associated images.
-	assoc := tiler.Associated()
+	assoc := tiler.AssociatedImages()
 	if len(assoc) != 3 {
 		t.Fatalf("associated count = %d, want 3", len(assoc))
 	}
@@ -380,7 +380,7 @@ func TestMetadataAbsentBlocks(t *testing.T) {
 	if tiler.Metadata().Magnification != 0 {
 		t.Errorf("Mag = %v", tiler.Metadata().Magnification)
 	}
-	if len(tiler.Associated()) != 0 {
+	if len(tiler.AssociatedImages()) != 0 {
 		t.Errorf("associated should be empty")
 	}
 	if tiler.ICCProfile() != nil {

@@ -104,7 +104,7 @@ func (r *stripsTestReader) Pyramids() []Pyramid {
 func (r *stripsTestReader) Level(image, level int) (Level, error) {
 	return r.Pyramids()[image].Levels[level], nil
 }
-func (r *stripsTestReader) Associated() []AssociatedImage { return nil }
+func (r *stripsTestReader) AssociatedImages() []AssociatedImage { return nil }
 func (r *stripsTestReader) Metadata() Metadata            { return Metadata{} }
 func (r *stripsTestReader) ICCProfile() []byte            { return nil }
 func (r *stripsTestReader) WarmLevel(_, _ int) error      { return nil }

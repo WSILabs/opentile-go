@@ -195,7 +195,7 @@ func TestBIFGeometry(t *testing.T) {
 			}
 
 			// Associated images per fixture.
-			ai := tiler.Associated()
+			ai := tiler.AssociatedImages()
 			gotTypes := map[string]opentile.Size{}
 			for _, a := range ai {
 				gotTypes[a.Type()] = a.Size()

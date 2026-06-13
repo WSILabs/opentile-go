@@ -131,7 +131,7 @@ func TestBIFAccessors(t *testing.T) {
 			}
 
 			// Associated types match expectation.
-			ai := tiler.Associated()
+			ai := tiler.AssociatedImages()
 			gotTypes := make(map[string]bool)
 			for _, a := range ai {
 				gotTypes[a.Type()] = true

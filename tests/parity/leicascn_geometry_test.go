@@ -166,7 +166,7 @@ func TestSCNGeometry(t *testing.T) {
 			}
 
 			// Associated.
-			assocs := tiler.Associated()
+			assocs := tiler.AssociatedImages()
 			if len(assocs) != len(fx.associated) {
 				t.Errorf("associated count = %d, want %d", len(assocs), len(fx.associated))
 			} else {

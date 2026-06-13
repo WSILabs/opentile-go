@@ -105,7 +105,7 @@ func ceilDiv(a, b int) int {
 
 func (t *Tiler) Format() opentile.Format                { return opentile.FormatDICOM }
 func (t *Tiler) Pyramids() []opentile.Pyramid           { return []opentile.Pyramid{t.img} }
-func (t *Tiler) Associated() []opentile.AssociatedImage { return t.associated }
+func (t *Tiler) AssociatedImages() []opentile.AssociatedImage { return t.associated }
 func (t *Tiler) Metadata() opentile.Metadata            { return t.meta }
 func (t *Tiler) ICCProfile() []byte                     { return t.icc }
 

@@ -68,7 +68,7 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 			defer tlr.Close()
 
 			levels := tlr.Levels()
-			associated := tlr.Associated()
+			associated := tlr.AssociatedImages()
 
 			// Pin our level count + associated count up front (bio-
 			// formats's series count includes both, plus its own

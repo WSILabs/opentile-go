@@ -14,7 +14,7 @@ type bestLevelTestReader struct {
 func (r *bestLevelTestReader) Format() Format                                  { return "test" }
 func (r *bestLevelTestReader) Pyramids() []Pyramid                             { return r.images }
 func (r *bestLevelTestReader) Level(image, level int) (Level, error)           { return r.images[image].Levels[level], nil }
-func (r *bestLevelTestReader) Associated() []AssociatedImage                   { return nil }
+func (r *bestLevelTestReader) AssociatedImages() []AssociatedImage                   { return nil }
 func (r *bestLevelTestReader) Metadata() Metadata                              { return Metadata{} }
 func (r *bestLevelTestReader) ICCProfile() []byte                              { return nil }
 func (r *bestLevelTestReader) WarmLevel(_, _ int) error                        { return nil }

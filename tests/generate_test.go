@@ -147,7 +147,7 @@ func generateFixture(slide string) error {
 		f.TileSHA256 = imgFix.TileSHA256
 		f.SampledTileSHA256 = imgFix.SampledTileSHA256
 	}
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		b, err := a.Bytes()
 		if err != nil {
 			return fmt.Errorf("Associated(%s).Bytes: %w", a.Type(), err)

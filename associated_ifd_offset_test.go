@@ -77,7 +77,7 @@ func TestAssociatedIFDOffset_SVSAndGeneric(t *testing.T) {
 			}
 			defer s.Close()
 
-			assoc := s.Associated()
+			assoc := s.AssociatedImages()
 			if len(assoc) == 0 {
 				t.Fatalf("%s: no associated images to exercise", rel)
 			}
@@ -116,7 +116,7 @@ func TestAssociatedIFDOffset_OkFalse(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer s.Close()
-			assoc := s.Associated()
+			assoc := s.AssociatedImages()
 			if len(assoc) == 0 {
 				t.Skipf("%s: no associated images on this fixture", rel)
 			}

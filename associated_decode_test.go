@@ -84,7 +84,7 @@ func TestAssociatedDecodeAllFormats(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer s.Close()
-			assoc := s.Associated()
+			assoc := s.AssociatedImages()
 			if len(assoc) == 0 {
 				t.Skipf("%s: no associated images", rel)
 			}
@@ -116,7 +116,7 @@ func TestAssociatedDecodeLZWLabel(t *testing.T) {
 			}
 			defer s.Close()
 			var label opentile.AssociatedImage
-			for _, a := range s.Associated() {
+			for _, a := range s.AssociatedImages() {
 				if a.Type() == "label" {
 					label = a
 				}

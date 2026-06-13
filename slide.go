@@ -18,7 +18,7 @@ type slideReader interface {
 	Format() Format
 	Pyramids() []Pyramid
 	Level(image, level int) (Level, error)
-	Associated() []AssociatedImage
+	AssociatedImages() []AssociatedImage
 	Metadata() Metadata
 	ICCProfile() []byte
 	WarmLevel(image, level int) error
@@ -46,7 +46,7 @@ type slideReader interface {
 // OpenFile.
 //
 // Concurrency contract: all accessor methods (Format, Pyramids, Levels,
-// Level, Associated, Metadata, ICCProfile) are safe to call concurrently.
+// Level, AssociatedImages, Metadata, ICCProfile) are safe to call concurrently.
 // Tile reads via RawTile / RawTileInto are safe concurrently.
 // Close must not race with in-flight tile reads.
 type Slide struct {
@@ -84,9 +84,9 @@ func (s *Slide) Levels() []Level {
 // Level is a shortcut for s.Pyramids()[0].Levels[i].
 func (s *Slide) Level(i int) (Level, error) { return s.r.Level(0, i) }
 
-// Associated returns the auxiliary images (label, macro, thumbnail,
+// AssociatedImages returns the auxiliary images (label, macro, thumbnail,
 // overview, ...) embedded in this slide.
-func (s *Slide) Associated() []AssociatedImage { return s.r.Associated() }
+func (s *Slide) AssociatedImages() []AssociatedImage { return s.r.AssociatedImages() }
 
 // Metadata returns the cross-format metadata view.
 func (s *Slide) Metadata() Metadata { return s.r.Metadata() }

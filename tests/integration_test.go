@@ -199,7 +199,7 @@ func checkSlideAgainstFixture(t *testing.T, slide, fixturePath string) {
 		t.Errorf("magnification: got %v, want %v", md.Magnification, fix.Metadata.Magnification)
 	}
 
-	associated := tiler.Associated()
+	associated := tiler.AssociatedImages()
 	if len(associated) != len(fix.AssociatedImages) {
 		t.Errorf("associated count: got %d, want %d", len(associated), len(fix.AssociatedImages))
 	} else {

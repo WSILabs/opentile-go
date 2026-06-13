@@ -159,7 +159,7 @@ func TestCervixEndToEnd(t *testing.T) {
 	if len(icc) != 6064 {
 		t.Errorf("ICCProfile size = %d, want 6064", len(icc))
 	}
-	assoc := tiler.Associated()
+	assoc := tiler.AssociatedImages()
 	if len(assoc) != 1 {
 		t.Fatalf("Associated count = %d, want 1 (thumbnail)", len(assoc))
 	}

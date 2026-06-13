@@ -22,7 +22,7 @@ func TestAssociated_CMU1HasAllThree(t *testing.T) {
 	}
 	defer tlr.Close()
 
-	got := tlr.Associated()
+	got := tlr.AssociatedImages()
 	if len(got) != 3 {
 		t.Fatalf("Associated count = %d, want 3", len(got))
 	}

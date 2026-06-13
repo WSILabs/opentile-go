@@ -30,7 +30,7 @@ func TestAssociatedImage(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 	defer tiler.Close()
-	as := tiler.Associated()
+	as := tiler.AssociatedImages()
 	if len(as) != 1 || as[0].Type() != "label" {
 		t.Fatalf("associated = %+v", as)
 	}

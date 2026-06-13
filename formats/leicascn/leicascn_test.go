@@ -110,10 +110,10 @@ func TestFactory_Open_Leica1(t *testing.T) {
 	if got := len(tlr.Pyramids()[0].Levels); got != 5 {
 		t.Errorf("len(Levels) = %d, want 5", got)
 	}
-	if got := len(tlr.Associated()); got != 1 {
+	if got := len(tlr.AssociatedImages()); got != 1 {
 		t.Errorf("len(Associated()) = %d, want 1", got)
 	}
-	if got := tlr.Associated()[0].Type(); got != "overview" {
+	if got := tlr.AssociatedImages()[0].Type(); got != "overview" {
 		t.Errorf("Associated[0].Type() = %q, want %q", got, "overview")
 	}
 	// SizeC == 1 for brightfield Leica-1.
@@ -156,7 +156,7 @@ func TestFactory_Open_Fluorescence_SizeC(t *testing.T) {
 		}
 	}
 	// 2 auxiliaries (brightfield + fluorescence overview).
-	if got := len(tlr.Associated()); got != 2 {
+	if got := len(tlr.AssociatedImages()); got != 2 {
 		t.Errorf("len(Associated()) = %d, want 2", got)
 	}
 }

@@ -36,7 +36,7 @@ func (r *knownPixelReader) Level(image, level int) (Level, error) {
 		Compression: CompressionJPEG,
 	}, nil
 }
-func (r *knownPixelReader) Associated() []AssociatedImage    { return nil }
+func (r *knownPixelReader) AssociatedImages() []AssociatedImage    { return nil }
 func (r *knownPixelReader) Metadata() Metadata               { return Metadata{} }
 func (r *knownPixelReader) ICCProfile() []byte               { return nil }
 func (r *knownPixelReader) WarmLevel(image, level int) error { return nil }

@@ -300,7 +300,7 @@ type fakeNonSVSTiler struct{}
 func (f *fakeNonSVSTiler) Format() opentile.Format                { return opentile.Format("fake") }
 func (f *fakeNonSVSTiler) Pyramids() []opentile.Pyramid           { return nil }
 func (f *fakeNonSVSTiler) Level(_, _ int) (opentile.Level, error) { return opentile.Level{}, opentile.ErrLevelOutOfRange }
-func (f *fakeNonSVSTiler) Associated() []opentile.AssociatedImage { return nil }
+func (f *fakeNonSVSTiler) AssociatedImages() []opentile.AssociatedImage { return nil }
 func (f *fakeNonSVSTiler) Metadata() opentile.Metadata            { return opentile.Metadata{} }
 func (f *fakeNonSVSTiler) ICCProfile() []byte                     { return nil }
 func (f *fakeNonSVSTiler) Close() error                           { return nil }

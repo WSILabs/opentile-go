@@ -20,7 +20,7 @@ type nilReader struct{}
 func (*nilReader) Format() opentile.Format                                 { return "" }
 func (*nilReader) Pyramids() []opentile.Pyramid                             { return nil }
 func (*nilReader) Level(_, _ int) (opentile.Level, error)                  { return opentile.Level{}, nil }
-func (*nilReader) Associated() []opentile.AssociatedImage                  { return nil }
+func (*nilReader) AssociatedImages() []opentile.AssociatedImage                  { return nil }
 func (*nilReader) Metadata() opentile.Metadata                             { return opentile.Metadata{} }
 func (*nilReader) ICCProfile() []byte                                      { return nil }
 func (*nilReader) WarmLevel(_, _ int) error                                { return nil }

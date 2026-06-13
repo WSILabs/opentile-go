@@ -74,7 +74,7 @@ func TestTiler_CMU1SmallRegion_FullPyramid(t *testing.T) {
 	}
 
 	got := make([]string, 0)
-	for _, a := range tlr.Associated() {
+	for _, a := range tlr.AssociatedImages() {
 		got = append(got, a.Type())
 	}
 	// Probe of CMU-1-Small-Region_cog-wsi.tiff: 4 IFDs total; one

@@ -107,10 +107,10 @@ func (t *Tiler) Level(image, level int) (opentile.Level, error) {
 	return t.inner.Level(image, level)
 }
 
-// Associated returns associated images (label / overview / thumbnail
+// AssociatedImages returns associated images (label / overview / thumbnail
 // per v0.15 canonical naming; the WSIImageType=macro tag maps to
 // Type() == "overview" per the v0.15 SCN+generictiff alignment).
-func (t *Tiler) Associated() []opentile.AssociatedImage { return t.inner.Associated() }
+func (t *Tiler) AssociatedImages() []opentile.AssociatedImage { return t.inner.AssociatedImages() }
 
 // Metadata returns the COG-WSI-specific cross-format Metadata —
 // MPP / Magnification populated from the WSI private tags; scanner

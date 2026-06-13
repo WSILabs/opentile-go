@@ -153,7 +153,7 @@ func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	return t.images[image].Levels[level], nil
 }
 
-func (t *tiler) Associated() []opentile.AssociatedImage {
+func (t *tiler) AssociatedImages() []opentile.AssociatedImage {
 	out := make([]opentile.AssociatedImage, len(t.associated))
 	copy(out, t.associated)
 	return out

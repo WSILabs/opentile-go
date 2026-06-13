@@ -199,7 +199,7 @@ func TestNdpiOpenClassifiesPages(t *testing.T) {
 				return 0
 			}())
 	}
-	if got := len(tiler.Associated()); got != 0 {
+	if got := len(tiler.AssociatedImages()); got != 0 {
 		t.Errorf("associated: got %d, want 0", got)
 	}
 	md, ok := MetadataOf(tiler)

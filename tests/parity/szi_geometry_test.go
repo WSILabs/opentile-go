@@ -180,7 +180,7 @@ func TestSZIGeometry(t *testing.T) {
 			}
 
 			// Associated images.
-			associated := tiler.Associated()
+			associated := tiler.AssociatedImages()
 			if len(associated) != len(fx.associated) {
 				t.Fatalf("associated count = %d, want %d", len(associated), len(fx.associated))
 			}

@@ -23,7 +23,7 @@ func TestWithNDPISynthesizedLabelDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		if a.Type() == "label" {
 			t.Errorf("expected no synthesized label with WithNDPISynthesizedLabel(false), got %s", a.Type())
 		}
@@ -45,7 +45,7 @@ func TestWithNDPISynthesizedLabelDefaultEnabled(t *testing.T) {
 	}
 	defer tiler.Close()
 	hasLabel := false
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		if a.Type() == "label" {
 			hasLabel = true
 		}

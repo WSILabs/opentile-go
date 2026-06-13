@@ -36,7 +36,7 @@ func TestNDPIMapPagePresentOnOS2(t *testing.T) {
 	defer tiler.Close()
 
 	var got opentile.AssociatedImage
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		if a.Type() == "map" {
 			got = a
 			break
@@ -84,7 +84,7 @@ func TestNDPIMapPagePresentOnHamamatsu1(t *testing.T) {
 	defer tiler.Close()
 
 	var got opentile.AssociatedImage
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		if a.Type() == "map" {
 			got = a
 			break
@@ -116,7 +116,7 @@ func TestNDPIMapPageAbsentOnCMU1(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	for _, a := range tiler.Associated() {
+	for _, a := range tiler.AssociatedImages() {
 		if a.Type() == "map" {
 			t.Errorf(`CMU-1.ndpi: unexpected AssociatedImage with Type() == "map"`)
 		}

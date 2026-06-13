@@ -96,7 +96,7 @@ func WithCorruptTilePolicy(p CorruptTilePolicy) Option {
 	return func(c *config) { c.corruptTile = p }
 }
 
-// WithNDPISynthesizedLabel controls whether NDPI Tiler.Associated() includes
+// WithNDPISynthesizedLabel controls whether NDPI Tiler.AssociatedImages() includes
 // a synthesized "label" image, which Go produces by cropping the left 30%
 // of the overview page. Python opentile 0.20.0 does not expose NDPI labels;
 // this is a Go-side extension. Default: true (matches v0.2 behavior).
@@ -203,7 +203,7 @@ func (c *Config) CorruptTilePolicy() CorruptTilePolicy {
 	return c.c.corruptTile
 }
 
-// NDPISynthesizedLabel reports whether NDPI Tiler.Associated() should
+// NDPISynthesizedLabel reports whether NDPI Tiler.AssociatedImages() should
 // include a synthesized label cropped from the overview. Default true.
 func (c *Config) NDPISynthesizedLabel() bool {
 	if c == nil || c.c == nil {

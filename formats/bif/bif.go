@@ -422,12 +422,12 @@ func (t *Tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2
 	return t.levelImpls[level].Tiles(ctx)
 }
 
-// Associated returns the slide's associated images: every BIF has
+// AssociatedImages returns the slide's associated images: every BIF has
 // an "overview" entry; spec-compliant slides additionally expose
 // "probability"; legacy iScan slides expose "thumbnail" instead.
 // Returns a fresh slice; callers may mutate the slice header
 // without affecting Tiler internal state.
-func (t *Tiler) Associated() []opentile.AssociatedImage {
+func (t *Tiler) AssociatedImages() []opentile.AssociatedImage {
 	out := make([]opentile.AssociatedImage, len(t.associated))
 	copy(out, t.associated)
 	return out

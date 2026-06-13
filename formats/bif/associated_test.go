@@ -11,7 +11,7 @@ import (
 // TestAssociatedSpecCompliantHasOverviewAndProbability: a synthetic
 // spec-compliant BIF (Label_Image + Probability_Image associated
 // IFDs, plus a level=0 pyramid IFD) exposes both associated images
-// via Tiler.Associated().
+// via Tiler.AssociatedImages().
 func TestAssociatedSpecCompliantHasOverviewAndProbability(t *testing.T) {
 	data := buildBIFLikeBigTIFF(t, []iFDSpec{
 		{xmp: []byte(`<iScan ScannerModel="VENTANA DP 200" ScanRes="0.25"/>`), description: "Label_Image"},
@@ -26,7 +26,7 @@ func TestAssociatedSpecCompliantHasOverviewAndProbability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	ai := tiler.Associated()
+	ai := tiler.AssociatedImages()
 	if len(ai) != 2 {
 		t.Fatalf("Associated count: got %d, want 2 (overview + probability)", len(ai))
 	}
@@ -58,7 +58,7 @@ func TestAssociatedLegacyHasOverviewAndThumbnail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	ai := tiler.Associated()
+	ai := tiler.AssociatedImages()
 	if len(ai) != 2 {
 		t.Fatalf("Associated count: got %d, want 2 (overview + thumbnail)", len(ai))
 	}
@@ -83,7 +83,7 @@ func TestAssociatedDimensionsAndCompression(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	ai := tiler.Associated()
+	ai := tiler.AssociatedImages()
 	if len(ai) != 1 {
 		t.Fatalf("Associated count: got %d, want 1", len(ai))
 	}
@@ -106,8 +106,8 @@ func TestAssociatedReturnsCopy(t *testing.T) {
 	})
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
-	first := tiler.Associated()
-	second := tiler.Associated()
+	first := tiler.AssociatedImages()
+	second := tiler.AssociatedImages()
 	if &first == &second {
 		t.Error("Associated() returned same slice header pointer twice (should be a fresh copy)")
 	}
