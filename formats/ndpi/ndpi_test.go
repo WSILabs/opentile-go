@@ -189,7 +189,7 @@ func TestNdpiOpenClassifiesPages(t *testing.T) {
 	if tiler.Format() != opentile.FormatNDPI {
 		t.Errorf("Format: got %q, want %q", tiler.Format(), opentile.FormatNDPI)
 	}
-	imgs := tiler.Images()
+	imgs := tiler.Pyramids()
 	if len(imgs) != 1 || len(imgs[0].Levels) != 1 {
 		t.Errorf("images/levels: got %d images, want 1; levels[0]=%d, want 1",
 			len(imgs), func() int {

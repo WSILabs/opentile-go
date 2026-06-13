@@ -39,15 +39,15 @@ type ndpiWarmer interface {
 // tiler is the NDPI implementation of format.Reader.
 type tiler struct {
 	md          Metadata
-	images      []opentile.Image
+	images      []opentile.Pyramid
 	levelImpls  []ndpiLevel // parallel to images[0].Levels
 	associated  []opentile.AssociatedImage
 	icc         []byte
 	dirSpecs    []ndpiDirSpec // page→role mapping captured at Open; used by TIFFDirectories
 }
 
-func (t *tiler) Format() opentile.Format            { return opentile.FormatNDPI }
-func (t *tiler) Images() []opentile.Image           { return t.images }
+func (t *tiler) Format() opentile.Format              { return opentile.FormatNDPI }
+func (t *tiler) Pyramids() []opentile.Pyramid         { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }

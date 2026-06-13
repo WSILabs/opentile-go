@@ -9,7 +9,7 @@
 // (see docs/deferred.md §8f). One deliberate deviation: multi-image
 // OME files (where several main pyramids share a single TIFF
 // container — Leica-2.ome.tiff is one) expose every pyramid via the
-// new format.Reader.Images() API. Upstream's base Tiler loop
+// new format.Reader.Pyramids() API. Upstream's base Tiler loop
 // silently overwrites _level_series_index on each match and surfaces
 // only the last main pyramid; we treat that as an upstream oversight
 // rather than intentional behaviour.
@@ -194,13 +194,13 @@ type omeDirSpec struct {
 
 // tiler is the OME implementation of format.Reader.
 //
-// images holds the value-type opentile.Image slice (public surface).
+// images holds the value-type opentile.Pyramid slice (public surface).
 // levels holds the per-(image, level) tile-read engines (private
 // dispatch table): levels[imageIdx][levelIdx] → omeLevel.
 type tiler struct {
 	md         OMEMetadata
 	cross      opentile.Metadata // v0.17 cross-format view; populated from md at Open time
-	images     []opentile.Image
+	images     []opentile.Pyramid
 	levels     [][]omeLevel // [imageIdx][levelIdx]
 	associated []opentile.AssociatedImage
 	icc        []byte
@@ -210,8 +210,8 @@ type tiler struct {
 	dirSpecs []omeDirSpec
 }
 
-func (t *tiler) Format() opentile.Format                { return opentile.FormatOMETIFF }
-func (t *tiler) Images() []opentile.Image               { return t.images }
+func (t *tiler) Format() opentile.Format                  { return opentile.FormatOMETIFF }
+func (t *tiler) Pyramids() []opentile.Pyramid             { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.cross }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }

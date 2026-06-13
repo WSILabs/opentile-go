@@ -101,9 +101,9 @@ func TestFactoryOpen_CMU1(t *testing.T) {
 	if got := tlr.Format(); got != opentile.FormatGenericTIFF {
 		t.Errorf("Format() = %v, want %v", got, opentile.FormatGenericTIFF)
 	}
-	imgs := tlr.Images()
+	imgs := tlr.Pyramids()
 	if len(imgs) == 0 || len(imgs[0].Levels) != 9 {
-		t.Errorf("len(Images[0].Levels) = %d, want 9", func() int {
+		t.Errorf("len(Pyramids[0].Levels) = %d, want 9", func() int {
 			if len(imgs) > 0 {
 				return len(imgs[0].Levels)
 			}
@@ -420,9 +420,9 @@ func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Open: %v", err)
 			}
-			imgs := tiler.Images()
+			imgs := tiler.Pyramids()
 			if len(imgs) == 0 {
-				t.Fatalf("Images() returned empty slice")
+				t.Fatalf("Pyramids() returned empty slice")
 			}
 			levels := imgs[0].Levels
 			if len(levels) != tc.wantLevels {

@@ -123,7 +123,7 @@ type scnDirSpec struct {
 type tiler struct {
 	md         Metadata
 	levelImpls []*compositeLevel // parallel to images[0].Levels; tile-read logic
-	images     []opentile.Image  // value-type image/level metadata
+	images     []opentile.Pyramid // value-type pyramid/level metadata
 	associated []opentile.AssociatedImage
 	icc        []byte
 	sizeC      int
@@ -134,8 +134,8 @@ type tiler struct {
 	dirSpecs []scnDirSpec
 }
 
-func (t *tiler) Format() opentile.Format                { return opentile.FormatLeicaSCN }
-func (t *tiler) Images() []opentile.Image               { return t.images }
+func (t *tiler) Format() opentile.Format                  { return opentile.FormatLeicaSCN }
+func (t *tiler) Pyramids() []opentile.Pyramid             { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }

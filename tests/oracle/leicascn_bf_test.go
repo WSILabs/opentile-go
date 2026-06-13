@@ -80,7 +80,7 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 			if got := len(associated); got != tc.expectMacros {
 				t.Errorf("opentile len(Associated()) = %d, want %d", got, tc.expectMacros)
 			}
-			if got := tlr.Images()[0].SizeC(); got != tc.expectSizeC {
+			if got := tlr.Pyramids()[0].SizeC(); got != tc.expectSizeC {
 				t.Errorf("opentile SizeC = %d, want %d", got, tc.expectSizeC)
 			}
 
@@ -127,7 +127,7 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 
 			t.Logf("✓ %s: opentile %d levels / %d regions / %d associated / SizeC=%d ; bio-formats %d series",
 				tc.filename, len(levels), regionCount, len(associated),
-				tlr.Images()[0].SizeC(), bf.SeriesCount)
+				tlr.Pyramids()[0].SizeC(), bf.SeriesCount)
 		})
 	}
 }

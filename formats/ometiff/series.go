@@ -12,7 +12,7 @@ import (
 // Upstream Python opentile silently drops all but the last main
 // pyramid via an unintentional last-wins loop in its base
 // Tiler.__init__; opentile-go v0.6 deliberately exposes all of them
-// via opentile.Tiler.Images(). See docs/deferred.md "Deviations from
+// via opentile.Tiler.Pyramids(). See docs/deferred.md "Deviations from
 // upstream Python opentile".
 type omeClassification struct {
 	LevelImages []int // OMEMetadata.Images indices, in document order

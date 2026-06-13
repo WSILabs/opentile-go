@@ -107,7 +107,7 @@ func TestFactory_Open_Leica1(t *testing.T) {
 		t.Errorf("Format() = %v, want %v", got, opentile.FormatLeicaSCN)
 	}
 	// Leica-1 main scan has 5 pyramid levels.
-	if got := len(tlr.Images()[0].Levels); got != 5 {
+	if got := len(tlr.Pyramids()[0].Levels); got != 5 {
 		t.Errorf("len(Levels) = %d, want 5", got)
 	}
 	if got := len(tlr.Associated()); got != 1 {
@@ -346,8 +346,8 @@ func TestFactory_Open_AllFixtures_ReadL0Corner(t *testing.T) {
 				t.Fatalf("Open: %v", err)
 			}
 			defer tlr.Close()
-			if got := len(tlr.Images()[0].Levels); got == 0 {
-				t.Fatal("len(Images()[0].Levels) == 0; want > 0")
+			if got := len(tlr.Pyramids()[0].Levels); got == 0 {
+				t.Fatal("len(Pyramids()[0].Levels) == 0; want > 0")
 			}
 			b, err := tlr.ImageRawTile(0, 0, 0, 0)
 			if err != nil {

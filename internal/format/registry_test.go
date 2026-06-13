@@ -14,7 +14,7 @@ import (
 type fakeReader struct{ name string }
 
 func (r *fakeReader) Format() opentile.Format                                 { return opentile.Format(r.name) }
-func (r *fakeReader) Images() []opentile.Image                                { return nil }
+func (r *fakeReader) Pyramids() []opentile.Pyramid                            { return nil }
 func (r *fakeReader) Level(_, _ int) (opentile.Level, error)                  { return opentile.Level{}, nil }
 func (r *fakeReader) Associated() []opentile.AssociatedImage                  { return nil }
 func (r *fakeReader) Metadata() opentile.Metadata                             { return opentile.Metadata{} }

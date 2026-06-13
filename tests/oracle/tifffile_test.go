@@ -32,9 +32,9 @@ var tifffileSlideCandidates = []string{
 // candidate slide:
 //
 //   - Open via opentile-go's public API.
-//   - Walk every Image in tiler.Images() (matters for Leica-2 with
+//   - Walk every Pyramid in tiler.Pyramids() (matters for Leica-2 with
 //     4 main pyramids — 3 of which opentile-py drops).
-//   - For each TILED level in each Image, sample tile positions and
+//   - For each TILED level in each Pyramid, sample tile positions and
 //     byte-compare ours vs tifffile's raw bytes (no JPEGTables splice
 //     for OME, per the v0.6 T5 audit). OneFrame levels are skipped.
 //
@@ -153,7 +153,7 @@ func runTifffileParityOnSlide(t *testing.T, slide string) {
 		}
 	}()
 
-	for ii, img := range tiler.Images() {
+	for ii, img := range tiler.Pyramids() {
 		for li, lvl := range img.Levels {
 			// Only tiled levels — OneFrame uses a transformed pipeline
 			// with no straight-byte tifffile reference. Detect via

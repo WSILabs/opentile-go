@@ -68,15 +68,15 @@ type genericDirSpec struct {
 type tiler struct {
 	md          Metadata
 	tiledLevels []*tiledImage
-	images      []opentile.Image
+	images      []opentile.Pyramid
 	associated  []opentile.AssociatedImage
 	icc         []byte
 	file        *tiff.File       // retained for lazy TIFF-tag exposure
 	dirSpecs    []genericDirSpec // page→role mapping captured at Open
 }
 
-func (t *tiler) Format() opentile.Format                { return opentile.FormatGenericTIFF }
-func (t *tiler) Images() []opentile.Image               { return t.images }
+func (t *tiler) Format() opentile.Format                  { return opentile.FormatGenericTIFF }
+func (t *tiler) Pyramids() []opentile.Pyramid             { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }

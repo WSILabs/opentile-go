@@ -17,11 +17,11 @@ func (s *Slide) BestLevelForDownsample(downsample float64) int {
 // ImageBestLevelForDownsample is the multi-image variant of
 // BestLevelForDownsample.
 func (s *Slide) ImageBestLevelForDownsample(image int, downsample float64) int {
-	imgs := s.r.Images()
-	if image < 0 || image >= len(imgs) {
+	pyrs := s.r.Pyramids()
+	if image < 0 || image >= len(pyrs) {
 		return 0
 	}
-	levels := imgs[image].Levels
+	levels := pyrs[image].Levels
 	best := 0
 	for i, lvl := range levels {
 		if lvl.Downsample <= downsample {

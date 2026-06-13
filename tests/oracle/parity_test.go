@@ -76,13 +76,13 @@ func runParityOnSlide(t *testing.T, slide string) {
 	}()
 
 	// Choose which Image to compare against Python opentile. For
-	// single-image formats (SVS, NDPI, Philips, Leica-1) Images() has
+	// single-image formats (SVS, NDPI, Philips, Leica-1) Pyramids() has
 	// one entry; for multi-image OME (Leica-2) Python's last-wins
-	// loop exposes the LAST main pyramid (Images()[N-1]). Mirror that
+	// loop exposes the LAST main pyramid (Pyramids()[N-1]). Mirror that
 	// selection so byte parity is comparing the same pyramid.
-	images := tiler.Images()
+	images := tiler.Pyramids()
 	if len(images) == 0 {
-		t.Fatalf("slide %s exposes zero Images", filepath.Base(slide))
+		t.Fatalf("slide %s exposes zero Pyramids", filepath.Base(slide))
 	}
 	pyImage := images[len(images)-1]
 	for li, lvl := range pyImage.Levels {

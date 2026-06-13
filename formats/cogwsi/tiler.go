@@ -98,9 +98,9 @@ func (t *Tiler) Close() error {
 	return err
 }
 
-// Images returns the main pyramids. Delegates to the inner generic
+// Pyramids returns the main pyramids. Delegates to the inner generic
 // Tiler; COG-WSI files always carry a single pyramid (spec §5.2).
-func (t *Tiler) Images() []opentile.Image { return t.inner.Images() }
+func (t *Tiler) Pyramids() []opentile.Pyramid { return t.inner.Pyramids() }
 
 // Level returns the pyramid level at (image, level). Delegates to inner.
 func (t *Tiler) Level(image, level int) (opentile.Level, error) {

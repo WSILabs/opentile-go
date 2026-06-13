@@ -79,7 +79,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		return nil, err
 	}
 
-	images := make([]opentile.Image, 0, len(cls.LevelImages))
+	images := make([]opentile.Pyramid, 0, len(cls.LevelImages))
 	allEngines := make([][]omeLevel, 0, len(cls.LevelImages))
 	var dirSpecs []omeDirSpec
 	for k, omeIdx := range cls.LevelImages {
@@ -99,7 +99,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		if err != nil {
 			return nil, fmt.Errorf("ome: image %d: %w", omeIdx, err)
 		}
-		images = append(images, opentile.Image{
+		images = append(images, opentile.Pyramid{
 			Index:  k,
 			Name:   md.Images[omeIdx].Name,
 			Levels: valueLevels,

@@ -183,7 +183,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		}
 	}
 
-	images := []opentile.Image{{Name: "", Index: 0, Levels: valueLevels}}
+	images := []opentile.Pyramid{{Name: "", Index: 0, Levels: valueLevels}}
 
 	sizeC := 1
 	if len(composite) > 0 {

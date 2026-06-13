@@ -96,7 +96,7 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 			Downsample:   float64(l0Width) / float64(levelW),
 		}
 	}
-	images := []opentile.Image{{Name: "", Index: 0, Levels: valueLevels}}
+	images := []opentile.Pyramid{{Name: "", Index: 0, Levels: valueLevels}}
 	t := &tiler{
 		hdr:              hdr,
 		tt:               tt,
@@ -132,16 +132,16 @@ type tiler struct {
 	layerCumulative  []uint64      // prefix sum of x_tiles*y_tiles in FILE order
 	tileOffsets      []TileEntry
 	r                io.ReaderAt
-	levelImpls       []*levelImpl    // parallel to images[0].Levels; tile-read logic
-	images           []opentile.Image // value-type image/level metadata
+	levelImpls       []*levelImpl      // parallel to images[0].Levels; tile-read logic
+	images           []opentile.Pyramid // value-type pyramid/level metadata
 
 	md         Metadata
 	associated []opentile.AssociatedImage
 	icc        []byte
 }
 
-func (t *tiler) Format() opentile.Format  { return opentile.FormatIFE }
-func (t *tiler) Images() []opentile.Image { return t.images }
+func (t *tiler) Format() opentile.Format    { return opentile.FormatIFE }
+func (t *tiler) Pyramids() []opentile.Pyramid { return t.images }
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {

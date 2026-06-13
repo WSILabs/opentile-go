@@ -94,15 +94,15 @@ func newTestSlideForStrips() *Slide {
 type stripsTestReader struct{}
 
 func (r *stripsTestReader) Format() Format { return "test" }
-func (r *stripsTestReader) Images() []Image {
-	return []Image{
+func (r *stripsTestReader) Pyramids() []Pyramid {
+	return []Pyramid{
 		{Index: 0, Levels: []Level{
 			{Index: 0, Size: Size{W: 1000, H: 1000}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 4, H: 4}, Compression: CompressionJPEG, Downsample: 1.0},
 		}},
 	}
 }
 func (r *stripsTestReader) Level(image, level int) (Level, error) {
-	return r.Images()[image].Levels[level], nil
+	return r.Pyramids()[image].Levels[level], nil
 }
 func (r *stripsTestReader) Associated() []AssociatedImage { return nil }
 func (r *stripsTestReader) Metadata() Metadata            { return Metadata{} }

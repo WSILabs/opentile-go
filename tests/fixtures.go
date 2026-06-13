@@ -33,7 +33,7 @@ type Fixture struct {
 	ICCProfileSHA256  string                 `json:"icc_profile_sha256,omitempty"`
 	AssociatedImages  []AssociatedFixture    `json:"associated,omitempty"`
 	// Images is the multi-image view, populated for files where
-	// tiler.Images() returns more than one entry (multi-image OME).
+	// tiler.Pyramids() returns more than one entry (multi-image OME).
 	// When populated, integration tests walk Images instead of the
 	// top-level Levels / TileSHA256 / SampledTileSHA256 fields. Each
 	// ImageFixture's per-tile hashes are namespaced by image index

@@ -183,7 +183,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		// label is synthesized from the overview page (no separate IFD);
 		// it is NOT added to dirSpecs.
 	}
-	images := []opentile.Image{{
+	images := []opentile.Pyramid{{
 		Name:   "",
 		Index:  0,
 		Levels: levelToValueSlice(levelImpls),

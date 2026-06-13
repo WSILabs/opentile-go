@@ -144,7 +144,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	icc, _ := pages[res.Pyramid[0].Index].ICCProfile()
 	md := buildMetadata(pages[res.Pyramid[0].Index])
-	images := []opentile.Image{{
+	images := []opentile.Pyramid{{
 		Name:   "",
 		Index:  0,
 		Levels: valueLevels,

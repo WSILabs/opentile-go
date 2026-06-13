@@ -21,8 +21,8 @@ type knownPixelReader struct {
 }
 
 func (r *knownPixelReader) Format() Format { return Format("test") }
-func (r *knownPixelReader) Images() []Image {
-	return []Image{{Levels: []Level{{
+func (r *knownPixelReader) Pyramids() []Pyramid {
+	return []Pyramid{{Levels: []Level{{
 		Index: 0, Size: r.levelSize, TileSize: r.tileSize,
 		Compression: CompressionJPEG,
 	}}}}

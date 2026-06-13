@@ -290,9 +290,9 @@ func TestTiler_UnwrapTiler(t *testing.T) {
 	}
 	defer slide.Close()
 
-	images := slide.Images()
+	images := slide.Pyramids()
 	if len(images) == 0 {
-		t.Error("slide.Images(): empty")
+		t.Error("slide.Pyramids(): empty")
 	}
 	levels := slide.Levels()
 	if len(levels) == 0 {

@@ -49,9 +49,9 @@ func TestOMETIFFTagsMultiImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	imgs := s.Images()
+	imgs := s.Pyramids()
 	if len(imgs) < 2 {
-		t.Skipf("Leica-2 exposed %d images; need >=2 for multi-image check", len(imgs))
+		t.Skipf("Leica-2 exposed %d pyramids; need >=2 for multi-image check", len(imgs))
 	}
 	// Tags must be retrievable for a NON-ZERO image index.
 	last := len(imgs) - 1

@@ -31,7 +31,7 @@ type levelEngine struct {
 // Tiler is the formats/dicom reader. It owns one mmap per instance and
 // closes them all in Close().
 type Tiler struct {
-	img        opentile.Image
+	img        opentile.Pyramid
 	levels     []*levelEngine
 	associated []opentile.AssociatedImage
 	meta       opentile.Metadata
@@ -70,7 +70,7 @@ func openSeriesFromInstances(insts []idicom.Instance, open instanceBytes) (*Tile
 		}
 		t.levels = append(t.levels, eng)
 	}
-	t.img = opentile.Image{Name: "", Index: 0, Levels: t.buildLevels()}
+	t.img = opentile.Pyramid{Name: "", Index: 0, Levels: t.buildLevels()}
 	t.meta, t.dmeta = buildMetadata(l0, s)  // Task 8
 	t.associated = buildAssociated(s, open) // Task 7
 	t.icc = s.levels[0].inst.ICCProfile
@@ -104,7 +104,7 @@ func ceilDiv(a, b int) int {
 // --- format.Reader methods ---
 
 func (t *Tiler) Format() opentile.Format                { return opentile.FormatDICOM }
-func (t *Tiler) Images() []opentile.Image               { return []opentile.Image{t.img} }
+func (t *Tiler) Pyramids() []opentile.Pyramid           { return []opentile.Pyramid{t.img} }
 func (t *Tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *Tiler) Metadata() opentile.Metadata            { return t.meta }
 func (t *Tiler) ICCProfile() []byte                     { return t.icc }

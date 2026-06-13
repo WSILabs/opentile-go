@@ -113,7 +113,7 @@ func TestSlideTIFFAccessors(t *testing.T) {
 type nonTIFFReader struct{}
 
 func (nonTIFFReader) Format() Format                { return Format("test") }
-func (nonTIFFReader) Images() []Image               { return nil }
+func (nonTIFFReader) Pyramids() []Pyramid            { return nil }
 func (nonTIFFReader) Level(_, _ int) (Level, error) { return Level{}, errors.New("stub") }
 func (nonTIFFReader) Associated() []AssociatedImage { return nil }
 func (nonTIFFReader) Metadata() Metadata            { return Metadata{} }

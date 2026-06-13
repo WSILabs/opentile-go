@@ -54,9 +54,9 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Errorf("Format = %v, want %v", got, opentile.FormatIFE)
 	}
 
-	imgs := tiler.Images()
+	imgs := tiler.Pyramids()
 	if len(imgs) != 1 {
-		t.Fatalf("Images count = %d, want 1", len(imgs))
+		t.Fatalf("Pyramids count = %d, want 1", len(imgs))
 	}
 	levels := imgs[0].Levels
 	if len(levels) != 9 {

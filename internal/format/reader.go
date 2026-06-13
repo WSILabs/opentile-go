@@ -13,11 +13,11 @@ import (
 // public *opentile.Slide type wraps a Reader and delegates all
 // method calls. Internal to opentile-go.
 //
-// In v0.24, Level and Image are value-type structs; tile reads happen
+// In v0.24, Level and Pyramid are value-type structs; tile reads happen
 // at the Reader level with (image, level) addressing.
 type Reader interface {
 	Format() opentile.Format
-	Images() []opentile.Image
+	Pyramids() []opentile.Pyramid
 	Level(image, level int) (opentile.Level, error)
 	Associated() []opentile.AssociatedImage
 	Metadata() opentile.Metadata

@@ -79,10 +79,10 @@ func TestBIFAccessors(t *testing.T) {
 				t.Errorf("Level(-1): want ErrLevelOutOfRange, got %v", err)
 			}
 
-			// Image-level (value-type fields)
-			imgs := tiler.Images()
+			// Pyramid-level (value-type fields)
+			imgs := tiler.Pyramids()
 			if len(imgs) != 1 {
-				t.Fatalf("Images: got %d, want 1 (BIF is single-image)", len(imgs))
+				t.Fatalf("Pyramids: got %d, want 1 (BIF is single-image)", len(imgs))
 			}
 			img := imgs[0]
 			if img.Index != 0 {

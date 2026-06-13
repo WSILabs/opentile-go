@@ -51,9 +51,9 @@ type Tiler struct {
 	// for fast tile lookup.
 	entries map[string]*zip.File
 
-	// sziImage holds the single value-type opentile.Image built in
+	// sziImage holds the single value-type opentile.Pyramid built in
 	// buildLevels. SZI spec mandates exactly one image per archive.
-	sziImage opentile.Image
+	sziImage opentile.Pyramid
 
 	// levelEngines holds the per-level tile-read engines, parallel to
 	// sziImage.Levels. Used for (image, level, tx, ty) dispatch.
@@ -171,7 +171,7 @@ func (t *Tiler) buildLevels() error {
 			Downsample:   float64(l0W) / float64(w),
 		}
 	}
-	t.sziImage = opentile.Image{
+	t.sziImage = opentile.Pyramid{
 		Name:   "",
 		Index:  0,
 		Levels: valueLevels,
@@ -311,14 +311,14 @@ func (t *Tiler) Close() error {
 	return nil
 }
 
-// Images returns the single Image carried by the SZI file. The
+// Pyramids returns the single Pyramid carried by the SZI file. The
 // returned slice has exactly one element per the SZI spec (no
 // DZC collections in SZI).
-func (t *Tiler) Images() []opentile.Image {
+func (t *Tiler) Pyramids() []opentile.Pyramid {
 	if t.levelEngines == nil {
 		return nil
 	}
-	return []opentile.Image{t.sziImage}
+	return []opentile.Pyramid{t.sziImage}
 }
 
 // Level returns the value-type Level for the given (image, level) pair.

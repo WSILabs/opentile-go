@@ -131,7 +131,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	if iscan != nil {
 		zSpacing = iscan.ZSpacing
 	}
-	images := []opentile.Image{{
+	images := []opentile.Pyramid{{
 		Name:   "",
 		Index:  0,
 		Levels: valueLevels,
@@ -160,7 +160,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 // composes JPEGTables into per-tile bytes when the IFD has a shared
 // header. T16+ surface associated images, metadata, and ICC profile.
 // v0.24: restructured to satisfy format.Reader with (image, level)
-// dispatch; value-type []opentile.Image populated eagerly at Open time.
+// dispatch; value-type []opentile.Pyramid populated eagerly at Open time.
 type Tiler struct {
 	file *tiff.File
 	cfg  *format.Config // reserved for future format-level knobs; currently unused
@@ -178,12 +178,12 @@ type Tiler struct {
 	// levelImpls carries the tile-read logic.
 	levelImpls []*levelImpl
 
-	// images is the value-type image slice returned by Images().
+	// images is the value-type pyramid slice returned by Pyramids().
 	// BIF is single-image; always len == 1.
-	images []opentile.Image
+	images []opentile.Pyramid
 
 	// image holds BIF-specific Z-stack metadata (SizeZ, ZPlaneFocus).
-	// Not the opentile.Image — that's in images[0].
+	// Not the opentile.Pyramid — that's in images[0].
 	image *bifImage
 
 	// Associated images built from the associatedIFD inventory.
@@ -202,10 +202,10 @@ type Tiler struct {
 }
 
 // bifImage holds BIF-specific multi-Z metadata for the level-0 IFD.
-// The v0.24 opentile.Image value-type struct doesn't carry SizeZ or
+// The opentile.Pyramid value-type struct doesn't carry SizeZ or
 // ZPlaneFocus; bifImage keeps those fields internally so that the
 // Tiler and its tests can access BIF-specific Z-stack metadata without
-// going through the public opentile.Image.
+// going through the public opentile.Pyramid.
 type bifImage struct {
 	imageDepth  int
 	zPlaneFocus []float64 // index z → microns from nominal; len == imageDepth
@@ -330,9 +330,9 @@ func loadIScan(file *tiff.File) (*bifxml.IScan, error) {
 // Format reports the BIF format identifier.
 func (t *Tiler) Format() opentile.Format { return opentile.FormatBIF }
 
-// Images returns the main pyramids carried by this file. BIF is a
-// single-image format — always one Image regardless of AOI count.
-func (t *Tiler) Images() []opentile.Image { return t.images }
+// Pyramids returns the main pyramids carried by this file. BIF is a
+// single-image format — always one Pyramid regardless of AOI count.
+func (t *Tiler) Pyramids() []opentile.Pyramid { return t.images }
 
 func (t *Tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {

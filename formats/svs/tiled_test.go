@@ -117,7 +117,7 @@ func TestSvsTilerOpenAndLevel(t *testing.T) {
 	}
 	defer tiler.Close()
 
-	imgs := tiler.Images()
+	imgs := tiler.Pyramids()
 	if len(imgs) != 1 || len(imgs[0].Levels) != 1 {
 		t.Fatalf("images/levels: got %d images, %d levels; want 1 image, 1 level",
 			len(imgs), func() int {
@@ -298,7 +298,7 @@ func TestMetadataOfRejectsNonSVSTiler(t *testing.T) {
 type fakeNonSVSTiler struct{}
 
 func (f *fakeNonSVSTiler) Format() opentile.Format                { return opentile.Format("fake") }
-func (f *fakeNonSVSTiler) Images() []opentile.Image               { return nil }
+func (f *fakeNonSVSTiler) Pyramids() []opentile.Pyramid           { return nil }
 func (f *fakeNonSVSTiler) Level(_, _ int) (opentile.Level, error) { return opentile.Level{}, opentile.ErrLevelOutOfRange }
 func (f *fakeNonSVSTiler) Associated() []opentile.AssociatedImage { return nil }
 func (f *fakeNonSVSTiler) Metadata() opentile.Metadata            { return opentile.Metadata{} }
@@ -439,7 +439,7 @@ func TestSvsTilerSkipsNonTiledPages(t *testing.T) {
 		t.Fatalf("Open: non-tiled page should not cause Open to fail: %v", err)
 	}
 	defer tiler.Close()
-	imgs := tiler.Images()
+	imgs := tiler.Pyramids()
 	if len(imgs) != 1 || len(imgs[0].Levels) != 1 {
 		t.Fatalf("images/levels: got %d images with %d levels; want 1 image, 1 level (non-tiled page should be skipped)",
 			len(imgs), func() int {

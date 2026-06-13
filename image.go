@@ -118,14 +118,14 @@ const (
 	AssociatedGeneric     = "associated"  // generic-TIFF heuristic fallback
 )
 
-// Image identifies one pyramid group within a slide. Single-image
-// formats carry a single Image. OME-TIFF can carry multiple.
-type Image struct {
-	// Name identifies this image. For OME-TIFF, the <Image Name="...">
+// Pyramid identifies one multi-resolution image within a slide.
+// Single-image formats carry a single Pyramid. OME-TIFF can carry multiple.
+type Pyramid struct {
+	// Name identifies this pyramid. For OME-TIFF, the <Image Name="...">
 	// attribute. Empty for single-image formats.
 	Name string
 
-	// Index is the 0-based document-order index of this Image within
+	// Index is the 0-based document-order index of this Pyramid within
 	// the parent Slide. Pass to *Slide.ImageRawTile(image, level, tx, ty).
 	Index int
 

@@ -57,9 +57,9 @@ func TestMultiDimCompat2D(t *testing.T) {
 			}
 			defer tiler.Close()
 
-			imgs := tiler.Images()
+			imgs := tiler.Pyramids()
 			if len(imgs) == 0 {
-				t.Fatal("Images: empty slice")
+				t.Fatal("Pyramids: empty slice")
 			}
 			for ii, img := range imgs {
 				if len(img.Levels) == 0 {

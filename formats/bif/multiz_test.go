@@ -38,9 +38,9 @@ func TestMultiZBIFOpens(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 
-	imgs := tiler.Images()
+	imgs := tiler.Pyramids()
 	if len(imgs) != 1 {
-		t.Fatalf("Images: got %d, want 1", len(imgs))
+		t.Fatalf("Pyramids: got %d, want 1", len(imgs))
 	}
 	// BIF-specific multi-Z accessors live on the internal bifImage.
 	if got := tiler.image.SizeZ(); got != depth {

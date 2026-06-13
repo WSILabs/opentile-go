@@ -33,12 +33,12 @@ func TestLevelLiteralFields(t *testing.T) {
 }
 
 func TestImageIsValueType(t *testing.T) {
-	img := opentile.Image{
+	img := opentile.Pyramid{
 		Name:   "primary",
 		Index:  0,
 		Levels: []opentile.Level{{Index: 0}, {Index: 1}},
 	}
 	if img.Name != "primary" || len(img.Levels) != 2 {
-		t.Errorf("Image literal not preserved: %+v", img)
+		t.Errorf("Pyramid literal not preserved: %+v", img)
 	}
 }

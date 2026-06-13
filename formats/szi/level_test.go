@@ -68,15 +68,15 @@ func TestImages_CMU1SingleImage(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	images := tlr.Images()
+	images := tlr.Pyramids()
 	if len(images) != 1 {
-		t.Fatalf("Images: got %d, want 1", len(images))
+		t.Fatalf("Pyramids: got %d, want 1", len(images))
 	}
 	if got := images[0].Index; got != 0 {
-		t.Errorf("Image.Index = %d, want 0", got)
+		t.Errorf("Pyramid.Index = %d, want 0", got)
 	}
 	if got := len(images[0].Levels); got != 13 {
-		t.Errorf("Image.Levels: got %d, want 13", got)
+		t.Errorf("Pyramid.Levels: got %d, want 13", got)
 	}
 }
 

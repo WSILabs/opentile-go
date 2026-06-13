@@ -12,9 +12,9 @@ func TestImage_Name_ReturnsEmpty(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	img := tlr.Images()[0]
+	img := tlr.Pyramids()[0]
 	if got := img.Name; got != "" {
-		t.Errorf("Image.Name = %q, want empty string", got)
+		t.Errorf("Pyramid.Name = %q, want empty string", got)
 	}
 }
 
@@ -22,7 +22,7 @@ func TestImage_Level_Valid(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	img := tlr.Images()[0]
+	img := tlr.Pyramids()[0]
 	levels := img.Levels
 
 	// Level(0) should return the first level.
@@ -31,7 +31,7 @@ func TestImage_Level_Valid(t *testing.T) {
 		t.Fatalf("Slide.Level(0): %v", err)
 	}
 	if got != levels[0] {
-		t.Errorf("Slide.Level(0) mismatch with Images()[0].Levels[0]")
+		t.Errorf("Slide.Level(0) mismatch with Pyramids()[0].Levels[0]")
 	}
 }
 

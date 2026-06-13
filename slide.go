@@ -16,7 +16,7 @@ import (
 // method sets are identical.
 type slideReader interface {
 	Format() Format
-	Images() []Image
+	Pyramids() []Pyramid
 	Level(image, level int) (Level, error)
 	Associated() []AssociatedImage
 	Metadata() Metadata
@@ -45,7 +45,7 @@ type slideReader interface {
 // pre-v0.23 Tiler interface as the public return type of Open and
 // OpenFile.
 //
-// Concurrency contract: all accessor methods (Format, Images, Levels,
+// Concurrency contract: all accessor methods (Format, Pyramids, Levels,
 // Level, Associated, Metadata, ICCProfile) are safe to call concurrently.
 // Tile reads via RawTile / RawTileInto are safe concurrently.
 // Close must not race with in-flight tile reads.
@@ -67,21 +67,21 @@ type Slide struct {
 // Format returns the canonical format identifier.
 func (s *Slide) Format() Format { return s.r.Format() }
 
-// Images returns the main pyramids carried by this file. Always
-// returns at least one Image; multi-image OME-TIFF exposes multiple.
+// Pyramids returns the main pyramids carried by this file. Always
+// returns at least one Pyramid; multi-image OME-TIFF exposes multiple.
 // Index 0 is the legacy Levels() / Level(i) shortcut target.
-func (s *Slide) Images() []Image { return s.r.Images() }
+func (s *Slide) Pyramids() []Pyramid { return s.r.Pyramids() }
 
-// Levels is a shortcut for s.Images()[0].Levels.
+// Levels is a shortcut for s.Pyramids()[0].Levels.
 func (s *Slide) Levels() []Level {
-	imgs := s.r.Images()
-	if len(imgs) == 0 {
+	pyrs := s.r.Pyramids()
+	if len(pyrs) == 0 {
 		return nil
 	}
-	return imgs[0].Levels
+	return pyrs[0].Levels
 }
 
-// Level is a shortcut for s.Images()[0].Levels[i].
+// Level is a shortcut for s.Pyramids()[0].Levels[i].
 func (s *Slide) Level(i int) (Level, error) { return s.r.Level(0, i) }
 
 // Associated returns the auxiliary images (label, macro, thumbnail,

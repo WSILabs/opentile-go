@@ -8,11 +8,11 @@ import (
 )
 
 type bestLevelTestReader struct {
-	images []Image
+	images []Pyramid
 }
 
 func (r *bestLevelTestReader) Format() Format                                  { return "test" }
-func (r *bestLevelTestReader) Images() []Image                                 { return r.images }
+func (r *bestLevelTestReader) Pyramids() []Pyramid                             { return r.images }
 func (r *bestLevelTestReader) Level(image, level int) (Level, error)           { return r.images[image].Levels[level], nil }
 func (r *bestLevelTestReader) Associated() []AssociatedImage                   { return nil }
 func (r *bestLevelTestReader) Metadata() Metadata                              { return Metadata{} }
@@ -36,7 +36,7 @@ func (r *bestLevelTestReader) Close() error { return nil }
 
 func TestBestLevelForDownsample(t *testing.T) {
 	slide := &Slide{r: &bestLevelTestReader{
-		images: []Image{
+		images: []Pyramid{
 			{Index: 0, Levels: []Level{
 				{Index: 0, Downsample: 1},
 				{Index: 1, Downsample: 4},
@@ -70,7 +70,7 @@ func TestBestLevelForDownsample(t *testing.T) {
 
 func TestImageBestLevelForDownsample(t *testing.T) {
 	slide := &Slide{r: &bestLevelTestReader{
-		images: []Image{
+		images: []Pyramid{
 			{Index: 0, Levels: []Level{{Index: 0, Downsample: 1}, {Index: 1, Downsample: 8}}},
 			{Index: 1, Levels: []Level{{Index: 0, Downsample: 2}, {Index: 1, Downsample: 16}}},
 		},

@@ -187,7 +187,7 @@ func TestSynthLayerInversion(t *testing.T) {
 	tiler := openIFETiler(t, data)
 	defer tiler.Close()
 
-	levels := tiler.Images()[0].Levels
+	levels := tiler.Pyramids()[0].Levels
 	if len(levels) != 3 {
 		t.Fatalf("level count = %d, want 3", len(levels))
 	}
@@ -288,7 +288,7 @@ func TestSynthIrisEncoding(t *testing.T) {
 	data, _ := sb.build()
 	tiler := openIFETiler(t, data)
 	defer tiler.Close()
-	if got := tiler.Images()[0].Levels[0].Compression; got != opentile.CompressionIRIS {
+	if got := tiler.Pyramids()[0].Levels[0].Compression; got != opentile.CompressionIRIS {
 		t.Errorf("compression = %v, want CompressionIRIS", got)
 	}
 }
@@ -305,7 +305,7 @@ func TestSynthAvifEncoding(t *testing.T) {
 	data, _ := sb.build()
 	tiler := openIFETiler(t, data)
 	defer tiler.Close()
-	if got := tiler.Images()[0].Levels[0].Compression; got != opentile.CompressionAVIF {
+	if got := tiler.Pyramids()[0].Levels[0].Compression; got != opentile.CompressionAVIF {
 		t.Errorf("compression = %v, want CompressionAVIF", got)
 	}
 }

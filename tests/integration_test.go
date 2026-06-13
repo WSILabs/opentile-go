@@ -165,7 +165,7 @@ func checkSlideAgainstFixture(t *testing.T, slide, fixturePath string) {
 	// view; single-image fixtures use the legacy top-level Levels /
 	// TileSHA256 / SampledTileSHA256 fields.
 	if len(fix.Images) > 0 {
-		images := tiler.Images()
+		images := tiler.Pyramids()
 		if len(images) != len(fix.Images) {
 			t.Fatalf("image count: got %d, want %d", len(images), len(fix.Images))
 		}

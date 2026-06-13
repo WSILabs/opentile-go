@@ -191,7 +191,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}
 
 	icc, _ := pages[0].ICCProfile()
-	images := []opentile.Image{{
+	images := []opentile.Pyramid{{
 		Name:   "",
 		Index:  0,
 		Levels: valueLevels,
@@ -222,7 +222,7 @@ type philipsDirSpec struct {
 type tiler struct {
 	md          Metadata
 	tiledLevels []*tiledImage
-	images      []opentile.Image
+	images      []opentile.Pyramid
 	associated  []opentile.AssociatedImage
 	icc         []byte
 	baseSize    opentile.Size
@@ -231,8 +231,8 @@ type tiler struct {
 	dirSpecs    []philipsDirSpec // page→role mapping captured at Open
 }
 
-func (t *tiler) Format() opentile.Format                { return opentile.FormatPhilipsTIFF }
-func (t *tiler) Images() []opentile.Image               { return t.images }
+func (t *tiler) Format() opentile.Format                  { return opentile.FormatPhilipsTIFF }
+func (t *tiler) Pyramids() []opentile.Pyramid           { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }

@@ -123,7 +123,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		dirSpecs = append(dirSpecs, svsDirSpec{pageIdx: pageIdx, typ: opentile.DirLevel, level: levelIdx})
 		seenPages[pageIdx] = true
 	}
-	images := []opentile.Image{{
+	images := []opentile.Pyramid{{
 		Name:   "",
 		Index:  0,
 		Levels: valueLevels,
@@ -184,15 +184,15 @@ type svsDirSpec struct {
 type tiler struct {
 	md         Metadata
 	levels     []*tiledImage
-	images     []opentile.Image
+	images     []opentile.Pyramid
 	associated []opentile.AssociatedImage
 	icc        []byte
 	file       *tiff.File   // retained for lazy TIFF-tag exposure
 	dirSpecs   []svsDirSpec // page→role mapping captured at Open
 }
 
-func (t *tiler) Format() opentile.Format                { return opentile.FormatSVS }
-func (t *tiler) Images() []opentile.Image               { return t.images }
+func (t *tiler) Format() opentile.Format                  { return opentile.FormatSVS }
+func (t *tiler) Pyramids() []opentile.Pyramid             { return t.images }
 func (t *tiler) Associated() []opentile.AssociatedImage { return t.associated }
 func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
 func (t *tiler) ICCProfile() []byte                     { return t.icc }

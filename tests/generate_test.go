@@ -111,9 +111,9 @@ func generateFixture(slide string) error {
 		Format: string(tiler.Format()),
 	}
 
-	images := tiler.Images()
+	images := tiler.Pyramids()
 	if len(images) > 1 {
-		// Multi-image (OME) → populate fix.Images. Each Image's
+		// Multi-image (OME) → populate fix.Images. Each Pyramid's
 		// Levels / TileSHA256 / SampledTileSHA256 are namespaced under
 		// the per-image record.
 		for ii, img := range images {

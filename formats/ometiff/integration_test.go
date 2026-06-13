@@ -49,10 +49,10 @@ func TestOMEAccessors(t *testing.T) {
 	_ = tiler.Metadata()
 	_ = tiler.ICCProfile()
 
-	// Image-level (value-type struct fields)
-	imgs := tiler.Images()
+	// Pyramid-level (value-type struct fields)
+	imgs := tiler.Pyramids()
 	if len(imgs) == 0 {
-		t.Fatal("Images: empty slice")
+		t.Fatal("Pyramids: empty slice")
 	}
 	img := imgs[0]
 	if img.Index != 0 {
