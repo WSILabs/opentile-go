@@ -41,21 +41,14 @@ type Metadata struct {
 	// different formats and our parsers are lenient but not exhaustive.
 	AcquisitionDateTime time.Time
 
-	// MicronsPerPixel is populated when MicronsPerPixelX and
-	// MicronsPerPixelY are both set and equal (strict ==). When the
-	// format reports asymmetric pixel size, MicronsPerPixel is zero
-	// and consumers should consult the per-axis fields. Zero indicates
-	// "unknown OR asymmetric"; check MicronsPerPixelX/Y to disambiguate.
+	// MPP is the per-axis microns-per-pixel for this slide.
+	// The zero value (MPP.IsZero() == true) means the format didn't
+	// report it. Most slides are isotropic (MPP.X == MPP.Y);
+	// MPP.Symmetric() returns the single value when X == Y, else 0.
 	//
-	// Added in v0.17.
-	MicronsPerPixel float64
-
-	// MicronsPerPixelX / MicronsPerPixelY are the per-axis pixel size
-	// in microns. Zero indicates the format didn't report it.
-	//
-	// Added in v0.17.
-	MicronsPerPixelX float64
-	MicronsPerPixelY float64
+	// Replaces the three MicronsPerPixel / MicronsPerPixelX /
+	// MicronsPerPixelY float64 fields from v0.17–v0.39 in v1.0.
+	MPP MPP
 
 	// ImageDescription is the structured per-format description (e.g.,
 	// SVS ImageDescription TIFF tag, OME-XML <Image Description>
@@ -112,19 +105,13 @@ type Metadata struct {
 	Writer string
 }
 
-// SetMPPSymmetric populates MicronsPerPixel from MicronsPerPixelX and
-// MicronsPerPixelY when they are equal (strict ==). When asymmetric,
-// MicronsPerPixel is zeroed.
+// SetMPPSymmetric is a shim for readers that set per-axis MPP fields before
+// v1.0. It is now a no-op: readers should set md.MPP = MPP{X: µmX, Y: µmY}
+// directly. Kept to avoid churn; removed in a future cleanup pass.
 //
-// Format readers call this after setting the per-axis fields.
-//
-// Added in v0.17.
+// Added in v0.17; deprecated in v1.0.
 func (m *Metadata) SetMPPSymmetric() {
-	if m.MicronsPerPixelX > 0 && m.MicronsPerPixelX == m.MicronsPerPixelY {
-		m.MicronsPerPixel = m.MicronsPerPixelX
-	} else {
-		m.MicronsPerPixel = 0
-	}
+	// no-op: readers now populate m.MPP directly.
 }
 
 // SetProperty is a nil-safe setter for Properties. Lazily initializes

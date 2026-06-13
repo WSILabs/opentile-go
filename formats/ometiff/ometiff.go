@@ -91,9 +91,10 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		if err != nil {
 			return nil, fmt.Errorf("ome: image %d base page: %w", omeIdx, err)
 		}
-		baseMPP := opentile.SizeMm{
-			W: md.Images[omeIdx].PhysicalSizeX,
-			H: md.Images[omeIdx].PhysicalSizeY,
+		// PhysicalSizeX/Y are already in µm (converted by crossMetadata/convertToMicrons).
+		baseMPP := opentile.MPP{
+			X: md.Images[omeIdx].PhysicalSizeX,
+			Y: md.Images[omeIdx].PhysicalSizeY,
 		}
 		valueLevels, engines, levelPages, err := buildLevels(file, basePage, baseSize, baseMPP, oneFrameTileSize)
 		if err != nil {

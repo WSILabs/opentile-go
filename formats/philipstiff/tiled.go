@@ -40,7 +40,7 @@ type tiledImage struct {
 	tileSize    opentile.Size
 	grid        opentile.Size
 	compression opentile.Compression
-	mpp         opentile.SizeMm
+	mpp         opentile.MPP
 	pyrIndex    int
 
 	offsets     []uint64
@@ -71,7 +71,7 @@ func newTiledImage(
 	p *tiff.Page,
 	correctedSize opentile.Size,
 	baseSize opentile.Size,
-	baseMPP opentile.SizeMm,
+	baseMPP opentile.MPP,
 	r io.ReaderAt,
 	cfg *format.Config,
 ) (*tiledImage, error) {
@@ -127,7 +127,7 @@ func newTiledImage(
 		}
 	}
 
-	// Per-axis MPP scaling. baseMPP is microns/pixel at the baseline;
+	// Per-axis MPP scaling. baseMPP is µm/px at the baseline;
 	// each level's MPP scales by the level's reduction factor.
 	scaleW, scaleH := 1.0, 1.0
 	if correctedSize.W > 0 {
@@ -136,9 +136,9 @@ func newTiledImage(
 	if correctedSize.H > 0 {
 		scaleH = float64(baseSize.H) / float64(correctedSize.H)
 	}
-	mpp := opentile.SizeMm{
-		W: baseMPP.W * scaleW,
-		H: baseMPP.H * scaleH,
+	mpp := opentile.MPP{
+		X: baseMPP.X * scaleW,
+		Y: baseMPP.Y * scaleH,
 	}
 
 	var maxCount uint64
@@ -187,7 +187,7 @@ func (l *tiledImage) Size() opentile.Size               { return l.size }
 func (l *tiledImage) TileSize() opentile.Size           { return l.tileSize }
 func (l *tiledImage) Grid() opentile.Size               { return l.grid }
 func (l *tiledImage) Compression() opentile.Compression { return l.compression }
-func (l *tiledImage) MPP() opentile.SizeMm              { return l.mpp }
+func (l *tiledImage) MPP() opentile.MPP                  { return l.mpp }
 func (l *tiledImage) FocalPlane() float64               { return 0 }
 func (l *tiledImage) TileOverlap() image.Point          { return image.Point{} }
 

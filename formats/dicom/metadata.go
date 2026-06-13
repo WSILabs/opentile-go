@@ -25,11 +25,10 @@ func buildMetadata(l0 idicom.Instance, s series) (opentile.Metadata, Metadata) {
 	if l0.Software != "" {
 		md.ScannerSoftware = []string{l0.Software}
 	}
-	// PixelSpacing is in mm; opentile MPP is µm.
-	md.MicronsPerPixelX = l0.PixelSpacingX * 1000
-	md.MicronsPerPixelY = l0.PixelSpacingY * 1000
-	if md.MicronsPerPixelX == md.MicronsPerPixelY {
-		md.MicronsPerPixel = md.MicronsPerPixelX
+	// PixelSpacing is in mm; Metadata.MPP is in µm.
+	md.MPP = opentile.MPP{
+		X: l0.PixelSpacingX * 1000,
+		Y: l0.PixelSpacingY * 1000,
 	}
 	dm := Metadata{Metadata: md, SeriesUID: l0.SeriesUID, TransferSyntax: l0.TransferSyntax, DimOrg: l0.DimOrg}
 	return md, dm

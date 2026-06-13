@@ -36,7 +36,7 @@ type Options struct {
 	// returned by Image.PyramidIndex().
 	PyramidIdx int
 	// MPP is the microns-per-pixel returned by Image.MPP().
-	MPP opentile.SizeMm
+	MPP opentile.MPP
 	// Size overrides the page's on-disk ImageWidth/ImageLength when
 	// non-zero. Callers (e.g. OME with corrected dims) supply this
 	// when the on-disk values are placeholders. NDPI passes a zero
@@ -62,7 +62,7 @@ type Image struct {
 	tileSize    opentile.Size
 	grid        opentile.Size
 	compression opentile.Compression
-	mpp         opentile.SizeMm
+	mpp         opentile.MPP
 	pyrIndex    int
 
 	firstStripOnly bool
@@ -132,7 +132,7 @@ func (l *Image) Size() opentile.Size               { return l.size }
 func (l *Image) TileSize() opentile.Size           { return l.tileSize }
 func (l *Image) Grid() opentile.Size               { return l.grid }
 func (l *Image) Compression() opentile.Compression { return l.compression }
-func (l *Image) MPP() opentile.SizeMm              { return l.mpp }
+func (l *Image) MPP() opentile.MPP                  { return l.mpp }
 func (l *Image) FocalPlane() float64               { return 0 }
 func (l *Image) TileOverlap() image.Point          { return image.Point{} }
 

@@ -29,7 +29,7 @@ type tiledImage struct {
 	tileSize    opentile.Size
 	grid        opentile.Size
 	compression opentile.Compression
-	mpp         opentile.SizeMm
+	mpp         opentile.MPP
 	pyrIndex    int
 
 	offsets    []uint64
@@ -124,7 +124,8 @@ func newTiledImage(
 	if iw > 0 {
 		scale = float64(baseSize.W) / float64(iw)
 	}
-	mpp := opentile.SizeMm{W: baseMPP * scale / 1000.0, H: baseMPP * scale / 1000.0}
+	// baseMPP is µm/px at L0; multiply by scale to get µm/px at this level.
+	mpp := opentile.MPP{X: baseMPP * scale, Y: baseMPP * scale}
 
 	// Cache the upper-bound output size for Tile/TileInto. For JPEG
 	// pages with shared JPEGTables, the splice prepends (SOI + APP14 +
@@ -175,7 +176,7 @@ func (l *tiledImage) Size() opentile.Size               { return l.size }
 func (l *tiledImage) TileSize() opentile.Size           { return l.tileSize }
 func (l *tiledImage) Grid() opentile.Size               { return l.grid }
 func (l *tiledImage) Compression() opentile.Compression { return l.compression }
-func (l *tiledImage) MPP() opentile.SizeMm              { return l.mpp }
+func (l *tiledImage) MPP() opentile.MPP                  { return l.mpp }
 func (l *tiledImage) FocalPlane() float64               { return 0 }
 func (l *tiledImage) TileOverlap() image.Point          { return image.Point{} }
 

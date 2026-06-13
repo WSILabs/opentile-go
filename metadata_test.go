@@ -2,39 +2,57 @@ package opentile
 
 import "testing"
 
-func TestSetMPPSymmetric_Equal(t *testing.T) {
-	m := Metadata{MicronsPerPixelX: 0.4, MicronsPerPixelY: 0.4}
-	m.SetMPPSymmetric()
-	if m.MicronsPerPixel != 0.4 {
-		t.Errorf("MicronsPerPixel = %v, want 0.4", m.MicronsPerPixel)
+// TestMPP_IsZero: zero value and non-zero MPP.
+func TestMPP_IsZero(t *testing.T) {
+	if z := (MPP{}); !z.IsZero() {
+		t.Errorf("MPP{}.IsZero() = false, want true")
+	}
+	if nz := (MPP{X: 0.4, Y: 0.4}); nz.IsZero() {
+		t.Errorf("MPP{0.4,0.4}.IsZero() = true, want false")
+	}
+	if asymX := (MPP{X: 0.4}); asymX.IsZero() {
+		t.Errorf("MPP{X:0.4}.IsZero() = true, want false")
 	}
 }
 
-func TestSetMPPSymmetric_Asymmetric(t *testing.T) {
-	m := Metadata{MicronsPerPixelX: 0.4, MicronsPerPixelY: 0.5}
-	m.MicronsPerPixel = 0.45 // pre-set; should be cleared
-	m.SetMPPSymmetric()
-	if m.MicronsPerPixel != 0 {
-		t.Errorf("asymmetric: MicronsPerPixel = %v, want 0", m.MicronsPerPixel)
+// TestMPP_Symmetric: equal X==Y returns X; asymmetric returns 0.
+func TestMPP_Symmetric(t *testing.T) {
+	if got := (MPP{X: 0.4, Y: 0.4}).Symmetric(); got != 0.4 {
+		t.Errorf("symmetric MPP.Symmetric() = %v, want 0.4", got)
+	}
+	if got := (MPP{X: 0.4, Y: 0.5}).Symmetric(); got != 0 {
+		t.Errorf("asymmetric MPP.Symmetric() = %v, want 0", got)
+	}
+	if got := (MPP{}).Symmetric(); got != 0 {
+		t.Errorf("zero MPP.Symmetric() = %v, want 0", got)
 	}
 }
 
-func TestSetMPPSymmetric_OneZero(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		x, y float64
-	}{
-		{"X zero", 0, 0.4},
-		{"Y zero", 0.4, 0},
-		{"both zero", 0, 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			m := Metadata{MicronsPerPixelX: tc.x, MicronsPerPixelY: tc.y}
-			m.SetMPPSymmetric()
-			if m.MicronsPerPixel != 0 {
-				t.Errorf("MicronsPerPixel = %v, want 0", m.MicronsPerPixel)
-			}
-		})
+// TestMetadata_MPP_Direct: direct MPP assignment.
+func TestMetadata_MPP_Direct(t *testing.T) {
+	m := Metadata{MPP: MPP{X: 0.4, Y: 0.4}}
+	if m.MPP.X != 0.4 || m.MPP.Y != 0.4 {
+		t.Errorf("MPP = %v, want {0.4, 0.4}", m.MPP)
+	}
+	if got := m.MPP.Symmetric(); got != 0.4 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.4", got)
+	}
+}
+
+// TestMetadata_MPP_Asymmetric: asymmetric MPP has Symmetric() == 0.
+func TestMetadata_MPP_Asymmetric(t *testing.T) {
+	m := Metadata{MPP: MPP{X: 0.4, Y: 0.5}}
+	if got := m.MPP.Symmetric(); got != 0 {
+		t.Errorf("asymmetric MPP.Symmetric() = %v, want 0", got)
+	}
+}
+
+// TestSetMPPSymmetric_NoOp: the shim method is a no-op in v1.0.
+func TestSetMPPSymmetric_NoOp(t *testing.T) {
+	m := Metadata{MPP: MPP{X: 0.4, Y: 0.4}}
+	m.SetMPPSymmetric() // should not panic or change state
+	if m.MPP.X != 0.4 || m.MPP.Y != 0.4 {
+		t.Errorf("SetMPPSymmetric changed MPP to %v", m.MPP)
 	}
 }
 

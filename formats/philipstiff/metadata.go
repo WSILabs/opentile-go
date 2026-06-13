@@ -94,16 +94,16 @@ func parseMetadata(xmlStr string) (Metadata, error) {
 			md.PixelSpacing = [2]float64{w, h}
 			// Cross-format: convert mm/px → µm/px (×1000) and surface
 			// per-axis. Philips fixtures report asymmetric pixels (e.g.,
-			// Philips-1: 0.000226891 / 0.000226907 mm) — SetMPPSymmetric
-			// will leave the symmetric MicronsPerPixel slot at 0 in that
-			// case and consumers consult the per-axis fields.
+			// Philips-1: 0.000226891 / 0.000226907 mm) — MPP.Symmetric()
+			// returns 0 in that case; consumers consult MPP.X/Y directly.
+			var mppX, mppY float64
 			if w > 0 {
-				md.MicronsPerPixelX = w * 1000.0
+				mppX = w * 1000.0
 			}
 			if h > 0 {
-				md.MicronsPerPixelY = h * 1000.0
+				mppY = h * 1000.0
 			}
-			md.SetMPPSymmetric()
+			md.MPP = opentile.MPP{X: mppX, Y: mppY}
 		}
 	}
 	if v, ok := tags["DICOM_BITS_ALLOCATED"]; ok {

@@ -526,7 +526,7 @@ func TestAccessors(t *testing.T) {
 		Index:      3,
 		PyramidIdx: 2,
 		TileSize:   opentile.Size{W: 64, H: 64},
-		MPP:        opentile.SizeMm{W: 0.5, H: 0.5},
+		MPP:        opentile.MPP{X: 0.5, Y: 0.5},
 	}
 	img, _ := New(page, reader, opts)
 
@@ -540,8 +540,8 @@ func TestAccessors(t *testing.T) {
 		t.Errorf("Compression: got %v, want CompressionJPEG", img.Compression())
 	}
 	mpp := img.MPP()
-	if mpp.W != 0.5 || mpp.H != 0.5 {
-		t.Errorf("MPP: got {%v, %v}, want {0.5, 0.5}", mpp.W, mpp.H)
+	if mpp.X != 0.5 || mpp.Y != 0.5 {
+		t.Errorf("MPP: got {%v, %v}, want {0.5, 0.5}", mpp.X, mpp.Y)
 	}
 	if img.FocalPlane() != 0 {
 		t.Errorf("FocalPlane: got %v, want 0", img.FocalPlane())

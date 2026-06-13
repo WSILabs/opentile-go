@@ -161,9 +161,7 @@ func parseDescription(desc string) (Metadata, error) {
 		}
 		md.MPP = parsed
 		// Aperio reports a single MPP; pixels are square, so X == Y.
-		md.MicronsPerPixelX = parsed
-		md.MicronsPerPixelY = parsed
-		md.SetMPPSymmetric()
+		md.Metadata.MPP = opentile.MPP{X: parsed, Y: parsed}
 	}
 	if v, ok := kv["ScanScope ID"]; ok {
 		md.ScannerSerial = v

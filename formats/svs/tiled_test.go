@@ -137,6 +137,11 @@ func TestSvsTilerOpenAndLevel(t *testing.T) {
 	if lvl.Grid.W != 3 || lvl.Grid.H != 2 {
 		t.Errorf("Grid: got %v, want 3x2", lvl.Grid)
 	}
+	// Level.MPP is now in MICRONS (not mm). MPP=0.5 in the SVS descriptor
+	// means 0.5 µm/px; Level.MPP.X must equal that (not 0.0005 mm).
+	if lvl.MPP.X != 0.5 || lvl.MPP.Y != 0.5 {
+		t.Errorf("Level.MPP (microns): got {%v, %v}, want {0.5, 0.5}", lvl.MPP.X, lvl.MPP.Y)
+	}
 	// Tile (0,0) → first tile payload
 	b, err := tiler.ImageRawTile(0, 0, 0, 0)
 	if err != nil {

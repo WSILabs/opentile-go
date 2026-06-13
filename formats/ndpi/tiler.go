@@ -193,7 +193,7 @@ func levelAsValueType(idx int, l ndpiLevel, l0Width int) opentile.Level {
 		TileSize() opentile.Size
 		Grid() opentile.Size
 		Compression() opentile.Compression
-		MPP() opentile.SizeMm
+		MPP() opentile.MPP
 		FocalPlane() float64
 	}
 	if ins, ok := l.(inspector); ok {

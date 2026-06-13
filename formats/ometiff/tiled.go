@@ -30,7 +30,7 @@ type tiledImage struct {
 	tileSize    opentile.Size
 	grid        opentile.Size
 	compression opentile.Compression
-	mpp         opentile.SizeMm
+	mpp         opentile.MPP
 	pyrIndex    int
 
 	offsets     []uint64
@@ -49,7 +49,7 @@ func newTiledImage(
 	index int,
 	p *tiff.Page,
 	baseSize opentile.Size,
-	baseMPP opentile.SizeMm,
+	baseMPP opentile.MPP,
 	r io.ReaderAt,
 ) (*tiledImage, error) {
 	iw, ok := p.ImageWidth()
@@ -155,7 +155,7 @@ func (l *tiledImage) Size() opentile.Size               { return l.size }
 func (l *tiledImage) TileSize() opentile.Size           { return l.tileSize }
 func (l *tiledImage) Grid() opentile.Size               { return l.grid }
 func (l *tiledImage) Compression() opentile.Compression { return l.compression }
-func (l *tiledImage) MPP() opentile.SizeMm              { return l.mpp }
+func (l *tiledImage) MPP() opentile.MPP                  { return l.mpp }
 func (l *tiledImage) FocalPlane() float64               { return 0 }
 func (l *tiledImage) TileOverlap() image.Point          { return image.Point{} }
 
@@ -342,7 +342,7 @@ func (l *tiledImage) Tiles(ctx context.Context) iter.Seq2[opentile.TilePos, open
 
 // scaleMPP scales a base MPP by the per-axis pixel-count ratio between
 // the base level and this level. Mirrors Philips / SVS / NDPI.
-func scaleMPP(baseMPP opentile.SizeMm, baseSize, lvlSize opentile.Size) opentile.SizeMm {
+func scaleMPP(baseMPP opentile.MPP, baseSize, lvlSize opentile.Size) opentile.MPP {
 	scaleW, scaleH := 1.0, 1.0
 	if lvlSize.W > 0 {
 		scaleW = float64(baseSize.W) / float64(lvlSize.W)
@@ -350,9 +350,9 @@ func scaleMPP(baseMPP opentile.SizeMm, baseSize, lvlSize opentile.Size) opentile
 	if lvlSize.H > 0 {
 		scaleH = float64(baseSize.H) / float64(lvlSize.H)
 	}
-	return opentile.SizeMm{
-		W: baseMPP.W * scaleW,
-		H: baseMPP.H * scaleH,
+	return opentile.MPP{
+		X: baseMPP.X * scaleW,
+		Y: baseMPP.Y * scaleH,
 	}
 }
 

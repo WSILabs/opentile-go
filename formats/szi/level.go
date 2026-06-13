@@ -71,7 +71,7 @@ func (l *level) Compression() opentile.Compression { return l.compression }
 // MPP returns zero. SZI surfaces resolution metadata at the
 // Tiler.Metadata level (via scan-properties.xml), not per-level.
 // T4 may revisit if scan-properties exposes a per-level MPP scale.
-func (l *level) MPP() opentile.SizeMm { return opentile.SizeMm{} }
+func (l *level) MPP() opentile.MPP { return opentile.MPP{} }
 
 // FocalPlane returns 0 — SZI is single-Z brightfield.
 func (l *level) FocalPlane() float64 { return 0 }

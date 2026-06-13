@@ -113,12 +113,11 @@ func TestTiler_Metadata(t *testing.T) {
 	md := tlr.Metadata()
 
 	// MPP — probe showed 0.499 on both axes.
-	if md.MicronsPerPixelX != 0.499 || md.MicronsPerPixelY != 0.499 {
-		t.Errorf("MicronsPerPixel = (%g, %g), want (0.499, 0.499)",
-			md.MicronsPerPixelX, md.MicronsPerPixelY)
+	if md.MPP.X != 0.499 || md.MPP.Y != 0.499 {
+		t.Errorf("MPP = (%g, %g), want (0.499, 0.499)", md.MPP.X, md.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0.499 {
-		t.Errorf("MicronsPerPixel (symmetric) = %g, want 0.499", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0.499 {
+		t.Errorf("MPP.Symmetric() = %g, want 0.499", md.MPP.Symmetric())
 	}
 	if md.Magnification != 20 {
 		t.Errorf("Magnification = %g, want 20", md.Magnification)

@@ -27,6 +27,25 @@ type SizeMm struct {
 
 func (s SizeMm) IsZero() bool { return s.W == 0 && s.H == 0 }
 
+// MPP is microns-per-pixel, per axis. The zero value means "unknown".
+// Most slides report isotropic pixels (X == Y); asymmetric formats (e.g.
+// some Philips TIFF fixtures) populate both axes independently.
+//
+// Added in v1.0.
+type MPP struct{ X, Y float64 }
+
+// IsZero reports whether the MPP is unknown (both axes zero).
+func (m MPP) IsZero() bool { return m.X == 0 && m.Y == 0 }
+
+// Symmetric returns the single µm/px value when both axes are equal and
+// non-zero. Returns 0 when X != Y or when both are zero (unknown).
+func (m MPP) Symmetric() float64 {
+	if m.X != 0 && m.X == m.Y {
+		return m.X
+	}
+	return 0
+}
+
 // TileCoord identifies a tile by its position in the multi-
 // dimensional WSI space. X and Y are the existing 2D grid position;
 // Z, C, and T select among focal planes (Z), fluorescence /

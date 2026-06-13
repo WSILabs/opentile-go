@@ -37,7 +37,7 @@ type levelImpl struct {
 	tileSize    opentile.Size // TileWidth × TileLength
 	grid        opentile.Size // tile grid dimensions (cols × rows)
 	compression opentile.Compression
-	mpp         opentile.SizeMm
+	mpp         opentile.MPP
 	tileOverlap image.Point // non-zero only on level 0 of overlapping spec-compliant slides
 
 	offsets []uint64 // TileOffsets, in serpentine storage order
@@ -151,10 +151,9 @@ func newLevelImpl(
 		}
 	}
 
-	// Per-level MPP: base ScanRes (microns/pixel at level 0) doubled
-	// per pyramid step. SizeMm is in millimeters.
+	// Per-level MPP: base ScanRes (µm/px at level 0) doubled per pyramid step.
 	levelMPPMicrons := baseMPP * float64(int(1)<<c.Level)
-	mpp := opentile.SizeMm{W: levelMPPMicrons / 1000.0, H: levelMPPMicrons / 1000.0}
+	mpp := opentile.MPP{X: levelMPPMicrons, Y: levelMPPMicrons}
 
 	// TileOverlap is the per-level tile step deficit. Only the
 	// level-0 IFD's EncodeInfo carries TileJointInfo entries; we
@@ -240,7 +239,7 @@ func (l *levelImpl) Size() opentile.Size               { return l.size }
 func (l *levelImpl) TileSize() opentile.Size           { return l.tileSize }
 func (l *levelImpl) Grid() opentile.Size               { return l.grid }
 func (l *levelImpl) Compression() opentile.Compression { return l.compression }
-func (l *levelImpl) MPP() opentile.SizeMm              { return l.mpp }
+func (l *levelImpl) MPP() opentile.MPP                  { return l.mpp }
 func (l *levelImpl) FocalPlane() float64               { return 0 }
 func (l *levelImpl) TileOverlap() image.Point          { return l.tileOverlap }
 

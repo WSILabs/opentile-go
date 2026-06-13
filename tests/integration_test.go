@@ -256,7 +256,7 @@ func checkLevels(
 		if lvl.PyramidIndex != exp.PyramidIdx {
 			t.Errorf("%slevel %d: PyramidIndex=%d, want %d", labelPrefix, i, lvl.PyramidIndex, exp.PyramidIdx)
 		}
-		if mpp := lvl.MPP; mpp.W < 0 || mpp.H < 0 {
+		if mpp := lvl.MPP; mpp.X < 0 || mpp.Y < 0 {
 			t.Errorf("%slevel %d: MPP negative %v", labelPrefix, i, mpp)
 		}
 		if fp := lvl.FocalPlane; fp < 0 {

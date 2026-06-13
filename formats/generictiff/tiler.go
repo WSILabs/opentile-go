@@ -258,8 +258,6 @@ func buildMetadata(p *tiff.Page) Metadata {
 		md.ImageDescription = strings.TrimSpace(v)
 	}
 	mppX, mppY := perAxisMicronsPerPixel(p)
-	md.MicronsPerPixelX = mppX
-	md.MicronsPerPixelY = mppY
 
 	// v0.14: wsi-tools ImageDescription override.
 	if md.ImageDescription != "" {
@@ -275,8 +273,8 @@ func buildMetadata(p *tiff.Page) Metadata {
 			}
 			if wt.hasMPP {
 				// wsi-tools mpp is a scalar; treat as isotropic.
-				md.MicronsPerPixelX = wt.micronsPerPixel
-				md.MicronsPerPixelY = wt.micronsPerPixel
+				mppX = wt.micronsPerPixel
+				mppY = wt.micronsPerPixel
 			}
 			// v0.17: wsi-tools-only provenance fields surface under the
 			// "wsi-tools." Properties namespace so consumers can detect
@@ -289,7 +287,9 @@ func buildMetadata(p *tiff.Page) Metadata {
 			}
 		}
 	}
-	md.SetMPPSymmetric()
+	if mppX > 0 || mppY > 0 {
+		md.MPP = opentile.MPP{X: mppX, Y: mppY}
+	}
 	return md
 }
 

@@ -151,7 +151,7 @@ func (l *tiledImage) Compression() opentile.Compression { return l.compression }
 // is available via Tiler.Metadata() / generic.MetadataOf when the
 // source TIFF carries XResolution / YResolution / ResolutionUnit
 // tags; per-level MPP isn't a distinct concept in generic TIFFs.
-func (l *tiledImage) MPP() opentile.SizeMm     { return opentile.SizeMm{} }
+func (l *tiledImage) MPP() opentile.MPP         { return opentile.MPP{} }
 func (l *tiledImage) FocalPlane() float64      { return 0 }
 func (l *tiledImage) TileOverlap() image.Point { return image.Point{} }
 

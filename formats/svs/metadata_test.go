@@ -246,14 +246,14 @@ func TestParseDescriptionCrossFormatFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseDescription: %v", err)
 	}
-	if md.MicronsPerPixelX != 0.499 {
-		t.Errorf("MicronsPerPixelX: got %v, want 0.499", md.MicronsPerPixelX)
+	if md.Metadata.MPP.X != 0.499 {
+		t.Errorf("MPP.X: got %v, want 0.499", md.Metadata.MPP.X)
 	}
-	if md.MicronsPerPixelY != 0.499 {
-		t.Errorf("MicronsPerPixelY: got %v, want 0.499", md.MicronsPerPixelY)
+	if md.Metadata.MPP.Y != 0.499 {
+		t.Errorf("MPP.Y: got %v, want 0.499", md.Metadata.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0.499 {
-		t.Errorf("MicronsPerPixel (symmetric): got %v, want 0.499", md.MicronsPerPixel)
+	if md.Metadata.MPP.Symmetric() != 0.499 {
+		t.Errorf("MPP.Symmetric() (symmetric): got %v, want 0.499", md.Metadata.MPP.Symmetric())
 	}
 	if md.ImageDescription != desc {
 		t.Errorf("ImageDescription: got %q, want verbatim tag", md.ImageDescription)
@@ -295,9 +295,11 @@ func TestParseDescriptionMPPSymmetric(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if md.MicronsPerPixel != 0.25 || md.MicronsPerPixelX != 0.25 || md.MicronsPerPixelY != 0.25 {
-		t.Errorf("expected MPP=X=Y=0.25, got MPP=%v X=%v Y=%v",
-			md.MicronsPerPixel, md.MicronsPerPixelX, md.MicronsPerPixelY)
+	if md.Metadata.MPP.X != 0.25 || md.Metadata.MPP.Y != 0.25 {
+		t.Errorf("expected MPP.X=MPP.Y=0.25, got X=%v Y=%v", md.Metadata.MPP.X, md.Metadata.MPP.Y)
+	}
+	if md.Metadata.MPP.Symmetric() != 0.25 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.25", md.Metadata.MPP.Symmetric())
 	}
 }
 

@@ -141,14 +141,10 @@ func (t *Tiler) metadata() *Metadata {
 		// (yyyy:mm:dd HH:MM:SS) — populated below.
 
 		// Cross-format MPP (v0.17): BIF carries a single ScanRes
-		// applied to both axes — the spec doesn't allow anisotropic
-		// pixels. SetMPPSymmetric collapses the equal X/Y values
-		// into the symmetric MicronsPerPixel slot.
+		// applied to both axes — the spec doesn't allow anisotropic pixels.
 		if t.iscan.ScanRes > 0 {
-			md.MicronsPerPixelX = t.iscan.ScanRes
-			md.MicronsPerPixelY = t.iscan.ScanRes
+			md.MPP = opentile.MPP{X: t.iscan.ScanRes, Y: t.iscan.ScanRes}
 		}
-		md.SetMPPSymmetric()
 
 		// Cross-format canonical: scan operator. The iScan element's
 		// UserName attribute is rare in real fixtures (neither

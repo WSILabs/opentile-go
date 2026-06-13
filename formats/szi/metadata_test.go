@@ -63,16 +63,15 @@ func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
 		t.Errorf("Writer = %q, want OcusScan 3.1.4", cross.Writer)
 	}
 
-	// v0.17 cross-format MPP: per-axis populated; SetMPPSymmetric
-	// collapses to the canonical slot since X == Y.
-	if cross.MicronsPerPixelX != 0.25055239898989901 {
-		t.Errorf("MicronsPerPixelX = %v, want 0.25055239898989901", cross.MicronsPerPixelX)
+	// v0.17 cross-format MPP: per-axis populated.
+	if cross.MPP.X != 0.25055239898989901 {
+		t.Errorf("MPP.X = %v, want 0.25055239898989901", cross.MPP.X)
 	}
-	if cross.MicronsPerPixelY != 0.25055239898989901 {
-		t.Errorf("MicronsPerPixelY = %v, want 0.25055239898989901", cross.MicronsPerPixelY)
+	if cross.MPP.Y != 0.25055239898989901 {
+		t.Errorf("MPP.Y = %v, want 0.25055239898989901", cross.MPP.Y)
 	}
-	if cross.MicronsPerPixel != 0.25055239898989901 {
-		t.Errorf("MicronsPerPixel = %v, want 0.25055239898989901 (X==Y collapse)", cross.MicronsPerPixel)
+	if cross.MPP.Symmetric() != 0.25055239898989901 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.25055239898989901 (X==Y)", cross.MPP.Symmetric())
 	}
 
 	// v0.17 cross-format Properties.
@@ -119,8 +118,8 @@ func TestParseScanProperties_GrundiumFlavored(t *testing.T) {
 	if szim.Magnification != 40 {
 		t.Errorf("szim.Magnification = %v, want 40", szim.Magnification)
 	}
-	if szim.MicronsPerPixel != 0.25055239898989901 {
-		t.Errorf("szim.MicronsPerPixel (promoted) = %v, want 0.25055239898989901", szim.MicronsPerPixel)
+	if szim.MPP.X != 0.25055239898989901 {
+		t.Errorf("szim.MPP.X (promoted) = %v, want 0.25055239898989901", szim.MPP.X)
 	}
 	if got := szim.Properties[opentile.PropertyUserName]; got != "operator1" {
 		t.Errorf("szim.Properties[UserName] (promoted) = %q, want operator1", got)
@@ -170,9 +169,9 @@ func TestParseScanProperties_MissingFieldsLenient(t *testing.T) {
 }
 
 func TestParseScanProperties_MicronsAsymmetric(t *testing.T) {
-	// Per-axis MPP populates cross.MicronsPerPixelX/Y; when X != Y,
-	// SetMPPSymmetric leaves cross.MicronsPerPixel zero (consumers
-	// read per-axis values explicitly when the slide is anisotropic).
+	// Per-axis MPP populates cross.MPP.X/Y; when X != Y,
+	// MPP.Symmetric() returns 0 (consumers read per-axis values
+	// explicitly when the slide is anisotropic).
 	const data = `<image><properties>
 <property><name>MicronsPerPixelX</name><value>0.4</value></property>
 <property><name>MicronsPerPixelY</name><value>0.6</value></property>
@@ -181,21 +180,20 @@ func TestParseScanProperties_MicronsAsymmetric(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseScanProperties: %v", err)
 	}
-	if cross.MicronsPerPixelX != 0.4 {
-		t.Errorf("MicronsPerPixelX = %v, want 0.4", cross.MicronsPerPixelX)
+	if cross.MPP.X != 0.4 {
+		t.Errorf("MPP.X = %v, want 0.4", cross.MPP.X)
 	}
-	if cross.MicronsPerPixelY != 0.6 {
-		t.Errorf("MicronsPerPixelY = %v, want 0.6", cross.MicronsPerPixelY)
+	if cross.MPP.Y != 0.6 {
+		t.Errorf("MPP.Y = %v, want 0.6", cross.MPP.Y)
 	}
-	if cross.MicronsPerPixel != 0 {
-		t.Errorf("MicronsPerPixel = %v, want 0 (X != Y, no symmetric collapse)", cross.MicronsPerPixel)
+	if cross.MPP.Symmetric() != 0 {
+		t.Errorf("MPP.Symmetric() = %v, want 0 (X != Y, no symmetric collapse)", cross.MPP.Symmetric())
 	}
 }
 
 func TestParseScanProperties_MicronsCanonicalOnly(t *testing.T) {
 	// When only the canonical <MicronsPerPixel> is present (the
-	// spec-example CMU-1.szi flavor), it propagates to per-axis
-	// X/Y, then SetMPPSymmetric collapses to the canonical slot.
+	// spec-example CMU-1.szi flavor), it propagates to per-axis X/Y.
 	const data = `<image><properties>
 <property><name>MicronsPerPixel</name><value>0.402</value></property>
 </properties></image>`
@@ -203,14 +201,14 @@ func TestParseScanProperties_MicronsCanonicalOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseScanProperties: %v", err)
 	}
-	if cross.MicronsPerPixelX != 0.402 {
-		t.Errorf("MicronsPerPixelX = %v, want 0.402", cross.MicronsPerPixelX)
+	if cross.MPP.X != 0.402 {
+		t.Errorf("MPP.X = %v, want 0.402", cross.MPP.X)
 	}
-	if cross.MicronsPerPixelY != 0.402 {
-		t.Errorf("MicronsPerPixelY = %v, want 0.402", cross.MicronsPerPixelY)
+	if cross.MPP.Y != 0.402 {
+		t.Errorf("MPP.Y = %v, want 0.402", cross.MPP.Y)
 	}
-	if cross.MicronsPerPixel != 0.402 {
-		t.Errorf("MicronsPerPixel = %v, want 0.402 (X==Y collapse)", cross.MicronsPerPixel)
+	if cross.MPP.Symmetric() != 0.402 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.402 (X==Y)", cross.MPP.Symmetric())
 	}
 }
 

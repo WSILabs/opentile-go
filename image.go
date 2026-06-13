@@ -37,9 +37,12 @@ type Level struct {
 	// Used by *Slide.DecodedTile to dispatch to the right decoder.
 	Compression Compression
 
-	// MPP is microns-per-pixel at this level (W and H; usually equal).
-	// Zero value if the slide doesn't carry MPP metadata.
-	MPP SizeMm
+	// MPP is microns-per-pixel at this level (X and Y; usually equal).
+	// Zero value (MPP.IsZero() == true) when the slide doesn't carry
+	// per-level MPP metadata. Values are in microns, not millimeters.
+	//
+	// Changed from SizeMm (millimeters) to MPP (microns) in v1.0.
+	MPP MPP
 
 	// FocalPlane is the z-position in microns for multi-focal-plane
 	// sources. Zero value for 2D slides.

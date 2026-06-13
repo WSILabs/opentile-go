@@ -58,8 +58,8 @@ func TestLevelGeometry(t *testing.T) {
 }
 
 // TestLevelMPP: per-level MPP doubles per pyramid step from the
-// base ScanRes. Base ScanRes 0.25 µm/pixel → SizeMm.W = 0.00025
-// at level 0; 0.0005 at level 1; 0.001 at level 2; ...
+// base ScanRes. Base ScanRes 0.25 µm/pixel → MPP.X = 0.25 µm/px
+// at level 0; 0.5 at level 1; 1.0 at level 2.
 func TestLevelMPP(t *testing.T) {
 	const tw, th = 64, 64
 	data := buildBIFLikeBigTIFF(t, []iFDSpec{
@@ -76,14 +76,15 @@ func TestLevelMPP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	wants := []float64{0.00025, 0.0005, 0.001}
+	// MPP is now in microns (not mm): ScanRes=0.25 µm/px × 2^level.
+	wants := []float64{0.25, 0.5, 1.0}
 	for i, want := range wants {
 		lvl, err := tiler.Level(0, i)
 		if err != nil {
 			t.Fatalf("Level(0, %d): %v", i, err)
 		}
-		if got := lvl.MPP.W; got != want {
-			t.Errorf("Level %d MPP.W: got %v, want %v", i, got, want)
+		if got := lvl.MPP.X; got != want {
+			t.Errorf("Level %d MPP.X: got %v, want %v (microns)", i, got, want)
 		}
 	}
 }

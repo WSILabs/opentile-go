@@ -153,13 +153,10 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 
 	// v0.17 cross-format MPP: the IFE METADATA block carries a single
 	// f32 microns_per_pixel value applied to both axes — the spec
-	// doesn't allow anisotropic pixels. Widen f32→f64 (lossless) and
-	// SetMPPSymmetric to populate the symmetric scalar slot.
+	// doesn't allow anisotropic pixels. Widen f32→f64 (lossless).
 	if mppF32 > 0 {
-		md.MicronsPerPixelX = float64(mppF32)
-		md.MicronsPerPixelY = float64(mppF32)
+		md.MPP = opentile.MPP{X: float64(mppF32), Y: float64(mppF32)}
 	}
-	md.SetMPPSymmetric()
 
 	if attrsOff != NullOffset && attrsOff != 0 {
 		fmtType, ver, kvs, err := readAttributes(r, attrsOff, fileSize)

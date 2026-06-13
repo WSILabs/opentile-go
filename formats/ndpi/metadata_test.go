@@ -55,9 +55,8 @@ func TestParseMetadataMissingFields(t *testing.T) {
 	if !got.AcquisitionDateTime.IsZero() {
 		t.Errorf("AcquisitionDateTime: got %v, want zero", got.AcquisitionDateTime)
 	}
-	if got.MicronsPerPixel != 0 || got.MicronsPerPixelX != 0 || got.MicronsPerPixelY != 0 {
-		t.Errorf("MPP fields: got X=%v Y=%v MPP=%v, want all 0",
-			got.MicronsPerPixelX, got.MicronsPerPixelY, got.MicronsPerPixel)
+	if !got.MPP.IsZero() {
+		t.Errorf("MPP: got %v, want zero", got.MPP)
 	}
 	if got.ImageDescription != "" {
 		t.Errorf("ImageDescription: got %q, want empty", got.ImageDescription)
@@ -67,8 +66,8 @@ func TestParseMetadataMissingFields(t *testing.T) {
 // TestParseMetadataCrossFormatMPPAsymmetric exercises the v0.17 MPP
 // computation on real-fixture-shaped inputs. NDPI fixtures observed
 // in the suite have asymmetric per-axis pixel size (CMU-1.ndpi
-// X=0.4564, Y=0.4551; OS-2.ndpi X=0.2271, Y=0.2271), so MicronsPerPixel
-// reports 0 (asymmetric sentinel) while X/Y carry the true values.
+// X≈0.4564, Y≈0.4551), so MPP.Symmetric() reports 0 while X/Y carry
+// the true values.
 func TestParseMetadataCrossFormatMPPAsymmetric(t *testing.T) {
 	got := parseFromFields(metadataFields{
 		Magnification:  20.0,
@@ -77,14 +76,14 @@ func TestParseMetadataCrossFormatMPPAsymmetric(t *testing.T) {
 		ResolutionUnit: 3, // centimeters
 	})
 	// 10000 / (21910/1) ≈ 0.45641
-	if got.MicronsPerPixelX < 0.456 || got.MicronsPerPixelX > 0.457 {
-		t.Errorf("MicronsPerPixelX: got %v, want ≈0.4564", got.MicronsPerPixelX)
+	if got.MPP.X < 0.456 || got.MPP.X > 0.457 {
+		t.Errorf("MPP.X: got %v, want ≈0.4564", got.MPP.X)
 	}
-	if got.MicronsPerPixelY < 0.455 || got.MicronsPerPixelY > 0.456 {
-		t.Errorf("MicronsPerPixelY: got %v, want ≈0.4551", got.MicronsPerPixelY)
+	if got.MPP.Y < 0.455 || got.MPP.Y > 0.456 {
+		t.Errorf("MPP.Y: got %v, want ≈0.4551", got.MPP.Y)
 	}
-	if got.MicronsPerPixel != 0 {
-		t.Errorf("MicronsPerPixel (asymmetric): got %v, want 0", got.MicronsPerPixel)
+	if got.MPP.Symmetric() != 0 {
+		t.Errorf("MPP.Symmetric() (asymmetric): got %v, want 0", got.MPP.Symmetric())
 	}
 }
 
@@ -96,9 +95,11 @@ func TestParseMetadataCrossFormatMPPSymmetric(t *testing.T) {
 		YResolution:    [2]uint32{20000, 1},
 		ResolutionUnit: 3,
 	})
-	if got.MicronsPerPixel != 0.5 || got.MicronsPerPixelX != 0.5 || got.MicronsPerPixelY != 0.5 {
-		t.Errorf("expected MPP=X=Y=0.5, got MPP=%v X=%v Y=%v",
-			got.MicronsPerPixel, got.MicronsPerPixelX, got.MicronsPerPixelY)
+	if got.MPP.X != 0.5 || got.MPP.Y != 0.5 {
+		t.Errorf("expected MPP.X=MPP.Y=0.5, got X=%v Y=%v", got.MPP.X, got.MPP.Y)
+	}
+	if got.MPP.Symmetric() != 0.5 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.5", got.MPP.Symmetric())
 	}
 }
 
@@ -143,9 +144,8 @@ func TestParseMetadataMPPRequiresCMUnit(t *testing.T) {
 		YResolution:    [2]uint32{20000, 1},
 		ResolutionUnit: 2, // inches — not what NDPI uses
 	})
-	if got.MicronsPerPixelX != 0 || got.MicronsPerPixelY != 0 || got.MicronsPerPixel != 0 {
-		t.Errorf("MPP must be zero when ResolutionUnit != 3, got X=%v Y=%v MPP=%v",
-			got.MicronsPerPixelX, got.MicronsPerPixelY, got.MicronsPerPixel)
+	if !got.MPP.IsZero() {
+		t.Errorf("MPP must be zero when ResolutionUnit != 3, got %v", got.MPP)
 	}
 }
 

@@ -23,7 +23,7 @@ func TestLevelLiteralFields(t *testing.T) {
 		TileSize:     opentile.Size{W: 256, H: 256},
 		Grid:         opentile.Size{W: 4, H: 3},
 		Compression:  opentile.CompressionJPEG,
-		MPP:          opentile.SizeMm{W: 0.25, H: 0.25},
+		MPP:          opentile.MPP{X: 0.25, Y: 0.25},
 		FocalPlane:   0,
 		TileOverlap:  image.Point{},
 	}

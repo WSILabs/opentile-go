@@ -354,15 +354,17 @@ func buildMetadata(c *Collection, auxs, mains []Image, desc string) Metadata {
 
 		// Per-axis MPP from <view sizeX/sizeY> (slide-physical nm) ÷
 		// <pixels sizeX/sizeY> (level-0 pixels) ÷ 1000 (nm → µm).
-		// SCN files in our slate produce symmetric values (X == Y);
-		// SetMPPSymmetric collapses to the symmetric slot.
+		// SCN files in our slate produce symmetric values (X == Y).
+		var mppX, mppY float64
 		if primaryImg.PixelsSizeX > 0 && primaryImg.ViewSizeXNm > 0 {
-			md.MicronsPerPixelX = float64(primaryImg.ViewSizeXNm) / float64(primaryImg.PixelsSizeX) / 1000.0
+			mppX = float64(primaryImg.ViewSizeXNm) / float64(primaryImg.PixelsSizeX) / 1000.0
 		}
 		if primaryImg.PixelsSizeY > 0 && primaryImg.ViewSizeYNm > 0 {
-			md.MicronsPerPixelY = float64(primaryImg.ViewSizeYNm) / float64(primaryImg.PixelsSizeY) / 1000.0
+			mppY = float64(primaryImg.ViewSizeYNm) / float64(primaryImg.PixelsSizeY) / 1000.0
 		}
-		md.SetMPPSymmetric()
+		if mppX > 0 || mppY > 0 {
+			md.MPP = opentile.MPP{X: mppX, Y: mppY}
+		}
 
 		if primaryImg.IlluminationSource != "" {
 			md.SetProperty("leica.illumination_source", primaryImg.IlluminationSource)

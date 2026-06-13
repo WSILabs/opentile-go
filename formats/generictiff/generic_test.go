@@ -192,8 +192,8 @@ func TestMetadataOf_CMU1(t *testing.T) {
 	if !ok {
 		t.Fatal("MetadataOf returned !ok on a generic Tiler")
 	}
-	t.Logf("MicronsPerPixel = %g, ImageDescription = %q, Software = %v",
-		md.MicronsPerPixel, md.ImageDescription, md.ScannerSoftware)
+	t.Logf("MPP = %v, ImageDescription = %q, Software = %v",
+		md.MPP, md.ImageDescription, md.ScannerSoftware)
 	// CMU-1.tiff lacks XResolution / ResolutionUnit so MicronsPerPixel
 	// is expected to be 0; if a future fixture carries those tags the
 	// expectation flips.
@@ -239,12 +239,11 @@ func TestMetadataOf_WSIToolsFixture(t *testing.T) {
 	if md.ScannerManufacturer != "Aperio" {
 		t.Errorf("ScannerManufacturer = %q, want Aperio", md.ScannerManufacturer)
 	}
-	if md.MicronsPerPixelX != 0.499 || md.MicronsPerPixelY != 0.499 {
-		t.Errorf("per-axis MPP = %v / %v, want 0.499 / 0.499",
-			md.MicronsPerPixelX, md.MicronsPerPixelY)
+	if md.MPP.X != 0.499 || md.MPP.Y != 0.499 {
+		t.Errorf("per-axis MPP = %v / %v, want 0.499 / 0.499", md.MPP.X, md.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0.499 {
-		t.Errorf("MicronsPerPixel (symmetric) = %v, want 0.499", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0.499 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.499", md.MPP.Symmetric())
 	}
 	if md.ImageDescription == "" {
 		t.Error("ImageDescription should be populated verbatim from the TIFF tag")

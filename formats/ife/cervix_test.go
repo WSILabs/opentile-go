@@ -185,8 +185,8 @@ func TestCervixEndToEnd(t *testing.T) {
 	if !ok {
 		t.Fatal("MetadataOf returned !ok on cervix")
 	}
-	if ifeMD.MicronsPerPixel == 0 {
-		t.Error("MicronsPerPixel = 0; cervix header carries 16.835")
+	if ifeMD.MPP.IsZero() {
+		t.Error("MPP = zero; cervix header carries 16.835")
 	}
 	if ifeMD.AttributesFormat != AttributesFormatFreeText {
 		t.Errorf("AttributesFormat = %v, want free-text", ifeMD.AttributesFormat)
@@ -214,14 +214,14 @@ func TestCervixEndToEnd(t *testing.T) {
 	// a 0.263 µm/px GT450 scan). f32→f64 widening introduces a tiny
 	// epsilon (16.835 isn't exact in IEEE-754 binary); assert
 	// directionally rather than against a specific bit pattern.
-	if cm.MicronsPerPixelX < 16.83 || cm.MicronsPerPixelX > 16.84 {
-		t.Errorf("cross.MicronsPerPixelX = %v, want ≈ 16.835", cm.MicronsPerPixelX)
+	if cm.MPP.X < 16.83 || cm.MPP.X > 16.84 {
+		t.Errorf("cross.MPP.X = %v, want ≈ 16.835", cm.MPP.X)
 	}
-	if cm.MicronsPerPixelX != cm.MicronsPerPixelY {
-		t.Errorf("cross.MicronsPerPixelX (%v) != Y (%v); IFE pixels are isotropic", cm.MicronsPerPixelX, cm.MicronsPerPixelY)
+	if cm.MPP.X != cm.MPP.Y {
+		t.Errorf("cross.MPP.X (%v) != Y (%v); IFE pixels are isotropic", cm.MPP.X, cm.MPP.Y)
 	}
-	if cm.MicronsPerPixel == 0 {
-		t.Error("cross.MicronsPerPixel = 0; SetMPPSymmetric should populate it on isotropic pixels")
+	if cm.MPP.Symmetric() == 0 {
+		t.Error("cross.MPP.Symmetric() = 0; IFE pixels are isotropic, should be non-zero")
 	}
 	// Vendor passthrough: every IFE attribute available under "iris.".
 	if got := cm.Properties["iris.aperio.AppMag"]; got != "40" {

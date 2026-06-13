@@ -69,15 +69,14 @@ func buildMetadata(p0 *tiff.Page, ghost cog.GhostArea) opentile.Metadata {
 
 	// WSI private tags — canonical microns + magnification.
 	if v, ok := p0.WSIMPPX(); ok {
-		md.MicronsPerPixelX = v
+		md.MPP.X = v
 	}
 	if v, ok := p0.WSIMPPY(); ok {
-		md.MicronsPerPixelY = v
+		md.MPP.Y = v
 	}
 	if v, ok := p0.WSIMagnification(); ok {
 		md.Magnification = v
 	}
-	md.SetMPPSymmetric()
 
 	// Properties — cog-wsi.* namespace for fields that don't fit
 	// the typed cross-format struct.

@@ -20,8 +20,8 @@ func TestBuildMetadata(t *testing.T) {
 		t.Errorf("magnification = %v", md.Magnification)
 	}
 	// 0.00105105 mm = 1.05105 µm
-	if got := md.MicronsPerPixelX; got < 1.05 || got > 1.06 {
-		t.Errorf("MPP X = %v, want ~1.051", got)
+	if got := md.MPP.X; got < 1.05 || got > 1.06 {
+		t.Errorf("MPP.X = %v, want ~1.051", got)
 	}
 	if md.Writer != "Leica ScnUtility" {
 		t.Errorf("writer = %q", md.Writer)

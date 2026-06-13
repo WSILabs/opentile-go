@@ -38,7 +38,7 @@ type strippedImage struct {
 	grid        opentile.Size // output tile grid
 	strips      *StripInfo
 	compression opentile.Compression
-	mpp         opentile.SizeMm
+	mpp         opentile.MPP
 	reader      io.ReaderAt
 
 	// frameSize = max(tileSize, stripSize) — the default frame geometry
@@ -138,7 +138,7 @@ func (l *strippedImage) Size() opentile.Size               { return l.size }
 func (l *strippedImage) TileSize() opentile.Size           { return l.tileSize }
 func (l *strippedImage) Grid() opentile.Size               { return l.grid }
 func (l *strippedImage) Compression() opentile.Compression { return l.compression }
-func (l *strippedImage) MPP() opentile.SizeMm              { return l.mpp }
+func (l *strippedImage) MPP() opentile.MPP                  { return l.mpp }
 func (l *strippedImage) FocalPlane() float64               { return 0 }
 func (l *strippedImage) TileOverlap() image.Point          { return image.Point{} }
 

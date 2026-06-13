@@ -121,9 +121,10 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		W: correctedSizes[0][0],
 		H: correctedSizes[0][1],
 	}
-	baseMPP := opentile.SizeMm{
-		W: md.PixelSpacing[0] * 1000.0, // mm → microns
-		H: md.PixelSpacing[1] * 1000.0,
+	// PixelSpacing is in mm; convert to µm for Level.MPP.
+	baseMPP := opentile.MPP{
+		X: md.PixelSpacing[0] * 1000.0, // mm → µm
+		Y: md.PixelSpacing[1] * 1000.0,
 	}
 
 	tiledLevels := make([]*tiledImage, 0, len(class.Levels))
@@ -226,7 +227,7 @@ type tiler struct {
 	associated  []opentile.AssociatedImage
 	icc         []byte
 	baseSize    opentile.Size
-	baseMPP     opentile.SizeMm
+	baseMPP     opentile.MPP
 	file        *tiff.File       // retained for lazy TIFF-tag exposure
 	dirSpecs    []philipsDirSpec // page→role mapping captured at Open
 }

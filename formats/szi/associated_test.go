@@ -93,10 +93,9 @@ func TestMetadataOf_CMU1(t *testing.T) {
 	if szim.Magnification != 10 {
 		t.Errorf("Magnification = %v, want 10", szim.Magnification)
 	}
-	// MicronsPerPixel reads via embedded-struct promotion through
-	// opentile.Metadata after v0.17 cleanup (Q4 Option B).
-	if szim.MicronsPerPixel != 0.402 {
-		t.Errorf("MicronsPerPixel = %v, want 0.402", szim.MicronsPerPixel)
+	// MPP reads via embedded-struct promotion through opentile.Metadata.
+	if szim.MPP.Symmetric() != 0.402 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.402", szim.MPP.Symmetric())
 	}
 	// v0.17: UserName / CaseNumber moved to cross-format Properties.
 	if got := szim.Properties[opentile.PropertyUserName]; got != "thomas" {

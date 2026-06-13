@@ -125,7 +125,7 @@ func buildLevels(
 	file *tiff.File,
 	basePage *tiff.Page,
 	baseSize opentile.Size,
-	baseMPP opentile.SizeMm,
+	baseMPP opentile.MPP,
 	oneFrameTileSize opentile.Size,
 ) ([]opentile.Level, []omeLevel, []*tiff.Page, error) {
 	pages := []*tiff.Page{basePage}

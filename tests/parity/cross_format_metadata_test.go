@@ -18,8 +18,8 @@ import (
 // Field semantics:
 //
 //   - wantMagnification: format reports objective magnification.
-//   - wantMPPPerAxis: per-axis MicronsPerPixelX/Y > 0.
-//   - wantMPPSymmetric: MicronsPerPixel > 0 (X == Y on this fixture).
+//   - wantMPPPerAxis: per-axis MPP.X/Y > 0.
+//   - wantMPPSymmetric: MPP.Symmetric() > 0 (X == Y on this fixture).
 //   - wantImageDesc: ImageDescription non-empty.
 //   - wantUserName: Properties[PropertyUserName] non-empty.
 //   - wantScannerMfr: ScannerManufacturer non-empty.
@@ -223,7 +223,7 @@ var cfmExpect = []crossFormatMetadataExpect{
 }
 
 // TestCrossFormatMetadata exercises the v0.17 cross-format Metadata
-// surface (MicronsPerPixel, MicronsPerPixelX/Y, ImageDescription,
+// surface (MPP.X/Y, MPP.Symmetric(), ImageDescription,
 // Properties) on at least one fixture per format. Skips cleanly when
 // OPENTILE_TESTDIR or a specific fixture is missing.
 func TestCrossFormatMetadata(t *testing.T) {
@@ -248,23 +248,22 @@ func TestCrossFormatMetadata(t *testing.T) {
 				t.Errorf("Magnification = 0; want > 0")
 			}
 			if fx.wantMPPPerAxis {
-				if md.MicronsPerPixelX <= 0 || md.MicronsPerPixelY <= 0 {
-					t.Errorf("MicronsPerPixelX/Y = %v/%v; want both > 0",
-						md.MicronsPerPixelX, md.MicronsPerPixelY)
+				if md.MPP.X <= 0 || md.MPP.Y <= 0 {
+					t.Errorf("MPP.X/Y = %v/%v; want both > 0",
+						md.MPP.X, md.MPP.Y)
 				}
 			}
 			if fx.wantMPPSymmetric {
-				if md.MicronsPerPixel <= 0 {
-					t.Errorf("MicronsPerPixel = %v; want > 0 (X==Y on this fixture)",
-						md.MicronsPerPixel)
+				if md.MPP.Symmetric() <= 0 {
+					t.Errorf("MPP.Symmetric() = %v; want > 0 (X==Y on this fixture)",
+						md.MPP.Symmetric())
 				}
 			} else if fx.wantMPPPerAxis {
 				// Asymmetric expectation: per-axis populated but
-				// MicronsPerPixel must be zero (Q2: SetMPPSymmetric
-				// only when X == Y strictly).
-				if md.MicronsPerPixel != 0 {
-					t.Errorf("MicronsPerPixel = %v; want 0 (asymmetric fixture)",
-						md.MicronsPerPixel)
+				// MPP.Symmetric() must be zero (X != Y strictly).
+				if md.MPP.Symmetric() != 0 {
+					t.Errorf("MPP.Symmetric() = %v; want 0 (asymmetric fixture)",
+						md.MPP.Symmetric())
 				}
 			}
 			if fx.wantImageDesc && md.ImageDescription == "" {

@@ -288,13 +288,16 @@ func crossMetadata(om OMEMetadata, cls omeClassification) opentile.Metadata {
 	// Per-axis MPP from <Pixels PhysicalSizeX/Y>. OME-TIFF convention
 	// is microns when the Unit attribute is absent or "µm" / "um";
 	// convertToMicrons handles "nm" / "mm" too.
+	var mppX, mppY float64
 	if primary.PhysicalSizeX > 0 {
-		md.MicronsPerPixelX = convertToMicrons(primary.PhysicalSizeX, primary.PhysicalSizeXUnit)
+		mppX = convertToMicrons(primary.PhysicalSizeX, primary.PhysicalSizeXUnit)
 	}
 	if primary.PhysicalSizeY > 0 {
-		md.MicronsPerPixelY = convertToMicrons(primary.PhysicalSizeY, primary.PhysicalSizeYUnit)
+		mppY = convertToMicrons(primary.PhysicalSizeY, primary.PhysicalSizeYUnit)
 	}
-	md.SetMPPSymmetric()
+	if mppX > 0 || mppY > 0 {
+		md.MPP = opentile.MPP{X: mppX, Y: mppY}
+	}
 
 	// Structured description.
 	if primary.Description != "" {

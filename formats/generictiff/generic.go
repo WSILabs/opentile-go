@@ -104,7 +104,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			TileSize:     lvl.tileSize,
 			Grid:         lvl.grid,
 			Compression:  lvl.compression,
-			MPP:          opentile.SizeMm{},
+			MPP:          opentile.MPP{},
 			FocalPlane:   0,
 			Downsample:   float64(l0Width) / float64(lvl.size.W),
 		})

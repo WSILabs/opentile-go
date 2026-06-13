@@ -60,7 +60,7 @@ func TestImage_MPP_EmptyLevels(t *testing.T) {
 
 	if len(tlr.Levels()) > 0 {
 		got := tlr.Levels()[0].MPP
-		if got.W != 0 || got.H != 0 {
+		if got.X != 0 || got.Y != 0 {
 			t.Errorf("L0.MPP = %v, want {0, 0} (SZI: MPP from scan-properties, not per-level)", got)
 		}
 	}
@@ -150,7 +150,7 @@ func TestLevel_MPP_ReturnsZero(t *testing.T) {
 
 	for i, level := range tlr.Levels() {
 		got := level.MPP
-		if got.W != 0 || got.H != 0 {
+		if got.X != 0 || got.Y != 0 {
 			t.Errorf("Level[%d].MPP = %v, want {0, 0}", i, got)
 		}
 	}

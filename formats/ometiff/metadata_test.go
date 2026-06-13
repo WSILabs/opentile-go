@@ -198,11 +198,11 @@ func TestCrossMetadataPrimaryImage(t *testing.T) {
 	cls := omeClassification{LevelImages: []int{1}, Macro: 0, Label: -1, Thumbnail: -1}
 	md := crossMetadata(om, cls)
 
-	if md.MicronsPerPixelX != 0.5 || md.MicronsPerPixelY != 0.5 {
-		t.Errorf("per-axis MPP: got X=%v Y=%v, want 0.5/0.5 (the main pyramid, NOT macro)", md.MicronsPerPixelX, md.MicronsPerPixelY)
+	if md.MPP.X != 0.5 || md.MPP.Y != 0.5 {
+		t.Errorf("per-axis MPP: got X=%v Y=%v, want 0.5/0.5 (the main pyramid, NOT macro)", md.MPP.X, md.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0.5 {
-		t.Errorf("symmetric MPP: got %v, want 0.5", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0.5 {
+		t.Errorf("symmetric MPP: got %v, want 0.5", md.MPP.Symmetric())
 	}
 	if md.ImageDescription != "main pyramid" {
 		t.Errorf("ImageDescription: got %q, want %q", md.ImageDescription, "main pyramid")
@@ -233,11 +233,11 @@ func TestCrossMetadataAsymmetricMPP(t *testing.T) {
 	}
 	cls := omeClassification{LevelImages: []int{0}, Macro: -1, Label: -1, Thumbnail: -1}
 	md := crossMetadata(om, cls)
-	if md.MicronsPerPixelX != 0.25 || md.MicronsPerPixelY != 0.30 {
-		t.Errorf("per-axis: got X=%v Y=%v, want 0.25/0.30", md.MicronsPerPixelX, md.MicronsPerPixelY)
+	if md.MPP.X != 0.25 || md.MPP.Y != 0.30 {
+		t.Errorf("per-axis: got X=%v Y=%v, want 0.25/0.30", md.MPP.X, md.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0 {
-		t.Errorf("symmetric slot: got %v, want 0 (asymmetric)", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0 {
+		t.Errorf("symmetric slot: got %v, want 0 (asymmetric)", md.MPP.Symmetric())
 	}
 }
 

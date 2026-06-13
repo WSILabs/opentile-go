@@ -268,11 +268,11 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	}
 	// v0.17 additions: per-axis MPP populated from header f32 (0.5
 	// is exact in IEEE-754 binary so the f32→f64 widening is exact).
-	if cm.MicronsPerPixelX != 0.5 || cm.MicronsPerPixelY != 0.5 {
-		t.Errorf("MicronsPerPixelX/Y = %v / %v, want 0.5 / 0.5", cm.MicronsPerPixelX, cm.MicronsPerPixelY)
+	if cm.MPP.X != 0.5 || cm.MPP.Y != 0.5 {
+		t.Errorf("MPP.X/Y = %v / %v, want 0.5 / 0.5", cm.MPP.X, cm.MPP.Y)
 	}
-	if cm.MicronsPerPixel != 0.5 {
-		t.Errorf("MicronsPerPixel = %v, want 0.5 (IFE reports symmetric pixels)", cm.MicronsPerPixel)
+	if cm.MPP.Symmetric() != 0.5 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.5 (IFE reports symmetric pixels)", cm.MPP.Symmetric())
 	}
 	// tiff.ImageDescription attribute → cross.ImageDescription.
 	if cm.ImageDescription != "Aperio v1.0\nfoo\n" {
@@ -331,13 +331,11 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	if !ok {
 		t.Fatal("MetadataOf returned !ok")
 	}
-	// v0.17: ifeMD.MicronsPerPixel now resolves through field promotion
-	// to the embedded opentile.Metadata.MicronsPerPixel float64 (the
-	// outer f32 was removed per Q4 Option B because it shadowed the
-	// cross-format slot). 0.5 is exact in IEEE-754 binary so f32→f64
+	// v0.17: ifeMD.MPP now resolves through field promotion to the embedded
+	// opentile.Metadata.MPP. 0.5 is exact in IEEE-754 binary so f32→f64
 	// widening preserves the value.
-	if ifeMD.MicronsPerPixel != 0.5 {
-		t.Errorf("MPP = %v", ifeMD.MicronsPerPixel)
+	if ifeMD.MPP.Symmetric() != 0.5 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.5", ifeMD.MPP.Symmetric())
 	}
 	if ifeMD.MagnificationFromHeader != 20 {
 		t.Errorf("Mag(hdr) = %v", ifeMD.MagnificationFromHeader)

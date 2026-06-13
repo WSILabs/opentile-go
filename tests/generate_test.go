@@ -194,7 +194,7 @@ func generateImageFixture(out *tests.ImageFixture, levels []opentile.Level, tile
 			TileSize:    [2]int{lvl.TileSize.W, lvl.TileSize.H},
 			Grid:        [2]int{lvl.Grid.W, lvl.Grid.H},
 			Compression: lvl.Compression.String(),
-			MPPUm:       lvl.MPP.W * 1000,
+			MPPUm:       lvl.MPP.X,
 			PyramidIdx:  lvl.PyramidIndex,
 		})
 		if useSampled {

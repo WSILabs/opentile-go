@@ -46,13 +46,12 @@ func TestMetadataPopulatesIScanFields(t *testing.T) {
 	}
 
 	// v0.17 cross-format additions: per-axis MPP populated from
-	// ScanRes (single-value applied to both axes); SetMPPSymmetric
-	// collapses to the symmetric slot.
-	if common.MicronsPerPixelX != 0.25 || common.MicronsPerPixelY != 0.25 {
-		t.Errorf("MicronsPerPixelX/Y: got %v / %v, want 0.25 / 0.25", common.MicronsPerPixelX, common.MicronsPerPixelY)
+	// ScanRes (single-value applied to both axes).
+	if common.MPP.X != 0.25 || common.MPP.Y != 0.25 {
+		t.Errorf("MPP.X/Y: got %v / %v, want 0.25 / 0.25", common.MPP.X, common.MPP.Y)
 	}
-	if common.MicronsPerPixel != 0.25 {
-		t.Errorf("MicronsPerPixel: got %v, want 0.25 (BIF reports symmetric pixels)", common.MicronsPerPixel)
+	if common.MPP.Symmetric() != 0.25 {
+		t.Errorf("MPP.Symmetric(): got %v, want 0.25 (BIF reports symmetric pixels)", common.MPP.Symmetric())
 	}
 	// ImageDescription is now on the cross-format struct (Q4 Option B);
 	// access it via field promotion off bm or directly off common.

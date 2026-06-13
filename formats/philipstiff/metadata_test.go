@@ -60,14 +60,14 @@ func TestParseMetadataFullPhilips4(t *testing.T) {
 		t.Errorf("PixelRepresentation: got %q, want %q", md.PixelRepresentation, "0")
 	}
 	// v0.17 cross-format Metadata.
-	if md.MicronsPerPixelX != 0.25 {
-		t.Errorf("MicronsPerPixelX: got %v, want 0.25", md.MicronsPerPixelX)
+	if md.MPP.X != 0.25 {
+		t.Errorf("MPP.X: got %v, want 0.25", md.MPP.X)
 	}
-	if md.MicronsPerPixelY != 0.25 {
-		t.Errorf("MicronsPerPixelY: got %v, want 0.25", md.MicronsPerPixelY)
+	if md.MPP.Y != 0.25 {
+		t.Errorf("MPP.Y: got %v, want 0.25", md.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0.25 {
-		t.Errorf("MicronsPerPixel (symmetric): got %v, want 0.25", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0.25 {
+		t.Errorf("MPP.Symmetric() (symmetric): got %v, want 0.25", md.MPP.Symmetric())
 	}
 	if md.ImageDescription == "" || md.ImageDescription != xml {
 		t.Errorf("ImageDescription should equal raw XML verbatim")
@@ -114,15 +114,15 @@ func TestParseMetadataPartialPhilips1(t *testing.T) {
 		t.Errorf("ScannerSoftware: got %v, want [4.0.3]", md.ScannerSoftware)
 	}
 	// v0.17 cross-format: Philips-1 has asymmetric pixel size, so
-	// MicronsPerPixel stays zero and consumers must consult X/Y.
-	if md.MicronsPerPixelX != 0.226891 {
-		t.Errorf("MicronsPerPixelX: got %v, want 0.226891", md.MicronsPerPixelX)
+	// MPP.Symmetric() == 0; consumers must consult MPP.X/Y directly.
+	if md.MPP.X != 0.226891 {
+		t.Errorf("MPP.X: got %v, want 0.226891", md.MPP.X)
 	}
-	if md.MicronsPerPixelY != 0.226907 {
-		t.Errorf("MicronsPerPixelY: got %v, want 0.226907", md.MicronsPerPixelY)
+	if md.MPP.Y != 0.226907 {
+		t.Errorf("MPP.Y: got %v, want 0.226907", md.MPP.Y)
 	}
-	if md.MicronsPerPixel != 0 {
-		t.Errorf("MicronsPerPixel should be 0 on asymmetric pixels; got %v", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0 {
+		t.Errorf("MPP.Symmetric() should be 0 on asymmetric pixels; got %v", md.MPP.Symmetric())
 	}
 }
 

@@ -208,11 +208,11 @@ func TestMetadataOf_Leica1(t *testing.T) {
 	}
 
 	// Cross-format Metadata fields populated in v0.17 T6.
-	if md.MicronsPerPixel != 0.5 {
-		t.Errorf("MicronsPerPixel = %v, want 0.5 (Leica-1 is 20× / 500 nm/pixel)", md.MicronsPerPixel)
+	if md.MPP.Symmetric() != 0.5 {
+		t.Errorf("MPP.Symmetric() = %v, want 0.5 (Leica-1 is 20× / 500 nm/pixel)", md.MPP.Symmetric())
 	}
-	if md.MicronsPerPixelX != 0.5 || md.MicronsPerPixelY != 0.5 {
-		t.Errorf("MicronsPerPixel{X,Y} = (%v, %v), want (0.5, 0.5)", md.MicronsPerPixelX, md.MicronsPerPixelY)
+	if md.MPP.X != 0.5 || md.MPP.Y != 0.5 {
+		t.Errorf("MPP{X,Y} = (%v, %v), want (0.5, 0.5)", md.MPP.X, md.MPP.Y)
 	}
 	if md.Magnification != 20 {
 		t.Errorf("Magnification = %v, want 20", md.Magnification)
@@ -282,11 +282,11 @@ func TestCrossMetadata_AllFixtures(t *testing.T) {
 			}
 			defer tlr.Close()
 			md := tlr.Metadata()
-			if md.MicronsPerPixel != tc.wantMPP {
-				t.Errorf("MicronsPerPixel = %v, want %v", md.MicronsPerPixel, tc.wantMPP)
+			if md.MPP.Symmetric() != tc.wantMPP {
+				t.Errorf("MPP.Symmetric() = %v, want %v", md.MPP.Symmetric(), tc.wantMPP)
 			}
-			if md.MicronsPerPixelX != tc.wantMPP || md.MicronsPerPixelY != tc.wantMPP {
-				t.Errorf("MicronsPerPixel{X,Y} = (%v, %v), want (%v, %v)", md.MicronsPerPixelX, md.MicronsPerPixelY, tc.wantMPP, tc.wantMPP)
+			if md.MPP.X != tc.wantMPP || md.MPP.Y != tc.wantMPP {
+				t.Errorf("MPP{X,Y} = (%v, %v), want (%v, %v)", md.MPP.X, md.MPP.Y, tc.wantMPP, tc.wantMPP)
 			}
 			if md.Magnification != tc.wantMag {
 				t.Errorf("Magnification = %v, want %v", md.Magnification, tc.wantMag)

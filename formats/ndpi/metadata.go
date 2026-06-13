@@ -116,17 +116,20 @@ func parseFromFields(f metadataFields) Metadata {
 	// populated from the TIFF tag if present.
 	md.ImageDescription = f.ImageDescription
 
-	// Cross-format MicronsPerPixel. NDPI carries pixel size in the
-	// standard TIFF Resolution tags, with ResolutionUnit=3 (centimeters)
-	// in every real fixture observed. MPP_um = 10000 / pixels_per_cm.
+	// Cross-format MPP. NDPI carries pixel size in the standard TIFF
+	// Resolution tags, with ResolutionUnit=3 (centimeters) in every real
+	// fixture observed. MPP_um = 10000 / pixels_per_cm.
 	if f.ResolutionUnit == 3 {
-		if mpp, ok := mppFromRational(f.XResolution); ok {
-			md.MicronsPerPixelX = mpp
+		var mppX, mppY float64
+		if v, ok := mppFromRational(f.XResolution); ok {
+			mppX = v
 		}
-		if mpp, ok := mppFromRational(f.YResolution); ok {
-			md.MicronsPerPixelY = mpp
+		if v, ok := mppFromRational(f.YResolution); ok {
+			mppY = v
 		}
-		md.SetMPPSymmetric()
+		if mppX > 0 || mppY > 0 {
+			md.MPP = opentile.MPP{X: mppX, Y: mppY}
+		}
 	}
 
 	// Vendor passthrough. Surface already-parsed Hamamatsu vendor data

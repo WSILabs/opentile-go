@@ -22,7 +22,7 @@ func newOneFrameImage(
 	p *tiff.Page,
 	tileSize opentile.Size,
 	baseSize opentile.Size,
-	baseMPP opentile.SizeMm,
+	baseMPP opentile.MPP,
 	r io.ReaderAt,
 ) (*oneframe.Image, error) {
 	iw, _ := p.ImageWidth()

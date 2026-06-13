@@ -179,23 +179,20 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 		// duplicates were removed from szi.Metadata.
 		case "MicronsPerPixelX":
 			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
-				cross.MicronsPerPixelX = f
+				cross.MPP.X = f
 			}
 		case "MicronsPerPixelY":
 			if f, e := strconv.ParseFloat(p.Value, 64); e == nil {
-				cross.MicronsPerPixelY = f
+				cross.MPP.Y = f
 			}
 		case "MicronsPerPixel":
-			// The single-MPP value, when present, populates per-
-			// axis when X/Y aren't separately specified. Don't
-			// pre-set cross.MicronsPerPixel directly —
-			// SetMPPSymmetric handles the X==Y collapse at the
-			// end. SZI fixtures in the wild typically emit all
-			// three values with X==Y; the spec-example CMU-1.szi
-			// emits only the single MicronsPerPixel.
-			if f, e := strconv.ParseFloat(p.Value, 64); e == nil && cross.MicronsPerPixelX == 0 {
-				cross.MicronsPerPixelX = f
-				cross.MicronsPerPixelY = f
+			// The single-MPP value, when present, populates per-axis
+			// when X/Y aren't separately specified. SZI fixtures in the
+			// wild typically emit all three values with X==Y; the
+			// spec-example CMU-1.szi emits only the single MicronsPerPixel.
+			if f, e := strconv.ParseFloat(p.Value, 64); e == nil && cross.MPP.X == 0 {
+				cross.MPP.X = f
+				cross.MPP.Y = f
 			}
 		case "Comments":
 			cross.SetProperty(opentile.PropertyComments, p.Value)
@@ -250,11 +247,9 @@ func parseScanProperties(data []byte) (cross opentile.Metadata, szim Metadata, e
 		cross.Writer = s // v0.20: SZI's combined SoftwareName+Version is the writer
 	}
 
-	// Collapse symmetric per-axis MPP into the canonical MPP slot.
-	// When X == Y (the common case on SZI fixtures), this populates
-	// cross.MicronsPerPixel; otherwise leaves it zero so consumers
-	// know to read the per-axis values explicitly.
-	cross.SetMPPSymmetric()
+	// MPP is now a single opentile.MPP{X, Y} struct; X and Y are
+	// set independently above from MicronsPerPixelX/Y/MicronsPerPixel.
+	// No collapse step needed — MPP.Symmetric() handles X==Y queries.
 
 	// Mirror the cross-format metadata onto the embedded struct so
 	// szi.MetadataOf consumers can read both layers from one value.
