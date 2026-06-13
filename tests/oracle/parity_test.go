@@ -88,7 +88,7 @@ func runParityOnSlide(t *testing.T, slide string) {
 	for li, lvl := range pyImage.Levels {
 		positions := samplePositions(lvl.Grid, *fullParity)
 		for _, pos := range positions {
-			our, err := tiler.ImageRawTile(pyImage.Index, li, pos.X, pos.Y)
+			our, err := lvl.Tile(pos.X, pos.Y)
 			if err != nil {
 				t.Errorf("level %d tile (%d,%d): Go error: %v", li, pos.X, pos.Y, err)
 				continue

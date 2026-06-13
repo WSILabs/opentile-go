@@ -93,7 +93,7 @@ func TestBIFAccessors(t *testing.T) {
 			}
 
 			// RawTile(0, 0, 0) decodes to a tile-sized JPEG.
-			tile, err := tiler.RawTile(0, 0, 0)
+			tile, err := mustLevel(t, tiler, 0).Tile(0, 0)
 			if err != nil {
 				t.Fatalf("RawTile(0,0,0): %v", err)
 			}
@@ -108,7 +108,7 @@ func TestBIFAccessors(t *testing.T) {
 			}
 
 			// TileReader matches RawTile.
-			rc, err := tiler.TileReader(0, 0, 0)
+			rc, err := mustLevel(t, tiler, 0).TileReader(0, 0)
 			if err != nil {
 				t.Fatalf("TileReader: %v", err)
 			}
@@ -120,7 +120,7 @@ func TestBIFAccessors(t *testing.T) {
 
 			// RangeTiles iterator yields at least 1 entry.
 			seen := 0
-			for range tiler.RangeTiles(context.Background(), 0) {
+			for range mustLevel(t, tiler, 0).Tiles(context.Background()) {
 				seen++
 				if seen >= 4 { // sample only — full iteration is 8000+ tiles
 					break

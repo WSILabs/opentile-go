@@ -28,7 +28,11 @@ func TestOMETIFFTags(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	tags, ok := s.LevelTIFFTags(0)
+	lvl0, lerr := s.Level(0)
+	if lerr != nil {
+		t.Fatalf("Level(0): %v", lerr)
+	}
+	tags, ok := lvl0.TIFFTags()
 	if !ok {
 		t.Fatal("LevelTIFFTags(0) ok=false")
 	}
@@ -55,7 +59,11 @@ func TestOMETIFFTagsMultiImage(t *testing.T) {
 	}
 	// Tags must be retrievable for a NON-ZERO image index.
 	last := len(imgs) - 1
-	tags, ok := s.ImageLevelTIFFTags(last, 0)
+	lvl0, lerr := imgs[last].Level(0)
+	if lerr != nil {
+		t.Fatalf("Pyramid(%d).Level(0): %v", last, lerr)
+	}
+	tags, ok := lvl0.TIFFTags()
 	if !ok {
 		t.Fatalf("ImageLevelTIFFTags(%d, 0) ok=false — multi-image not handled", last)
 	}

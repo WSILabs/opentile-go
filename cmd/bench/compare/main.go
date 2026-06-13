@@ -73,7 +73,7 @@ func timeOpentileRegion(path string) float64 {
 	n := 0
 	t0 := time.Now()
 	for _, c := range coords {
-		if _, err := s.ReadRegion(0, c[0]*tw, c[1]*th, tw, th); err == nil {
+		if _, err := base.ReadRegion(opentile.Region{Origin: opentile.Point{X: c[0] * tw, Y: c[1] * th}, Size: opentile.Size{W: tw, H: th}}); err == nil {
 			n++
 		}
 	}
@@ -98,7 +98,7 @@ func timeOpentileDecoded(path string) float64 {
 	n := 0
 	t0 := time.Now()
 	for _, c := range coords {
-		if _, err := s.ImageDecodedTile(0, base.Index, c[0], c[1]); err == nil {
+		if _, err := base.DecodedTile(c[0], c[1]); err == nil {
 			n++
 		}
 	}
@@ -119,7 +119,7 @@ func timeOpentileTile(path string) float64 {
 	n := 0
 	t0 := time.Now()
 	for _, c := range coords {
-		if _, err := s.RawTile(0, c[0], c[1]); err == nil {
+		if _, err := base.Tile(c[0], c[1]); err == nil {
 			n++
 		}
 	}

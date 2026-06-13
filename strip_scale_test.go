@@ -28,7 +28,7 @@ func cmu1(t *testing.T) string {
 
 func assembleStrips(t *testing.T, s *opentile.Slide, l0 opentile.Region, out opentile.Size, scale int) *decoder.Image {
 	t.Helper()
-	it := s.ScaledStrips(l0, out, 64, opentile.WithStripIDCTScale(scale))
+	it := s.Pyramid(0).ScaledStrips(l0, out, 64, opentile.WithStripIDCTScale(scale))
 	defer it.Close()
 	full := decoder.NewImage(out.W, out.H)
 	y := 0
@@ -110,7 +110,7 @@ func TestStripCodecScaleJP2K(t *testing.T) {
 	out := opentile.Size{W: 1024, H: 1024}
 
 	// (a) auto codec scale engages.
-	it := s.ScaledStrips(l0, out, 64)
+	it := s.Pyramid(0).ScaledStrips(l0, out, 64)
 	got := it.IDCTScaleForTest()
 	it.Close()
 	if got <= 1 {
@@ -134,7 +134,7 @@ func TestReadRegionScaledCodecScale(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	got, err := s.ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 2048, H: 2048}}, opentile.Size{W: 1024, H: 1024})
+	got, err := s.Pyramid(0).ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 2048, H: 2048}}, opentile.Size{W: 1024, H: 1024})
 	if err != nil {
 		t.Fatal(err)
 	}

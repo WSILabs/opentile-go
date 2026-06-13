@@ -203,7 +203,7 @@ func generateImageFixture(out *tests.ImageFixture, levels []opentile.Level, tile
 				out.SampledTileSHA256 = make(map[string]tests.SampledTile)
 			}
 			for _, p := range positions {
-				b, err := tiler.ImageRawTile(imageIdx, i, p.X, p.Y)
+				b, err := lvl.Tile(p.X, p.Y)
 				if err != nil {
 					return fmt.Errorf("Tile(%d,%d) image %d level %d: %w", p.X, p.Y, imageIdx, i, err)
 				}
@@ -216,7 +216,7 @@ func generateImageFixture(out *tests.ImageFixture, levels []opentile.Level, tile
 		} else {
 			for y := 0; y < lvl.Grid.H; y++ {
 				for x := 0; x < lvl.Grid.W; x++ {
-					b, err := tiler.ImageRawTile(imageIdx, i, x, y)
+					b, err := lvl.Tile(x, y)
 					if err != nil {
 						return fmt.Errorf("Tile(%d,%d) image %d level %d: %w", x, y, imageIdx, i, err)
 					}

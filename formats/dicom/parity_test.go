@@ -18,7 +18,7 @@ func TestDICOMBackingParity(t *testing.T) {
 			t.Fatalf("open: %v", err)
 		}
 		defer s.Close()
-		b, err := s.RawTile(2, 3, 3)
+		b, err := mustLevel(t, s, 2).Tile(3, 3)
 		if err != nil {
 			t.Fatalf("rawtile: %v", err)
 		}

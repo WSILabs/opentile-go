@@ -6,10 +6,8 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 )
 
-// ReadRegion returns the decoded pixel data for the rectangle r at the
-// given level. All coords are at the level's own resolution. Use
-// ReadRegionScaled if you have L0 coords or want arbitrary output
-// dimensions.
+// imageReadRegion is the logic-bearing region read, backing
+// (*Level).ReadRegion. All coords are at the level's own resolution.
 //
 // The rectangle may extend beyond the level's bounds; out-of-bounds
 // pixels are white-filled (0xFF, 0xFF, 0xFF). Returns ErrRegionEmpty
@@ -21,25 +19,7 @@ import (
 // Internally spans the relevant tiles and decodes each once.
 // Adjacent ReadRegion calls do NOT share a decoded-tile cache; for
 // high-throughput patterns use the ScaledStrips iterator (v0.26).
-//
-// Shortcut for ImageReadRegion(0, level, r, opts...).
-//
-// Added in v0.25.
-func (s *Slide) ReadRegion(level int, r Region, opts ...DecodeOption) (*decoder.Image, error) {
-	return s.ImageReadRegion(0, level, r, opts...)
-}
-
-// ReadRegionInto decodes a region into a caller-provided destination
-// Image. origin is at the level's resolution; the region size is taken
-// from dst.Width × dst.Height. dst.Format may be RGB or RGBA.
-//
-// Shortcut for ImageReadRegionInto(0, level, origin, dst, opts...).
-func (s *Slide) ReadRegionInto(level int, origin Point, dst *decoder.Image, opts ...DecodeOption) error {
-	return s.ImageReadRegionInto(0, level, origin, dst, opts...)
-}
-
-// ImageReadRegion is the multi-image variant of ReadRegion.
-func (s *Slide) ImageReadRegion(image, level int, r Region, opts ...DecodeOption) (*decoder.Image, error) {
+func (s *Slide) imageReadRegion(image, level int, r Region, opts ...DecodeOption) (*decoder.Image, error) {
 	if r.Size.W <= 0 || r.Size.H <= 0 {
 		return nil, ErrRegionEmpty
 	}
@@ -51,8 +31,10 @@ func (s *Slide) ImageReadRegion(image, level int, r Region, opts ...DecodeOption
 	return dst, nil
 }
 
-// ImageReadRegionInto is the multi-image variant of ReadRegionInto.
-func (s *Slide) ImageReadRegionInto(image, level int, origin Point, dst *decoder.Image, opts ...DecodeOption) error {
+// imageReadRegionInto is the logic-bearing region-into-dst read,
+// backing (*Level).ReadRegionInto. origin is at the level's resolution;
+// the region size is taken from dst.Width × dst.Height.
+func (s *Slide) imageReadRegionInto(image, level int, origin Point, dst *decoder.Image, opts ...DecodeOption) error {
 	if dst == nil {
 		return fmt.Errorf("opentile: ReadRegionInto: dst is nil")
 	}
@@ -121,7 +103,7 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 
 	for ty := tyMin; ty <= tyMax; ty++ {
 		for tx := txMin; tx <= txMax; tx++ {
-			if err := s.ImageDecodedTileInto(image, level, tx, ty, scratch, opts...); err != nil {
+			if err := s.imageDecodedTileInto(image, level, tx, ty, scratch, opts...); err != nil {
 				return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tx, ty, level, err)
 			}
 			tileX := tx * lvl.TileSize.W

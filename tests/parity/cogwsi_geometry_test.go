@@ -279,7 +279,7 @@ func TestCOGWSIGeometry(t *testing.T) {
 			}
 
 			// L0 (0,0) — encoding magic check.
-			b, err := tiler.RawTile(0, 0, 0)
+			b, err := mustLevel(t, tiler, 0).Tile(0, 0)
 			if err != nil {
 				t.Fatalf("L0 RawTile(0,0): %v", err)
 			}
@@ -294,7 +294,7 @@ func TestCOGWSIGeometry(t *testing.T) {
 
 			// Out-of-bounds on level 0 surfaces ErrTileOutOfBounds.
 			grid := levels[0].Grid
-			_, err = tiler.RawTile(0, grid.W, 0)
+			_, err = mustLevel(t, tiler, 0).Tile(grid.W, 0)
 			if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 				t.Errorf("OOB on L0: got %v, want ErrTileOutOfBounds", err)
 			}

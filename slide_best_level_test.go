@@ -11,19 +11,21 @@ type bestLevelTestReader struct {
 	images []Pyramid
 }
 
-func (r *bestLevelTestReader) Format() Format                                  { return "test" }
-func (r *bestLevelTestReader) Pyramids() []Pyramid                             { return r.images }
-func (r *bestLevelTestReader) Level(image, level int) (Level, error)           { return r.images[image].Levels[level], nil }
-func (r *bestLevelTestReader) AssociatedImages() []AssociatedImage                   { return nil }
-func (r *bestLevelTestReader) Metadata() Metadata                              { return Metadata{} }
-func (r *bestLevelTestReader) ICCProfile() []byte                              { return nil }
-func (r *bestLevelTestReader) WarmLevel(_, _ int) error                        { return nil }
-func (r *bestLevelTestReader) ImageRawTile(_, _, _, _ int) ([]byte, error)     { return nil, nil }
+func (r *bestLevelTestReader) Format() Format      { return "test" }
+func (r *bestLevelTestReader) Pyramids() []Pyramid { return r.images }
+func (r *bestLevelTestReader) Level(image, level int) (Level, error) {
+	return r.images[image].Levels[level], nil
+}
+func (r *bestLevelTestReader) AssociatedImages() []AssociatedImage         { return nil }
+func (r *bestLevelTestReader) Metadata() Metadata                          { return Metadata{} }
+func (r *bestLevelTestReader) ICCProfile() []byte                          { return nil }
+func (r *bestLevelTestReader) WarmLevel(_, _ int) error                    { return nil }
+func (r *bestLevelTestReader) ImageRawTile(_, _, _, _ int) ([]byte, error) { return nil, nil }
 func (r *bestLevelTestReader) ImageRawTileInto(_, _, _, _ int, _ []byte) (int, error) {
 	return 0, nil
 }
-func (r *bestLevelTestReader) ImageTileMaxSize(_, _ int) int    { return 0 }
-func (r *bestLevelTestReader) ImageTilePrefix(_, _ int) []byte  { return nil }
+func (r *bestLevelTestReader) ImageTileMaxSize(_, _ int) int     { return 0 }
+func (r *bestLevelTestReader) ImageTilePrefix(_, _ int) []byte   { return nil }
 func (r *bestLevelTestReader) ImageTileBodyMaxSize(_, _ int) int { return 0 }
 func (r *bestLevelTestReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) {
 	return 0, nil
@@ -61,7 +63,7 @@ func TestBestLevelForDownsample(t *testing.T) {
 		{100.0, 3},
 	}
 	for _, c := range cases {
-		got := slide.BestLevelForDownsample(c.downsample)
+		got := slide.imageBestLevelForDownsample(0, c.downsample)
 		if got != c.want {
 			t.Errorf("BestLevelForDownsample(%v): got %d, want %d", c.downsample, got, c.want)
 		}
@@ -76,17 +78,17 @@ func TestImageBestLevelForDownsample(t *testing.T) {
 		},
 	}}
 
-	if got := slide.ImageBestLevelForDownsample(0, 4); got != 0 {
+	if got := slide.imageBestLevelForDownsample(0, 4); got != 0 {
 		t.Errorf("image=0 ds=4: got %d, want 0", got)
 	}
-	if got := slide.ImageBestLevelForDownsample(1, 4); got != 0 {
+	if got := slide.imageBestLevelForDownsample(1, 4); got != 0 {
 		t.Errorf("image=1 ds=4: got %d, want 0", got)
 	}
-	if got := slide.ImageBestLevelForDownsample(1, 16); got != 1 {
+	if got := slide.imageBestLevelForDownsample(1, 16); got != 1 {
 		t.Errorf("image=1 ds=16: got %d, want 1", got)
 	}
 	// Out-of-range image index → 0 (defensive).
-	if got := slide.ImageBestLevelForDownsample(99, 4); got != 0 {
+	if got := slide.imageBestLevelForDownsample(99, 4); got != 0 {
 		t.Errorf("image=99: got %d, want 0", got)
 	}
 }

@@ -63,8 +63,8 @@ func TestTiler_CMU1SmallRegion_FullPyramid(t *testing.T) {
 	if len(levels) == 0 {
 		t.Fatal("Levels(): empty")
 	}
-	for i := range levels {
-		b, err := tlr.RawTile(i, 0, 0)
+	for i, lvl := range levels {
+		b, err := lvl.Tile(0, 0)
 		if err != nil {
 			t.Fatalf("level %d RawTile(0,0): %v", i, err)
 		}
@@ -258,14 +258,18 @@ func TestTiler_WarmLevel(t *testing.T) {
 	}
 	defer tlr.Close()
 
-	// WarmLevel(0) should succeed (in-range).
-	if err := tlr.WarmLevel(0); err != nil {
+	// Warm() on an in-range level should succeed.
+	lvl0, err := tlr.Level(0)
+	if err != nil {
+		t.Fatalf("Level(0): %v", err)
+	}
+	if err := lvl0.Warm(); err != nil {
 		t.Fatalf("WarmLevel(0): %v", err)
 	}
 
-	// WarmLevel(99) should fail (out-of-range).
-	if err := tlr.WarmLevel(99); err == nil {
-		t.Fatal("WarmLevel(99): want error, got nil")
+	// An out-of-range level index should fail at Level(99).
+	if _, err := tlr.Level(99); err == nil {
+		t.Fatal("Level(99): want error, got nil")
 	}
 }
 

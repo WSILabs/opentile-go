@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
-	_ "github.com/wsilabs/opentile-go/decoder/all"
 	"github.com/wsilabs/opentile-go/decoder"
+	_ "github.com/wsilabs/opentile-go/decoder/all"
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
@@ -22,7 +22,7 @@ func TestDecodedTileWithJPEGDecoder(t *testing.T) {
 	}
 	defer slide.Close()
 
-	img, err := slide.DecodedTile(0, 0, 0)
+	img, err := mustLevel(t, slide, 0).DecodedTile(0, 0)
 	if err != nil {
 		t.Fatalf("DecodedTile: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestImageDecodedTileWithJPEGDecoder(t *testing.T) {
 	}
 	defer slide.Close()
 
-	img, err := slide.ImageDecodedTile(0, 0, 0, 0)
+	img, err := mustImageLevel(t, slide, 0, 0).DecodedTile(0, 0)
 	if err != nil {
 		t.Fatalf("ImageDecodedTile: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestDecodedTileWithRGBAFormat(t *testing.T) {
 	}
 	defer slide.Close()
 
-	img, err := slide.DecodedTile(0, 0, 0, opentile.WithFormat(decoder.PixelFormatRGBA))
+	img, err := mustLevel(t, slide, 0).DecodedTile(0, 0, opentile.WithFormat(decoder.PixelFormatRGBA))
 	if err != nil {
 		t.Fatalf("DecodedTile(RGBA): %v", err)
 	}

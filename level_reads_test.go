@@ -20,18 +20,18 @@ func TestLevelReadMethods(t *testing.T) {
 		t.Fatalf("Level(0): %v", err)
 	}
 
-	// Tile == ImageRawTile(0, 0, 0, 0) (the legacy delegation target,
-	// which still exists in this task).
+	// Level.Tile via two navigation paths (Slide.Level vs
+	// Slide.Pyramid(0).Level(0)) must return identical bytes.
 	got, err := lvl.Tile(0, 0)
 	if err != nil {
 		t.Fatalf("Level.Tile(0,0): %v", err)
 	}
-	want, err := s.ImageRawTile(0, 0, 0, 0)
+	want, err := mustImageLevel(t, s, 0, 0).Tile(0, 0)
 	if err != nil {
-		t.Fatalf("ImageRawTile: %v", err)
+		t.Fatalf("Pyramid(0).Level(0).Tile: %v", err)
 	}
 	if !bytes.Equal(got, want) {
-		t.Errorf("Level.Tile bytes differ from ImageRawTile: %d vs %d bytes", len(got), len(want))
+		t.Errorf("Level.Tile bytes differ across navigation paths: %d vs %d bytes", len(got), len(want))
 	}
 
 	// TileMaxSize / TilePrefix are non-panicking metadata reads.

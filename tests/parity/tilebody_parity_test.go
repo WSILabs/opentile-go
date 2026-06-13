@@ -60,8 +60,8 @@ func TestTileBodyReconstitutionInvariant_AllFormats(t *testing.T) {
 			if grid.W == 0 || grid.H == 0 {
 				t.Skip("L0 has empty grid")
 			}
-			prefix := tiler.TilePrefix(0)
-			bodyBuf := make([]byte, tiler.TileBodyMaxSize(0))
+			prefix := lvl.TilePrefix()
+			bodyBuf := make([]byte, lvl.TileBodyMaxSize())
 
 			positions := []struct{ x, y int }{
 				{0, 0},
@@ -71,8 +71,8 @@ func TestTileBodyReconstitutionInvariant_AllFormats(t *testing.T) {
 				{grid.W / 2, grid.H / 2},
 			}
 			for _, p := range positions {
-				full, errFull := tiler.RawTile(0, p.x, p.y)
-				n, errBody := tiler.TileBodyInto(0, p.x, p.y, bodyBuf)
+				full, errFull := lvl.Tile(p.x, p.y)
+				n, errBody := lvl.TileBodyInto(p.x, p.y, bodyBuf)
 				if (errFull == nil) != (errBody == nil) {
 					t.Errorf("(%d,%d): RawTile err=%v, TileBodyInto err=%v", p.x, p.y, errFull, errBody)
 					continue

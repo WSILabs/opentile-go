@@ -43,14 +43,14 @@ func TestDICOMHTJ2KDecode(t *testing.T) {
 	if lvls[0].Compression != opentile.CompressionHTJ2K {
 		t.Fatalf("L0 compression = %v, want CompressionHTJ2K", lvls[0].Compression)
 	}
-	raw, err := s.RawTile(0, 0, 0)
+	raw, err := mustLevel(t, s, 0).Tile(0, 0)
 	if err != nil {
 		t.Fatalf("RawTile: %v", err)
 	}
 	if len(raw) < 4 || raw[0] != 0xFF || raw[1] != 0x4F {
 		t.Fatalf("RawTile not a J2K/HT codestream: % x", raw[:min(4, len(raw))])
 	}
-	img, err := s.DecodedTile(0, 0, 0)
+	img, err := mustLevel(t, s, 0).DecodedTile(0, 0)
 	if err != nil {
 		t.Fatalf("DecodedTile: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestDICOMHTJ2KColorParity(t *testing.T) {
 		t.Cleanup(func() { s.Close() })
 		for _, lv := range s.Levels() {
 			if lv.Size.W == w && lv.Size.H == h {
-				img, err := s.DecodedTile(lv.Index, 0, 0)
+				img, err := lv.DecodedTile(0, 0)
 				if err != nil {
 					t.Fatalf("decode %s: %v", name, err)
 				}

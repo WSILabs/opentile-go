@@ -51,7 +51,7 @@ func TestTileEqualsTileInto(t *testing.T) {
 				if grid.W == 0 || grid.H == 0 {
 					continue
 				}
-				maxSize := tiler.TileMaxSize(li)
+				maxSize := lvl.TileMaxSize()
 				if maxSize <= 0 {
 					t.Errorf("L%d TileMaxSize = %d, want > 0", li, maxSize)
 					continue
@@ -67,8 +67,8 @@ func TestTileEqualsTileInto(t *testing.T) {
 
 				buf := make([]byte, maxSize)
 				for _, p := range positions {
-					a, errA := tiler.RawTile(li, p.x, p.y)
-					n, errB := tiler.RawTileInto(li, p.x, p.y, buf)
+					a, errA := lvl.Tile(p.x, p.y)
+					n, errB := lvl.TileInto(p.x, p.y, buf)
 					if (errA == nil) != (errB == nil) {
 						t.Errorf("L%d (%d,%d): RawTile err=%v RawTileInto err=%v", li, p.x, p.y, errA, errB)
 						continue
@@ -108,7 +108,7 @@ func TestTileIntoShortBuffer(t *testing.T) {
 	defer tiler.Close()
 
 	tiny := make([]byte, 1)
-	_, err = tiler.RawTileInto(0, 0, 0, tiny)
+	_, err = mustLevel(t, tiler, 0).TileInto(0, 0, tiny)
 	if !errors.Is(err, io.ErrShortBuffer) {
 		t.Errorf("RawTileInto with len(dst)=1: got %v, want io.ErrShortBuffer", err)
 	}

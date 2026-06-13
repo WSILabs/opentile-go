@@ -42,11 +42,11 @@ func TestNDPIFastPathPixelParity(t *testing.T) {
 	mismatches := 0
 	for ty := 0; ty < l0.Grid.H-1 && mismatches < 5; ty += stride {
 		for tx := 0; tx < l0.Grid.W-1 && mismatches < 5; tx += stride {
-			fast, err := slide.DecodedTile(0, tx, ty)
+			fast, err := l0.DecodedTile(tx, ty)
 			if err != nil {
 				t.Fatalf("fast (%d,%d): %v", tx, ty, err)
 			}
-			compressed, err := slide.RawTile(0, tx, ty)
+			compressed, err := l0.Tile(tx, ty)
 			if err != nil {
 				t.Fatalf("RawTile (%d,%d): %v", tx, ty, err)
 			}
@@ -102,7 +102,7 @@ func TestNDPIFastPathConcurrent(t *testing.T) {
 	var samples []sample
 	for ty := 0; ty < l0.Grid.H-1 && len(samples) < 50; ty += stride {
 		for tx := 0; tx < l0.Grid.W-1 && len(samples) < 50; tx += stride {
-			b, err := slide.RawTile(0, tx, ty)
+			b, err := l0.Tile(tx, ty)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -120,7 +120,7 @@ func TestNDPIFastPathConcurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for _, s := range samples {
-				img, err := slide.DecodedTile(0, s.tx, s.ty)
+				img, err := l0.DecodedTile(s.tx, s.ty)
 				if err != nil {
 					t.Errorf("DecodedTile(%d,%d): %v", s.tx, s.ty, err)
 					return
@@ -169,7 +169,7 @@ func TestNDPIFastPathHonorsDst(t *testing.T) {
 	l0 := slide.Levels()[0]
 	dst := decoder.NewImageFormat(l0.TileSize.W, l0.TileSize.H, decoder.PixelFormatRGB)
 
-	if err := slide.DecodedTileInto(0, 0, 0, dst); err != nil {
+	if err := l0.DecodedTileInto(0, 0, dst); err != nil {
 		t.Fatalf("DecodedTileInto: %v", err)
 	}
 
@@ -213,7 +213,7 @@ func TestNDPIFastPathDstWrongSizeFallsBackToAlloc(t *testing.T) {
 		wrongDst.Pix[i] = 0x55 // sentinel
 	}
 
-	err = slide.DecodedTileInto(0, 0, 0, wrongDst)
+	err = mustLevel(t, slide, 0).DecodedTileInto(0, 0, wrongDst)
 	// Either: ImageDecodedTileInto returns nil + wrongDst still has
 	// sentinel (fast path allocated fresh, copyImageInto bypassed
 	// because out != dst — but copyImageInto would FAIL on size

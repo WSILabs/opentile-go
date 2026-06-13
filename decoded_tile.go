@@ -20,40 +20,23 @@ type decodedTiler interface {
 	ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error)
 }
 
-// DecodedTile returns the decoded pixel data for the tile at (level, tx, ty)
-// within image 0. The output pixel format defaults to PixelFormatRGB;
-// override via WithFormat. JPEG sources support IDCT-time scaling via
-// WithScale.
+// imageDecodedTile is the logic-bearing decoded-tile read, backing
+// (*Level).DecodedTile via its (PyramidIndex, Index) coordinates. The
+// output pixel format defaults to PixelFormatRGB; override via
+// WithFormat. JPEG sources support IDCT-time scaling via WithScale.
 //
 // Requires that a decoder for the level's Compression is registered.
 // Blank-import github.com/wsilabs/opentile-go/decoder/all or the
 // specific codec subpackage (e.g., decoder/jpeg) to enable. Returns
 // ErrCodecNotRegistered (wrapped with the compression name) if not.
 //
-// As of v0.27, format readers implementing the unexported decodedTiler
-// interface (currently NDPI striped levels) take a fast pixel-cache path
-// that avoids per-tile JPEG re-encoding + decoder-handle churn. Other
-// formats and non-striped NDPI levels keep the original RawTile + fresh-
-// decoder path, which is preserved unchanged.
-func (s *Slide) DecodedTile(level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
-	return s.ImageDecodedTile(0, level, tx, ty, opts...)
-}
-
-// DecodedTileInto decodes a tile into a caller-provided destination Image.
-// dst.Width / dst.Height must match the tile's decoded dimensions;
-// mismatched sizes return decoder.ErrDestinationSize from the underlying
-// decoder. dst.Format may be RGB or RGBA (decoders convert as needed).
-func (s *Slide) DecodedTileInto(level, tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
-	return s.ImageDecodedTileInto(0, level, tx, ty, dst, opts...)
-}
-
-// ImageDecodedTile is the multi-image variant of DecodedTile.
-//
 // v0.27 fast-path dispatch: when s.r implements decodedTiler and the
 // fast path succeeds, returns its output directly. ErrUnsupported from
 // the reader signals "no fast path for this level" and falls through to
 // the v0.26 RawTile + fresh-decoder path. Any other error propagates.
-func (s *Slide) ImageDecodedTile(image, level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
+// Other formats and non-striped NDPI levels keep the original RawTile +
+// fresh-decoder path, which is preserved unchanged.
+func (s *Slide) imageDecodedTile(image, level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
 	cfg := newDecodeConfig(opts)
 
 	if dr, ok := s.r.(decodedTiler); ok {
@@ -94,12 +77,13 @@ func (s *Slide) ImageDecodedTile(image, level, tx, ty int, opts ...DecodeOption)
 	})
 }
 
-// ImageDecodedTileInto is the multi-image variant of DecodedTileInto.
+// imageDecodedTileInto is the logic-bearing decode-into-dst read,
+// backing (*Level).DecodedTileInto and the region blit loop.
 //
 // v0.27 fast-path dispatch: when s.r implements decodedTiler and the
 // fast path succeeds, copies its output into dst. Otherwise routes
 // through the v0.26 path which decodes directly into dst.
-func (s *Slide) ImageDecodedTileInto(image, level, tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
+func (s *Slide) imageDecodedTileInto(image, level, tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
 	cfg := newDecodeConfig(opts)
 
 	if dr, ok := s.r.(decodedTiler); ok {

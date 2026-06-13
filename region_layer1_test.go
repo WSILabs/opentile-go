@@ -36,10 +36,10 @@ func (r *knownPixelReader) Level(image, level int) (Level, error) {
 		Compression: CompressionJPEG,
 	}, nil
 }
-func (r *knownPixelReader) AssociatedImages() []AssociatedImage    { return nil }
-func (r *knownPixelReader) Metadata() Metadata               { return Metadata{} }
-func (r *knownPixelReader) ICCProfile() []byte               { return nil }
-func (r *knownPixelReader) WarmLevel(image, level int) error { return nil }
+func (r *knownPixelReader) AssociatedImages() []AssociatedImage { return nil }
+func (r *knownPixelReader) Metadata() Metadata                  { return Metadata{} }
+func (r *knownPixelReader) ICCProfile() []byte                  { return nil }
+func (r *knownPixelReader) WarmLevel(image, level int) error    { return nil }
 func (r *knownPixelReader) ImageRawTile(image, level, tx, ty int) ([]byte, error) {
 	return nil, errors.New("knownPixelReader: ImageRawTile unused")
 }
@@ -96,7 +96,7 @@ func TestReadRegionFullyInBoundsPathSkipsFillWhite(t *testing.T) {
 		dst.Pix[i] = 0xAA // sentinel: NOT 0xFF (fillWhite) and NOT 0x42 (blit)
 	}
 
-	if err := s.ImageReadRegionInto(0, 0, Point{X: 128, Y: 128}, dst); err != nil {
+	if err := s.imageReadRegionInto(0, 0, Point{X: 128, Y: 128}, dst); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,7 +121,7 @@ func TestReadRegionEdgeRegionForceFillWhite(t *testing.T) {
 	}
 
 	// Region crossing the right edge: x=768, w=512 → right half is OOB.
-	if err := s.ImageReadRegionInto(0, 0, Point{X: 768, Y: 128}, dst); err != nil {
+	if err := s.imageReadRegionInto(0, 0, Point{X: 768, Y: 128}, dst); err != nil {
 		t.Fatal(err)
 	}
 

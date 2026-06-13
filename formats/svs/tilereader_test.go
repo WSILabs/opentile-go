@@ -28,13 +28,13 @@ func TestSVSTileReaderMatchesTile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	for i := range tiler.Levels() {
-		direct, err := tiler.RawTile(i, 0, 0)
+	for i, lvl := range tiler.Levels() {
+		direct, err := lvl.Tile(0, 0)
 		if err != nil {
 			t.Errorf("RawTile(0,0) level %d: %v", i, err)
 			continue
 		}
-		rc, err := tiler.TileReader(i, 0, 0)
+		rc, err := lvl.TileReader(0, 0)
 		if err != nil {
 			t.Errorf("TileReader(0,0) level %d: %v", i, err)
 			continue
@@ -82,12 +82,12 @@ func TestSVSTilesIterRowMajor(t *testing.T) {
 		}
 	}
 	got := make([]opentile.Point, 0, len(want))
-	for pos, res := range tiler.RangeTiles(context.Background(), 0) {
+	for pos, res := range lvl.Tiles(context.Background()) {
 		if res.Err != nil {
 			t.Errorf("RangeTiles iter at %v: %v", pos, res.Err)
 			continue
 		}
-		direct, err := tiler.RawTile(0, pos.X, pos.Y)
+		direct, err := lvl.Tile(pos.X, pos.Y)
 		if err != nil {
 			t.Errorf("RawTile(%d,%d): %v", pos.X, pos.Y, err)
 			continue
@@ -130,12 +130,12 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 	defer tiler.Close()
 
 	for li, lvl := range tiler.Levels() {
-		prefix := tiler.TilePrefix(li)
+		prefix := lvl.TilePrefix()
 		if len(prefix) == 0 {
 			t.Errorf("L%d: TilePrefix is empty (SVS pyramid levels always have shared JPEGTables)", li)
 			continue
 		}
-		bodyBuf := make([]byte, tiler.TileBodyMaxSize(li))
+		bodyBuf := make([]byte, lvl.TileBodyMaxSize())
 		grid := lvl.Grid
 		if grid.W == 0 || grid.H == 0 {
 			continue
@@ -150,11 +150,11 @@ func TestSpliceReconstitutionInvariant(t *testing.T) {
 			positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
 		}
 		for _, p := range positions {
-			full, errFull := tiler.RawTile(li, p.x, p.y)
+			full, errFull := lvl.Tile(p.x, p.y)
 			if errFull != nil {
 				continue
 			}
-			n, errBody := tiler.TileBodyInto(li, p.x, p.y, bodyBuf)
+			n, errBody := lvl.TileBodyInto(p.x, p.y, bodyBuf)
 			if errBody != nil {
 				t.Errorf("L%d (%d,%d) TileBodyInto: %v", li, p.x, p.y, errBody)
 				continue

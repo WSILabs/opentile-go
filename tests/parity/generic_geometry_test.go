@@ -244,7 +244,7 @@ func TestGenericGeometry(t *testing.T) {
 			}
 
 			// L0 (0,0) — encoding magic check.
-			b, err := tiler.RawTile(0, 0, 0)
+			b, err := mustLevel(t, tiler, 0).Tile(0, 0)
 			if err != nil {
 				t.Fatalf("L0 RawTile(0,0): %v", err)
 			}
@@ -259,7 +259,7 @@ func TestGenericGeometry(t *testing.T) {
 
 			// Out-of-bounds on level 0 surfaces ErrTileOutOfBounds.
 			grid := levels[0].Grid
-			_, err = tiler.RawTile(0, grid.W, 0)
+			_, err = mustLevel(t, tiler, 0).Tile(grid.W, 0)
 			if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 				t.Errorf("OOB on L0: got %v, want ErrTileOutOfBounds", err)
 			}
@@ -344,8 +344,8 @@ func TestGenericOpenFileBackingsByteIdentical(t *testing.T) {
 					positions = append(positions, struct{ x, y int }{grid.W / 2, grid.H / 2})
 				}
 				for _, p := range positions {
-					a, errA := mmapTiler.RawTile(i, p.x, p.y)
-					b, errB := preadTiler.RawTile(i, p.x, p.y)
+					a, errA := mustLevel(t, mmapTiler, i).Tile(p.x, p.y)
+					b, errB := mustLevel(t, preadTiler, i).Tile(p.x, p.y)
 					if (errA == nil) != (errB == nil) {
 						t.Errorf("L%d (%d,%d): mmap err=%v, pread err=%v", i, p.x, p.y, errA, errB)
 						continue

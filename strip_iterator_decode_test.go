@@ -12,7 +12,8 @@ import (
 
 func TestScaledStripsSingleStripWholeSlide(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(
+	it := slide.imageScaledStrips(
+		0,
 		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
 		Size{W: 100, H: 100},
 		100, // stripHeight = outH → 1 strip
@@ -39,7 +40,8 @@ func TestScaledStripsSingleStripWholeSlide(t *testing.T) {
 
 func TestScaledStripsMultipleStrips(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(
+	it := slide.imageScaledStrips(
+		0,
 		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
 		Size{W: 100, H: 200},
 		50, // stripHeight = 50 → 4 strips
@@ -68,7 +70,8 @@ func TestScaledStripsMultipleStrips(t *testing.T) {
 
 func TestScaledStripsShortLastStrip(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(
+	it := slide.imageScaledStrips(
+		0,
 		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
 		Size{W: 100, H: 130},
 		50, // 130 / 50 = 2 strips of 50 + last of 30

@@ -49,19 +49,20 @@ func TestWarmLevelBoundaries(t *testing.T) {
 			defer tiler.Close()
 
 			levels := tiler.Levels()
-			if err := tiler.WarmLevel(0); err != nil {
+			if err := mustLevel(t, tiler, 0).Warm(); err != nil {
 				t.Errorf("WarmLevel(0): %v", err)
 			}
 			// Last level — typically tiny, fast.
-			if err := tiler.WarmLevel(len(levels) - 1); err != nil {
+			if err := mustLevel(t, tiler, len(levels)-1).Warm(); err != nil {
 				t.Errorf("WarmLevel(last): %v", err)
 			}
 
-			if err := tiler.WarmLevel(-1); !errors.Is(err, opentile.ErrLevelOutOfRange) {
-				t.Errorf("WarmLevel(-1): got %v, want ErrLevelOutOfRange", err)
+			// Out-of-range level indices now surface via Slide.Level.
+			if _, err := tiler.Level(-1); !errors.Is(err, opentile.ErrLevelOutOfRange) {
+				t.Errorf("Level(-1): got %v, want ErrLevelOutOfRange", err)
 			}
-			if err := tiler.WarmLevel(len(levels)); !errors.Is(err, opentile.ErrLevelOutOfRange) {
-				t.Errorf("WarmLevel(N): got %v, want ErrLevelOutOfRange", err)
+			if _, err := tiler.Level(len(levels)); !errors.Is(err, opentile.ErrLevelOutOfRange) {
+				t.Errorf("Level(N): got %v, want ErrLevelOutOfRange", err)
 			}
 		})
 	}

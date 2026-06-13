@@ -45,7 +45,7 @@ func TestTIFFTagsAllFormats(t *testing.T) {
 			}
 			defer s.Close()
 
-			tags, ok := s.LevelTIFFTags(0)
+			tags, ok := mustLevel(t, s, 0).TIFFTags()
 			if !ok {
 				t.Fatalf("%s: LevelTIFFTags(0) ok=false", tc.format)
 			}
@@ -82,7 +82,7 @@ func TestTIFFTagsNonTIFFExcluded(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", rel, err)
 		}
-		if _, ok := s.LevelTIFFTags(0); ok {
+		if _, ok := mustLevel(t, s, 0).TIFFTags(); ok {
 			t.Errorf("%s: non-TIFF LevelTIFFTags should be ok=false", rel)
 		}
 		if _, ok := s.TIFFDirectories(); ok {
@@ -99,7 +99,7 @@ func TestTIFFTagFidelity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	tags, ok := s.LevelTIFFTags(0)
+	tags, ok := mustLevel(t, s, 0).TIFFTags()
 	if !ok {
 		t.Fatal("ok=false")
 	}

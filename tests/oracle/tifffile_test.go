@@ -114,7 +114,7 @@ func runTifffileBIFParityOnSlide(t *testing.T, slide string) {
 	for li, lvl := range tiler.Levels() {
 		positions := samplePositions(lvl.Grid, false)
 		for _, pos := range positions {
-			our, err := tiler.RawTile(li, pos.X, pos.Y)
+			our, err := lvl.Tile(pos.X, pos.Y)
 			if err != nil {
 				t.Errorf("level %d tile (%d,%d): Go error: %v", li, pos.X, pos.Y, err)
 				continue
@@ -167,7 +167,7 @@ func runTifffileParityOnSlide(t *testing.T, slide string) {
 			// return zero-length on non-tiled levels.
 			positions := samplePositions(lvl.Grid, false)
 			for _, pos := range positions {
-				our, err := tiler.ImageRawTile(ii, li, pos.X, pos.Y)
+				our, err := lvl.Tile(pos.X, pos.Y)
 				if err != nil {
 					t.Errorf("image %d level %d tile (%d,%d): Go error: %v", ii, li, pos.X, pos.Y, err)
 					continue

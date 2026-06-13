@@ -70,7 +70,7 @@ func TestOMEAccessors(t *testing.T) {
 	}
 
 	// Level-level: TileReader + RangeTiles iterator
-	rc, err := tiler.TileReader(0, 0, 0)
+	rc, err := mustLevel(t, tiler, 0).TileReader(0, 0)
 	if err != nil {
 		t.Fatalf("TileReader(0, 0, 0): %v", err)
 	}
@@ -84,7 +84,7 @@ func TestOMEAccessors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	count := 0
-	for pos, res := range tiler.RangeTiles(ctx, 0) {
+	for pos, res := range mustLevel(t, tiler, 0).Tiles(ctx) {
 		_ = pos
 		if res.Err != nil {
 			t.Errorf("RangeTiles iterator yielded error: %v", res.Err)

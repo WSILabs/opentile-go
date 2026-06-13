@@ -5,7 +5,7 @@ import (
 )
 
 // decodeWorker pulls tileKey requests from tileReqs, decodes via
-// ImageDecodedTile(WithScale), and stores into the cache.
+// imageDecodedTile(WithScale), and stores into the cache.
 //
 // Exits when cancelCtx fires (Close cancels it). tileReqs is never
 // closed, so workers idle on the channel between work and shutdown
@@ -31,7 +31,7 @@ func (it *StripIterator) decodeAndStore(k tileKey) {
 	if it.idctScale > 1 {
 		opts = append(opts, WithScale(it.idctScale))
 	}
-	img, err := it.slide.ImageDecodedTile(it.imageIdx, it.sourceLevel.Index, k.tx, k.ty, opts...)
+	img, err := it.slide.imageDecodedTile(it.imageIdx, it.sourceLevel.Index, k.tx, k.ty, opts...)
 	it.cache.put(k, img, err)
 }
 

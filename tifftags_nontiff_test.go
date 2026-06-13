@@ -24,7 +24,7 @@ func TestNonTIFFReturnsFalse(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	if _, ok := s.LevelTIFFTags(0); ok {
+	if _, ok := mustLevel(t, s, 0).TIFFTags(); ok {
 		t.Fatal("SZI (non-TIFF) LevelTIFFTags should be ok=false")
 	}
 	if _, ok := s.TIFFDirectories(); ok {

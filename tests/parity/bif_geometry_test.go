@@ -135,7 +135,7 @@ func TestBIFGeometry(t *testing.T) {
 			// JPEG marker validity on the level-0 (0,0) tile —
 			// every BIF pyramid level is JPEG-compressed; output
 			// after RawTile() should be a self-decodable JPEG.
-			tile, err := tiler.RawTile(0, 0, 0)
+			tile, err := mustLevel(t, tiler, 0).Tile(0, 0)
 			if err != nil {
 				t.Fatalf("RawTile(0,0,0): %v", err)
 			}
@@ -147,7 +147,7 @@ func TestBIFGeometry(t *testing.T) {
 			}
 			// RangeTiles iterator yields >= one entry on a >=1×1 grid.
 			seen := 0
-			for range tiler.RangeTiles(context.Background(), 0) {
+			for range mustLevel(t, tiler, 0).Tiles(context.Background()) {
 				seen++
 				break
 			}

@@ -81,7 +81,7 @@ func autoIDCTScale(level Level, l0Rect image.Rectangle, outSize image.Point) int
 	}
 }
 
-// bestLevelForRegion is a thin wrapper around ImageBestLevelForDownsample
+// bestLevelForRegion is a thin wrapper around imageBestLevelForDownsample
 // that computes the downsample from l0Rect + outSize.
 func (s *Slide) bestLevelForRegion(imageIdx int, l0Rect image.Rectangle, outSize image.Point) Level {
 	dx := float64(l0Rect.Dx()) / float64(outSize.X)
@@ -93,10 +93,10 @@ func (s *Slide) bestLevelForRegion(imageIdx int, l0Rect image.Rectangle, outSize
 	if d < 1.0 {
 		d = 1.0
 	}
-	levelIdx := s.ImageBestLevelForDownsample(imageIdx, d)
+	levelIdx := s.imageBestLevelForDownsample(imageIdx, d)
 	level, err := s.r.Level(imageIdx, levelIdx)
 	if err != nil {
-		// Should never happen if ImageBestLevelForDownsample is correct.
+		// Should never happen if imageBestLevelForDownsample is correct.
 		return Level{}
 	}
 	return level

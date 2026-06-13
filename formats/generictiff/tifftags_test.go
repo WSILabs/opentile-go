@@ -25,7 +25,11 @@ func TestGenericTIFFTags(t *testing.T) {
 	}
 	defer s.Close()
 
-	tags, ok := s.LevelTIFFTags(0)
+	lvl0, lerr := s.Level(0)
+	if lerr != nil {
+		t.Fatalf("Level(0): %v", lerr)
+	}
+	tags, ok := lvl0.TIFFTags()
 	if !ok {
 		t.Fatal("LevelTIFFTags(0) ok=false")
 	}

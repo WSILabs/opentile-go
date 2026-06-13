@@ -41,7 +41,7 @@ func TestNDPISmokeAllLevels(t *testing.T) {
 			if time.Now().After(deadline) {
 				t.Fatalf("smoke test exceeded 30s deadline at level %d tile %v", i, p)
 			}
-			b, err := tiler.RawTile(i, p[0], p[1])
+			b, err := lvl.Tile(p[0], p[1])
 			if err != nil {
 				t.Fatalf("level %d tile %v: %v", i, p, err)
 			}
@@ -82,7 +82,7 @@ func BenchmarkNDPITileAllLevels(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				bytes, err := tiler.RawTile(i, x, y)
+				bytes, err := lvl.Tile(x, y)
 				if err != nil {
 					b.Fatalf("RawTile(%d,%d): %v", x, y, err)
 				}

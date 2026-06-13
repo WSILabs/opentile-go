@@ -68,7 +68,7 @@ func main() {
 				if y+th > h {
 					th = h - y
 				}
-				img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: x, Y: y}, Size: opentile.Size{W: tw, H: th}})
+				img, err := l0.ReadRegion(opentile.Region{Origin: opentile.Point{X: x, Y: y}, Size: opentile.Size{W: tw, H: th}})
 				if err != nil {
 					panic(err)
 				}
@@ -92,7 +92,7 @@ func main() {
 			go func() {
 				defer wg.Done()
 				for j := range jobs {
-					img, err := slide.ReadRegion(0, opentile.Region{Origin: opentile.Point{X: j.tx, Y: j.ty}, Size: opentile.Size{W: j.w, H: j.h}})
+					img, err := l0.ReadRegion(opentile.Region{Origin: opentile.Point{X: j.tx, Y: j.ty}, Size: opentile.Size{W: j.w, H: j.h}})
 					if err != nil {
 						panic(err)
 					}

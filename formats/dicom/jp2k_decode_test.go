@@ -49,7 +49,7 @@ func TestDICOMJP2KDecode(t *testing.T) {
 	}
 
 	// Extraction is codec-agnostic: RawTile is the raw J2K codestream.
-	raw, err := s.RawTile(0, 0, 0)
+	raw, err := mustLevel(t, s, 0).Tile(0, 0)
 	if err != nil {
 		t.Fatalf("RawTile: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestDICOMJP2KDecode(t *testing.T) {
 	}
 
 	// Decode routes to the OpenJPEG decoder and produces a tile-sized image.
-	img, err := s.DecodedTile(0, 0, 0)
+	img, err := mustLevel(t, s, 0).DecodedTile(0, 0)
 	if err != nil {
 		t.Fatalf("DecodedTile: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestDICOMJP2KColorParity(t *testing.T) {
 		t.Cleanup(func() { s.Close() })
 		for _, lv := range s.Levels() {
 			if lv.Size.W == w && lv.Size.H == h {
-				img, err := s.DecodedTile(lv.Index, 0, 0)
+				img, err := lv.DecodedTile(0, 0)
 				if err != nil {
 					t.Fatalf("decode %s: %v", name, err)
 				}

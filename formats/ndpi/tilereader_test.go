@@ -32,13 +32,13 @@ func TestNDPITileReaderMatchesTile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tiler.Close()
-	for i := range tiler.Levels() {
-		direct, err := tiler.RawTile(i, 0, 0)
+	for i, lvl := range tiler.Levels() {
+		direct, err := lvl.Tile(0, 0)
 		if err != nil {
 			t.Errorf("RawTile(0,0) level %d: %v", i, err)
 			continue
 		}
-		rc, err := tiler.TileReader(i, 0, 0)
+		rc, err := lvl.TileReader(0, 0)
 		if err != nil {
 			t.Errorf("TileReader(0,0) level %d: %v", i, err)
 			continue
@@ -88,12 +88,12 @@ func TestNDPITilesIterRowMajor(t *testing.T) {
 		}
 	}
 	got := make([]opentile.Point, 0, len(want))
-	for pos, res := range tiler.RangeTiles(context.Background(), levelIdx) {
+	for pos, res := range lvl.Tiles(context.Background()) {
 		if res.Err != nil {
 			t.Errorf("RangeTiles iter at %v: %v", pos, res.Err)
 			continue
 		}
-		direct, err := tiler.RawTile(levelIdx, pos.X, pos.Y)
+		direct, err := lvl.Tile(pos.X, pos.Y)
 		if err != nil {
 			t.Errorf("RawTile(%d,%d): %v", pos.X, pos.Y, err)
 			continue

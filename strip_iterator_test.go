@@ -24,7 +24,7 @@ func TestScaledStripsStripsCount(t *testing.T) {
 	}
 	slide := newTestSlideForStrips()
 	for _, c := range cases {
-		it := slide.ScaledStrips(
+		it := slide.imageScaledStrips(0,
 			Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 1000, H: 1000}},
 			Size{W: 200, H: c.outH},
 			c.stripH,
@@ -39,7 +39,7 @@ func TestScaledStripsStripsCount(t *testing.T) {
 
 func TestScaledStripsCloseIdempotent(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}}, Size{W: 50, H: 50}, 25)
+	it := slide.imageScaledStrips(0, Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}}, Size{W: 50, H: 50}, 25)
 	if err := it.Close(); err != nil {
 		t.Errorf("first Close: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestScaledStripsCloseIdempotent(t *testing.T) {
 
 func TestScaledStripsNextAfterClose(t *testing.T) {
 	slide := newTestSlideForStrips()
-	it := slide.ScaledStrips(Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}}, Size{W: 50, H: 50}, 25)
+	it := slide.imageScaledStrips(0, Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}}, Size{W: 50, H: 50}, 25)
 	it.Close()
 	_, err := it.Next()
 	if err != io.ErrClosedPipe {
@@ -61,7 +61,7 @@ func TestScaledStripsNextAfterClose(t *testing.T) {
 func TestScaledStripsContextCancel(t *testing.T) {
 	slide := newTestSlideForStrips()
 	ctx, cancel := context.WithCancel(context.Background())
-	it := slide.ScaledStrips(
+	it := slide.imageScaledStrips(0,
 		Region{Origin: Point{X: 0, Y: 0}, Size: Size{W: 100, H: 100}},
 		Size{W: 50, H: 50},
 		25,
@@ -104,9 +104,9 @@ func (r *stripsTestReader) Level(image, level int) (Level, error) {
 	return r.Pyramids()[image].Levels[level], nil
 }
 func (r *stripsTestReader) AssociatedImages() []AssociatedImage { return nil }
-func (r *stripsTestReader) Metadata() Metadata            { return Metadata{} }
-func (r *stripsTestReader) ICCProfile() []byte            { return nil }
-func (r *stripsTestReader) WarmLevel(_, _ int) error      { return nil }
+func (r *stripsTestReader) Metadata() Metadata                  { return Metadata{} }
+func (r *stripsTestReader) ICCProfile() []byte                  { return nil }
+func (r *stripsTestReader) WarmLevel(_, _ int) error            { return nil }
 
 func (r *stripsTestReader) ImageRawTile(_, _ int, tx, ty int) ([]byte, error) {
 	img := image_lib.NewYCbCr(image_lib.Rect(0, 0, 256, 256), image_lib.YCbCrSubsampleRatio444)
@@ -123,8 +123,8 @@ func (r *stripsTestReader) ImageRawTile(_, _ int, tx, ty int) ([]byte, error) {
 func (r *stripsTestReader) ImageRawTileInto(_, _, _, _ int, _ []byte) (int, error) {
 	return 0, nil
 }
-func (r *stripsTestReader) ImageTileMaxSize(_, _ int) int    { return 0 }
-func (r *stripsTestReader) ImageTilePrefix(_, _ int) []byte  { return nil }
+func (r *stripsTestReader) ImageTileMaxSize(_, _ int) int     { return 0 }
+func (r *stripsTestReader) ImageTilePrefix(_, _ int) []byte   { return nil }
 func (r *stripsTestReader) ImageTileBodyMaxSize(_, _ int) int { return 0 }
 func (r *stripsTestReader) ImageTileBodyInto(_, _, _, _ int, _ []byte) (int, error) {
 	return 0, nil
@@ -134,4 +134,3 @@ func (r *stripsTestReader) ImageRangeTiles(_ context.Context, _, _ int) iter.Seq
 	return nil
 }
 func (r *stripsTestReader) Close() error { return nil }
-

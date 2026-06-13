@@ -84,7 +84,7 @@ func TestTile_CMU1_FirstTileIsJPEG(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	tile, err := tlr.RawTile(0, 0, 0)
+	tile, err := mustLevel(t, tlr, 0).Tile(0, 0)
 	if err != nil {
 		t.Fatalf("RawTile(0, 0, 0): %v", err)
 	}
@@ -103,13 +103,13 @@ func TestTileInto_CMU1_MatchesTile(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	want, err := tlr.RawTile(0, 0, 0)
+	want, err := mustLevel(t, tlr, 0).Tile(0, 0)
 	if err != nil {
 		t.Fatalf("RawTile(0, 0, 0): %v", err)
 	}
 
-	dst := make([]byte, tlr.TileMaxSize(0))
-	n, err := tlr.RawTileInto(0, 0, 0, dst)
+	dst := make([]byte, mustLevel(t, tlr, 0).TileMaxSize())
+	n, err := mustLevel(t, tlr, 0).TileInto(0, 0, dst)
 	if err != nil {
 		t.Fatalf("RawTileInto(0, 0, 0): %v", err)
 	}
@@ -123,7 +123,7 @@ func TestTileInto_ShortBuffer(t *testing.T) {
 	defer tlr.Close()
 
 	dst := make([]byte, 1)
-	n, err := tlr.RawTileInto(0, 0, 0, dst)
+	n, err := mustLevel(t, tlr, 0).TileInto(0, 0, dst)
 	if !errors.Is(err, io.ErrShortBuffer) {
 		t.Errorf("RawTileInto with tiny dst: got (%d, %v), want (_, io.ErrShortBuffer)", n, err)
 	}
@@ -133,19 +133,19 @@ func TestTileBody_CMU1_DelegatesToTile(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	if got := tlr.TilePrefix(0); got != nil {
+	if got := mustLevel(t, tlr, 0).TilePrefix(); got != nil {
 		t.Errorf("TilePrefix: got %d bytes, want nil", len(got))
 	}
-	if got, want := tlr.TileBodyMaxSize(0), tlr.TileMaxSize(0); got != want {
+	if got, want := mustLevel(t, tlr, 0).TileBodyMaxSize(), mustLevel(t, tlr, 0).TileMaxSize(); got != want {
 		t.Errorf("TileBodyMaxSize = %d, want TileMaxSize = %d", got, want)
 	}
 
-	want, err := tlr.RawTile(0, 0, 0)
+	want, err := mustLevel(t, tlr, 0).Tile(0, 0)
 	if err != nil {
 		t.Fatalf("RawTile(0, 0, 0): %v", err)
 	}
-	dst := make([]byte, tlr.TileBodyMaxSize(0))
-	n, err := tlr.TileBodyInto(0, 0, 0, dst)
+	dst := make([]byte, mustLevel(t, tlr, 0).TileBodyMaxSize())
+	n, err := mustLevel(t, tlr, 0).TileBodyInto(0, 0, dst)
 	if err != nil {
 		t.Fatalf("TileBodyInto(0, 0, 0): %v", err)
 	}
@@ -158,7 +158,7 @@ func TestTile_OutOfBoundsReturnsSentinel(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	_, err := tlr.RawTile(0, 99, 99)
+	_, err := mustLevel(t, tlr, 0).Tile(99, 99)
 	if !errors.Is(err, opentile.ErrTileOutOfBounds) {
 		t.Errorf("OOB tile: got %v, want ErrTileOutOfBounds", err)
 	}
@@ -168,7 +168,7 @@ func TestTileReader_CMU1(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	rc, err := tlr.TileReader(0, 0, 0)
+	rc, err := mustLevel(t, tlr, 0).TileReader(0, 0)
 	if err != nil {
 		t.Fatalf("TileReader: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestTiles_IteratesGrid(t *testing.T) {
 	lastIdx := len(levels) - 1
 	last := levels[lastIdx]
 	count := 0
-	for _, res := range tlr.RangeTiles(context.Background(), lastIdx) {
+	for _, res := range last.Tiles(context.Background()) {
 		if res.Err != nil {
 			t.Fatalf("RangeTiles iter: %v", res.Err)
 		}
@@ -208,15 +208,15 @@ func TestWarmLevel_OutOfRange(t *testing.T) {
 	tlr := openCMU1(t)
 	defer tlr.Close()
 
-	if err := tlr.WarmLevel(-1); !errors.Is(err, opentile.ErrLevelOutOfRange) {
-		t.Errorf("WarmLevel(-1): got %v, want ErrLevelOutOfRange", err)
+	if _, err := tlr.Level(-1); !errors.Is(err, opentile.ErrLevelOutOfRange) {
+		t.Errorf("Level(-1): got %v, want ErrLevelOutOfRange", err)
 	}
-	if err := tlr.WarmLevel(99); !errors.Is(err, opentile.ErrLevelOutOfRange) {
-		t.Errorf("WarmLevel(99): got %v, want ErrLevelOutOfRange", err)
+	if _, err := tlr.Level(99); !errors.Is(err, opentile.ErrLevelOutOfRange) {
+		t.Errorf("Level(99): got %v, want ErrLevelOutOfRange", err)
 	}
 	// In-range warm — currently a no-op stub for v0.16 but must
 	// still return nil for valid indices.
-	if err := tlr.WarmLevel(0); err != nil {
+	if err := mustLevel(t, tlr, 0).Warm(); err != nil {
 		t.Errorf("WarmLevel(0): got %v, want nil", err)
 	}
 }

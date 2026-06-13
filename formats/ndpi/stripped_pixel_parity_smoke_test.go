@@ -69,7 +69,7 @@ func TestNDPIDecodeBlitParityFoundational(t *testing.T) {
 
 	for _, c := range cases {
 		// Path A: the current code path. RawTile → decode small JPEG.
-		compressed, err := slide.RawTile(0, c.tx, c.ty)
+		compressed, err := l0.Tile(c.tx, c.ty)
 		if err != nil {
 			t.Fatalf("RawTile(%d,%d): %v", c.tx, c.ty, err)
 		}
@@ -85,7 +85,7 @@ func TestNDPIDecodeBlitParityFoundational(t *testing.T) {
 		// internally does RawTile+Decode — the SAME pixels as Path A
 		// by construction). If Path B != Path A we know the test
 		// setup is wrong before we even ship the fast path.
-		imgB, err := slide.DecodedTile(0, c.tx, c.ty)
+		imgB, err := l0.DecodedTile(c.tx, c.ty)
 		if err != nil {
 			t.Fatalf("DecodedTile(%d,%d): %v", c.tx, c.ty, err)
 		}

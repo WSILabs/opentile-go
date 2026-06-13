@@ -195,10 +195,10 @@ func (s *Slide) TIFFDirectories() ([]TIFFDirectory, bool) {
 	return p.TIFFDirectories(), true
 }
 
-// ImageLevelTIFFTags returns the TIFF tags of image's level's backing IFD,
-// keyed exactly like ImageRawTile(image, level, ...). ok=false for non-TIFF
-// formats or an out-of-range (image, level).
-func (s *Slide) ImageLevelTIFFTags(image, level int) (TIFFTags, bool) {
+// imageLevelTIFFTags returns the TIFF tags of image's level's backing IFD,
+// keyed by (image, level). ok=false for non-TIFF formats or an
+// out-of-range (image, level). Backs (*Level).TIFFTags.
+func (s *Slide) imageLevelTIFFTags(image, level int) (TIFFTags, bool) {
 	dirs, ok := s.TIFFDirectories()
 	if !ok {
 		return nil, false
@@ -209,11 +209,6 @@ func (s *Slide) ImageLevelTIFFTags(image, level int) (TIFFTags, bool) {
 		}
 	}
 	return nil, false
-}
-
-// LevelTIFFTags is the image-0 shortcut for ImageLevelTIFFTags.
-func (s *Slide) LevelTIFFTags(level int) (TIFFTags, bool) {
-	return s.ImageLevelTIFFTags(0, level)
 }
 
 // AssociatedTIFFTags and AssociatedIFDOffset have moved onto the AssociatedImage

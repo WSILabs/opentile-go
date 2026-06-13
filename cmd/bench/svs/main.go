@@ -52,7 +52,7 @@ func main() {
 	if *goroutines <= 1 {
 		for ty := 0; ty < l0.Grid.H; ty++ {
 			for tx := 0; tx < l0.Grid.W; tx++ {
-				img, err := slide.DecodedTile(0, tx, ty)
+				img, err := l0.DecodedTile(tx, ty)
 				if err != nil {
 					panic(err)
 				}
@@ -71,7 +71,7 @@ func main() {
 			go func() {
 				defer wg.Done()
 				for j := range jobs {
-					img, err := slide.DecodedTile(0, j.tx, j.ty)
+					img, err := l0.DecodedTile(j.tx, j.ty)
 					if err != nil {
 						panic(err)
 					}

@@ -40,7 +40,7 @@ func (p *Pyramid) Level(i int) (*Level, error) {
 // the largest value ≤ the requested downsample (openslide semantics).
 // Returns level 0 when every level is finer than requested.
 func (p *Pyramid) BestLevelForDownsample(downsample float64) *Level {
-	idx := p.slide.ImageBestLevelForDownsample(p.Index, downsample)
+	idx := p.slide.imageBestLevelForDownsample(p.Index, downsample)
 	if idx < 0 || idx >= len(p.Levels) {
 		return nil
 	}
@@ -50,18 +50,18 @@ func (p *Pyramid) BestLevelForDownsample(downsample float64) *Level {
 // ReadRegionScaled reads an L0-coord rectangle within this pyramid and
 // resamples it to out. See (*Slide).ReadRegionScaled for semantics.
 func (p *Pyramid) ReadRegionScaled(src Region, out Size, opts ...DecodeOption) (*decoder.Image, error) {
-	return p.slide.ImageReadRegionScaled(p.Index, src, out, opts...)
+	return p.slide.imageReadRegionScaled(p.Index, src, out, opts...)
 }
 
 // ReadRegionScaledInto fills the caller-provided dst with the resampled
 // L0-coord rectangle within this pyramid.
 func (p *Pyramid) ReadRegionScaledInto(src Region, dst *decoder.Image, opts ...DecodeOption) error {
-	return p.slide.ImageReadRegionScaledInto(p.Index, src, dst, opts...)
+	return p.slide.imageReadRegionScaledInto(p.Index, src, dst, opts...)
 }
 
 // ScaledStrips returns a scaled-strip iterator over this pyramid's L0
 // rectangle. See (*Slide).ScaledStrips for the iteration API; the caller
 // must Close the returned iterator.
 func (p *Pyramid) ScaledStrips(src Region, out Size, stripHeight int, opts ...StripOption) *StripIterator {
-	return p.slide.ImageScaledStrips(p.Index, src, out, stripHeight, opts...)
+	return p.slide.imageScaledStrips(p.Index, src, out, stripHeight, opts...)
 }

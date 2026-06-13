@@ -83,7 +83,7 @@ func main() {
 		opentile.WithStripWorkers(*workers),
 		opentile.WithStripLookahead(*lookahead),
 	}
-	it := slide.ScaledStrips(
+	it := slide.Pyramid(0).ScaledStrips(
 		opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: w, H: h}},
 		opentile.Size{W: w, H: h},
 		*dziTile,

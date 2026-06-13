@@ -61,11 +61,11 @@ func TestNDPIDecodedTilePathParity(t *testing.T) {
 					if tx >= gw-1 || ty >= gh-1 {
 						continue
 					}
-					fast, err := slide.DecodedTile(lvlIdx, tx, ty)
+					fast, err := lvl.DecodedTile(tx, ty)
 					if err != nil {
 						t.Fatalf("L%d (%d,%d) DecodedTile: %v", lvlIdx, tx, ty, err)
 					}
-					compressed, err := slide.RawTile(lvlIdx, tx, ty)
+					compressed, err := lvl.Tile(tx, ty)
 					if err != nil {
 						t.Fatalf("L%d (%d,%d) RawTile: %v", lvlIdx, tx, ty, err)
 					}

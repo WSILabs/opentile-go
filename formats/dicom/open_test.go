@@ -39,7 +39,7 @@ func TestOpenLeica4Directory(t *testing.T) {
 		t.Errorf("L0 size = %+v", levels[0].Size)
 	}
 	// A center tile decodes (slow-path JPEG) to the tile size.
-	img, err := s.DecodedTile(2, 3, 3)
+	img, err := mustLevel(t, s, 2).DecodedTile(3, 3)
 	if err != nil {
 		t.Fatalf("DecodedTile: %v", err)
 	}

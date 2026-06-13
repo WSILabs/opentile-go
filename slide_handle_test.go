@@ -36,8 +36,9 @@ func TestSlideDecoderHandleReuse(t *testing.T) {
 	}
 	defer slide.Close()
 
+	lvl := mustLevel(t, slide, 0)
 	for i := 0; i < 100; i++ {
-		_, err := slide.DecodedTile(0, 0, 0)
+		_, err := lvl.DecodedTile(0, 0)
 		if err != nil {
 			t.Fatalf("call %d: %v", i, err)
 		}
@@ -62,7 +63,7 @@ func TestSlideCloseReleasesHandles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := slide.DecodedTile(0, 0, 0); err != nil {
+	if _, err := mustLevel(t, slide, 0).DecodedTile(0, 0); err != nil {
 		t.Fatal(err)
 	}
 	if got := slide.HandleCountForTest(); got == 0 {
@@ -94,13 +95,14 @@ func TestSlideHandleConcurrent(t *testing.T) {
 	}
 	defer slide.Close()
 
+	lvl := mustLevel(t, slide, 0)
 	var wg sync.WaitGroup
 	for i := 0; i < 32; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 50; j++ {
-				if _, err := slide.DecodedTile(0, 0, 0); err != nil {
+				if _, err := lvl.DecodedTile(0, 0); err != nil {
 					t.Errorf("decode: %v", err)
 					return
 				}

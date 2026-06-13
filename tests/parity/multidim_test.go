@@ -68,7 +68,12 @@ func TestMultiDimCompat2D(t *testing.T) {
 				}
 				// Exercise level 0 tile (0,0) for each image — confirms
 				// the ImageRawTile dispatch through the full stack.
-				b, err := tiler.ImageRawTile(img.Index, 0, 0, 0)
+				lvl0, lerr := img.Level(0)
+				if lerr != nil {
+					t.Errorf("image %d Level(0): %v", ii, lerr)
+					continue
+				}
+				b, err := lvl0.Tile(0, 0)
 				if err != nil {
 					t.Errorf("image %d ImageRawTile(0,0,0): %v", ii, err)
 					continue

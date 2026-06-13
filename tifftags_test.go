@@ -85,21 +85,21 @@ func TestSlideTIFFAccessors(t *testing.T) {
 		{Type: DirOther, Tags: TIFFTags{{Number: 65500, Type: TIFFLong}}},
 	}}}
 
-	tags, ok := s.LevelTIFFTags(0)
+	tags, ok := s.imageLevelTIFFTags(0, 0)
 	if !ok {
 		t.Fatal("LevelTIFFTags(0) ok=false")
 	}
 	if _, ok := tags.Tag(270); !ok {
 		t.Fatal("level 0 missing tag 270")
 	}
-	tags1, ok := s.LevelTIFFTags(1)
+	tags1, ok := s.imageLevelTIFFTags(0, 1)
 	if !ok {
 		t.Fatal("LevelTIFFTags(1) ok=false")
 	}
 	if _, ok := tags1.Tag(256); !ok {
 		t.Fatal("level 1 missing tag 256")
 	}
-	if _, ok := s.LevelTIFFTags(9); ok {
+	if _, ok := s.imageLevelTIFFTags(0, 9); ok {
 		t.Fatal("out-of-range level should be ok=false")
 	}
 	all, ok := s.TIFFDirectories()
@@ -112,13 +112,13 @@ func TestSlideTIFFAccessors(t *testing.T) {
 // tiffTagProvider. Used to verify that non-TIFF accessors return ok=false.
 type nonTIFFReader struct{}
 
-func (nonTIFFReader) Format() Format                { return Format("test") }
-func (nonTIFFReader) Pyramids() []Pyramid            { return nil }
-func (nonTIFFReader) Level(_, _ int) (Level, error) { return Level{}, errors.New("stub") }
+func (nonTIFFReader) Format() Format                      { return Format("test") }
+func (nonTIFFReader) Pyramids() []Pyramid                 { return nil }
+func (nonTIFFReader) Level(_, _ int) (Level, error)       { return Level{}, errors.New("stub") }
 func (nonTIFFReader) AssociatedImages() []AssociatedImage { return nil }
-func (nonTIFFReader) Metadata() Metadata            { return Metadata{} }
-func (nonTIFFReader) ICCProfile() []byte            { return nil }
-func (nonTIFFReader) WarmLevel(_, _ int) error      { return nil }
+func (nonTIFFReader) Metadata() Metadata                  { return Metadata{} }
+func (nonTIFFReader) ICCProfile() []byte                  { return nil }
+func (nonTIFFReader) WarmLevel(_, _ int) error            { return nil }
 func (nonTIFFReader) ImageRawTile(_, _, _, _ int) ([]byte, error) {
 	return nil, errors.New("stub")
 }
@@ -141,7 +141,7 @@ func (nonTIFFReader) Close() error { return nil }
 
 func TestSlideTIFFAccessorsNonTIFF(t *testing.T) {
 	s := &Slide{r: nonTIFFReader{}}
-	if _, ok := s.LevelTIFFTags(0); ok {
+	if _, ok := s.imageLevelTIFFTags(0, 0); ok {
 		t.Fatal("non-TIFF should return ok=false")
 	}
 	if _, ok := s.TIFFDirectories(); ok {

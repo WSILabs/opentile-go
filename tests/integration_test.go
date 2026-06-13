@@ -278,7 +278,7 @@ func checkLevels(
 		if len(fixTileSHA) > 0 {
 			for y := 0; y < lvl.Grid.H; y++ {
 				for x := 0; x < lvl.Grid.W; x++ {
-					b, err := tiler.ImageRawTile(imageIdx, i, x, y)
+					b, err := lvl.Tile(x, y)
 					if err != nil {
 						t.Errorf("%sImageRawTile(%d,%d) level %d: %v", labelPrefix, x, y, i, err)
 						continue
@@ -303,7 +303,7 @@ func checkLevels(
 		for i, lvl := range levels {
 			positions := tests.SamplePositions(lvl.Grid, lvl.Size, lvl.TileSize)
 			for _, p := range positions {
-				b, err := tiler.ImageRawTile(imageIdx, i, p.X, p.Y)
+				b, err := lvl.Tile(p.X, p.Y)
 				if err != nil {
 					t.Errorf("%ssampled ImageRawTile(%d,%d) level %d: %v", labelPrefix, p.X, p.Y, i, err)
 					continue
