@@ -15,7 +15,7 @@ It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture
 
 **What it does:**
 
-- **Raw tile extraction** — `Tile(x, y)` / `RawTile` return the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
+- **Raw tile extraction** — `level.Tile(x, y)` returns the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
 - **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), and `ReadRegionScaled` (downsampled output) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
 - **Scaled strips / DZI** — `ScaledStrips`, a libvips-style whole-slide region iterator with **byte-bounded** peak memory, for Deep Zoom / tile-pyramid generation.
 - **11 formats, auto-detected** — Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, COG-WSI, [Iris IFE](https://github.com/IrisDigitalPathology/Iris-File-Extension), [SZI](https://github.com/smartinmedia/SZI-Format), and multi-file **DICOM WSI**.
@@ -38,7 +38,7 @@ tile, err := base.Tile(0, 0) // raw compressed JPEG / JP2K / etc. bytes
 
 `Tile(x, y)` returns the raw compressed bitstream exactly as stored on disk — pure Go, no cgo, zero-copy. Hand it to any JPEG / JPEG 2000 / etc. decoder downstream, or let opentile-go decode for you — see [decoded pixel regions](#reading-pixel-regions-and-scaled-strips) below.
 
-**Decoded pixels (shipped).** For decoded regions instead of raw bytes — `ReadRegion`, `DecodedTile`, `ReadRegionScaled`, `ScaledStrips`, all returning `*decoder.Image` — also register the codec decoders, the same side-effect-import pattern as `formats/all`:
+**Decoded pixels (shipped).** For decoded regions instead of raw bytes — `level.ReadRegion`, `level.DecodedTile`, `pyr.ReadRegionScaled`, `pyr.ScaledStrips`, all returning `*decoder.Image` — also register the codec decoders, the same side-effect-import pattern as `formats/all`:
 
 ```go
 import (
@@ -79,7 +79,7 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 - **Optional codec libraries**, each disableable with a `no<codec>` build tag if you don't have it: OpenJPEG / JPEG 2000 (`nojp2k`), libjxl (`nojxl`), libwebp (`nowebp`), libavif (`noavif`), openjph / HTJ2K (`nohtj2k`). libjpeg-turbo is the only codec linked under every cgo build.
 - **`pkg-config`** to resolve the above at build time.
 
-opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`RawTile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-striped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.
+opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`level.Tile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-striped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.
 
 ## Install
 
@@ -124,7 +124,7 @@ base, _ := t.Level(0)
 
 // Per-tile metadata.
 fmt.Printf("base: %v tiles of %v pixels, compression %s, mpp %v\n",
-    base.Grid(), base.TileSize(), base.Compression(), base.MPP())
+    base.Grid, base.TileSize, base.Compression, base.MPP)
 
 // Get one tile's raw compressed bytes.
 tile, err := base.Tile(0, 0)
@@ -149,19 +149,19 @@ for pos, res := range base.Tiles(ctx) {
 
 ### Multi-image files
 
-OME-TIFF can carry multiple main pyramids in a single file. `Tiler.Images()` returns them all; `Tiler.Levels()` is a shortcut to `Images()[0].Levels()` for callers that don't need to distinguish.
+OME-TIFF can carry multiple main pyramids in a single file. `s.Pyramids()` returns them all; `s.Levels()` is a shortcut to `s.Pyramids()[0].LevelPtrs()` for callers that don't need to distinguish.
 
 ```go
-for _, img := range t.Images() {
-    fmt.Printf("Image %d (%q): %d levels, %v µm/px\n",
-        img.Index(), img.Name(), len(img.Levels()), img.MPP())
-    base, _ := img.Level(0)
-    tile, _ := base.Tile(0, 0)
-    // ...
+for _, pyr := range t.Pyramids() {
+    l0, _ := pyr.Level(0)
+    fmt.Printf("Pyramid %d (%q): %d levels, %v µm/px\n",
+        pyr.Index, pyr.Name, len(pyr.Levels), l0.MPP)
+    tile, _ := l0.Tile(0, 0)
+    _ = tile
 }
 ```
 
-For SVS, NDPI, and Philips, `Images()` always returns a one-element slice — Levels() / Level(i) work as before.
+For SVS, NDPI, and Philips, `Pyramids()` always returns a one-element slice — `Levels()` / `Level(i)` work as before.
 
 ### Reading pixel regions and scaled strips
 
@@ -173,12 +173,20 @@ region/strip API. All of these return `*decoder.Image` (`Width`,
 
 ```go
 // A decoded pixel region at a given level (level coords).
-img, err := t.ReadRegion(0 /*level*/, x, y, w, h)
+base, _ := t.Level(0)
+img, err := base.ReadRegion(opentile.Region{
+    Origin: opentile.Point{X: x, Y: y},
+    Size:   opentile.Size{W: w, H: h},
+})
 
 // An L0 region scaled to an explicit output size (e.g. a thumbnail
 // of the whole slide). IDCT-time downscale + resample under the hood.
 l0 := t.Levels()[0]
-thumb, err := t.ReadRegionScaled(0, 0, l0.Size.W, l0.Size.H, 1024, 1024)
+pyr := t.Pyramid(0)
+thumb, err := pyr.ReadRegionScaled(
+    opentile.Region{Size: l0.Size}, // full L0 extent
+    opentile.Size{W: 1024, H: 1024},
+)
 ```
 
 For whole-slide scaled output that is too large to hold in memory at
@@ -188,12 +196,11 @@ bounded internal cache + lookahead prefetch; you pull one strip at a
 time:
 
 ```go
-import "image"
-
 l0 := t.Levels()[0]
-it := t.ScaledStrips(
-    image.Rect(0, 0, l0.Size.W, l0.Size.H), // L0 region (here: whole slide)
-    image.Point{X: l0.Size.W, Y: l0.Size.H}, // output size (here: native res)
+pyr := t.Pyramid(0)
+it := pyr.ScaledStrips(
+    opentile.Region{Size: l0.Size},          // L0 region (here: whole slide)
+    l0.Size,                                 // output size (here: native res)
     256,                                     // strip height in output rows
     // opts: WithStripWorkers, WithStripLookahead, WithStripKernel,
     // WithStripIDCTScale, WithStripContext
@@ -216,10 +223,10 @@ knob and tuning.
 
 ### Associated images
 
-`Tiler.Associated()` returns label / overview / thumbnail / map images where the format provides them:
+`s.AssociatedImages()` returns label / overview / thumbnail / map images where the format provides them:
 
 ```go
-for _, a := range t.Associated() {
+for _, a := range t.AssociatedImages() {
     // Raw: compressed bytes as stored on disk.
     b, err := a.Bytes()
     if err != nil { continue }
@@ -233,9 +240,8 @@ for _, a := range t.Associated() {
 
 - `a.Bytes()` returns the compressed bytes in whatever codec the source carries (JPEG, LZW, …). For multi-strip **LZW** labels this is a re-encoded stream — use `Decode` if you need pixels.
 - `a.Decode(opts)` returns faithfully-decoded pixels for **any** codec (JPEG / JP2K / HTJ2K / WebP / AVIF / JPEG XL / LZW incl. Predictor=2 / Deflate / uncompressed), owning all codec / strip / predictor handling. Returns `decoder.ErrCodecUnavailable` when the codec isn't compiled in (e.g. JP2K under `nojp2k`).
-- `a.Type()` is `"label"`, `"overview"`, `"thumbnail"`, `"macro"` (IFE), `"map"` (NDPI/IFE), `"probability"` (BIF/IFE), or `"associated"`.
-- `s.AssociatedEncoding(a)` (Slide-level) returns the **on-disk encoded strips + TIFF tags** so a consumer can re-emit the associated image into a fresh standalone single-IFD TIFF with **no re-encode** — byte-identical strip bytes plus the `Compression` / `Predictor` / `JPEGTables` / `RowsPerStrip` / `Samples` / `Photometric` tags needed to write a conforming IFD. `ok=false` for associated images with no faithful single-IFD strip form — self-contained JPEGs (use `Bytes()`), DICOM frames, OME planar pages, tiled, and synthesized labels.
-- `a.Type()` values have exported constants — `opentile.AssociatedLabel`, `AssociatedOverview`, `AssociatedThumbnail`, `AssociatedMap`, `AssociatedProbability`, `AssociatedMacro`, `AssociatedGeneric` — so you can switch/compare without hardcoding the string literals.
+- `a.Type()` returns an `AssociatedType` — `"label"`, `"overview"`, `"thumbnail"`, `"macro"` (IFE), `"map"` (NDPI/IFE), `"probability"` (BIF/IFE), or `"associated"`. Use typed constants `opentile.AssociatedLabel`, `AssociatedOverview`, `AssociatedThumbnail`, `AssociatedMap`, `AssociatedProbability`, `AssociatedMacro`, `AssociatedGeneric` rather than string literals.
+- `a.Encoding()` returns the **on-disk encoded strips + TIFF tags** so a consumer can re-emit the associated image into a fresh standalone single-IFD TIFF with **no re-encode** — byte-identical strip bytes plus the `Compression` / `Predictor` / `JPEGTables` / `RowsPerStrip` / `Samples` / `Photometric` tags needed to write a conforming IFD. `ok=false` for associated images with no faithful single-IFD strip form — self-contained JPEGs (use `Bytes()`), DICOM frames, OME planar pages, tiled, and synthesized labels.
 
 ### Format-specific metadata
 
@@ -272,15 +278,16 @@ as typed `Metadata` fields — are available per IFD, anchored to the level or
 associated image you already hold:
 
 ```go
-tags, ok := slide.LevelTIFFTags(0)          // image-0 level-0 IFD
+base, _ := slide.Level(0)
+tags, ok := base.TIFFTags()                  // level-0 IFD tags
 if ok {
-    if t, ok := tags.Tag(65420); ok {        // a vendor/private tag by number
-        s, _ := t.ASCII()
+    if tag, ok := tags.Tag(65420); ok {      // a vendor/private tag by number
+        s, _ := tag.ASCII()
         _ = s
     }
 }
-slide.AssociatedTIFFTags(a)                   // an associated image's tags
-opentile.TIFFDirectoriesOf(slide)             // every IFD incl. orphans (Map/hidden)
+a.TIFFTags()                                  // an associated image's tags
+slide.TIFFDirectories()                       // every IFD incl. orphans (Map/hidden)
 ```
 
 `TIFFTag` carries `Number`, best-effort `Name`, `Type`, `Count`, verbatim
@@ -304,7 +311,7 @@ opentile-go's tile reads are designed for high-RPS HTTP serving and per-frame de
 
 - **`OpenFile` is mmap-backed by default** since v0.9. Tile reads become userspace memcpy; no `pread(2)` syscall per call. Opt out via `opentile.WithBacking(opentile.BackingPread)`.
 - **Use `Level.TileInto(x, y, dst) (int, error)`** with a `sync.Pool` of `[]byte` buffers sized to `Level.TileMaxSize()` for zero-allocation tile reads. Cervix serial: 152 ns/op, 0 allocs (vs v0.8's 22µs).
-- **`Tiler.WarmLevel(i) error`** pre-warms the page cache for predictable warm-cache latency.
+- **`level.Warm() error`** pre-warms the page cache for predictable warm-cache latency.
 - **Bandwidth deduplication (v0.13):** `Level.TilePrefix()` returns the constant JPEG prefix; `Level.TileBodyInto(x, y, dst)` returns on-disk bytes without the prefix. Client-server consumers can send the prefix once per session and body bytes per tile. `opentile.SpliceJPEGTile(prefix, body)` reconstitutes a complete JPEG on the client side. Savings are fixture-author-dependent — see [`docs/perf.md`](./docs/perf.md) for details.
 
 ### Memory (ScaledStrips / DZI path)
@@ -374,19 +381,19 @@ opentile-go aims for byte-parity with Python opentile 0.20.0. A small number of 
 |---|---|---|---|---|
 | Synthesised label | NDPI | v0.2 | `WithNDPISynthesizedLabel(false)` | Upstream doesn't surface NDPI labels at all; we crop the left 30% of the overview to provide an Aperio-style label affordance. |
 | Map pages exposed | NDPI | v0.4 | not opt-out-able (silent absence) | tifffile already classifies them as `series.name == 'Map'`; surfacing matches the underlying TIFF carrying. |
-| Multi-image OME pyramids | OME | v0.6 | use `Tiler.Levels()` instead of `Tiler.Images()` for first-image-only behaviour | Upstream's base Tiler loop silently drops 3 of 4 main pyramids in multi-image files via an unintentional last-wins assignment. We expose all of them via `Tiler.Images()`. |
-| Probability map exposed as `type="probability"` | BIF | v0.7 | iterate `Associated()` and skip the type | Upstream doesn't read BIF; openslide drops the probability map. We surface it for downstream tools that want it. |
-| `Level.TileOverlap() image.Point` interface evolution | BIF + all | v0.7 | non-BIF formats return `image.Point{}` (zero) — no caller change needed | BIF level-0 stores tiles with horizontal overlap; consumer needs the value to position raw tile bytes correctly. |
+| Multi-image OME pyramids | OME | v0.6 | use `s.Levels()` instead of `s.Pyramids()` for first-pyramid-only behaviour | Upstream's base Tiler loop silently drops 3 of 4 main pyramids in multi-image files via an unintentional last-wins assignment. We expose all of them via `s.Pyramids()`. |
+| Probability map exposed as `type="probability"` | BIF | v0.7 | iterate `s.AssociatedImages()` and skip the type | Upstream doesn't read BIF; openslide drops the probability map. We surface it for downstream tools that want it. |
+| `Level.TileOverlap` field | BIF + all | v0.7 | non-BIF formats return `Point{}` (zero) — no caller change needed | BIF level-0 stores tiles with horizontal overlap; consumer needs the value to position raw tile bytes correctly. |
 | Non-strict `ScannerModel` acceptance | BIF | v0.7 | not opt-out-able | The BIF spec mandates rejecting any slide whose `ScannerModel != "VENTANA DP 200"`; we accept any iScan-tagged BigTIFF and route via `HasPrefix("VENTANA DP")` so legacy iScan slides aren't worse-than-openslide. |
-| Multi-dimensional WSI API addition (`TileCoord` + `Level.TileAt` + `Image.SizeZ/SizeC/SizeT/ChannelName/ZPlaneFocus`) | All formats | v0.7 | additive — 2D-only formats inherit `SingleImage` defaults | Modern WSI consumers (fluorescence, focal-plane viewers, time series) need explicit multi-dim addressing. BIF reads multi-Z natively; OME surfaces dimensions honestly + defers `TileAt(z != 0)` to a future format-package milestone. |
+| Multi-dimensional WSI API addition (`TileCoord` + `Level.TileAt`) | All formats | v0.7 | additive — 2D-only formats return defaults | Modern WSI consumers (fluorescence, focal-plane viewers, time series) need explicit multi-dim addressing. BIF reads multi-Z natively; full Z/C/T surface deferred to a future format-package milestone. |
 | Non-TIFF dispatch path (`FormatFactory.SupportsRaw` + `OpenRaw` + `RawUnsupported` base) | All formats | v0.8 | additive — TIFF factories embed `RawUnsupported` and inherit defaults | Iris IFE is the first non-TIFF format opentile-go reads. Table-driven dispatch lets each format own its detection; future non-TIFF formats drop in additively. |
 | `TILE_TABLE.x_extent` / `y_extent` ignored | IFE | v0.8 | not opt-out-able | The IFE v1.0 spec doc claims these fields carry image pixel dims, but the cervix fixture stores tile counts (matching `LAYER_EXTENTS.x_tiles`). Reader derives image dims from `LAYER_EXTENTS × 256` instead — unambiguous either way. |
 | Default mmap-backed `OpenFile` | All formats | v0.9 | `WithBacking(BackingPread)` | Universal perf win on the hot path (8–145× speedup; cervix serial Tile dropped from 22µs to 0.75µs). Auto-fallback to pread on mmap failure; SIGBUS on file truncation documented in the OpenFile docstring. |
 | `Level.TileInto` + `Level.TileMaxSize` interface evolution | All formats | v0.9 | additive — existing `Tile()` unchanged | Pool-friendly tile-read API. With `sync.Pool` of `[]byte` buffers sized to `TileMaxSize()`, the caller does zero allocations per tile on every TIFF format and IFE. NDPI / OME OneFrame still allocate internal scratch. |
-| `Tiler.WarmLevel(i)` interface evolution | All formats | v0.9 | additive — hint operation, callers can ignore | Page-cache pre-warm for predictable warm-cache latency. Useful for slide-server pre-warm at startup. |
+| `Level.Warm()` interface evolution | All formats | v0.9 | additive — hint operation, callers can ignore | Page-cache pre-warm for predictable warm-cache latency. Useful for slide-server pre-warm at startup. |
 | Generic-TIFF reader for non-vendor tiled pyramidal TIFFs | Generic TIFF | v0.10 | not opt-out-able once registered; any TIFF that no vendor factory claims AND that passes the validator routes here | Real-world WSI authoring outside Aperio / Hamamatsu / Philips is common (Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-encoded research outputs). A catch-all reader makes opentile-go consume any structurally valid pyramid TIFF without per-vendor reverse-engineering. |
-| `"associated"` AssociatedImage Type value addition | Generic TIFF | v0.10 | iterate `Associated()` and skip the type | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / macro / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible type label. |
-| Leica SCN reader for legacy SCN400 / SCN400F output | Leica SCN | v0.11 | not opt-out-able once registered | First real-fixture exercise of `Image.SizeC() > 1` (Leica-Fluorescence-1.scn's separated-channel data); also the first multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage. |
+| `"associated"` AssociatedImage Type value addition | Generic TIFF | v0.10 | iterate `s.AssociatedImages()` and skip the type | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / macro / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible type label. |
+| Leica SCN reader for legacy SCN400 / SCN400F output | Leica SCN | v0.11 | not opt-out-able once registered | First real-fixture multi-region "discontinuous scanning" reader. Architecturally valuable beyond just SCN coverage. |
 | `Level.TilePrefix` / `TileBodyInto` / `TileBodyMaxSize` + `opentile.SpliceJPEGTile` interface evolution | All formats (JPEG splice formats benefit) | v0.13 | additive — existing `Tile()` / `TileInto()` unchanged | Bandwidth-deduplication API for client-server consumers: send the per-level prefix once, send per-tile body bytes per request, reconstitute on client. Savings fixture-author-dependent (only slides with shared JPEGTables benefit). |
 | Smart Zoom Image (SZI) reader | Smart Zoom Image | v0.16 | not opt-out-able once registered | First ZIP-backed format opentile-go reads; first format to surface `CompressionPNG`. Spec-mandated uncompressed-stored ZIP entries preserve the v0.9 mmap-aliased fast path. Backed by a new shared `internal/dzi/` core designed for additive bare-DZI support in v0.17+. |
 | COG-WSI reader + integer-multiple pyramid ratio acceptance | COG-WSI + generic-TIFF | v0.19 | not opt-out-able once registered | First spec-validated COG-profile reader opentile-go ships; pairs WSI-domain private tags 65080-87 + `COG_WSI_VERSION` ghost-area marker with the GDAL Cloud Optimized GeoTIFF base structure. Closes Issues [#5](https://github.com/wsilabs/opentile-go/issues/5) + [#6](https://github.com/wsilabs/opentile-go/issues/6). Generic-TIFF standalone benefit: relaxed strict-drift check now accepts clean integer-multiple pyramid ratios (Aperio / Grundium SVS-style 4×/2×/2× chains). |

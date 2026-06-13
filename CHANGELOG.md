@@ -11,6 +11,19 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed (BREAKING) — v1.0 API restructure
+
+See [docs/migrations/2026-06-12-v1-api-breaking-pass.md](docs/migrations/2026-06-12-v1-api-breaking-pass.md) for a full before/after table and migration instructions.
+
+- **`opentile.Image` → `opentile.Pyramid`**: the multi-resolution image container type is renamed; `slide.Images()` / `slide.Image(i)` become `slide.Pyramids()` / `slide.Pyramid(i)`.
+- **`slide.Associated()` → `slide.AssociatedImages()`**: the associated-image list accessor is renamed for consistency with `Pyramids`.
+- **Reads moved to `*Level` and `*Pyramid`**: all tile-read and region-read methods (`RawTile`, `DecodedTile`, `ReadRegion`, `TileReader`, `Tiles`, `TileInto`, `TileBodyInto`, `TilePrefix`, `Warm`, `TIFFTags`) are now methods on `*Level`; cross-level reads (`ReadRegionScaled`, `ScaledStrips`, `BestLevelForDownsample`) are methods on `*Pyramid`. The corresponding `Slide.ImageRawTile` / `Slide.ImageDecodedTile` / `Slide.ImageReadRegion` / `Slide.LevelTIFFTags` / … twin methods are removed.
+- **`AssociatedImage.Encoding()` / `.TIFFTags()` / `.IFDOffset()`**: these three accessors move from Slide-level methods (`slide.AssociatedEncoding(a)`, `slide.AssociatedTIFFTags(a)`, `slide.AssociatedIFDOffset(a)`) onto the `AssociatedImage` interface itself.
+- **`AssociatedImage.Type()` returns `AssociatedType`** (string-underlying): callers that store or pass the result as a bare `string` need an explicit conversion; `==` comparisons against the exported constants (`opentile.AssociatedLabel`, `AssociatedOverview`, etc.) are unchanged.
+- **MPP unified to microns**: `level.MPP` and `metadata.MPP` are now `opentile.MPP{X, Y float64}` (microns). The old `SizeMm`-typed `MPP` field and the `MicronsPerPixel` / `MicronsPerPixelX` / `MicronsPerPixelY` float64 fields on `Metadata` are removed.
+- **Geometry unified**: `TilePos` is removed; the `Tiles` iterator now yields `Point`. `ReadRegion` takes an `opentile.Region` struct (`Origin Point`, `Size Size`) instead of loose `level, x, y, w, h int` parameters. The stdlib `image.Point` / `image.Rectangle` types no longer appear in the public surface.
+- **`TIFFDirectoriesOf(s)` → `s.TIFFDirectories()`**: the package-level function becomes a method on `*Slide`.
+
 ## [0.40.0] — 2026-06-12
 
 ### Changed — `AssociatedSource` → `AssociatedEncoding` (pre-1.0 vocabulary)
