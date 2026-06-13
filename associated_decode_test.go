@@ -89,18 +89,11 @@ func TestAssociatedDecodeAllFormats(t *testing.T) {
 				t.Skipf("%s: no associated images", rel)
 			}
 			for _, a := range assoc {
-				// Known-corrupt fixture: the cog-wsi label LZW stream was
-				// written by wsitools' cogwsiwriter with the same off-by-one
-				// LZW bug fixed here (internal/tifflzw) — it is objectively
-				// undecodable (tifffile rejects it identically). opentile-go
-				// correctly errors on it; regenerate the fixture after the
-				// wsitools cogwsiwriter LZW fix lands.
-				if rel == "cog-wsi/CMU-1_cog-wsi.tiff" && a.Type() == "label" {
-					if _, err := a.Decode(decoder.DecodeOptions{}); err == nil {
-						t.Errorf("%s label: expected error on corrupt fixture, got success", rel)
-					}
-					continue
-				}
+				// (cog-wsi/CMU-1_cog-wsi.tiff's label was previously corrupt
+				// under WSILabs/wsitools#1 and special-cased to expect an error.
+				// The cog-wsi fixtures were regenerated with a fixed
+				// cogwsiwriter; the label now decodes correctly, so it goes
+				// through the normal check like every other associated image.)
 				checkDecode(t, rel, a, decoder.PixelFormatRGB)
 				checkDecode(t, rel, a, decoder.PixelFormatRGBA)
 			}

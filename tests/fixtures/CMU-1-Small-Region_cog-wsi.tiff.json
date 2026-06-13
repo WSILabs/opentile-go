@@ -166,7 +166,7 @@
         768
       ],
       "compression": "jpeg",
-      "sha256": "f832ae3b56d15831f7a7aa89e5be98210bf68a7cbd13a2ff3e68ae9bcff87536"
+      "sha256": "002bba1eff12b2768d2fa83097da838af855bb6620c43cdb19e2ab4e649b0a78"
     },
     {
       "type": "label",
@@ -175,7 +175,7 @@
         463
       ],
       "compression": "lzw",
-      "sha256": "fddb552f9bd2e4401a78931ef65521ccb1ff1e5a68cc70bd35a6ef4c74421052"
+      "sha256": "8c67ed7032d3e637678e5c9bb4a74ad5a8bcb43ddbfe6c268f6edf3dc38cb25a"
     },
     {
       "type": "overview",
@@ -184,7 +184,7 @@
         431
       ],
       "compression": "jpeg",
-      "sha256": "b54c74d80bd75ccd3032279d8fa7de684a735bde9b839d9cebfd437e5f8518a3"
+      "sha256": "a341f88efdbcd8b9308f2a2e76a8d2180a42178b16549bfd8f2d98030d3cf69b"
     }
   ]
 }

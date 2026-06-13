@@ -45,14 +45,23 @@ var cogwsiFixtures = []cogwsiFixture{
 		// CMU-1-Small-Region_cog-wsi.tiff: wsitools-converted from
 		// CMU-1-Small-Region.svs. Single-level (no pyramid required at
 		// that size). JPEG tiles.
+		//
+		// Associated ByteCounts re-pinned in v0.40.x: the cog-wsi fixtures
+		// were regenerated with a fixed wsitools cogwsiwriter (post
+		// WSILabs/wsitools#1), so every associated Bytes() length drifted.
+		// Verified faithful: the CMU-1 labels here decode byte-identically
+		// (mean=0, max=0) to the known-good generic CMU-1.stripped label,
+		// every associated image decodes cleanly, and the re-encoded LZW
+		// labels round-trip (Bytes()==Decode()). The previously-corrupt
+		// CMU-1_cog-wsi label is no longer corrupt (wsitools#1 resolved).
 		filename: "CMU-1-Small-Region_cog-wsi.tiff",
 		levels: []cogwsiLevelExpect{
 			{W: 2220, H: 2967, TileW: 240, TileH: 240, GridW: 10, GridH: 13, Compression: opentile.CompressionJPEG},
 		},
 		associated: []cogwsiAssocExpect{
-			{Type: "thumbnail", W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 194919},
-			{Type: "label", W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
-			{Type: "overview", W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86655},
+			{Type: "thumbnail", W: 574, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 196257},
+			{Type: "label", W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368751},
+			{Type: "overview", W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87258},
 		},
 		tileMagic: []byte{0xFF, 0xD8, 0xFF},
 	},
@@ -66,9 +75,9 @@ var cogwsiFixtures = []cogwsiFixture{
 			{W: 2875, H: 2057, TileW: 256, TileH: 256, GridW: 12, GridH: 9, Compression: opentile.CompressionJPEG},
 		},
 		associated: []cogwsiAssocExpect{
-			{Type: "thumbnail", W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 142606},
-			{Type: "label", W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
-			{Type: "overview", W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 86742},
+			{Type: "thumbnail", W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
+			{Type: "label", W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368751},
+			{Type: "overview", W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
 		},
 		tileMagic: []byte{0xFF, 0xD8, 0xFF},
 	},
@@ -83,9 +92,9 @@ var cogwsiFixtures = []cogwsiFixture{
 			{W: 1921, H: 2187, TileW: 256, TileH: 256, GridW: 8, GridH: 9, Compression: opentile.CompressionJP2K},
 		},
 		associated: []cogwsiAssocExpect{
-			{Type: "thumbnail", W: 674, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 142754},
-			{Type: "label", W: 415, H: 422, Compression: opentile.CompressionLZW, ByteCount: 333589},
-			{Type: "overview", W: 1280, H: 421, Compression: opentile.CompressionJPEG, ByteCount: 60127},
+			{Type: "thumbnail", W: 674, H: 768, Compression: opentile.CompressionJPEG, ByteCount: 144092},
+			{Type: "label", W: 415, H: 422, Compression: opentile.CompressionLZW, ByteCount: 333582},
+			{Type: "overview", W: 1280, H: 421, Compression: opentile.CompressionJPEG, ByteCount: 60730},
 		},
 		tileMagic: []byte{0xFF, 0x4F, 0xFF, 0x51},
 	},
@@ -100,9 +109,9 @@ var cogwsiFixtures = []cogwsiFixture{
 			{W: 3072, H: 2048, TileW: 512, TileH: 512, GridW: 6, GridH: 4, Compression: opentile.CompressionJPEG},
 		},
 		associated: []cogwsiAssocExpect{
-			{Type: "thumbnail", W: 1536, H: 1024, Compression: opentile.CompressionJPEG, ByteCount: 3145734},
+			{Type: "thumbnail", W: 1536, H: 1024, Compression: opentile.CompressionJPEG, ByteCount: 3145728},
 			{Type: "label", W: 1200, H: 848, Compression: opentile.CompressionLZW, ByteCount: 830684},
-			{Type: "overview", W: 1200, H: 400, Compression: opentile.CompressionJPEG, ByteCount: 117665},
+			{Type: "overview", W: 1200, H: 400, Compression: opentile.CompressionJPEG, ByteCount: 117659},
 		},
 		tileMagic: []byte{0xFF, 0xD8, 0xFF},
 	},
@@ -117,9 +126,9 @@ var cogwsiFixtures = []cogwsiFixture{
 			{W: 3072, H: 2048, TileW: 512, TileH: 512, GridW: 6, GridH: 4, Compression: opentile.CompressionJPEG},
 		},
 		associated: []cogwsiAssocExpect{
-			{Type: "thumbnail", W: 1536, H: 1024, Compression: opentile.CompressionJPEG, ByteCount: 3145734},
+			{Type: "thumbnail", W: 1536, H: 1024, Compression: opentile.CompressionJPEG, ByteCount: 3145728},
 			{Type: "label", W: 1200, H: 848, Compression: opentile.CompressionLZW, ByteCount: 834864},
-			{Type: "overview", W: 1200, H: 400, Compression: opentile.CompressionJPEG, ByteCount: 116344},
+			{Type: "overview", W: 1200, H: 400, Compression: opentile.CompressionJPEG, ByteCount: 116338},
 		},
 		tileMagic: []byte{0xFF, 0xD8, 0xFF},
 	},

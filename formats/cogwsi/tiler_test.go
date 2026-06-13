@@ -127,13 +127,13 @@ func TestTiler_Metadata(t *testing.T) {
 	if md.ScannerManufacturer != "Aperio" {
 		t.Errorf("ScannerManufacturer = %q, want %q", md.ScannerManufacturer, "Aperio")
 	}
-	if md.ImageDescription != "wsitools/0.6.0-dev convert source=svs" {
+	if md.ImageDescription != "wsitools/0.23.0-dev convert source=svs" {
 		t.Errorf("ImageDescription = %q", md.ImageDescription)
 	}
 
 	// v0.20: Writer = wsitools/<WSIToolsVersion> from private tag 65084.
-	if md.Writer != "wsitools/0.6.0-dev" {
-		t.Errorf("Writer = %q, want wsitools/0.6.0-dev", md.Writer)
+	if md.Writer != "wsitools/0.23.0-dev" {
+		t.Errorf("Writer = %q, want wsitools/0.23.0-dev", md.Writer)
 	}
 
 	// Properties[cog-wsi.*]
@@ -145,7 +145,7 @@ func TestTiler_Metadata(t *testing.T) {
 		}
 	}
 	checkProp(cogwsi.PropSourceFormat, "svs")
-	checkProp(cogwsi.PropWSIToolsVer, "0.6.0-dev")
+	checkProp(cogwsi.PropWSIToolsVer, "0.23.0-dev")
 	checkProp(cogwsi.PropSpecVersion, "0.1")
 }
 

@@ -233,7 +233,7 @@
         1024
       ],
       "compression": "jpeg",
-      "sha256": "f68b84e114be0ddef0d4f2b49132a688c21e17b1b9bfa05f2b01a0990d4f3f88"
+      "sha256": "20b79b069e42d6ea63473e92b46355d951ac3cfb0d0516ab46b1a63508ba395e"
     },
     {
       "type": "label",
@@ -251,7 +251,7 @@
         400
       ],
       "compression": "jpeg",
-      "sha256": "ea307acf5f03bca9858ed1139aa18f15c1e8e40e9c29ba729d5cdef23c459fef"
+      "sha256": "134ff1ee9d699693f2de44775b446be62a424a8644602b87508decca83a90c91"
     }
   ]
 }

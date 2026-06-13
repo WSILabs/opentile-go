@@ -134,13 +134,11 @@ func TestAssociatedEncodingRoundtrip(t *testing.T) {
 			defer s.Close()
 			got := 0
 			for _, a := range s.Associated() {
-				// Known-corrupt fixture (wsitools cogwsiwriter LZW bug, GH #20
-				// note / WSILabs/wsitools#1): its LZW label can't be decoded by
-				// anything; AssociatedEncoding returns the (corrupt) strips but
-				// they won't reconstruct. Skip until the fixture is regenerated.
-				if rel == "cog-wsi/CMU-1_cog-wsi.tiff" && a.Type() == "label" {
-					continue
-				}
+				// (Previously skipped cog-wsi/CMU-1_cog-wsi.tiff's label as
+				// corrupt under WSILabs/wsitools#1. The cog-wsi fixtures were
+				// regenerated with a fixed cogwsiwriter; the label now
+				// reconstructs and decodes byte-identically to the known-good
+				// generic CMU-1.stripped label, so the skip is removed.)
 				src, ok := s.AssociatedEncoding(a)
 				if !ok {
 					t.Logf("%s %q: no source (ok=false)", rel, a.Type())
