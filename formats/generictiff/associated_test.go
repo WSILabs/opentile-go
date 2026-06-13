@@ -90,7 +90,7 @@ func TestAssociated_StrippedSVS_All3Types(t *testing.T) {
 	} {
 		t.Run(string(tc.imageType), func(t *testing.T) {
 			info := associatedSourceInfoFromPage(t, pages[tc.ifdIdx])
-			a, err := newAssociatedImage(tc.imageType, info, f)
+			a, err := newAssociatedImage(tc.imageType, info, f, nil)
 			if err != nil {
 				t.Fatalf("newAssociatedImage: %v", err)
 			}
@@ -151,7 +151,7 @@ func TestAssociated_RejectsTiled(t *testing.T) {
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{100},
 	}
-	_, err := newAssociatedImage(TypeOverview, info, bytes.NewReader(make([]byte, 1000)))
+	_, err := newAssociatedImage(TypeOverview, info, bytes.NewReader(make([]byte, 1000)), nil)
 	if !errors.Is(err, errUnsupportedAssociatedShape) {
 		t.Errorf("got %v, want errUnsupportedAssociatedShape", err)
 	}
@@ -166,7 +166,7 @@ func TestAssociated_RejectsOversized(t *testing.T) {
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{1 << 30}, // 1 GiB — far above 32 MB ceiling
 	}
-	_, err := newAssociatedImage(TypeThumbnail, info, bytes.NewReader(nil))
+	_, err := newAssociatedImage(TypeThumbnail, info, bytes.NewReader(nil), nil)
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("max")) {
 		t.Errorf("expected size-limit error, got %v", err)
 	}
@@ -193,7 +193,7 @@ func TestAssociated_MultiStripUncompressed(t *testing.T) {
 		stripOffsets: []uint64{0, 4, 8},
 		stripCounts:  []uint64{4, 4, 4},
 	}
-	a, err := newAssociatedImage("custom", info, bytes.NewReader(allBytes))
+	a, err := newAssociatedImage("custom", info, bytes.NewReader(allBytes), nil)
 	if err != nil {
 		t.Fatalf("newAssociatedImage: %v", err)
 	}

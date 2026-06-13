@@ -42,6 +42,17 @@ func (a *associatedImage) Compression() opentile.Compression {
 	return opentile.CompressionJPEG
 }
 
+// Encoding is not supported for SZI (ZIP-backed JPEG; no TIFF strip form).
+func (a *associatedImage) Encoding() (opentile.AssociatedEncoding, bool) {
+	return opentile.AssociatedEncoding{}, false
+}
+
+// TIFFTags returns nil, false — SZI is not a TIFF format.
+func (a *associatedImage) TIFFTags() (opentile.TIFFTags, bool) { return nil, false }
+
+// IFDOffset returns 0, false — SZI is not a TIFF format.
+func (a *associatedImage) IFDOffset() (int64, bool) { return 0, false }
+
 // Decode returns the decoded associated-image pixels via the registered
 // JPEG decoder (GH #20).
 func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {

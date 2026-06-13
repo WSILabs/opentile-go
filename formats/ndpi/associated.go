@@ -57,6 +57,17 @@ func (o *overviewImage) Type() opentile.AssociatedType     { return opentile.Ass
 func (o *overviewImage) Size() opentile.Size               { return o.size }
 func (o *overviewImage) Compression() opentile.Compression { return o.compression }
 
+// Encoding is not supported for NDPI overview (single JPEG, no faithful strip form).
+func (o *overviewImage) Encoding() (opentile.AssociatedEncoding, bool) {
+	return opentile.AssociatedEncoding{}, false
+}
+
+// TIFFTags returns nil, false — NDPI overview doesn't retain a parsed tiff.Page.
+func (o *overviewImage) TIFFTags() (opentile.TIFFTags, bool) { return nil, false }
+
+// IFDOffset returns 0, false — NDPI overview doesn't record the IFD offset.
+func (o *overviewImage) IFDOffset() (int64, bool) { return 0, false }
+
 // Decode returns the decoded overview pixels via the registered JPEG decoder (GH #20).
 func (o *overviewImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
 	data, err := o.Bytes()
@@ -120,6 +131,17 @@ func newLabelImage(overview *overviewImage, crop float64, mcuW int) *labelImage 
 func (l *labelImage) Type() opentile.AssociatedType     { return opentile.AssociatedLabel }
 func (l *labelImage) Size() opentile.Size               { return opentile.Size{W: l.cropTo - l.cropFrom, H: l.cropH} }
 func (l *labelImage) Compression() opentile.Compression { return l.overview.compression }
+
+// Encoding is not supported for NDPI label (synthesized JPEG crop; no source strip form).
+func (l *labelImage) Encoding() (opentile.AssociatedEncoding, bool) {
+	return opentile.AssociatedEncoding{}, false
+}
+
+// TIFFTags returns nil, false — NDPI label is synthesized; no backing IFD.
+func (l *labelImage) TIFFTags() (opentile.TIFFTags, bool) { return nil, false }
+
+// IFDOffset returns 0, false — NDPI label is synthesized; no backing IFD.
+func (l *labelImage) IFDOffset() (int64, bool) { return 0, false }
 
 // Decode returns the decoded synthesized-label pixels (a JPEG crop of the
 // macro) via the registered JPEG decoder (GH #20).

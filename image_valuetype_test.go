@@ -6,6 +6,19 @@ import (
 	opentile "github.com/wsilabs/opentile-go"
 )
 
+// TestAssociatedImageHasAccessors is a compile-time conformance check that
+// the AssociatedImage interface includes the three v1.0 accessors added in
+// the API breaking pass (Task 7).
+func TestAssociatedImageHasAccessors(t *testing.T) {
+	var ai opentile.AssociatedImage
+	var _ interface {
+		Encoding() (opentile.AssociatedEncoding, bool)
+		TIFFTags() (opentile.TIFFTags, bool)
+		IFDOffset() (int64, bool)
+	} = ai
+	t.Log("AssociatedImage carries Encoding/TIFFTags/IFDOffset — compile-time check passed")
+}
+
 func TestLevelIsValueType(t *testing.T) {
 	// Compile-time + zero-value sanity check.
 	var lvl opentile.Level

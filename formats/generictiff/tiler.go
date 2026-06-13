@@ -105,25 +105,6 @@ func (t *tiler) TIFFDirectories() []opentile.TIFFDirectory {
 	return out
 }
 
-// AssociatedIFDOffset maps associated image a (matched on a.Type()) to its
-// source IFD byte offset. Implements the opentile associated-IFD-offset
-// provider. ok=false if a is not one of this slide's associated images.
-func (t *tiler) AssociatedIFDOffset(a opentile.AssociatedImage) (int64, bool) {
-	if t.file == nil {
-		return 0, false
-	}
-	pages := t.file.Pages()
-	for _, ds := range t.dirSpecs {
-		if ds.typ != opentile.DirAssociated || ds.assoc != a.Type() {
-			continue
-		}
-		if ds.pageIdx < 0 || ds.pageIdx >= len(pages) {
-			return 0, false
-		}
-		return pages[ds.pageIdx].IFDOffset(), true
-	}
-	return 0, false
-}
 
 func (t *tiler) Level(image, level int) (opentile.Level, error) {
 	if image != 0 || image >= len(t.images) {

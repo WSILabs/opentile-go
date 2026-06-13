@@ -27,6 +27,17 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 	return out, nil
 }
 
+// Encoding is not supported for DICOM (encapsulated frames; no TIFF strip form).
+func (a *associatedImage) Encoding() (opentile.AssociatedEncoding, bool) {
+	return opentile.AssociatedEncoding{}, false
+}
+
+// TIFFTags returns nil, false — DICOM is not a TIFF format.
+func (a *associatedImage) TIFFTags() (opentile.TIFFTags, bool) { return nil, false }
+
+// IFDOffset returns 0, false — DICOM is not a TIFF format.
+func (a *associatedImage) IFDOffset() (int64, bool) { return 0, false }
+
 // Decode returns the decoded associated-image pixels (GH #20). Encapsulated
 // frames (JPEG / JPEG 2000 / HTJ2K) decode via the registry; native/
 // uncompressed frames decode via the strip path using the instance's

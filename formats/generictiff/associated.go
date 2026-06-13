@@ -10,6 +10,7 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 	"github.com/wsilabs/opentile-go/internal/tifflzw"
 	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
@@ -41,6 +42,8 @@ type associatedImage struct {
 	// images, which decode bytes directly via the registry.
 	info      associatedSourceInfo
 	rawStrips [][]byte
+	ifdOffset int64
+	tiffTags  opentile.TIFFTags
 }
 
 func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
@@ -56,7 +59,9 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // vs multi-strip × compression) and reads the associated-image
 // bytes. Returns errUnsupportedAssociatedShape for the v0.10
 // out-of-scope variants (multi-strip JPEG / Deflate, tiled).
-func newAssociatedImage(imageType opentile.AssociatedType, info associatedSourceInfo, r io.ReaderAt) (*associatedImage, error) {
+// p is the backing TIFF page; may be nil (unit-test callers that build
+// without a real TIFF page will get ifdOffset=0 and tiffTags=nil).
+func newAssociatedImage(imageType opentile.AssociatedType, info associatedSourceInfo, r io.ReaderAt, p *tiff.Page) (*associatedImage, error) {
 	if info.tiled {
 		// Tiled associated images out of scope for v0.10.
 		return nil, fmt.Errorf("%w: tiled associated image", errUnsupportedAssociatedShape)
@@ -102,6 +107,10 @@ func newAssociatedImage(imageType opentile.AssociatedType, info associatedSource
 		info:        info,
 	}
 	ai.rawStrips = stripBytes // faithful Decode needs the original strips
+	if p != nil {
+		ai.ifdOffset = p.IFDOffset()
+		ai.tiffTags = opentile.TIFFTagsFromPage(p)
+	}
 	return ai, nil
 }
 
@@ -225,11 +234,11 @@ func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, er
 	}
 }
 
-// AssociatedEncoding returns the source strips + TIFF tags for faithful
+// Encoding returns the source strips + TIFF tags for faithful
 // standalone re-emission (GH #22): the original strips (not the re-encoded
 // Bytes()) plus Compression/Predictor/JPEGTables/RowsPerStrip. ok=false for
 // tiled associated images (no strip layout retained).
-func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
+func (a *associatedImage) Encoding() (opentile.AssociatedEncoding, bool) {
 	if len(a.rawStrips) == 0 {
 		return opentile.AssociatedEncoding{}, false
 	}
@@ -242,6 +251,22 @@ func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, boo
 		Samples:      int(a.info.samples),
 		Photometric:  int(a.info.photometric),
 	}, true
+}
+
+// TIFFTags returns the parsed TIFF tags of this associated image's backing IFD.
+func (a *associatedImage) TIFFTags() (opentile.TIFFTags, bool) {
+	if a.tiffTags == nil {
+		return nil, false
+	}
+	return a.tiffTags, true
+}
+
+// IFDOffset returns the byte offset of this associated image's backing IFD.
+func (a *associatedImage) IFDOffset() (int64, bool) {
+	if a.ifdOffset <= 0 {
+		return 0, false
+	}
+	return a.ifdOffset, true
 }
 
 // associatedSourceInfo carries the IFD-level metadata the

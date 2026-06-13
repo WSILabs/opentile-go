@@ -46,6 +46,8 @@ type stripedJPEGAssociated struct {
 	samples      int
 	photometric  int
 	reader       io.ReaderAt
+	ifdOffset    int64
+	tiffTags     opentile.TIFFTags
 }
 
 func (a *stripedJPEGAssociated) Type() opentile.AssociatedType     { return a.imageType }
@@ -197,10 +199,10 @@ func parseFirstSOF(frag []byte) (*jpeg.SOF, error) {
 	return jpeg.FirstFragmentSOF(frag)
 }
 
-// AssociatedEncoding returns the abbreviated-JPEG strips + JPEGTables for
+// Encoding returns the abbreviated-JPEG strips + JPEGTables for
 // faithful standalone re-emission (GH #22). A consumer writes the strips +
 // tag 347 (JPEGTables) verbatim into a fresh IFD.
-func (a *stripedJPEGAssociated) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
+func (a *stripedJPEGAssociated) Encoding() (opentile.AssociatedEncoding, bool) {
 	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
 	if err != nil {
 		return opentile.AssociatedEncoding{}, false
@@ -213,6 +215,22 @@ func (a *stripedJPEGAssociated) AssociatedEncoding() (opentile.AssociatedEncodin
 		Samples:      a.samples,
 		Photometric:  a.photometric,
 	}, true
+}
+
+// TIFFTags returns the parsed TIFF tags of this associated image's backing IFD.
+func (a *stripedJPEGAssociated) TIFFTags() (opentile.TIFFTags, bool) {
+	if a.tiffTags == nil {
+		return nil, false
+	}
+	return a.tiffTags, true
+}
+
+// IFDOffset returns the byte offset of this associated image's backing IFD.
+func (a *stripedJPEGAssociated) IFDOffset() (int64, bool) {
+	if a.ifdOffset <= 0 {
+		return 0, false
+	}
+	return a.ifdOffset, true
 }
 
 func newStripedJPEGAssociated(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (*stripedJPEGAssociated, error) {
@@ -281,6 +299,8 @@ func newStripedJPEGAssociated(imageType opentile.AssociatedType, p *tiff.Page, r
 		samples:      int(spp),
 		photometric:  int(photo),
 		reader:       r,
+		ifdOffset:    p.IFDOffset(),
+		tiffTags:     opentile.TIFFTagsFromPage(p),
 	}, nil
 }
 
@@ -299,6 +319,8 @@ type stripedLabel struct {
 	predictor    int
 	photometric  int
 	reader       io.ReaderAt
+	ifdOffset    int64
+	tiffTags     opentile.TIFFTags
 }
 
 func (a *stripedLabel) Type() opentile.AssociatedType     { return opentile.AssociatedLabel }
@@ -369,10 +391,10 @@ func (a *stripedLabel) Bytes() ([]byte, error) {
 	return reconstructLZWLabel(strips, a.rowsPerStrip, a.size.H, a.size.W, a.samples)
 }
 
-// AssociatedEncoding returns the LZW label's source strips + tags for faithful
+// Encoding returns the LZW label's source strips + tags for faithful
 // standalone re-emission (GH #22). The label keeps Predictor (typically 2);
 // a consumer MUST emit tag 317 or the differencing isn't reversed.
-func (a *stripedLabel) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
+func (a *stripedLabel) Encoding() (opentile.AssociatedEncoding, bool) {
 	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
 	if err != nil {
 		return opentile.AssociatedEncoding{}, false
@@ -385,6 +407,22 @@ func (a *stripedLabel) AssociatedEncoding() (opentile.AssociatedEncoding, bool) 
 		Samples:      a.samples,
 		Photometric:  a.photometric,
 	}, true
+}
+
+// TIFFTags returns the parsed TIFF tags of this associated image's backing IFD.
+func (a *stripedLabel) TIFFTags() (opentile.TIFFTags, bool) {
+	if a.tiffTags == nil {
+		return nil, false
+	}
+	return a.tiffTags, true
+}
+
+// IFDOffset returns the byte offset of this associated image's backing IFD.
+func (a *stripedLabel) IFDOffset() (int64, bool) {
+	if a.ifdOffset <= 0 {
+		return 0, false
+	}
+	return a.ifdOffset, true
 }
 
 func newStripedLabel(p *tiff.Page, r io.ReaderAt) (*stripedLabel, error) {
@@ -419,6 +457,8 @@ func newStripedLabel(p *tiff.Page, r io.ReaderAt) (*stripedLabel, error) {
 		photometric:  int(photo),
 		samples:      int(spp),
 		reader:       r,
+		ifdOffset:    p.IFDOffset(),
+		tiffTags:     opentile.TIFFTagsFromPage(p),
 	}, nil
 }
 

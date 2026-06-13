@@ -139,7 +139,7 @@ func TestAssociatedEncodingRoundtrip(t *testing.T) {
 				// regenerated with a fixed cogwsiwriter; the label now
 				// reconstructs and decodes byte-identically to the known-good
 				// generic CMU-1.stripped label, so the skip is removed.)
-				src, ok := s.AssociatedEncoding(a)
+				src, ok := a.Encoding()
 				if !ok {
 					t.Logf("%s %q: no source (ok=false)", rel, a.Type())
 					continue

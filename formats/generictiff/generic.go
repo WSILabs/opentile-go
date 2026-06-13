@@ -120,7 +120,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		// the pre-v0.19 dimension/aspect heuristics otherwise.
 		imageType := ClassifyAssociatedFromPage(pages[info.Index], info, baseline)
 		src := associatedSourceInfoFromClassified(pages[info.Index], info)
-		a, err := newAssociatedImage(imageType, src, r)
+		a, err := newAssociatedImage(imageType, src, r, pages[info.Index])
 		if err != nil {
 			if errors.Is(err, errUnsupportedAssociatedShape) {
 				// Spec §6: silently drop unsupported IFDs (multi-strip

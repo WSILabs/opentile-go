@@ -22,23 +22,5 @@ type AssociatedEncoding struct {
 	Photometric  int         // tag 262 PhotometricInterpretation
 }
 
-// associatedEncoder is the optional capability implemented by associated
-// images that can describe their faithful on-disk encoded form. It is NOT part
-// of the AssociatedImage interface (no breaking change); AssociatedEncoding
-// discovers it by type assertion.
-type associatedEncoder interface {
-	AssociatedEncoding() (AssociatedEncoding, bool)
-}
-
-// AssociatedEncoding returns the encoded source strips + TIFF tags for
-// associated image a, for byte-identical re-emission into a new standalone
-// TIFF with no re-encode (GH #22). ok=false for non-TIFF slides, formats that
-// haven't opted in, and synthesized or non-strip associated images that have
-// no faithful single-IFD strip representation (e.g. NDPI's synthesized label,
-// DICOM frames, OME planar pages, tiled associated images).
-func (s *Slide) AssociatedEncoding(a AssociatedImage) (AssociatedEncoding, bool) {
-	if p, ok := a.(associatedEncoder); ok {
-		return p.AssociatedEncoding()
-	}
-	return AssociatedEncoding{}, false
-}
+// AssociatedEncoding is now part of the AssociatedImage interface as Encoding().
+// Callers should use a.Encoding() directly instead of s.AssociatedEncoding(a).

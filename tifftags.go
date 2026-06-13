@@ -186,7 +186,7 @@ func tiffProviderOf(s *Slide) (tiffTagProvider, bool) {
 // TIFFDirectories enumerates every TIFF IFD (including orphan IFDs not
 // surfaced as a level or associated image). ok=false for non-TIFF formats
 // (IFE, SZI). The escape hatch for "dump all"; prefer LevelTIFFTags /
-// AssociatedTIFFTags for everyday access.
+// AssociatedImage.TIFFTags() for everyday access.
 func (s *Slide) TIFFDirectories() ([]TIFFDirectory, bool) {
 	p, ok := tiffProviderOf(s)
 	if !ok {
@@ -216,49 +216,6 @@ func (s *Slide) LevelTIFFTags(level int) (TIFFTags, bool) {
 	return s.ImageLevelTIFFTags(0, level)
 }
 
-// AssociatedTIFFTags returns the TIFF tags of an associated image's IFD,
-// matched on a.Type(). ok=false for non-TIFF or if not found.
-func (s *Slide) AssociatedTIFFTags(a AssociatedImage) (TIFFTags, bool) {
-	dirs, ok := s.TIFFDirectories()
-	if !ok {
-		return nil, false
-	}
-	for _, d := range dirs {
-		if d.Type == DirAssociated && d.AssociatedType == a.Type() {
-			return d.Tags, true
-		}
-	}
-	return nil, false
-}
-
-// associatedIFDOffsetProvider is implemented by TIFF-family readers that
-// can map a typed AssociatedImage back to its source IFD byte offset.
-// Opt-in per format (SVS + generic-TIFF as of the initial wiring); formats
-// with synthesized associated images (no on-disk IFD) deliberately don't
-// implement it.
-type associatedIFDOffsetProvider interface {
-	AssociatedIFDOffset(a AssociatedImage) (int64, bool)
-}
-
-// AssociatedIFDOffset returns the byte offset of the IFD backing associated
-// image a, for TIFF-family slides whose reader supports it (currently SVS
-// and generic-TIFF). ok is false when the slide is not TIFF-backed, the
-// format hasn't opted in, or a is not one of s.AssociatedImages().
-//
-// Intended for raw-TIFF in-place editing (e.g. mapping a typed associated
-// image back to its source IFD to splice/replace it). Uses the same
-// lazy UnwrapReader-chain dispatch as TIFFDirectories.
-func (s *Slide) AssociatedIFDOffset(a AssociatedImage) (offset int64, ok bool) {
-	var cur any = s.r
-	for cur != nil {
-		if p, ok := cur.(associatedIFDOffsetProvider); ok {
-			return p.AssociatedIFDOffset(a)
-		}
-		u, uok := cur.(interface{ UnwrapReader() any })
-		if !uok {
-			break
-		}
-		cur = u.UnwrapReader()
-	}
-	return 0, false
-}
+// AssociatedTIFFTags and AssociatedIFDOffset have moved onto the AssociatedImage
+// interface as TIFFTags() and IFDOffset(). Callers should use a.TIFFTags() and
+// a.IFDOffset() directly instead of the former Slide methods.

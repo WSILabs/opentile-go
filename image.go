@@ -106,6 +106,25 @@ type AssociatedImage interface {
 	// handling. Returns decoder.ErrCodecUnavailable when the codec isn't
 	// compiled in (e.g. a JPEG 2000 image under a nojp2k build).
 	Decode(opts decoder.DecodeOptions) (*decoder.Image, error)
+
+	// Encoding returns the on-disk encoded form (source strips + TIFF tags)
+	// for byte-identical re-emission into a new standalone single-IFD TIFF
+	// without re-encoding. ok=false for non-TIFF, non-strip, or synthesized
+	// associated images (DICOM frames, IFE, SZI, NDPI synthesized label,
+	// OME-TIFF planar pages, Leica SCN tiled).
+	Encoding() (AssociatedEncoding, bool)
+
+	// TIFFTags returns the parsed TIFF tags of this associated image's
+	// backing IFD. ok=false for non-TIFF formats (DICOM, IFE, SZI) and
+	// for implementations that don't retain a page reference.
+	TIFFTags() (TIFFTags, bool)
+
+	// IFDOffset returns the byte offset of the IFD backing this associated
+	// image, for in-place TIFF editing (e.g. raw IFD splice/replace).
+	// ok=false for non-TIFF formats, non-strip associated images, and
+	// formats where the implementation doesn't record the offset
+	// (currently only SVS and generic-TIFF return ok=true).
+	IFDOffset() (int64, bool)
 }
 
 // Standard AssociatedImage.Type() values returned by Type() across all

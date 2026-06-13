@@ -83,9 +83,9 @@ func TestAssociatedIFDOffset_SVSAndGeneric(t *testing.T) {
 			}
 			seen := map[int64]opentile.AssociatedType{}
 			for _, a := range assoc {
-				off, ok := s.AssociatedIFDOffset(a)
+				off, ok := a.IFDOffset()
 				if !ok {
-					t.Errorf("AssociatedIFDOffset(%q): ok=false, want true", a.Type())
+					t.Errorf("IFDOffset() on %q: ok=false, want true", a.Type())
 					continue
 				}
 				if off < 8 {
@@ -121,7 +121,7 @@ func TestAssociatedIFDOffset_OkFalse(t *testing.T) {
 				t.Skipf("%s: no associated images on this fixture", rel)
 			}
 			for _, a := range assoc {
-				if off, ok := s.AssociatedIFDOffset(a); ok {
+				if off, ok := a.IFDOffset(); ok {
 					t.Errorf("%s %q: got (offset=%d, ok=true), want ok=false", rel, a.Type(), off)
 				}
 			}

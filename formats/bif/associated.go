@@ -53,15 +53,16 @@ type associatedImage struct {
 	predictor    int
 	rowsPerStrip int
 	reader       io.ReaderAt
+	tiffTags     opentile.TIFFTags
 }
 
 func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
-// AssociatedEncoding returns the strip source + tags for faithful standalone
+// Encoding returns the strip source + tags for faithful standalone
 // re-emission (GH #22). Strip-based only; ok=false for tiled associated pages.
-func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
+func (a *associatedImage) Encoding() (opentile.AssociatedEncoding, bool) {
 	if len(a.stripOffsets) == 0 {
 		return opentile.AssociatedEncoding{}, false // tiled / no strips
 	}
@@ -83,6 +84,18 @@ func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, boo
 		Photometric:  a.photometric,
 	}, true
 }
+
+// TIFFTags returns the parsed TIFF tags of this associated image's backing IFD.
+func (a *associatedImage) TIFFTags() (opentile.TIFFTags, bool) {
+	if a.tiffTags == nil {
+		return nil, false
+	}
+	return a.tiffTags, true
+}
+
+// IFDOffset returns the byte offset of this associated image's backing IFD.
+// BIF format doesn't record per-associated IFD offsets; always returns ok=false.
+func (a *associatedImage) IFDOffset() (int64, bool) { return 0, false }
 
 // Decode returns the faithfully-decoded associated-image pixels (GH #20).
 // JPEG decodes via the registry; strip-based None/LZW/Deflate (BIF overview
@@ -240,6 +253,7 @@ func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.Re
 			out.jpegTables = tb
 		}
 	}
+	out.tiffTags = opentile.TIFFTagsFromPage(p)
 	return out, nil
 }
 

@@ -32,16 +32,17 @@ type associatedImage struct {
 	planar       int // PlanarConfiguration (2 = separate R/G/B planes)
 	photometric  int
 	reader       io.ReaderAt
+	tiffTags     opentile.TIFFTags
 }
 
 func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
-// AssociatedEncoding returns the strip source + tags for faithful standalone
+// Encoding returns the strip source + tags for faithful standalone
 // re-emission (GH #22). ok=false for PlanarConfiguration=2 pages (Leica
 // macro) — not representable as a simple single-IFD strip copy.
-func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
+func (a *associatedImage) Encoding() (opentile.AssociatedEncoding, bool) {
 	if a.planar == 2 || len(a.stripOffsets) == 0 {
 		return opentile.AssociatedEncoding{}, false
 	}
@@ -62,6 +63,18 @@ func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, boo
 		Photometric:  a.photometric,
 	}, true
 }
+
+// TIFFTags returns the parsed TIFF tags of this associated image's backing IFD.
+func (a *associatedImage) TIFFTags() (opentile.TIFFTags, bool) {
+	if a.tiffTags == nil {
+		return nil, false
+	}
+	return a.tiffTags, true
+}
+
+// IFDOffset returns the byte offset of this associated image's backing IFD.
+// OME-TIFF format doesn't record per-associated IFD offsets; always returns ok=false.
+func (a *associatedImage) IFDOffset() (int64, bool) { return 0, false }
 
 // Decode returns the faithfully-decoded associated-image pixels (GH #20).
 // Planar (PlanarConfiguration=2) multi-strip JPEG pages — Leica's macro is
@@ -234,5 +247,6 @@ func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.Re
 		planar:       int(planar),
 		photometric:  int(photo),
 		reader:       r,
+		tiffTags:     opentile.TIFFTagsFromPage(p),
 	}, nil
 }

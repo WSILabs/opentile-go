@@ -107,9 +107,9 @@ func (m *mapPage) Type() opentile.AssociatedType     { return opentile.Associate
 func (m *mapPage) Size() opentile.Size               { return m.size }
 func (m *mapPage) Compression() opentile.Compression { return m.compression }
 
-// AssociatedEncoding returns the single uncompressed strip + tags for faithful
+// Encoding returns the single uncompressed strip + tags for faithful
 // standalone re-emission (GH #22).
-func (m *mapPage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
+func (m *mapPage) Encoding() (opentile.AssociatedEncoding, bool) {
 	buf := make([]byte, m.length)
 	if err := tiff.ReadAtFull(m.reader, buf, int64(m.offset)); err != nil {
 		return opentile.AssociatedEncoding{}, false
@@ -122,6 +122,14 @@ func (m *mapPage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
 		Photometric:  m.photometric,
 	}, true
 }
+
+// TIFFTags returns the parsed TIFF tags for the map page's IFD.
+// NDPI map pages don't retain a parsed tiff.Page in the struct; returns nil, false.
+func (m *mapPage) TIFFTags() (opentile.TIFFTags, bool) { return nil, false }
+
+// IFDOffset returns the byte offset of the map page's IFD.
+// NDPI map pages don't record the IFD offset; returns 0, false.
+func (m *mapPage) IFDOffset() (int64, bool) { return 0, false }
 
 // Decode returns the decoded map pixels (GH #20). JPEG maps decode via the
 // registry; uncompressed maps (the common Hamamatsu case) decode via the
