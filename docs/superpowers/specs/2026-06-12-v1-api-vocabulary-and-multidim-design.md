@@ -495,21 +495,36 @@ the breaking pass later moves the accessor to the interface (`a.Encoding()`).
 
 ---
 
-## 9. Open questions
+## 9. Open questions — RESOLVED (2026-06-12)
 
-1. Full-noun accessors (`AssociatedImageEncoding`-style) became moot by moving
-   accessors onto the interface (§1.3) — confirm the interface-method direction
-   is preferred over Slide-method-with-long-name.
-2. Type `Predictor`/`Photometric` in `AssociatedEncoding`, or keep raw TIFF
-   ints with doc? (§1.1)
-3. `decoder.Image` sample-type representation: a `Sample` enum
-   (`Uint8`/`Uint16`) + `Bands`, vs separate `PixelFormatGray8/Gray16`
-   constants. (§6)
-4. Does `Pyramid` survive as the container name once it carries Z/C/T, or does
-   a dim-neutral name read better if multi-dim becomes central? (§1.4)
-5. Region-level plane selection: `ReadRegionAt(r, Plane{Z,C,T})` as a deferred
-   additive twin, consistent with "plane is part of the address, not a
-   `DecodeOption`." (§5)
+All five resolved with the owner. Decisions:
+
+1. **Receiver-method restructure: YES.** Tile/region reads move off `*Slide`
+   onto `*Level` (per-level: `Tile`/`DecodedTile`/`ReadRegion`/`Tiles`) and
+   `*Pyramid` (cross-level, L0-coord: `ReadRegionScaled`/`ScaledStrips`/
+   `BestLevelForDownsample`). Collapses ~40 `Slide` methods + the ~15 `Image*`
+   pairs; perf-neutral (concrete types, static dispatch, immutable back-refs).
+   The largest item in the breaking pass.
+2. **Container name: `Pyramid`** (was `opentile.Image`). Names the resolution
+   structure; Z/C/T hang off it. Beats `Series` (DICOM collision) and a
+   dim-neutral name (vaguer). Accessors onto the `AssociatedImage` interface
+   (`a.Encoding()`/`a.TIFFTags()`/`a.IFDOffset()`) confirmed over
+   long Slide-method names.
+3. **`AssociatedEncoding.Predictor`/`Photometric`: raw `int`** (documented as
+   TIFF tag 317/262 values). `Compression` stays typed because it is a
+   first-class API concept used everywhere; `Predictor`/`Photometric` appear in
+   exactly one struct, so two new public enum types would earn their keep
+   nowhere else. The asymmetry is correct, not a wart.
+4. **`decoder.Image` channel pixels: `Bands int` + `Sample` type**
+   (`Uint8`/`Uint16`) on the flat struct — NOT `PixelFormatGray8/Gray16`. Two
+   orthogonal axes compose (`{Bands:1,Sample:Uint16}` channel,
+   `{Bands:3,Sample:Uint8}` brightfield) and avoid the `PixelFormat`
+   combinatorial blowup. Brightfield stays byte-identical; pool key gains two
+   fields. Directional — built only when a real channel fixture exists.
+5. **Region plane selection: `ReadRegion…At(r Region, p Plane{Z,C,T})`** — plane
+   is part of the address (mirrors `TileAt`), NOT a `DecodeOption`. `Format`/
+   `Scale` are "how to render"; Z/C/T are "which pixels." Deferred behind a
+   channel fixture; this locks the direction only.
 
 ---
 
