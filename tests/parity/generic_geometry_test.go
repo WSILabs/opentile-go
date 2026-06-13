@@ -81,14 +81,17 @@ var genericFixtures = []genericFixture{
 			// JPEG (143,874 bytes).
 			{Type: generictiff.TypeThumbnail, W: 1024, H: 732, Compression: opentile.CompressionJPEG, ByteCount: 143874},
 			// label: multi-strip LZW → decode-each + re-encode-as-single
-			// LZW (T8). Byte count varies with the LZW writer's coding;
-			// our internal/tifflzw writer produces 368,759 bytes.
-			//
-			// (continued below — original list left unchanged; new
-			// fixtures added after CMU-1.stripped's macro entry.)
-			// A drift here would indicate the LZW writer's behavior
-			// changed and parity needs re-checking.
-			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368759},
+			// LZW (T8). Byte count varies with the LZW writer's coding.
+			// 368,751 since v0.40.0: the v0.38.0 internal/tifflzw fix
+			// (emit Clear before the width transition) shortened this
+			// re-encoded stream by 8 bytes from the old 368,759. Verified
+			// the 368,751 stream decodes byte-identically to a.Decode()
+			// (the writer fix changed only the compressed length, not the
+			// raster). This is the ONLY pin affected — the other fixtures'
+			// 387×463 labels are single-strip (verbatim bytes, no
+			// re-encode), so they stay 368,759. A further drift here would
+			// indicate the LZW writer changed again and needs re-checking.
+			{Type: generictiff.TypeLabel, W: 387, H: 463, Compression: opentile.CompressionLZW, ByteCount: 368751},
 			// macro: 27-strip JPEG → concat-strip path.
 			{Type: generictiff.TypeOverview, W: 1280, H: 431, Compression: opentile.CompressionJPEG, ByteCount: 87345},
 		},
