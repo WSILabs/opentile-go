@@ -409,14 +409,24 @@ and every cell past the 2D quad is a new method name (additive, non-breaking).
 
 | Bucket | Items | Consumer impact |
 |---|---|---|
-| **Free now** | rename `AssociatedSource`→`AssociatedEncoding` + drop "Of" (1 day old, no consumer yet); `AssociatedType*` constants; MPP-type unify (additive); doc-rot sweep (§1.7) | none |
-| **Coordinated breaking pass** (sign-off w/ wsitools + openscope) | `Associated()`→`AssociatedImages()`; accessors onto the interface (§1.3); `opentile.Image`→`Pyramid`; geometry unification (§1.6); receiver-method restructure (§2); `decoder.Image` grows `Bands`+sample type (§6) | both importers migrate once; one migration note |
+| **Free now — SHIPPED v0.40.0** | rename `AssociatedSource`→`AssociatedEncoding`, `AssociatedSourceOf`→`AssociatedEncoding` (drop "Of"); `AssociatedType*` constants (**untyped** strings — see correction); doc-rot sweep (§1.7) | none |
+| **Coordinated breaking pass** (sign-off w/ wsitools + openscope) | `Associated()`→`AssociatedImages()`; accessors onto the interface (§1.3); `opentile.Image`→`Pyramid`; geometry unification (§1.6); receiver-method restructure (§2); `decoder.Image` grows `Bands`+sample type (§6); **`MPP`-type unify** and **typed `Type() AssociatedType` return** (both *breaking* — see correction); `TIFFDirectoriesOf(s)`→`s.TIFFDirectories()` | both importers migrate once; one migration note |
 | **Deferred, fixture-gated** | `TileAt`/`DecodedTileAt`/`DecodedTileAtInto`; `Pyramid.SizeZ/C/T`, `Channel`, `FocalPlane`; per-axis decode (C → Z → T) | additive, no break |
 | **Leave** | `Image*` method fan-out *as a concept* is absorbed by §2; the `…Into` zero-alloc methods stay | — |
 
-**Lock immediately even though the rest of the breaking pass waits:** the
-day-old `AssociatedSourceOf` → final name (`a.Encoding()` shape). wsitools is
-actively wiring up GH #22; pinning the name now saves it a second migration.
+**Correction (post-execution, v0.40.0):** three items originally listed as
+"free now" are actually *breaking* and were moved to the coordinated pass:
+(a) **MPP-type unify** — changing `Level.MPP` from `SizeMm` to a new `MPP` type
+breaks consumers reading `level.MPP.W`; there is no additive form. (b) **Typed
+`Type()` return** — changing `AssociatedImage.Type() string` → `AssociatedType`
+breaks consumers storing/passing the result as `string`, so v0.40.0 shipped the
+constants as *untyped* strings (compare directly against `a.Type()`) and the
+typed return is deferred. (c) `TIFFDirectoriesOf`→method is a rename, breaking.
+
+**Locked in v0.40.0:** `AssociatedSource`→`AssociatedEncoding` and
+`AssociatedSourceOf`→`AssociatedEncoding(a)` shipped now (interim Slide-method
+form). wsitools was notified on GH #22 with the final name so it wires up once;
+the breaking pass later moves the accessor to the interface (`a.Encoding()`).
 
 ---
 
