@@ -91,6 +91,71 @@ That is the Go-idiomatic price of optional capability and is acceptable.
 `Slide.AssociatedImages()` then becomes the *only* Associated-named thing on
 `Slide`, and a clean plural noun.
 
+#### Where associated-image access lives (object model)
+
+The whole associated-image surface collapses onto one branch of `Slide`
+(`AssociatedImages()`) plus methods on the returned interface. `Slide` keeps
+*no* associated-image accessors:
+
+```
+*Slide
+│
+├── Pyramids() ─────────► []*Pyramid          ┐
+│   Pyramid(i)  ─────────► *Pyramid            │  pyramidal
+│                            ├── Levels()       │  (multi-resolution)
+│                            ├── Level(i) ──► *Level   path — tiles,
+│                            ├── BestLevelForDownsample │  regions, Z/C/T
+│                            ├── ReadRegionScaled      │
+│                            └── ScaledStrips          ┘
+│
+├── AssociatedImages() ──► []AssociatedImage   ◄── non-pyramidal
+│                                                   (slide-level) path
+│   each AssociatedImage (interface):
+│        ├── Type() AssociatedType        ── "label" / "overview" / …
+│        ├── Size() Size
+│        ├── Compression() Compression
+│        ├── Bytes()      ──► []byte                       (raw payload)
+│        ├── Decode(opts) ──► *decoder.Image               (pixels)
+│        ├── Encoding()   ──► (AssociatedEncoding, bool)   ← was Slide.AssociatedEncoding(a)
+│        ├── TIFFTags()   ──► (TIFFTags, bool)             ← was Slide.AssociatedTIFFTags(a)
+│        └── IFDOffset()  ──► (int64, bool)                ← was Slide.AssociatedIFDOffset(a)
+│
+├── Metadata() ──► Metadata
+├── ICCProfile() ──► []byte
+├── Format() ──► Format
+└── Close()
+```
+
+What moves — today (v0.40.0) vs the plan:
+
+| | today (v0.40.0) | new plan |
+|---|---|---|
+| list | `slide.Associated()` | `slide.AssociatedImages()` |
+| raw bytes | `a.Bytes()` | `a.Bytes()` *(already on `a`)* |
+| decoded pixels | `a.Decode(opts)` | `a.Decode(opts)` *(already on `a`)* |
+| encoded source | `slide.AssociatedEncoding(a)` | `a.Encoding()` *(moves onto `a`)* |
+| TIFF tags | `slide.AssociatedTIFFTags(a)` | `a.TIFFTags()` *(moves onto `a`)* |
+| source IFD offset | `slide.AssociatedIFDOffset(a)` | `a.IFDOffset()` *(moves onto `a`)* |
+
+```go
+// TODAY — accessor on Slide, image round-trips through it as an argument
+for _, a := range slide.Associated() {
+    enc, ok := slide.AssociatedEncoding(a)
+    off, ok := slide.AssociatedIFDOffset(a)
+}
+
+// NEW PLAN — everything hangs off the image you already hold
+for _, a := range slide.AssociatedImages() {
+    enc, ok  := a.Encoding()
+    off, ok  := a.IFDOffset()
+    tags, ok := a.TIFFTags()
+}
+```
+
+This is in the **coordinated-breaking bucket** (§8), not v0.40.0: moving the
+three accessors onto the public `AssociatedImage` interface is breaking (it adds
+interface methods), so it waits for the wsitools/openscope sign-off pass.
+
 ### 1.4 `opentile.Image` → `Pyramid` (resolve the `Image` collision)
 
 `opentile.Image` is a pyramid group (`Name, Index, Levels`); `decoder.Image` is
