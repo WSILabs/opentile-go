@@ -197,15 +197,15 @@ func parseFirstSOF(frag []byte) (*jpeg.SOF, error) {
 	return jpeg.FirstFragmentSOF(frag)
 }
 
-// AssociatedSource returns the abbreviated-JPEG strips + JPEGTables for
+// AssociatedEncoding returns the abbreviated-JPEG strips + JPEGTables for
 // faithful standalone re-emission (GH #22). A consumer writes the strips +
 // tag 347 (JPEGTables) verbatim into a fresh IFD.
-func (a *stripedJPEGAssociated) AssociatedSource() (opentile.AssociatedSource, bool) {
+func (a *stripedJPEGAssociated) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
 	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
 	if err != nil {
-		return opentile.AssociatedSource{}, false
+		return opentile.AssociatedEncoding{}, false
 	}
-	return opentile.AssociatedSource{
+	return opentile.AssociatedEncoding{
 		Strips:       strips,
 		Compression:  opentile.CompressionJPEG,
 		JPEGTables:   a.jpegTables,
@@ -369,15 +369,15 @@ func (a *stripedLabel) Bytes() ([]byte, error) {
 	return reconstructLZWLabel(strips, a.rowsPerStrip, a.size.H, a.size.W, a.samples)
 }
 
-// AssociatedSource returns the LZW label's source strips + tags for faithful
+// AssociatedEncoding returns the LZW label's source strips + tags for faithful
 // standalone re-emission (GH #22). The label keeps Predictor (typically 2);
 // a consumer MUST emit tag 317 or the differencing isn't reversed.
-func (a *stripedLabel) AssociatedSource() (opentile.AssociatedSource, bool) {
+func (a *stripedLabel) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
 	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
 	if err != nil {
-		return opentile.AssociatedSource{}, false
+		return opentile.AssociatedEncoding{}, false
 	}
-	return opentile.AssociatedSource{
+	return opentile.AssociatedEncoding{
 		Strips:       strips,
 		Compression:  a.compression,
 		Predictor:    a.predictor,

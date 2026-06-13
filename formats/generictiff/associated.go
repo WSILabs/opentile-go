@@ -225,15 +225,15 @@ func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, er
 	}
 }
 
-// AssociatedSource returns the source strips + TIFF tags for faithful
+// AssociatedEncoding returns the source strips + TIFF tags for faithful
 // standalone re-emission (GH #22): the original strips (not the re-encoded
 // Bytes()) plus Compression/Predictor/JPEGTables/RowsPerStrip. ok=false for
 // tiled associated images (no strip layout retained).
-func (a *associatedImage) AssociatedSource() (opentile.AssociatedSource, bool) {
+func (a *associatedImage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
 	if len(a.rawStrips) == 0 {
-		return opentile.AssociatedSource{}, false
+		return opentile.AssociatedEncoding{}, false
 	}
-	return opentile.AssociatedSource{
+	return opentile.AssociatedEncoding{
 		Strips:       a.rawStrips,
 		Compression:  a.compression,
 		Predictor:    int(a.info.predictor),

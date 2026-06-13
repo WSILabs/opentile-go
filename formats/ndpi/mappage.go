@@ -107,14 +107,14 @@ func (m *mapPage) Type() string                      { return "map" }
 func (m *mapPage) Size() opentile.Size               { return m.size }
 func (m *mapPage) Compression() opentile.Compression { return m.compression }
 
-// AssociatedSource returns the single uncompressed strip + tags for faithful
+// AssociatedEncoding returns the single uncompressed strip + tags for faithful
 // standalone re-emission (GH #22).
-func (m *mapPage) AssociatedSource() (opentile.AssociatedSource, bool) {
+func (m *mapPage) AssociatedEncoding() (opentile.AssociatedEncoding, bool) {
 	buf := make([]byte, m.length)
 	if err := tiff.ReadAtFull(m.reader, buf, int64(m.offset)); err != nil {
-		return opentile.AssociatedSource{}, false
+		return opentile.AssociatedEncoding{}, false
 	}
-	return opentile.AssociatedSource{
+	return opentile.AssociatedEncoding{
 		Strips:       [][]byte{buf},
 		Compression:  m.compression,
 		RowsPerStrip: m.size.H,

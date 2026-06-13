@@ -20,8 +20,7 @@ import (
 //
 // Internally spans the relevant tiles and decodes each once.
 // Adjacent ReadRegion calls do NOT share a decoded-tile cache; for
-// high-throughput patterns use the v0.26 ScaledStrips iterator when
-// it ships.
+// high-throughput patterns use the ScaledStrips iterator (v0.26).
 //
 // Shortcut for ImageReadRegion(0, level, x, y, w, h, opts...).
 //

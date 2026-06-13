@@ -225,9 +225,8 @@ func (c *Config) Backing() Backing {
 
 // NewTestConfig constructs a Config for use in tests.
 //
-// Deprecated: use opentile/opentiletest.NewConfig. This wrapper remains
-// for one release to keep external callers compiling; it will be removed
-// in v0.4.
+// Deprecated: use opentile/opentiletest.NewConfig. Retained for
+// compatibility; slated for removal in the coordinated v1.0 API pass.
 func NewTestConfig(tileSize Size, policy CorruptTilePolicy) *Config {
 	has := tileSize.W != 0 || tileSize.H != 0
 	return &Config{c: &config{tileSize: tileSize, hasTileSize: has, corruptTile: policy}}

@@ -101,6 +101,23 @@ type AssociatedImage interface {
 	Decode(opts decoder.DecodeOptions) (*decoder.Image, error)
 }
 
+// Standard AssociatedImage.Type() values — the string literals returned by
+// Type() across all format readers (documented on AssociatedImage above).
+// Exported so consumers can switch/compare against named constants instead of
+// hardcoding the literals. The set is open — a format reader may surface an
+// additional value — so this is a naming convention, not a closed enum. The
+// constants are untyped strings, so they compare directly against the
+// (string-typed) result of Type().
+const (
+	AssociatedLabel       = "label"       // slide label / barcode
+	AssociatedOverview    = "overview"    // wide-field image of the slide
+	AssociatedThumbnail   = "thumbnail"   // full-slide downsample
+	AssociatedMap         = "map"         // NDPI / IFE low-magnification map
+	AssociatedProbability = "probability" // BIF / IFE confidence map
+	AssociatedMacro       = "macro"       // Iris IFE only (distinct from overview)
+	AssociatedGeneric     = "associated"  // generic-TIFF heuristic fallback
+)
+
 // Image identifies one pyramid group within a slide. Single-image
 // formats carry a single Image. OME-TIFF can carry multiple.
 type Image struct {

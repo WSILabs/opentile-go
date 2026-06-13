@@ -11,10 +11,9 @@
 // Smaller-footprint consumers can blank-import only the codec
 // subpackages they need.
 //
-// The decoder layer is designed to back v1.0's Slide.DecodedTile /
-// ReadRegion / ScaledStrips methods. It is also usable standalone for
-// third-party Go pathology code that wants decoded tile bytes from
-// opentile-go-readable WSI files.
+// The decoder layer backs Slide.DecodedTile / ReadRegion / ScaledStrips.
+// It is also usable standalone for third-party Go pathology code that
+// wants decoded tile bytes from opentile-go-readable WSI files.
 //
 // Design spec: docs/superpowers/specs/2026-05-23-opentile-go-v22-decoder-resample-lift-design.md.
 package decoder

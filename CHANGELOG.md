@@ -11,6 +11,30 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed — `AssociatedSource` → `AssociatedEncoding` (pre-1.0 vocabulary)
+
+- The type `AssociatedSource` (added v0.39.0) is renamed **`AssociatedEncoding`**,
+  and the accessor `Slide.AssociatedSourceOf(a)` is renamed **`Slide.AssociatedEncoding(a)`**
+  (the "Of" suffix is dropped — it was the only `*Slide` method carrying it;
+  "Of" is reserved for package-level functions taking a `*Slide`). The name now
+  pairs with `AssociatedImage.Decode` as the encode/decode duality. Breaking,
+  but the type is one release old and no consumer depends on it yet. Fields and
+  behavior are unchanged.
+
+### Added — exported `AssociatedImage.Type()` constants
+
+- `opentile.AssociatedLabel` / `AssociatedOverview` / `AssociatedThumbnail` /
+  `AssociatedMap` / `AssociatedProbability` / `AssociatedMacro` /
+  `AssociatedGeneric` — the standard `Type()` string values as named constants,
+  so consumers can switch/compare without hardcoding literals. Untyped string
+  constants (compare directly against `a.Type()`); the value set stays open.
+
+### Notes
+
+- Design record for the broader pre-1.0 API cleanup (receiver-method
+  restructure, `opentile.Image`→`Pyramid`, multi-dimensional Z/C/T model):
+  `docs/superpowers/specs/2026-06-12-v1-api-vocabulary-and-multidim-design.md`.
+
 ## [0.39.0] — 2026-06-12
 
 ### Added — `Slide.AssociatedSourceOf` (faithful no-re-encode source) (#22)

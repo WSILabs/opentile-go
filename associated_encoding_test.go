@@ -38,11 +38,11 @@ func spliceJPEG(strip, tables []byte, rgb bool) []byte {
 	return out
 }
 
-// reconstructFromSource rebuilds the full RGB image a conforming reader would
-// produce from an AssociatedSource — using stdlib image/jpeg for JPEG strips
+// reconstructFromEncoding rebuilds the full RGB image a conforming reader would
+// produce from an AssociatedEncoding — using stdlib image/jpeg for JPEG strips
 // (independent of opentile-go's decode) and internal/tifflzw + the exposed
 // Predictor for LZW. This is the faithful-standalone check (GH #22).
-func reconstructFromSource(t *testing.T, src opentile.AssociatedSource, w, h int) image.Image {
+func reconstructFromEncoding(t *testing.T, src opentile.AssociatedEncoding, w, h int) image.Image {
 	t.Helper()
 	out := image.NewRGBA(image.Rect(0, 0, w, h))
 	switch src.Compression {
@@ -120,10 +120,10 @@ func reconstructFromSource(t *testing.T, src opentile.AssociatedSource, w, h int
 	return out
 }
 
-// TestAssociatedSourceRoundtrip is the GH #22 acceptance: the source strips +
-// tags from AssociatedSourceOf, written into a standalone IFD, decode
+// TestAssociatedEncodingRoundtrip is the GH #22 acceptance: the source strips +
+// tags from AssociatedEncoding, written into a standalone IFD, decode
 // correctly via an independent reader and match AssociatedImage.Decode().
-func TestAssociatedSourceRoundtrip(t *testing.T) {
+func TestAssociatedEncodingRoundtrip(t *testing.T) {
 	for _, rel := range []string{"svs/CMU-1-Small-Region.svs", "svs/CMU-1.svs", "generic-tiff/CMU-1.stripped.tiff", "cog-wsi/CMU-1_cog-wsi.tiff", "bif/Ventana-1.bif", "philips-tiff/Philips-3.tiff", "ndpi/OS-2.ndpi"} {
 		rel := rel
 		t.Run(rel, func(t *testing.T) {
@@ -136,19 +136,19 @@ func TestAssociatedSourceRoundtrip(t *testing.T) {
 			for _, a := range s.Associated() {
 				// Known-corrupt fixture (wsitools cogwsiwriter LZW bug, GH #20
 				// note / WSILabs/wsitools#1): its LZW label can't be decoded by
-				// anything; AssociatedSourceOf returns the (corrupt) strips but
+				// anything; AssociatedEncoding returns the (corrupt) strips but
 				// they won't reconstruct. Skip until the fixture is regenerated.
 				if rel == "cog-wsi/CMU-1_cog-wsi.tiff" && a.Type() == "label" {
 					continue
 				}
-				src, ok := s.AssociatedSourceOf(a)
+				src, ok := s.AssociatedEncoding(a)
 				if !ok {
 					t.Logf("%s %q: no source (ok=false)", rel, a.Type())
 					continue
 				}
 				got++
 				w, h := a.Size().W, a.Size().H
-				recon := reconstructFromSource(t, src, w, h)
+				recon := reconstructFromEncoding(t, src, w, h)
 
 				ref, err := a.Decode(decoder.DecodeOptions{Format: decoder.PixelFormatRGBA})
 				if err != nil {
