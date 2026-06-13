@@ -110,8 +110,8 @@ This is one of the few places SZI's behavior differs from the TIFF-based formats
 - `ScannerSerial` ← `<ScannerSerialNo>`
 - `AcquisitionDateTime` ← `<TimeStart>`
 - `ScannerSoftware` ← `"<SoftwareName> <SoftwareVersion>"` (single-element slice)
-- `MicronsPerPixelX` / `MicronsPerPixelY` ← `<MicronsPerPixelX>` / `<MicronsPerPixelY>` (added in v0.17)
-- `MicronsPerPixel` ← X when X == Y, else 0 (Q2 smart-MPP gate; added in v0.17)
+- `MPP.X` / `MPP.Y` ← `<MicronsPerPixelX>` / `<MicronsPerPixelY>` (added in v0.17)
+- `MPP.Symmetric()` ← X when X == Y, else 0 (Q2 smart-MPP gate; added in v0.17)
 - `ImageDescription` ← empty for SZI (use `Properties[PropertyComments]` for free-text)
 - `Properties[PropertyCaseNumber]` ← `<CaseNumber>` (added in v0.17)
 - `Properties[PropertyUserName]` ← `<UserName>` (added in v0.17)
@@ -131,7 +131,7 @@ This is one of the few places SZI's behavior differs from the TIFF-based formats
 - `ScanWidth`, `ScanHeight` (mm)
 - **`VendorProperties map[string]string`** — open-ended `vendor.<key>` properties per spec page 9: *"Just add your scanner name before the field name, separated by a dot, e.g., 'vendor.MicronsX' or 'ScanCompany.FilterName'."* Keys surface as-is including the dotted prefix.
 
-v0.17 cleanup (per Q4 Option B): the format-specific `szi.Metadata` no longer carries `MicronsPerPixel`, `MicronsPerPixelX/Y`, `Comments`, `UserName`, `CaseNumber`, or `ScannedArea` — those are cross-format-canonical and flow through the embedded `opentile.Metadata`. Behavior change vs v0.16: anisotropic SZI now leaves `MicronsPerPixel = 0` (was previously averaging X / Y); per Q2 smart-MPP-only-when-X==Y.
+v0.17 cleanup (per Q4 Option B): the format-specific `szi.Metadata` no longer carries `MicronsPerPixel`, `MicronsPerPixelX/Y`, `Comments`, `UserName`, `CaseNumber`, or `ScannedArea` — those are cross-format-canonical and flow through the embedded `opentile.Metadata` (now as `MPP.X`/`MPP.Y`). Behavior change vs v0.16: anisotropic SZI now leaves `MPP.Symmetric() = 0` (was previously averaging X / Y); per Q2 smart-MPP-only-when-X==Y.
 
 Notes:
 
@@ -156,7 +156,7 @@ Two layered oracles cover v0.16 SZI correctness, both running in `make test`:
 
 1. **Sample-tile SHA256 fixtures** (`tests/integration_test.go::TestSlideParity`) — both fixtures. Records per-tile SHA256 hashes in `tests/fixtures/CMU-1.szi.json` and `tests/fixtures/scan_618_grundium_SZI.szi.json`. Catches regressions in our own output.
 
-2. **Geometry pinning + cross-backing parity** (`tests/parity/szi_geometry_test.go`) — both fixtures. Pins per-level Size / TileSize / Grid / Compression, AssociatedImage Type + sizes, Metadata fields (ScannerManufacturer, ScannerModel, Magnification, MicronsPerPixel, VendorProperties presence), and tile-byte equality across mmap / pread backings.
+2. **Geometry pinning + cross-backing parity** (`tests/parity/szi_geometry_test.go`) — both fixtures. Pins per-level Size / TileSize / Grid / Compression, AssociatedImage Type + sizes, Metadata fields (ScannerManufacturer, ScannerModel, Magnification, MPP, VendorProperties presence), and tile-byte equality across mmap / pread backings.
 
 No upstream byte-equality oracle: SZI is beyond Python opentile's coverage. The smartinmedia reference reader is read-for-understanding only.
 

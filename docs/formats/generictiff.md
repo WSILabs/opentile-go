@@ -36,7 +36,7 @@ Both fixtures live under `sample_files/generic-tiff/`. The first exercises the p
 | Tiled JPEG / JP2K / LZW / Deflate / None pyramid levels | ✅ | `tiledImage` Level passes through verbatim; JPEG with shared `JPEGTables` uses the v0.9 in-place splice template (zero-alloc TileInto) |
 | Multi-strip associated images | ✅ | Single-strip passthrough; multi-strip uncompressed concat; multi-strip JPEG concat (libtiff RST-marker layout); multi-strip LZW decode + re-encode (lifted from `formats/svs/lzwlabel.go` pattern) |
 | Heuristic associated-image classifier | ✅ | LZW = label, wide-aspect JPEG = overview, smaller-square JPEG = thumbnail; fallback `TypeAssociated` ("associated") |
-| Format-specific metadata via `generictiff.MetadataOf` | ✅ | `MicronsPerPixel` (from XResolution + ResolutionUnit), `ImageDescription` verbatim |
+| Format-specific metadata via `generictiff.MetadataOf` | ✅ | `MPP.X`/`MPP.Y` (from XResolution + ResolutionUnit), `ImageDescription` verbatim |
 | Cross-format Metadata via `Tiler.Metadata()` | ✅ | `Make` (271) → ScannerManufacturer; `Model` (272) → ScannerModel; `Software` (305) → ScannerSoftware (delimiter-split); `DateTime` (306) → AcquisitionDateTime |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` returns level-0 IFD's tag 34675 verbatim (nil if absent) |
 | `WarmLevel(i)` page-cache pre-warm | ✅ | Standard v0.9 pattern via the `tiledImage.warm()` helper |
@@ -66,7 +66,7 @@ SZI/DZI is the exception — its readers return border-sized tiles per spec; see
 | Multi-strip Deflate associated images | ❌ — `errUnsupportedAssociatedShape`; silently dropped from `Associated()` | re-encode path not implemented in v0.10; flate writers compose differently from the LZW pattern |
 | Tiled associated images | ❌ — silently dropped from `Associated()` | rare; OME emits these but its own reader handles them |
 | Pluggable associated-image classifier | ❌ — heuristic only | `docs/deferred.md` §2 L29 — YAGNI |
-| Magnification | ❌ — always 0 | No standard TIFF tag for it; consumers can derive from `MicronsPerPixel` if desired |
+| Magnification | ❌ — always 0 | No standard TIFF tag for it; consumers can derive from `MPP.Symmetric()` if desired |
 
 ## Parity
 
@@ -136,7 +136,7 @@ populate the standard cross-format Metadata fields:
 - `mag=20x` → `Tiler.Metadata().Magnification`
 - `scanner="Aperio"` → `Tiler.Metadata().ScannerManufacturer`
 - `date=YYYY-MM-DD` → `Tiler.Metadata().AcquisitionDateTime` (00:00 UTC)
-- `mpp=0.499` → `generictiff.MetadataOf(t).MicronsPerPixel`
+- `mpp=0.499` → `generictiff.MetadataOf(t).MPP.X` / `MPP.Y` (and `MPP.Symmetric()` when isotropic)
 
 The raw ImageDescription remains stored verbatim for consumers who
 want full provenance (`source=svs`, `codec=avif`, wsi-tools version).
@@ -148,7 +148,7 @@ For wsi-tools-tagged generic TIFFs, the v0.17 cross-format Metadata expansion li
 
 | Source | cross-format Metadata position |
 |---|---|
-| wsi-tools `mpp=` | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y |
+| wsi-tools `mpp=` | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` non-zero when X == Y |
 | wsi-tools `mag=` | `Magnification` |
 | wsi-tools `scanner=` | `ScannerManufacturer` |
 | wsi-tools `date=` | `AcquisitionDateTime` |
@@ -156,13 +156,13 @@ For wsi-tools-tagged generic TIFFs, the v0.17 cross-format Metadata expansion li
 | wsi-tools provenance | `Properties["wsi-tools.version"]`, `Properties["wsi-tools.source"]`, `Properties["wsi-tools.codec"]` |
 | TIFF `Software` tag (non-wsi-tools); `"wsitools/<version>"` when wsi-tools triggers | `Metadata.Writer` (v0.20; wsi-tools override wins) |
 
-Per Q4 Option B, the format-specific `generictiff.Metadata.MicronsPerPixel` and `ImageDescription` duplicates were retired in v0.17 (the cross-format positions cover them).
+Per Q4 Option B, the format-specific `generictiff.Metadata.MicronsPerPixel` and `ImageDescription` duplicates were retired in v0.17 (the cross-format positions cover them; MPP is now at `opentile.Metadata.MPP.X/Y`).
 
 ## Implementation references
 
 - Our package: `formats/generictiff/`
 - Public API: `generictiff.New() opentile.FormatFactory` + the existing `Tiler` / `Image` / `Level` / `AssociatedImage` interfaces.
-- Our metadata accessor: `generictiff.MetadataOf(opentile.Tiler) (*Metadata, bool)` — exposes `MicronsPerPixel` and `ImageDescription` plus the embedded cross-format `opentile.Metadata`.
+- Our metadata accessor: `generictiff.MetadataOf(opentile.Tiler) (*Metadata, bool)` — exposes `MPP.X`/`MPP.Y` and `ImageDescription` via the embedded cross-format `opentile.Metadata`.
 - Pyramid validator: `internal/tiff/classify_pyramid.go` — `ClassifyPyramid(infos, cfg)` value-in / value-out helper. Reusable by other format readers if needed.
 - Heuristic classifier: `formats/generictiff/classifier.go` — `ClassifyAssociated(ifd, baseline)`. Already exported so a future v0.10+ Option (L29) can substitute a consumer-supplied classifier.
 - Fixture generator: `scripts/regen-generic-tiff.py` — produces `CMU-1.stripped.tiff` from the SVS + 4 synthetic test fixtures (synth-pyramid-jpeg, synth-pyramid-with-label, synth-bad-pyramid, synth-stripped-only). Re-run when the validator thresholds change.

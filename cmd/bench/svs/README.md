@@ -39,7 +39,7 @@ demonstrates the pool unlocks parallelism on the SVS slow path.
 
 ## What this bench actually measures
 
-`Slide.DecodedTile(level, tx, ty)` for every tile of L0. SVS uses the
+`Level.DecodedTile(tx, ty)` for every tile of L0. SVS uses the
 v0.26 slow path (not v0.27's NDPI fast path), so every call routes
 through `Slide.ImageDecodedTile`'s slow-path Borrow/Return — making
 this the most direct measurement of v0.28's cross-format deliverable.

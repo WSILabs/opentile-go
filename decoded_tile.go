@@ -9,7 +9,7 @@ import (
 )
 
 // decodedTiler is the unexported interface that format readers
-// implement when they provide a fast pixel-path. Slide.ImageDecodedTile
+// implement when they provide a fast pixel-path. imageDecodedTile
 // type-asserts on s.r and dispatches when matched. Readers signal
 // "this level doesn't support the fast path" by returning
 // fastpath.ErrUnsupported; the dispatcher then falls back to the

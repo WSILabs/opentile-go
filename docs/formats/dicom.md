@@ -326,7 +326,7 @@ The full reader design:
 
 | DICOM source | opentile `Metadata` |
 |---|---|
-| `PixelSpacing (0028,0030)` (Shared FG → Pixel Measures) or `ImagedVolumeWidth ÷ TotalPixelMatrixColumns` | `MicronsPerPixelX/Y` |
+| `PixelSpacing (0028,0030)` (Shared FG → Pixel Measures) or `ImagedVolumeWidth ÷ TotalPixelMatrixColumns` | `MPP.X`/`MPP.Y` |
 | `ObjectiveLensPower (0048,0112)` | `Magnification` |
 | `Manufacturer (0008,0070)` / `ManufacturerModelName (0008,1090)` / `SoftwareVersions (0018,1020)` | `ScannerManufacturer` / `ScannerModel` / `ScannerSoftware` |
 | `SourceApplicationEntityTitle (0002,0016)` or `ImplementationVersionName (0002,0013)` | `Writer` |

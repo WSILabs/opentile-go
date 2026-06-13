@@ -76,7 +76,8 @@ func (a AttributesFormat) String() string {
 // v0.17 (Q4 Option B): the format-specific MicronsPerPixel (f32)
 // outer field was removed because it shadowed the cross-format
 // MicronsPerPixel (f64); consumers that previously read the f32 raw
-// value now read the (lossless-widened) f64 from the embedded struct.
+// value now read the (lossless-widened) f64 via md.MPP.X/Y from the
+// embedded struct.
 type Metadata struct {
 	opentile.Metadata
 
@@ -642,7 +643,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // implementations, and any type implementing UnwrapReader() any.
 //
 //	if md, ok := ife.MetadataOf(slide); ok {
-//	    fmt.Println(md.MicronsPerPixel, md.Attributes["aperio.AppMag"])
+//	    fmt.Println(md.MPP.Symmetric(), md.Attributes["aperio.AppMag"])
 //	}
 func MetadataOf(v any) (*Metadata, bool) {
 	const maxUnwrapHops = 16

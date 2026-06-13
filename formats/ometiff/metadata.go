@@ -236,14 +236,14 @@ type omeChannel struct {
 // parsed OME-XML using the primary main-pyramid image identified by
 // classify (LevelImages[0]). When the OME document carries multiple
 // main pyramids (Leica-2.ome.tiff has 4), only the first contributes
-// to cross.MicronsPerPixelX/Y / ImageDescription / AcquisitionDateTime
+// to cross.MPP.X/Y / ImageDescription / AcquisitionDateTime
 // / Magnification — consumers needing per-image metadata read the
 // raw OMEMetadata.Images slice via ometiff.MetadataOf.
 //
 // Fields populated:
-//   - MicronsPerPixelX/Y from <Pixels PhysicalSizeX/Y> + Unit (with
-//     unit conversion via convertToMicrons); SetMPPSymmetric collapses
-//     to the symmetric MicronsPerPixel slot when X == Y.
+//   - MPP.X/Y from <Pixels PhysicalSizeX/Y> + Unit (with
+//     unit conversion via convertToMicrons); MPP.Symmetric() returns
+//     the value when X == Y.
 //   - ImageDescription from <Image><Description> (verbatim).
 //   - AcquisitionDateTime from <Image><AcquisitionDate> (ISO 8601 —
 //     RFC3339 with optional sub-seconds).

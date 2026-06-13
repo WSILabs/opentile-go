@@ -17,7 +17,7 @@ const wsiToolsPrefix = "wsi-tools/"
 //
 // Per v0.14 sealed Q2: the parsed fields populate the existing
 // cross-format Metadata struct (Magnification, ScannerManufacturer,
-// AcquisitionDateTime, MicronsPerPixel). The wsi-tools format is
+// AcquisitionDateTime, MPP.X/Y). The wsi-tools format is
 // not exposed via a separate public accessor; consumers wanting full
 // provenance (source, codec, version) read the raw ImageDescription
 // string.

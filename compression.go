@@ -68,7 +68,7 @@ const (
 
 // CompressionToTIFFTag returns the TIFF Compression tag value that
 // corresponds to c, or 0 if no standard mapping exists.
-// Used internally by *Slide.DecodedTile to dispatch through the
+// Used internally by Level.DecodedTile to dispatch through the
 // decoder package's GetByCompressionTag registry.
 //
 // CompressionIRIS and CompressionPNG return 0 because neither has

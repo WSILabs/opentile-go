@@ -19,19 +19,19 @@ import (
 // Read via [MetadataOf]:
 //
 //	if md, ok := generic.MetadataOf(tiler); ok {
-//	    fmt.Println(md.MicronsPerPixel, md.MicronsPerPixelX, md.ImageDescription)
+//	    fmt.Println(md.MPP.Symmetric(), md.MPP.X, md.MPP.Y, md.ImageDescription)
 //	}
 //
 // Magnification is always 0 unless the wsi-tools ImageDescription
 // extension supplies one: generic TIFFs don't carry magnification in
 // any standard TIFF tag and we don't synthesise one. Derive from
-// MicronsPerPixel if needed (e.g., 0.25 µm/px ≈ 40× on a typical
+// MPP.Symmetric() if needed (e.g., 0.25 µm/px ≈ 40× on a typical
 // pathology scanner — but that's caller policy, not slide truth).
 //
-// MicronsPerPixel is set when level-0 XResolution + ResolutionUnit are
+// MPP.X / MPP.Y are set when level-0 XResolution + ResolutionUnit are
 // both present and ResolutionUnit ∈ {2 (inch), 3 (cm)}; isotropy is
 // inferred from a separate YResolution read (when present and equal,
-// MicronsPerPixel == X == Y per [opentile.Metadata.SetMPPSymmetric]).
+// MPP.Symmetric() returns a non-zero value).
 // Callers reading the per-axis fields directly can detect anisotropy.
 type Metadata struct {
 	opentile.Metadata
@@ -201,8 +201,8 @@ func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2
 //	Model (272)        → ScannerModel
 //	Software (305)     → ScannerSoftware (semicolon/newline-split)
 //	DateTime (306)     → AcquisitionDateTime (TIFF "YYYY:MM:DD HH:MM:SS")
-//	XResolution (282)  → MicronsPerPixelX (via ResolutionUnit)
-//	YResolution (283)  → MicronsPerPixelY (via ResolutionUnit)
+//	XResolution (282)  → MPP.X (via ResolutionUnit)
+//	YResolution (283)  → MPP.Y (via ResolutionUnit)
 //	ResolutionUnit (296)
 //	ImageDescription (270) → cross.ImageDescription verbatim
 //
@@ -211,13 +211,13 @@ func (t *tiler) ImageRangeTiles(ctx context.Context, image, level int) iter.Seq2
 //
 // v0.14 addition: when ImageDescription begins with `wsi-tools/`, the
 // wsi-tools parser populates Magnification / ScannerManufacturer /
-// AcquisitionDateTime / MicronsPerPixelX/Y from the parsed fields,
+// AcquisitionDateTime / MPP.X/Y from the parsed fields,
 // overriding any standard-TIFF-tag-derived values. wsi-tools fixtures
 // also surface source/codec/version under Properties under the
 // "wsi-tools." namespace.
 //
-// v0.17: per-axis MPP is now populated; SetMPPSymmetric() then
-// populates the scalar MicronsPerPixel slot only when X == Y.
+// v0.17: per-axis MPP is now populated; md.MPP is set directly
+// (X == Y → Symmetric() returns that value; otherwise asymmetric).
 func buildMetadata(p *tiff.Page) Metadata {
 	var md Metadata
 	if v, ok := p.ASCII(tagMake); ok {

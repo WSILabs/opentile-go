@@ -54,11 +54,11 @@ None of our 3 local NDPI fixtures (`CMU-1.ndpi`, `OS-2.ndpi`, `Hamamatsu-1.ndpi`
 
 ## Cross-format Metadata mapping (v0.17)
 
-NDPI's pixel-size lives on the per-axis TIFF resolution tags — and on every fixture we have, X and Y differ by a few parts in 10⁴. v0.17 surfaces both axes faithfully and leaves `MicronsPerPixel` zero per Q2 (smart-MPP-only-when-X==Y):
+NDPI's pixel-size lives on the per-axis TIFF resolution tags — and on every fixture we have, X and Y differ by a few parts in 10⁴. v0.17 surfaces both axes faithfully and leaves `MPP.Symmetric()` zero per Q2 (smart-MPP-only-when-X==Y):
 
 | NDPI source | cross-format Metadata position |
 |---|---|
-| `XResolution` / `YResolution` + `ResolutionUnit` (centimeters → 10000/value µm/px) | `MicronsPerPixelX/Y`; `MicronsPerPixel` = 0 when asymmetric |
+| `XResolution` / `YResolution` + `ResolutionUnit` (centimeters → 10000/value µm/px) | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` = 0 when asymmetric |
 | `Magnification` tag (65421) on the level-0 page | `Magnification` |
 | `SourceLens` tag (65421) | `Properties["hamamatsu.SourceLens"]` |
 | `Reference` tag (65422) | `Properties["hamamatsu.Reference"]` (when present) |

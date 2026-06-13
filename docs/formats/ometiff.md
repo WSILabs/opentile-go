@@ -140,7 +140,7 @@ OME-TIFF carries metadata in OME-XML inside the page-0 `ImageDescription`. Pre-v
 
 | OME-XML element | cross-format Metadata position |
 |---|---|
-| `<Pixels PhysicalSizeX>` / `<Pixels PhysicalSizeY>` | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y |
+| `<Pixels PhysicalSizeX>` / `<Pixels PhysicalSizeY>` | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` non-zero when X == Y |
 | `<Image Description>` element text | `ImageDescription` |
 | `<AcquisitionDate>` element text | `AcquisitionDateTime` |
 | `<Objective NominalMagnification>` | `Magnification` |

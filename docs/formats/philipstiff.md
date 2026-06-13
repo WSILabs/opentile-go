@@ -54,7 +54,7 @@ Philips's DICOM-attribute XML carries the cross-format-canonical fields. v0.17 s
 
 | DICOM/Philips XML attribute | cross-format Metadata position |
 |---|---|
-| `DICOM_PIXEL_SPACING` (mm/px × 1000 → µm) | `MicronsPerPixelX/Y` (per axis); `MicronsPerPixel` populated by `SetMPPSymmetric()` when X == Y |
+| `DICOM_PIXEL_SPACING` (mm/px × 1000 → µm) | `MPP.X`/`MPP.Y` (per axis); `MPP.Symmetric()` non-zero when X == Y |
 | `Philips DP` `Software` tag | `ScannerManufacturer` (`Hamamatsu` or `PHILIPS` per scanner) |
 | ImageDescription verbatim (full DataObject XML) | `ImageDescription` |
 | `PIM_DP_SCANNER_OPERATOR_ID` | `Properties[PropertyUserName]` (when present; absent on all 4 current fixtures) |

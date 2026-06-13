@@ -132,7 +132,7 @@ Pre-v0.17 `leicascn.Tiler.Metadata()` returned an empty struct. v0.17 (T6) wires
 
 | SCN-XML source | cross-format Metadata position |
 |---|---|
-| `<view sizeX>` / `<view sizeY>` (slide-physical extent in nm) ÷ `<pixels sizeX>` / `<pixels sizeY>` (level-0 pixel extent), nm → µm | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y (all 3 fixtures symmetric) |
+| `<view sizeX>` / `<view sizeY>` (slide-physical extent in nm) ÷ `<pixels sizeX>` / `<pixels sizeY>` (level-0 pixel extent), nm → µm | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` non-zero when X == Y (all 3 fixtures symmetric) |
 | objective magnification element | `Magnification` (already populated since v0.11) |
 | `Leica` (constant) / `<scanSettings><scannerSettings>` model | `ScannerManufacturer` / `ScannerModel` (already populated since v0.11) |
 | full SCN-XML document | `ImageDescription` |

@@ -5,8 +5,8 @@ import (
 	"github.com/wsilabs/opentile-go/resample"
 )
 
-// DecodeOption configures a *Slide.DecodedTile / DecodedTileInto /
-// ReadRegion / ReadRegionScaled call. See WithFormat, WithScale,
+// DecodeOption configures a Level.DecodedTile / DecodedTileInto /
+// ReadRegion or Pyramid.ReadRegionScaled call. See WithFormat, WithScale,
 // WithResampleKernel.
 type DecodeOption func(*decodeConfig)
 

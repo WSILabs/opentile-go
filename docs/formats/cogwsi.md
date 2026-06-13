@@ -91,8 +91,8 @@ WSI private tags drive canonical metadata population. The reader populates the c
 
 **Cross-format `opentile.Metadata`** (read via `tiler.Metadata()`):
 
-- `MicronsPerPixelX` / `MicronsPerPixelY` ← `WSIMPPX` / `WSIMPPY` (tags 65084 / 65085)
-- `MicronsPerPixel` ← `WSIMPP` (tag 65083) when X == Y; else 0 per the v0.17 symmetric-MPP convention
+- `MPP.X` / `MPP.Y` ← `WSIMPPX` / `WSIMPPY` (tags 65084 / 65085)
+- `MPP.Symmetric()` ← `WSIMPP` (tag 65083) when X == Y; else 0 per the v0.17 symmetric-MPP convention
 - `Magnification` ← `WSIMagnification` (tag 65086)
 - `Properties["cog-wsi.source-format"]` ← `WSISourceFormat` (tag 65087)
 - `Properties["cog-wsi.wsitools-version"]` ← writer-software identifier when present
@@ -108,9 +108,9 @@ WSI private tags drive canonical metadata population. The reader populates the c
 Format:           cog-wsi
 Levels:           1
 Associated:       3 (thumbnail, label, overview)
-MicronsPerPixelX: 0.499
-MicronsPerPixelY: 0.499
-MicronsPerPixel:  0.499 (symmetric)
+MPP.X: 0.499
+MPP.Y: 0.499
+MPP.Symmetric(): 0.499
 Magnification:    20
 Properties["cog-wsi.source-format"]:    "svs"
 Properties["cog-wsi.wsitools-version"]: "0.6.0-dev"

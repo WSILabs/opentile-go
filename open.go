@@ -223,7 +223,7 @@ func (fc *fileCloser) UnwrapReader() any { return fc.slideReader }
 
 // ImageDecodedTile delegates to the wrapped reader's fast-path method
 // if it implements decodedTiler; otherwise returns fastpath.ErrUnsupported
-// so the dispatcher in Slide.ImageDecodedTile falls through to the slow
+// so the dispatcher in imageDecodedTile falls through to the slow
 // path. Without this delegation, the type assertion s.r.(decodedTiler)
 // would fail on the wrapper even when the wrapped reader supports the
 // fast path. Added in v0.27.
@@ -250,7 +250,7 @@ func (mc *mmapCloser) UnwrapReader() any { return mc.slideReader }
 
 // ImageDecodedTile delegates to the wrapped reader's fast-path method
 // if it implements decodedTiler; otherwise returns fastpath.ErrUnsupported
-// so the dispatcher in Slide.ImageDecodedTile falls through to the slow
+// so the dispatcher in imageDecodedTile falls through to the slow
 // path. Without this delegation, the type assertion s.r.(decodedTiler)
 // would fail on the wrapper even when the wrapped reader supports the
 // fast path. Added in v0.27.

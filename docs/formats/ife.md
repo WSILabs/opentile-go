@@ -97,13 +97,13 @@ IFE's METADATA segment carries IFE-spec-canonical attributes. v0.17 surfaces the
 
 | IFE METADATA source | cross-format Metadata position |
 |---|---|
-| `MPP` attribute (per axis) | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y (cervix fixture is isotropic at 16.835) |
+| `MPP` attribute (per axis) | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` non-zero when X == Y (cervix fixture is isotropic at 16.835) |
 | objective magnification (when present) | `Magnification` |
 | `description` block | `ImageDescription` |
 | every spec-defined attribute | `Properties["iris.<key>"]` (24 attributes on the cervix fixture: e.g., `iris.aperio.AppMag`, `iris.tiff.ImageDescription`, etc.) |
 | `CodecMajor.CodecMinor.CodecBuild` from FILE_HEADER → `"iris/<ver>"` | `Metadata.Writer` (v0.20). ImageDescription (when present) preserves source-scanner attribution, NOT the IFE writer. |
 
-The cervix fixture's encoder doesn't write `ScannerManufacturer/Model/Serial` METADATA fields, so those cross-format positions remain empty for it. Per Q4 Option B, the format-specific `ife.Metadata.MicronsPerPixel` was retired (the cross-format per-axis fields cover it); `ife.MetadataOf(t)` continues to expose IFE-specific structural fields.
+The cervix fixture's encoder doesn't write `ScannerManufacturer/Model/Serial` METADATA fields, so those cross-format positions remain empty for it. Per Q4 Option B, the format-specific `ife.Metadata.MicronsPerPixel` was retired (the cross-format `MPP.X`/`MPP.Y` fields cover it); `ife.MetadataOf(t)` continues to expose IFE-specific structural fields.
 
 ## Implementation references
 

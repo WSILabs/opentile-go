@@ -22,17 +22,17 @@ import (
 // Consumers read the common fields via opentile.Slide.Metadata() as
 // usual; to read the SZI-specific raw fields, pass the Tiler to
 // szi.MetadataOf. Field reads via Go's embedded-struct promotion
-// continue to compile: szi.MetadataOf(t).MicronsPerPixel routes
-// through opentile.Metadata.MicronsPerPixel.
+// continue to compile: szi.MetadataOf(t).MPP routes
+// through the embedded opentile.Metadata.MPP field.
 //
 // v0.17 cleanup (Q4 Option B): MicronsPerPixel, MicronsPerPixelX,
 // MicronsPerPixelY, Comments, UserName, CaseNumber, and ScannedArea
 // were removed from this struct because they are exact duplicates
 // of the embedded opentile.Metadata fields / Properties keys
 // populated by parseScanProperties. Field reads via promotion
-// continue to compile unchanged; only struct-literal construction
-// (szi.Metadata{MicronsPerPixel: ...}) breaks — that surface is
-// internal/test-only.
+// continue to compile unchanged (e.g., .MPP.X/Y via opentile.Metadata);
+// only struct-literal construction with the old fields breaks — that
+// surface is internal/test-only.
 type Metadata struct {
 	opentile.Metadata
 
@@ -87,7 +87,7 @@ type Metadata struct {
 // implementations, and any type implementing UnwrapReader() any.
 //
 //	if md, ok := szi.MetadataOf(slide); ok {
-//	    fmt.Println(md.MicronsPerPixel, md.VendorProperties["vendor.SerialNumber"])
+//	    fmt.Println(md.MPP.Symmetric(), md.VendorProperties["vendor.SerialNumber"])
 //	}
 func MetadataOf(v any) (*Metadata, bool) {
 	const maxUnwrapHops = 16

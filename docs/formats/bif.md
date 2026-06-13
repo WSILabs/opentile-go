@@ -88,7 +88,7 @@ BIF's iScan XMP carries the cross-format-canonical fields. v0.17 surfaces them:
 
 | iScan XMP source | cross-format Metadata position |
 |---|---|
-| `ScanRes` (X / Y when distinct) | `MicronsPerPixelX/Y`; `MicronsPerPixel` set when X == Y (both fixtures isotropic at 0.25 / 0.2325) |
+| `ScanRes` (X / Y when distinct) | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` non-zero when X == Y (both fixtures isotropic at 0.25 / 0.2325) |
 | `Magnification` | `Magnification` |
 | Vendor (constant) | `ScannerManufacturer = "Roche"` |
 | `ScannerModel` | `ScannerModel` (e.g., `VENTANA DP 200`) |

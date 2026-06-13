@@ -65,7 +65,7 @@ func (t *tiler) Close() error {
 }
 
 // ImageDecodedTile is the v0.27 fast pixel-path dispatch method. The
-// opentile root's Slide.ImageDecodedTile type-asserts the underlying
+// opentile root's imageDecodedTile type-asserts the underlying
 // reader against the unexported decodedTiler interface and calls
 // this method when it matches.
 //

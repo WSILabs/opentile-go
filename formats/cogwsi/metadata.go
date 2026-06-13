@@ -29,7 +29,7 @@ const (
 // buildMetadata populates the cross-format opentile.Metadata from
 // the level-0 IFD + ghost area per plan T6 step 3:
 //
-//	WSIMPPX/Y (65085/65086) → MicronsPerPixelX/Y (+ SetMPPSymmetric)
+//	WSIMPPX/Y (65085/65086) → MPP.X/Y
 //	WSIMagnification (65087) → Magnification
 //	Make (271)         → ScannerManufacturer
 //	Model (272)        → ScannerModel

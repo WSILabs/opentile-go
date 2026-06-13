@@ -18,7 +18,7 @@ RPS or scanning slides at high parallelism.
 - The legacy `Level.Tile(x, y) ([]byte, error)` API is unchanged and
   fully supported. Use it for casual scripts and one-shot reads.
 - For whole-slide scaled output (DZI conversion, region extract), use
-  `Slide.ScaledStrips(...)`. Its peak memory is byte-bounded since v0.30
+  `Pyramid.ScaledStrips(...)`. Its peak memory is byte-bounded since v0.30
   — set `OPENTILE_READ_MEMORY_BUDGET` / `WithMemoryBudget` and
   `GOMEMLIMIT≈2GiB` to keep it ~2 GB regardless of slide width. See
   [ScaledStrips + memory budget](#whole-slide-scaled-output-scaledstrips--memory-budget-v026v030).
@@ -283,7 +283,7 @@ correct. When in doubt, start with Pattern A.
 ## Whole-slide scaled output: `ScaledStrips` + memory budget (v0.26–v0.30)
 
 For DZI/deep-zoom builders, libvips-style pipelines, and region
-extract, `Slide.ScaledStrips(l0Rect, outSize, stripHeight, opts...)`
+extract, `pyr.ScaledStrips(l0Rect, outSize, stripHeight, opts...)`
 streams a slide scaled to a target resolution as horizontal strips. It
 runs parallel decode workers, a bounded per-iterator decoded-tile
 cache, and lookahead prefetch internally; the caller pulls one

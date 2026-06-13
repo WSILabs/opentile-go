@@ -281,10 +281,10 @@ func (t *tiler) ChannelName(c int) string {
 //   - ScannerSoftware from <device version="...">
 //   - AcquisitionDateTime from <creationDate> (ISO 8601)
 //   - Magnification from <objective>
-//   - MicronsPerPixelX/Y derived from the primary <view sizeX/sizeY>
+//   - MPP.X/Y derived from the primary <view sizeX/sizeY>
 //     (slide-physical extent in nm) divided by <pixels sizeX/sizeY>
-//     (level-0 pixel extent), converted nm → µm. SetMPPSymmetric
-//     collapses to the symmetric slot when X == Y (typical for SCN).
+//     (level-0 pixel extent), converted nm → µm. X == Y → Symmetric()
+//     returns that value (typical for SCN).
 //   - ImageDescription = raw SCN-XML text (verbatim, mirrors svs/bif
 //     pattern)
 //   - Properties["leica.collection.uuid"] = collection UUID

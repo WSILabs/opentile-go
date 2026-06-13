@@ -11,7 +11,8 @@
 // Smaller-footprint consumers can blank-import only the codec
 // subpackages they need.
 //
-// The decoder layer backs Slide.DecodedTile / ReadRegion / ScaledStrips.
+// The decoder layer backs the Level / Pyramid read methods (DecodedTile /
+// ReadRegion / ReadRegionScaled / ScaledStrips).
 // It is also usable standalone for third-party Go pathology code that
 // wants decoded tile bytes from opentile-go-readable WSI files.
 //

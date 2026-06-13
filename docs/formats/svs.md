@@ -49,7 +49,7 @@ ImageDescription tag's first line and adjusts `ScannerManufacturer`,
 
 **Standardized vs. vendor-specific keys.** SVS-format-defined keys
 (`MPP`, `AppMag`, `ScanScope ID`, `Filename`, `User`, `Date`, `Time`)
-populate cross-format `Metadata` (MicronsPerPixel, Magnification,
+populate cross-format `Metadata` (MPP.X/MPP.Y, Magnification,
 ScannerSerial, etc.) regardless of writer. Vendor-specific extensions
 land under the writer-namespaced Properties bucket.
 
@@ -80,7 +80,7 @@ Aperio's `ImageDescription` carries `key = value` pairs (`MPP`, `AppMag`, `User`
 
 | Aperio source | cross-format Metadata position |
 |---|---|
-| `MPP` | `MicronsPerPixelX/Y` (set both; `SetMPPSymmetric()` populates `MicronsPerPixel` since X == Y by construction) |
+| `MPP` | `MPP.X`/`MPP.Y` (set both; `MPP.Symmetric()` returns the value since X == Y by construction) |
 | `AppMag` | `Magnification` |
 | ImageDescription verbatim | `ImageDescription` |
 | `User` | `Properties[PropertyUserName]` (canonical) AND `Properties["aperio.User"]` (vendor passthrough) |

@@ -1,6 +1,6 @@
 // Package resample provides pure-Go pixel resamplers operating on
-// decoder.Image. Used by the v1.0 Slide.ScaledStrips iterator (when it
-// lands) and exposed as standalone primitives for ad-hoc callers.
+// decoder.Image. Used by Pyramid.ScaledStrips and exposed as
+// standalone primitives for ad-hoc callers.
 //
 // Kernels: Nearest (cheap, ugly for downsampling), Bilinear, Lanczos
 // (best for arbitrary ratios), Box (area-averaging, best for integer
