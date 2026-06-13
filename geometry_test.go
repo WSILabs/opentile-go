@@ -19,16 +19,6 @@ func TestPoint(t *testing.T) {
 	}
 }
 
-func TestSizeMm(t *testing.T) {
-	m := SizeMm{W: 0.5, H: 0.25}
-	if m.IsZero() {
-		t.Fatal("IsZero: non-zero value reported zero")
-	}
-	if !(SizeMm{}).IsZero() {
-		t.Fatal("IsZero: zero value reported non-zero")
-	}
-}
-
 func TestTileCoord(t *testing.T) {
 	// Default-zero (Z=C=T=0) renders as a plain (x,y) tuple.
 	c := TileCoord{X: 3, Y: 5}

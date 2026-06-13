@@ -11,21 +11,6 @@ import (
 // back-reference; calling these on a zero-value Pyramid (slide == nil)
 // panics, by design.
 
-// LevelPtrs returns stable *Level pointers for this pyramid's levels,
-// finest-to-coarsest. Named LevelPtrs (not Levels) because the exported
-// struct field Pyramid.Levels []Level — the reader-population contract —
-// occupies the Levels identifier; a field and a method cannot share a
-// name in Go. Use the Levels field for value-type iteration, or LevelPtrs
-// / Level(i) for the receiver-method read API.
-func (p *Pyramid) LevelPtrs() []*Level {
-	p.slide.ensurePyramids()
-	out := make([]*Level, len(p.Levels))
-	for i := range p.Levels {
-		out[i] = &p.Levels[i]
-	}
-	return out
-}
-
 // Level returns the i-th level of this pyramid, or ErrLevelOutOfRange if
 // i is out of range.
 func (p *Pyramid) Level(i int) (*Level, error) {

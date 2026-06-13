@@ -19,14 +19,6 @@ type Size struct {
 func (s Size) Area() int      { return s.W * s.H }
 func (s Size) String() string { return fmt.Sprintf("%dx%d", s.W, s.H) }
 
-// SizeMm is a 2D extent measured in millimeters. Used for pixel spacing and
-// microns-per-pixel conversion (SizeMm scaled by 1000 equals micrometers).
-type SizeMm struct {
-	W, H float64
-}
-
-func (s SizeMm) IsZero() bool { return s.W == 0 && s.H == 0 }
-
 // MPP is microns-per-pixel, per axis. The zero value means "unknown".
 // Most slides report isotropic pixels (X == Y); asymmetric formats (e.g.
 // some Philips TIFF fixtures) populate both axes independently.

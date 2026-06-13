@@ -17,3 +17,4 @@
 
 # Local direnv env (machine-specific paths)
 .envrc
+/compare

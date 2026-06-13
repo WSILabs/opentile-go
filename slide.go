@@ -47,7 +47,7 @@ type slideReader interface {
 //
 // Concurrency contract: all accessor methods (Format, Pyramids, Levels,
 // Level, AssociatedImages, Metadata, ICCProfile) are safe to call concurrently.
-// Tile reads via RawTile / RawTileInto are safe concurrently.
+// Tile reads via *Level / *Pyramid methods are safe concurrently.
 // Close must not race with in-flight tile reads.
 type Slide struct {
 	r slideReader

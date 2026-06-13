@@ -32,11 +32,6 @@ func TestPyramidReadMethods(t *testing.T) {
 		t.Errorf("Pyramid(0).Level(0) (%p) != Slide.Level(0) (%p)", pl, sl)
 	}
 
-	// LevelPtrs[0] is the same pointer too.
-	if got := p.LevelPtrs()[0]; got != sl {
-		t.Errorf("Pyramid(0).LevelPtrs()[0] (%p) != Slide.Level(0) (%p)", got, sl)
-	}
-
 	// ReadRegionScaled produces an image of the requested output size.
 	out, err := p.ReadRegionScaled(
 		opentile.Region{Size: opentile.Size{W: 64, H: 64}},

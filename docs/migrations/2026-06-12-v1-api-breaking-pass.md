@@ -25,5 +25,5 @@ mechanical to migrate; this table maps every breaking change to its replacement.
 
 Notes:
 - Reads now live on `*Level` (per-level: `Tile`/`DecodedTile`/`ReadRegion`/`Tiles`) and `*Pyramid` (cross-level, L0 coords: `ReadRegionScaled`/`ScaledStrips`/`BestLevelForDownsample`). The bare `slide.Level(i)` (returns `(*Level, error)`) and `slide.Pyramid(i)` (returns `*Pyramid`) navigation accessors remain.
-- `Pyramid.LevelPtrs()` returns `[]*Level` for ranging over levels when you need pointer receivers. `Pyramid.Level(i)` returns `(*Level, error)` for indexed access. `Pyramid.Levels []Level` (field) remains for read-only struct inspection.
+- `Pyramid.Level(i)` returns `(*Level, error)` for indexed access; the `Pyramid.Levels []Level` field remains for read-only iteration/inspection (its elements carry the back-reference, so `p.Levels[i].Tile(...)` works).
 - The deferred multi-dimensional surface (`Bands`/`Sample` on `decoder.Image`, `TileAt`/`DecodedTileAt`, `Pyramid.SizeZ/C/T`, `ReadRegion…At(r, Plane)`) is NOT part of this release.

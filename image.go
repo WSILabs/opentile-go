@@ -4,12 +4,13 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 )
 
-// Level is value-type pyramid-level metadata. All fields are
-// inspection-only (read at *Slide.Open time). Tile reads use
-// *Slide.RawTile / *Slide.DecodedTile (takes level index).
+// Level is one resolution tier of a Pyramid. Its exported fields are
+// inspection-only metadata (read at Open time); tile and region reads are
+// methods on *Level (l.Tile, l.DecodedTile, l.ReadRegion, l.Tiles, ...).
+// Obtain a *Level via s.Level(i), s.Levels(), or p.Level(i).
 type Level struct {
 	// Index is the 0-based index of this level within the parent
-	// Image's Levels slice. Pass to *Slide.RawTile(level, tx, ty).
+	// Pyramid's Levels slice.
 	Index int
 
 	// PyramidIndex is the pyramid-group index for multi-image formats.
@@ -32,7 +33,7 @@ type Level struct {
 	TileOverlap Point
 
 	// Compression identifies the codec for tile bytes at this level.
-	// Used by *Slide.DecodedTile to dispatch to the right decoder.
+	// Used by l.DecodedTile to dispatch to the right decoder.
 	Compression Compression
 
 	// MPP is microns-per-pixel at this level (X and Y; usually equal).
@@ -50,7 +51,7 @@ type Level struct {
 	// 2.0 at half-resolution, 4.0 at quarter, etc. Computed at Open
 	// time from the level's Size relative to the image's L0 Size.
 	//
-	// Used by *Slide.BestLevelForDownsample and *Slide.ReadRegionScaled
+	// Used by p.BestLevelForDownsample and p.ReadRegionScaled
 	// to translate L0 coords into level coords.
 	//
 	// Added in v0.25 alongside the ReadRegion family.
@@ -158,7 +159,7 @@ type Pyramid struct {
 	Name string
 
 	// Index is the 0-based document-order index of this Pyramid within
-	// the parent Slide. Pass to *Slide.ImageRawTile(image, level, tx, ty).
+	// the parent Slide. Obtain a *Pyramid via s.Pyramid(i) or s.Pyramids().
 	Index int
 
 	// Levels is the pyramid for this image, finest-to-coarsest. Level 0
