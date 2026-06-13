@@ -29,7 +29,7 @@ type sziLevelExpect struct {
 // JPEG byte length so a regression in the v0.16 ZIP-extraction path
 // shows up as a hard failure.
 type sziAssocExpect struct {
-	Type        string
+	Type        opentile.AssociatedType
 	W, H        int
 	Compression opentile.Compression
 	ByteCount   int

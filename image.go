@@ -56,6 +56,12 @@ type Level struct {
 	Downsample float64
 }
 
+// AssociatedType is the type of an associated image (label, overview,
+// thumbnail, etc.). The underlying value is the lowercase string
+// surfaced by AssociatedImage.Type(). Use the AssociatedLabel /
+// AssociatedOverview / … constants for comparisons.
+type AssociatedType string
+
 // AssociatedImage is a non-pyramidal slide-level image (label, overview,
 // thumbnail).
 //
@@ -85,10 +91,10 @@ type Level struct {
 //	"associated"  — generic-TIFF heuristic-fallback (v0.10+) when the
 //	                classifier can't confidently match a type above
 //
-// Format readers use the string literals directly; the values above
-// are stable and part of the public API contract from v0.15 onward.
+// Format readers use the exported AssociatedType constants; the values
+// above are stable and part of the public API contract from v0.15 onward.
 type AssociatedImage interface {
-	Type() string
+	Type() AssociatedType
 	Size() Size
 	Compression() Compression
 	Bytes() ([]byte, error)
@@ -101,21 +107,19 @@ type AssociatedImage interface {
 	Decode(opts decoder.DecodeOptions) (*decoder.Image, error)
 }
 
-// Standard AssociatedImage.Type() values — the string literals returned by
-// Type() across all format readers (documented on AssociatedImage above).
-// Exported so consumers can switch/compare against named constants instead of
-// hardcoding the literals. The set is open — a format reader may surface an
-// additional value — so this is a naming convention, not a closed enum. The
-// constants are untyped strings, so they compare directly against the
-// (string-typed) result of Type().
+// Standard AssociatedImage.Type() values returned by Type() across all
+// format readers (documented on AssociatedImage above). Exported so
+// consumers can switch/compare against named constants instead of
+// hardcoding the literals. The set is open — a format reader may surface
+// an additional value — so this is a naming convention, not a closed enum.
 const (
-	AssociatedLabel       = "label"       // slide label / barcode
-	AssociatedOverview    = "overview"    // wide-field image of the slide
-	AssociatedThumbnail   = "thumbnail"   // full-slide downsample
-	AssociatedMap         = "map"         // NDPI / IFE low-magnification map
-	AssociatedProbability = "probability" // BIF / IFE confidence map
-	AssociatedMacro       = "macro"       // Iris IFE only (distinct from overview)
-	AssociatedGeneric     = "associated"  // generic-TIFF heuristic fallback
+	AssociatedLabel       AssociatedType = "label"       // slide label / barcode
+	AssociatedOverview    AssociatedType = "overview"    // wide-field image of the slide
+	AssociatedThumbnail   AssociatedType = "thumbnail"   // full-slide downsample
+	AssociatedMap         AssociatedType = "map"         // NDPI / IFE low-magnification map
+	AssociatedProbability AssociatedType = "probability" // BIF / IFE confidence map
+	AssociatedMacro       AssociatedType = "macro"       // Iris IFE only (distinct from overview)
+	AssociatedGeneric     AssociatedType = "associated"  // generic-TIFF heuristic fallback
 )
 
 // Pyramid identifies one multi-resolution image within a slide.

@@ -205,7 +205,7 @@ func checkSlideAgainstFixture(t *testing.T, slide, fixturePath string) {
 	} else {
 		for i, a := range associated {
 			exp := fix.AssociatedImages[i]
-			if a.Type() != exp.Type {
+			if string(a.Type()) != exp.Type {
 				t.Errorf("associated[%d] type: got %q, want %q", i, a.Type(), exp.Type)
 			}
 			if a.Compression().String() != exp.Compression {

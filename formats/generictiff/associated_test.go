@@ -79,7 +79,7 @@ func TestAssociated_StrippedSVS_All3Types(t *testing.T) {
 
 	for _, tc := range []struct {
 		ifdIdx          int
-		imageType       string
+		imageType       opentile.AssociatedType
 		wantW, wantH    int
 		wantCompression opentile.Compression
 		wantSOI         []byte // first 2 bytes if applicable
@@ -88,7 +88,7 @@ func TestAssociated_StrippedSVS_All3Types(t *testing.T) {
 		{4, TypeLabel, 387, 463, opentile.CompressionLZW, nil}, // LZW: no SOI marker
 		{5, TypeOverview, 1280, 431, opentile.CompressionJPEG, []byte{0xFF, 0xD8}},
 	} {
-		t.Run(tc.imageType, func(t *testing.T) {
+		t.Run(string(tc.imageType), func(t *testing.T) {
 			info := associatedSourceInfoFromPage(t, pages[tc.ifdIdx])
 			a, err := newAssociatedImage(tc.imageType, info, f)
 			if err != nil {
@@ -125,7 +125,7 @@ func TestAssociated_StrippedSVS_All3Types(t *testing.T) {
 // the cached buffer or the next call's return.
 func TestAssociated_BytesAreCallerOwned(t *testing.T) {
 	a := &associatedImage{
-		imageType:   "thumbnail",
+		imageType:   TypeThumbnail,
 		size:        opentile.Size{W: 1, H: 1},
 		compression: opentile.CompressionNone,
 		bytes:       []byte{1, 2, 3, 4, 5},
@@ -151,7 +151,7 @@ func TestAssociated_RejectsTiled(t *testing.T) {
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{100},
 	}
-	_, err := newAssociatedImage("overview", info, bytes.NewReader(make([]byte, 1000)))
+	_, err := newAssociatedImage(TypeOverview, info, bytes.NewReader(make([]byte, 1000)))
 	if !errors.Is(err, errUnsupportedAssociatedShape) {
 		t.Errorf("got %v, want errUnsupportedAssociatedShape", err)
 	}
@@ -166,7 +166,7 @@ func TestAssociated_RejectsOversized(t *testing.T) {
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{1 << 30}, // 1 GiB — far above 32 MB ceiling
 	}
-	_, err := newAssociatedImage("thumbnail", info, bytes.NewReader(nil))
+	_, err := newAssociatedImage(TypeThumbnail, info, bytes.NewReader(nil))
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("max")) {
 		t.Errorf("expected size-limit error, got %v", err)
 	}

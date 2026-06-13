@@ -189,7 +189,7 @@ type omeDirSpec struct {
 	typ   opentile.DirectoryType
 	image int    // valid when typ==DirLevel; equals pyramid index k
 	level int    // valid when typ==DirLevel
-	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
+	assoc opentile.AssociatedType // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the OME implementation of format.Reader.

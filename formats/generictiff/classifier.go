@@ -8,6 +8,7 @@
 package generictiff
 
 import (
+	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
@@ -25,10 +26,10 @@ import (
 // to align Type() values with DICOM PS3.3 / Supplement 145 (which uses
 // "OVERVIEW") and with the upstream Python opentile we directly port.
 const (
-	TypeLabel      = "label"
-	TypeOverview   = "overview" // v0.15: was KindMacro = "macro"; flipped to align with DICOM + upstream Python opentile
-	TypeThumbnail  = "thumbnail"
-	TypeAssociated = "associated" // v0.10 addition; classifier-fallback (Q5)
+	TypeLabel      opentile.AssociatedType = "label"
+	TypeOverview   opentile.AssociatedType = "overview" // v0.15: was KindMacro = "macro"; flipped to align with DICOM + upstream Python opentile
+	TypeThumbnail  opentile.AssociatedType = "thumbnail"
+	TypeAssociated opentile.AssociatedType = "associated" // v0.10 addition; classifier-fallback (Q5)
 )
 
 // Classifier-tuning thresholds. Sealed at v0.10; not currently
@@ -80,7 +81,7 @@ const (
 // Falls back to the pre-v0.19 [ClassifyAssociated] heuristics when
 // no WSI tag is present (vips-converted files, pre-v0.19 generic
 // TIFFs, etc.).
-func ClassifyAssociatedFromPage(page *tiff.Page, ifd, baseline tiff.PyramidLevelInfo) string {
+func ClassifyAssociatedFromPage(page *tiff.Page, ifd, baseline tiff.PyramidLevelInfo) opentile.AssociatedType {
 	if wt, ok := page.WSIImageType(); ok {
 		switch wt {
 		case "label":
@@ -120,7 +121,7 @@ func ClassifyAssociatedFromPage(page *tiff.Page, ifd, baseline tiff.PyramidLevel
 //  4. Tiled + tiny (area < 0.1% baseline)                  → "thumbnail"
 //  5. Tiled + small (area < 1% baseline)                   → "overview"
 //  6. Anything else                                        → "associated"
-func ClassifyAssociated(ifd, baseline tiff.PyramidLevelInfo) string {
+func ClassifyAssociated(ifd, baseline tiff.PyramidLevelInfo) opentile.AssociatedType {
 	w, h := ifd.Width, ifd.Height
 	larger, smaller := w, h
 	if h > w {

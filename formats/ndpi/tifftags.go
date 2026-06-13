@@ -16,7 +16,7 @@ type ndpiDirSpec struct {
 	page  *tiff.Page
 	typ   opentile.DirectoryType
 	level int    // valid when typ==DirLevel; equals levelIdx at construction
-	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
+	assoc opentile.AssociatedType // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // TIFFDirectories exposes the raw TIFF tags per IFD, lazily decoded.

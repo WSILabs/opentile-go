@@ -21,7 +21,7 @@ import (
 // resolutions via the page's own SubIFDs) is NOT exposed by upstream
 // or by us.
 type associatedImage struct {
-	imageType    string
+	imageType    opentile.AssociatedType
 	size         opentile.Size
 	compression  opentile.Compression
 	stripOffsets []uint64
@@ -34,7 +34,7 @@ type associatedImage struct {
 	reader       io.ReaderAt
 }
 
-func (a *associatedImage) Type() string                      { return a.imageType }
+func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
@@ -186,7 +186,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // → Type() == "overview" to keep our public AssociatedImage.Type()
 // semantics consistent across all formats (SVS / NDPI / Philips
 // already use "overview").
-func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
 		return nil, fmt.Errorf("ome: associated %s missing ImageWidth", imageType)

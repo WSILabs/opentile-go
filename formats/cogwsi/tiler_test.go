@@ -73,14 +73,14 @@ func TestTiler_CMU1SmallRegion_FullPyramid(t *testing.T) {
 		}
 	}
 
-	got := make([]string, 0)
+	got := make([]opentile.AssociatedType, 0)
 	for _, a := range tlr.AssociatedImages() {
 		got = append(got, a.Type())
 	}
 	// Probe of CMU-1-Small-Region_cog-wsi.tiff: 4 IFDs total; one
 	// pyramid + thumbnail + label + overview (in that IFD order, per
 	// spec §6).
-	want := []string{"thumbnail", "label", "overview"}
+	want := []opentile.AssociatedType{opentile.AssociatedThumbnail, opentile.AssociatedLabel, opentile.AssociatedOverview}
 	if len(got) != len(want) {
 		t.Fatalf("associated types = %v, want %v", got, want)
 	}

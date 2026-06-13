@@ -32,7 +32,7 @@ var errUnsupportedAssociatedShape = errors.New("generic: associated image shape 
 // are typically <2 MB so the memory cost is fine, and it lets the
 // constructor enforce the supported-shape check up front.
 type associatedImage struct {
-	imageType   string
+	imageType   opentile.AssociatedType
 	size        opentile.Size
 	compression opentile.Compression
 	bytes       []byte
@@ -43,7 +43,7 @@ type associatedImage struct {
 	rawStrips [][]byte
 }
 
-func (a *associatedImage) Type() string                      { return a.imageType }
+func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {
@@ -56,7 +56,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // vs multi-strip × compression) and reads the associated-image
 // bytes. Returns errUnsupportedAssociatedShape for the v0.10
 // out-of-scope variants (multi-strip JPEG / Deflate, tiled).
-func newAssociatedImage(imageType string, info associatedSourceInfo, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType opentile.AssociatedType, info associatedSourceInfo, r io.ReaderAt) (*associatedImage, error) {
 	if info.tiled {
 		// Tiled associated images out of scope for v0.10.
 		return nil, fmt.Errorf("%w: tiled associated image", errUnsupportedAssociatedShape)
@@ -273,7 +273,7 @@ type associatedSourceInfo struct {
 //	                                              concat raw, re-encode
 //	                                              as single LZW
 //	Multi-strip Deflate                        → unsupported in v0.10
-func assembleAssociated(imageType string, info associatedSourceInfo, strips [][]byte) ([]byte, opentile.Compression, error) {
+func assembleAssociated(imageType opentile.AssociatedType, info associatedSourceInfo, strips [][]byte) ([]byte, opentile.Compression, error) {
 	if len(strips) == 1 {
 		// Single-strip path: the strip bytes ARE the associated
 		// image bytes for any compression we support.

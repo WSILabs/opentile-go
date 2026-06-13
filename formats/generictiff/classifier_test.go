@@ -3,6 +3,7 @@ package generictiff
 import (
 	"testing"
 
+	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
@@ -52,7 +53,7 @@ func TestClassifyAssociated_StrippedJPEGMacro(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		ifd  tiff.PyramidLevelInfo
-		want string
+		want opentile.AssociatedType
 	}{
 		{"actual cmu-1 macro", stripped(5, 1280, 431, 7), TypeOverview}, // ~3:1
 		{"portrait macro", stripped(5, 431, 1280, 7), TypeOverview},     // tall macro
@@ -74,7 +75,7 @@ func TestClassifyAssociated_StrippedJPEGThumbnail(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		ifd  tiff.PyramidLevelInfo
-		want string
+		want opentile.AssociatedType
 	}{
 		{"cmu-1 thumbnail", stripped(1, 1024, 732, 7), TypeThumbnail},
 		{"square small", stripped(1, 500, 500, 7), TypeThumbnail},
@@ -163,7 +164,7 @@ func TestClassifyAssociated_AgainstStrippedSVSCMU1(t *testing.T) {
 	baseline := tiled(0, 46000, 32914)
 	for _, tc := range []struct {
 		ifd      tiff.PyramidLevelInfo
-		wantType string
+		wantType opentile.AssociatedType
 		desc     string
 	}{
 		{stripped(1, 1024, 732, 7), TypeThumbnail, "IFD 1: thumbnail JPEG"},

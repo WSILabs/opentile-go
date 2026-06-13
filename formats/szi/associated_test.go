@@ -27,7 +27,7 @@ func TestAssociated_CMU1HasAllThree(t *testing.T) {
 		t.Fatalf("Associated count = %d, want 3", len(got))
 	}
 
-	wantTypes := map[string]bool{"label": false, "overview": false, "thumbnail": false}
+	wantTypes := map[opentile.AssociatedType]bool{opentile.AssociatedLabel: false, opentile.AssociatedOverview: false, opentile.AssociatedThumbnail: false}
 	for _, a := range got {
 		typ := a.Type()
 		if _, ok := wantTypes[typ]; !ok {

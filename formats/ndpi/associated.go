@@ -53,7 +53,7 @@ func newOverviewImage(p *tiff.Page, r io.ReaderAt) (*overviewImage, error) {
 	}, nil
 }
 
-func (o *overviewImage) Type() string                      { return "overview" }
+func (o *overviewImage) Type() opentile.AssociatedType     { return opentile.AssociatedOverview }
 func (o *overviewImage) Size() opentile.Size               { return o.size }
 func (o *overviewImage) Compression() opentile.Compression { return o.compression }
 
@@ -117,7 +117,7 @@ func newLabelImage(overview *overviewImage, crop float64, mcuW int) *labelImage 
 	}
 }
 
-func (l *labelImage) Type() string                      { return "label" }
+func (l *labelImage) Type() opentile.AssociatedType     { return opentile.AssociatedLabel }
 func (l *labelImage) Size() opentile.Size               { return opentile.Size{W: l.cropTo - l.cropFrom, H: l.cropH} }
 func (l *labelImage) Compression() opentile.Compression { return l.overview.compression }
 

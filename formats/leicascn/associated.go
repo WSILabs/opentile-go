@@ -38,7 +38,7 @@ type associatedImage struct {
 	bytes       []byte
 }
 
-func (a *associatedImage) Type() string                      { return "overview" }
+func (a *associatedImage) Type() opentile.AssociatedType     { return opentile.AssociatedOverview }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 

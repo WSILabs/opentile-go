@@ -115,12 +115,12 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 
 	var associated []opentile.AssociatedImage
 	for _, spec := range []struct {
-		imageType string
+		imageType opentile.AssociatedType
 		omeIdx    int
 	}{
-		{"thumbnail", cls.Thumbnail},
-		{"label", cls.Label},
-		{"overview", cls.Macro},
+		{opentile.AssociatedThumbnail, cls.Thumbnail},
+		{opentile.AssociatedLabel, cls.Label},
+		{opentile.AssociatedOverview, cls.Macro},
 	} {
 		if spec.omeIdx < 0 {
 			continue

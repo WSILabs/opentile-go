@@ -196,23 +196,23 @@ func TestBIFGeometry(t *testing.T) {
 
 			// Associated images per fixture.
 			ai := tiler.AssociatedImages()
-			gotTypes := map[string]opentile.Size{}
+			gotTypes := map[opentile.AssociatedType]opentile.Size{}
 			for _, a := range ai {
 				gotTypes[a.Type()] = a.Size()
 			}
-			ovS, ovOK := gotTypes["overview"]
+			ovS, ovOK := gotTypes[opentile.AssociatedOverview]
 			if !ovOK {
 				t.Error("missing associated type=overview")
 			} else if ovS.W != fx.overviewWxH[0] || ovS.H != fx.overviewWxH[1] {
 				t.Errorf("overview size: got %v, want %dx%d", ovS, fx.overviewWxH[0], fx.overviewWxH[1])
 			}
 			if fx.hasProbability {
-				if _, ok := gotTypes["probability"]; !ok {
+				if _, ok := gotTypes[opentile.AssociatedProbability]; !ok {
 					t.Error("missing associated type=probability (expected on spec-compliant fixture)")
 				}
 			}
 			if fx.hasThumbnail {
-				if _, ok := gotTypes["thumbnail"]; !ok {
+				if _, ok := gotTypes[opentile.AssociatedThumbnail]; !ok {
 					t.Error("missing associated type=thumbnail (expected on legacy fixture)")
 				}
 			}

@@ -27,7 +27,7 @@ type genericLevelExpect struct {
 // JPEG concat (T8) or multi-strip LZW re-encode (T8) shows up as a
 // hard failure, not a silent drift.
 type genericAssocExpect struct {
-	Type        string
+	Type        opentile.AssociatedType
 	W, H        int
 	Compression opentile.Compression
 	ByteCount   int

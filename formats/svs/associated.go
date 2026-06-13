@@ -15,11 +15,11 @@ import (
 // newAssociatedImage dispatches construction by type. Thumbnail and overview
 // are striped JPEG assembled via ConcatenateScans; label is raw strip
 // passthrough (codec as advertised by the TIFF Compression tag).
-func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (opentile.AssociatedImage, error) {
+func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (opentile.AssociatedImage, error) {
 	switch imageType {
-	case "thumbnail", "overview":
+	case opentile.AssociatedThumbnail, opentile.AssociatedOverview:
 		return newStripedJPEGAssociated(imageType, p, r)
-	case "label":
+	case opentile.AssociatedLabel:
 		return newStripedLabel(p, r)
 	}
 	return nil, fmt.Errorf("svs: unknown associated type %q", imageType)
@@ -36,7 +36,7 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (opentile
 // the strips themselves don't carry SOF tables). Used for DRI / restart-
 // interval computation in Bytes().
 type stripedJPEGAssociated struct {
-	imageType    string
+	imageType    opentile.AssociatedType
 	size         opentile.Size
 	stripOffsets []uint64
 	stripCounts  []uint64
@@ -48,7 +48,7 @@ type stripedJPEGAssociated struct {
 	reader       io.ReaderAt
 }
 
-func (a *stripedJPEGAssociated) Type() string                      { return a.imageType }
+func (a *stripedJPEGAssociated) Type() opentile.AssociatedType     { return a.imageType }
 func (a *stripedJPEGAssociated) Size() opentile.Size               { return a.size }
 func (a *stripedJPEGAssociated) Compression() opentile.Compression { return opentile.CompressionJPEG }
 
@@ -215,7 +215,7 @@ func (a *stripedJPEGAssociated) AssociatedEncoding() (opentile.AssociatedEncodin
 	}, true
 }
 
-func newStripedJPEGAssociated(imageType string, p *tiff.Page, r io.ReaderAt) (*stripedJPEGAssociated, error) {
+func newStripedJPEGAssociated(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (*stripedJPEGAssociated, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
 		return nil, fmt.Errorf("svs: associated %s ImageWidth missing", imageType)
@@ -301,7 +301,7 @@ type stripedLabel struct {
 	reader       io.ReaderAt
 }
 
-func (a *stripedLabel) Type() string                      { return "label" }
+func (a *stripedLabel) Type() opentile.AssociatedType     { return opentile.AssociatedLabel }
 func (a *stripedLabel) Size() opentile.Size               { return a.size }
 func (a *stripedLabel) Compression() opentile.Compression { return a.compression }
 

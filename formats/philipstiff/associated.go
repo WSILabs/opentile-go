@@ -22,7 +22,7 @@ import (
 // inheritance: tiled_size = (1, 1), get_tile(0,0) reads the lone strip
 // + splices tables (philips_tiff_image.py:32-75 + tiff_image.py:490-498).
 type associatedImage struct {
-	imageType    string
+	imageType    opentile.AssociatedType
 	size         opentile.Size
 	compression  opentile.Compression
 	stripOffsets []uint64
@@ -35,7 +35,7 @@ type associatedImage struct {
 	reader       io.ReaderAt
 }
 
-func (a *associatedImage) Type() string                      { return a.imageType }
+func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
@@ -105,7 +105,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // label/macro/thumbnail page. Reads StripOffsets/StripByteCounts and
 // JPEGTables; the type label is supplied by the caller (mapped from
 // the description-substring classifier).
-func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
 		return nil, fmt.Errorf("philips: associated %s missing ImageWidth", imageType)

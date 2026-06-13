@@ -18,7 +18,7 @@ import (
 // dimensions are decoded from the JPEG header at Open() time via
 // image.DecodeConfig. Bytes() reads the entire entry on demand.
 type associatedImage struct {
-	imgType string // v0.15 Type() value: "label" / "overview" / "thumbnail"
+	imgType opentile.AssociatedType // v0.15 Type() value: "label" / "overview" / "thumbnail"
 	entry   *zip.File
 	width   int
 	height  int
@@ -29,7 +29,7 @@ type associatedImage struct {
 // canonical wide-field-slide-image term used by SVS / Philips /
 // OME / BIF / leicascn / generictiff); label.jpg as "label"; and
 // thumbnail.jpg as "thumbnail".
-func (a *associatedImage) Type() string { return a.imgType }
+func (a *associatedImage) Type() opentile.AssociatedType { return a.imgType }
 
 // Size returns the JPEG image dimensions decoded from the header.
 func (a *associatedImage) Size() opentile.Size {
@@ -87,11 +87,11 @@ func decodeJPEGDims(entry *zip.File) (int, int, error) {
 func (t *Tiler) buildAssociated() {
 	mapping := []struct {
 		filename string
-		typ      string
+		typ      opentile.AssociatedType
 	}{
-		{"macro.jpg", "overview"},
-		{"label.jpg", "label"},
-		{"thumbnail.jpg", "thumbnail"},
+		{"macro.jpg", opentile.AssociatedOverview},
+		{"label.jpg", opentile.AssociatedLabel},
+		{"thumbnail.jpg", opentile.AssociatedThumbnail},
 	}
 	for _, m := range mapping {
 		p := t.rootDir + "/associated_images/" + m.filename

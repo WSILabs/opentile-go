@@ -302,7 +302,7 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	if len(assoc) != 3 {
 		t.Fatalf("associated count = %d, want 3", len(assoc))
 	}
-	wantTypes := []string{"thumbnail", "macro", "overview"}
+	wantTypes := []opentile.AssociatedType{opentile.AssociatedThumbnail, opentile.AssociatedMacro, opentile.AssociatedOverview}
 	for i, a := range assoc {
 		if a.Type() != wantTypes[i] {
 			t.Errorf("assoc[%d] type = %q, want %q", i, a.Type(), wantTypes[i])
@@ -431,16 +431,17 @@ func TestMetadataWrongRecoveryRejected(t *testing.T) {
 
 func TestNormaliseAssociatedType(t *testing.T) {
 	for _, tc := range []struct {
-		in, want string
+		in   string
+		want opentile.AssociatedType
 	}{
-		{"thumbnail", "thumbnail"},
-		{"Thumbnail", "thumbnail"},
-		{"THUMBNAIL", "thumbnail"},
-		{"label", "label"},
-		{"overview", "overview"},
-		{"macro", "macro"},
-		{"map", "map"},
-		{"probability", "probability"},
+		{"thumbnail", opentile.AssociatedThumbnail},
+		{"Thumbnail", opentile.AssociatedThumbnail},
+		{"THUMBNAIL", opentile.AssociatedThumbnail},
+		{"label", opentile.AssociatedLabel},
+		{"overview", opentile.AssociatedOverview},
+		{"macro", opentile.AssociatedMacro},
+		{"map", opentile.AssociatedMap},
+		{"probability", opentile.AssociatedProbability},
 		{"freetext", "freetext"},
 		{"Custom Label", "custom label"},
 	} {

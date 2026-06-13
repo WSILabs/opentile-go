@@ -103,7 +103,7 @@ func ndpiCompressionToOpentile(tiffCode uint32) opentile.Compression {
 	return opentile.CompressionUnknown
 }
 
-func (m *mapPage) Type() string                      { return "map" }
+func (m *mapPage) Type() opentile.AssociatedType     { return opentile.AssociatedMap }
 func (m *mapPage) Size() opentile.Size               { return m.size }
 func (m *mapPage) Compression() opentile.Compression { return m.compression }
 

@@ -81,7 +81,7 @@ func TestAssociatedIFDOffset_SVSAndGeneric(t *testing.T) {
 			if len(assoc) == 0 {
 				t.Fatalf("%s: no associated images to exercise", rel)
 			}
-			seen := map[int64]string{}
+			seen := map[int64]opentile.AssociatedType{}
 			for _, a := range assoc {
 				off, ok := s.AssociatedIFDOffset(a)
 				if !ok {

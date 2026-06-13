@@ -10,7 +10,7 @@ import (
 // associatedImage serves a single-frame WSM instance (label/overview/
 // thumbnail) as raw compressed bytes.
 type associatedImage struct {
-	typ         string
+	typ         opentile.AssociatedType
 	size        opentile.Size
 	compression opentile.Compression
 	data        []byte // the single frame's bytes (already extracted at open time)
@@ -18,7 +18,7 @@ type associatedImage struct {
 	photometric string // PhotometricInterpretation (0028,0004)
 }
 
-func (a *associatedImage) Type() string                      { return a.typ }
+func (a *associatedImage) Type() opentile.AssociatedType     { return a.typ }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 func (a *associatedImage) Bytes() ([]byte, error) {
@@ -80,17 +80,17 @@ func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, er
 	}, opts)
 }
 
-// dicomTypeToOpentile maps a WSM ImageType token to an opentile Type() string.
-func dicomTypeToOpentile(role string) string {
+// dicomTypeToOpentile maps a WSM ImageType token to an opentile AssociatedType.
+func dicomTypeToOpentile(role string) opentile.AssociatedType {
 	switch role {
 	case "LABEL":
-		return "label"
+		return opentile.AssociatedLabel
 	case "OVERVIEW":
-		return "overview"
+		return opentile.AssociatedOverview
 	case "THUMBNAIL":
-		return "thumbnail"
+		return opentile.AssociatedThumbnail
 	}
-	return "associated"
+	return opentile.AssociatedGeneric
 }
 
 // buildAssociated extracts single-frame associated images (label/overview/

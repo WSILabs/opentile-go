@@ -32,7 +32,7 @@ func TestBIFAccessors(t *testing.T) {
 		name        string
 		filename    string
 		wantGen     string
-		wantTypes   map[string]bool
+		wantTypes   map[opentile.AssociatedType]bool
 		wantScanRes float64
 		hasICC      bool
 	}{
@@ -40,7 +40,7 @@ func TestBIFAccessors(t *testing.T) {
 			name:        "spec-compliant Ventana-1",
 			filename:    "Ventana-1.bif",
 			wantGen:     "spec-compliant",
-			wantTypes:   map[string]bool{"overview": true, "probability": true},
+			wantTypes:   map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedProbability: true},
 			wantScanRes: 0.25,
 			hasICC:      true,
 		},
@@ -48,7 +48,7 @@ func TestBIFAccessors(t *testing.T) {
 			name:        "legacy iScan OS-1",
 			filename:    "OS-1.bif",
 			wantGen:     "legacy-iscan",
-			wantTypes:   map[string]bool{"overview": true, "thumbnail": true},
+			wantTypes:   map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedThumbnail: true},
 			wantScanRes: 0.2325,
 			hasICC:      false,
 		},
@@ -132,7 +132,7 @@ func TestBIFAccessors(t *testing.T) {
 
 			// Associated types match expectation.
 			ai := tiler.AssociatedImages()
-			gotTypes := make(map[string]bool)
+			gotTypes := make(map[opentile.AssociatedType]bool)
 			for _, a := range ai {
 				gotTypes[a.Type()] = true
 				if _, err := a.Bytes(); err != nil {

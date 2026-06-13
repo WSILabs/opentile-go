@@ -130,12 +130,12 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}}
 	var associated []opentile.AssociatedImage
 	for _, spec := range []struct {
-		imageType string
+		imageType opentile.AssociatedType
 		pageIdx   int
 	}{
-		{"thumbnail", class.Thumbnail},
-		{"label", class.Label},
-		{"overview", class.Macro},
+		{opentile.AssociatedThumbnail, class.Thumbnail},
+		{opentile.AssociatedLabel, class.Label},
+		{opentile.AssociatedOverview, class.Macro},
 	} {
 		if spec.pageIdx < 0 {
 			continue
@@ -177,7 +177,7 @@ type svsDirSpec struct {
 	pageIdx int
 	typ     opentile.DirectoryType
 	level   int    // valid when typ==DirLevel
-	assoc   string // valid when typ==DirAssociated; matches AssociatedImage.Type()
+	assoc   opentile.AssociatedType // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the SVS implementation of format.Reader.

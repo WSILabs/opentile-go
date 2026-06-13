@@ -116,7 +116,7 @@ type scnDirSpec struct {
 	page  *tiff.Page
 	typ   opentile.DirectoryType
 	level int    // valid when typ==DirLevel
-	assoc string // valid when typ==DirAssociated; matches AssociatedImage.Type()
+	assoc opentile.AssociatedType // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 
 // tiler is the Leica SCN implementation of format.Reader.

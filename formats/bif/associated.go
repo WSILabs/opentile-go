@@ -37,7 +37,7 @@ import (
 // IFD's StripByteCounts tag). This matches BIF's "metadata reader"
 // scope; if a real consumer surfaces, we can add a richer accessor.
 type associatedImage struct {
-	imageType   string
+	imageType   opentile.AssociatedType
 	size        opentile.Size
 	compression opentile.Compression
 
@@ -55,7 +55,7 @@ type associatedImage struct {
 	reader       io.ReaderAt
 }
 
-func (a *associatedImage) Type() string                      { return a.imageType }
+func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 
@@ -175,7 +175,7 @@ func (a *associatedImage) Bytes() ([]byte, error) {
 // IFD. The type label ("overview" / "probability" / "thumbnail") is
 // supplied by the caller per the IFD-classification table in spec
 // §5.3.
-func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
+func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (*associatedImage, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
 		return nil, fmt.Errorf("bif: associated %s missing ImageWidth", imageType)
@@ -253,15 +253,15 @@ func newAssociatedImage(imageType string, p *tiff.Page, r io.ReaderAt) (*associa
 //	ifdRoleThumbnail   → "thumbnail"
 //
 // Returns an empty string for any other role; the caller skips it.
-func typeFromIFDRole(role ifdRole) string {
+func typeFromIFDRole(role ifdRole) opentile.AssociatedType {
 	switch role {
 	case ifdRoleLabel:
-		return "overview"
+		return opentile.AssociatedOverview
 	case ifdRoleProbability:
-		return "probability"
+		return opentile.AssociatedProbability
 	case ifdRoleThumbnail:
-		return "thumbnail"
+		return opentile.AssociatedThumbnail
 	default:
-		return ""
+		return "" // empty = unknown; caller skips
 	}
 }

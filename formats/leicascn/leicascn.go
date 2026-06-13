@@ -106,7 +106,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			}
 		}
 		if lo.IFD >= 0 && lo.IFD < len(pages) && !seenIFDs[lo.IFD] {
-			dirSpecs = append(dirSpecs, scnDirSpec{page: pages[lo.IFD], typ: opentile.DirAssociated, assoc: "overview"})
+			dirSpecs = append(dirSpecs, scnDirSpec{page: pages[lo.IFD], typ: opentile.DirAssociated, assoc: opentile.AssociatedOverview})
 			seenIFDs[lo.IFD] = true
 		}
 		// Remaining aux dimension IFDs become DirOther.

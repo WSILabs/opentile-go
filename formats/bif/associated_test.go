@@ -30,7 +30,7 @@ func TestAssociatedSpecCompliantHasOverviewAndProbability(t *testing.T) {
 	if len(ai) != 2 {
 		t.Fatalf("Associated count: got %d, want 2 (overview + probability)", len(ai))
 	}
-	want := map[string]bool{"overview": true, "probability": true}
+	want := map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedProbability: true}
 	for _, a := range ai {
 		if !want[a.Type()] {
 			t.Errorf("unexpected associated type %q", a.Type())
@@ -62,7 +62,7 @@ func TestAssociatedLegacyHasOverviewAndThumbnail(t *testing.T) {
 	if len(ai) != 2 {
 		t.Fatalf("Associated count: got %d, want 2 (overview + thumbnail)", len(ai))
 	}
-	wantSet := map[string]bool{"overview": true, "thumbnail": true}
+	wantSet := map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedThumbnail: true}
 	for _, a := range ai {
 		if !wantSet[a.Type()] {
 			t.Errorf("unexpected associated type %q", a.Type())
@@ -118,11 +118,11 @@ func TestAssociatedReturnsCopy(t *testing.T) {
 func TestTypeFromIFDRoleMapping(t *testing.T) {
 	cases := []struct {
 		role ifdRole
-		want string
+		want opentile.AssociatedType
 	}{
-		{ifdRoleLabel, "overview"},
-		{ifdRoleProbability, "probability"},
-		{ifdRoleThumbnail, "thumbnail"},
+		{ifdRoleLabel, opentile.AssociatedOverview},
+		{ifdRoleProbability, opentile.AssociatedProbability},
+		{ifdRoleThumbnail, opentile.AssociatedThumbnail},
 		{ifdRolePyramid, ""},
 		{ifdRoleUnknown, ""},
 	}

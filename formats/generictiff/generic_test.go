@@ -149,11 +149,11 @@ func TestFactoryOpen_StrippedSVS(t *testing.T) {
 	}
 	defer tlr.Close()
 
-	gotTypes := make(map[string]int)
+	gotTypes := make(map[opentile.AssociatedType]int)
 	for _, a := range tlr.AssociatedImages() {
 		gotTypes[a.Type()]++
 	}
-	for _, k := range []string{TypeThumbnail, TypeLabel, TypeOverview} {
+	for _, k := range []opentile.AssociatedType{TypeThumbnail, TypeLabel, TypeOverview} {
 		if gotTypes[k] != 1 {
 			t.Errorf("Associated type %q count = %d, want 1; got map = %v",
 				k, gotTypes[k], gotTypes)
@@ -373,28 +373,28 @@ func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
 		wantLevels     int
 		wantBaselineW  uint32
 		wantBaselineH  uint32
-		wantAssociated []string // ordered by Others order
+		wantAssociated []opentile.AssociatedType // ordered by Others order
 	}{
 		{
 			name:           "CMU-1_cog-wsi.tiff",
 			wantLevels:     3,
 			wantBaselineW:  46000,
 			wantBaselineH:  32914,
-			wantAssociated: []string{TypeThumbnail, TypeLabel, TypeOverview},
+			wantAssociated: []opentile.AssociatedType{TypeThumbnail, TypeLabel, TypeOverview},
 		},
 		{
 			name:           "scan_620_cog-wsi.tiff",
 			wantLevels:     4,
 			wantBaselineW:  49152,
 			wantBaselineH:  32768,
-			wantAssociated: []string{TypeThumbnail, TypeLabel, TypeOverview},
+			wantAssociated: []opentile.AssociatedType{TypeThumbnail, TypeLabel, TypeOverview},
 		},
 		{
 			name:           "Ventana-1_cog-wsi.tiff",
 			wantLevels:     8,
 			wantBaselineW:  24576,
 			wantBaselineH:  21504,
-			wantAssociated: []string{TypeOverview},
+			wantAssociated: []opentile.AssociatedType{TypeOverview},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -431,7 +431,7 @@ func TestFactoryOpen_COGWSI_WSITagShortCircuit(t *testing.T) {
 			if sz := levels[0].Size; uint32(sz.W) != tc.wantBaselineW || uint32(sz.H) != tc.wantBaselineH {
 				t.Errorf("baseline = %dx%d, want %dx%d", sz.W, sz.H, tc.wantBaselineW, tc.wantBaselineH)
 			}
-			got := make([]string, 0, len(tiler.AssociatedImages()))
+			got := make([]opentile.AssociatedType, 0, len(tiler.AssociatedImages()))
 			for _, a := range tiler.AssociatedImages() {
 				got = append(got, a.Type())
 			}

@@ -152,7 +152,7 @@ type TIFFDirectory struct {
 	Type           DirectoryType
 	Image          int
 	Level          int
-	AssociatedType string
+	AssociatedType AssociatedType
 	Tags           TIFFTags
 }
 

@@ -535,7 +535,7 @@ func compressionFromImageEncoding(e uint8) (opentile.Compression, error) {
 // ("label" / "overview" / "thumbnail" / "macro" / "map" /
 // "probability"). Unrecognised titles surface as the raw lowercased
 // string so consumers see what the encoder actually wrote.
-func normaliseAssociatedType(title string) string {
+func normaliseAssociatedType(title string) opentile.AssociatedType {
 	lower := make([]byte, len(title))
 	for i := 0; i < len(title); i++ {
 		c := title[i]
@@ -546,19 +546,19 @@ func normaliseAssociatedType(title string) string {
 	}
 	switch string(lower) {
 	case "label":
-		return "label"
+		return opentile.AssociatedLabel
 	case "overview":
-		return "overview"
+		return opentile.AssociatedOverview
 	case "thumbnail":
-		return "thumbnail"
+		return opentile.AssociatedThumbnail
 	case "macro":
-		return "macro"
+		return opentile.AssociatedMacro
 	case "map":
-		return "map"
+		return opentile.AssociatedMap
 	case "probability":
-		return "probability"
+		return opentile.AssociatedProbability
 	}
-	return string(lower)
+	return opentile.AssociatedType(lower)
 }
 
 // ICC_PROFILE block layout: 14 B header + raw ICC bytes.
@@ -603,14 +603,14 @@ func readICCProfile(r io.ReaderAt, off uint64, fileSize int64) ([]byte, error) {
 // implementation simplicity. (If a future fixture carries a 100 MB
 // macro image we can revisit and read on demand.)
 type associatedImage struct {
-	imageType   string
+	imageType   opentile.AssociatedType
 	rawTitle    string
 	size        opentile.Size
 	compression opentile.Compression
 	bytes       []byte
 }
 
-func (a *associatedImage) Type() string                      { return a.imageType }
+func (a *associatedImage) Type() opentile.AssociatedType     { return a.imageType }
 func (a *associatedImage) Size() opentile.Size               { return a.size }
 func (a *associatedImage) Compression() opentile.Compression { return a.compression }
 

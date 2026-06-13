@@ -25,7 +25,7 @@ type cogwsiLevelExpect struct {
 // Associated-image compression varies — wsitools commonly emits LZW
 // for label crops and JPEG for thumbnail / overview.
 type cogwsiAssocExpect struct {
-	Type        string
+	Type        opentile.AssociatedType
 	W, H        int
 	Compression opentile.Compression
 	ByteCount   int
