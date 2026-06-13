@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.41.0] — 2026-06-13
+
 ### Changed (BREAKING) — v1.0 API restructure
 
 See [docs/migrations/2026-06-12-v1-api-breaking-pass.md](docs/migrations/2026-06-12-v1-api-breaking-pass.md) for a full before/after table and migration instructions.
