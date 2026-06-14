@@ -72,6 +72,8 @@ func TestAssociatedDecodeAllFormats(t *testing.T) {
 		"bif/Ventana-1.bif",
 		"ife/cervix_2x_jpeg.iris",
 		"generic-tiff/CMU-1.stripped.tiff", // LZW label + JPEG thumbnail/macro
+		"svs/590_crop_lzw_imagescope.tif",  // ImageScope LZW export: LZW thumbnail+label, JPEG overview
+		"svs/590_crop_none_imagescope.tif", // ImageScope uncompressed export: RAW thumbnail+label
 		"leica-scn/Leica-1.scn",
 		"szi/CMU-1.szi",
 		"cog-wsi/CMU-1_cog-wsi.tiff",
