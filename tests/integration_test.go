@@ -26,6 +26,12 @@ var slideCandidates = []string{
 	"JP2K-33003-1.svs",
 	"scan_620_.svs",
 	"svs_40x_bigtiff.svs",
+	// NOTE: the ImageScope LZW/uncompressed SVS crops (590_crop_lzw / _none,
+	// in svs/) are intentionally NOT in the parity list yet — their thumbnail
+	// associated image fails to decode (a separate multi-strip-JPEG-reassembly
+	// issue), which blocks snapshot generation. Their tiled-level decode (the
+	// codec-Dst bug they surfaced) is covered by TestDecodedTileTiledNonSelf-
+	// Describing. Add here once the thumbnail issue is resolved.
 	"CMU-1.ndpi",
 	"OS-2.ndpi",
 	"Hamamatsu-1.ndpi",
