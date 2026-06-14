@@ -254,7 +254,7 @@ func (p *Page) ScalarArrayU32(tag uint16) ([]uint32, error) {
 // HasTag reports whether the page carries the given tag at all, without
 // attempting to decode its value. Useful when a format needs to branch on
 // tag presence before paying the decode cost — e.g., NDPI's McuStarts
-// (65426) tag determines whether a page is a striped JPEG level.
+// (65426) tag determines whether a page is a stripped JPEG level.
 func (p *Page) HasTag(tag uint16) bool {
 	_, ok := p.ifd.get(tag)
 	return ok

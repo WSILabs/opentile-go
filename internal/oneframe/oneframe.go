@@ -131,9 +131,9 @@ func (l *Image) Size() opentile.Size               { return l.size }
 func (l *Image) TileSize() opentile.Size           { return l.tileSize }
 func (l *Image) Grid() opentile.Size               { return l.grid }
 func (l *Image) Compression() opentile.Compression { return l.compression }
-func (l *Image) MPP() opentile.MPP                  { return l.mpp }
+func (l *Image) MPP() opentile.MPP                 { return l.mpp }
 func (l *Image) FocalPlane() float64               { return 0 }
-func (l *Image) TileOverlap() opentile.Point          { return opentile.Point{} }
+func (l *Image) TileOverlap() opentile.Point       { return opentile.Point{} }
 
 // TileAt is the multi-dim entry point. NDPI/OME OneFrame levels
 // are 2D-only; non-zero Z/C/T yields ErrDimensionUnavailable.
@@ -147,7 +147,7 @@ func (l *Image) TileAt(coord opentile.TileCoord) ([]byte, error) {
 // TileMaxSize returns a generous upper bound for compressed tile
 // output. OneFrame's libjpeg-turbo crop output size depends on
 // entropy coding; we return tileSize.W * tileSize.H as a worst-case
-// bound (one byte per pixel) consistent with NDPI striped's
+// bound (one byte per pixel) consistent with NDPI stripped's
 // approach.
 func (l *Image) TileMaxSize() int { return l.tileSize.W * l.tileSize.H }
 

@@ -2,7 +2,7 @@
 
 **Audience.** Maintainers of [`opentile-go`](https://github.com/wsilabs/opentile-go) and authors of HTTP / desktop / pipeline consumers that read SVS pyramids through it.
 
-**Scope.** Aperio SVS files specifically. Most ideas transfer to NDPI but NDPI's striped path has different concurrency characteristics (per-page mutex) and is called out where it matters.
+**Scope.** Aperio SVS files specifically. Most ideas transfer to NDPI but NDPI's stripped path has different concurrency characteristics (per-page mutex) and is called out where it matters.
 
 **Status.** Recommendations, not a binding plan. Pick what's useful for your workload. Predates the v0.26+ work; for the `ScaledStrips` region/DZI iterator and byte-bounded memory budgeting (v0.30) plus the cross-format benchmark suite, see [`perf.md`](./perf.md).
 
@@ -173,13 +173,13 @@ type Tiler interface {
 
 - Returned `Tile()` byte slices are caller-owned (current behavior — caller may modify them).
 - For SVS specifically: zero internal locks; goroutine count is limited by OS file descriptors and page cache capacity, not opentile.
-- For NDPI striped path: per-page mutex; concurrent reads of *different* pages are concurrent, concurrent reads of the *same* page serialize.
+- For NDPI stripped path: per-page mutex; concurrent reads of *different* pages are concurrent, concurrent reads of the *same* page serialize.
 - `Close()` must not race with in-flight tile reads. (Already documented; keep.)
 - If §A.1 lands and any borrowed-slice API is added later, document the alias-the-mapping rule explicitly.
 
 **Impact.** Documentation only. Lets consumers reason about their scaling budget without reading source.
 
-**Effort.** ~20 lines across `tiler.go`, `formats/svs/svs.go`, `formats/ndpi/striped.go`.
+**Effort.** ~20 lines across `tiler.go`, `formats/svs/svs.go`, `formats/ndpi/stripped.go`.
 
 **Risks.** None.
 
@@ -322,7 +322,7 @@ Listed because each comes up repeatedly in tile-server perf discussions and is u
 
 ## A note on NDPI
 
-Most of §A.1 (mmap), §A.4 (WarmLevel), and all of §B apply unchanged. NDPI's striped path has per-page mutexes; concurrency is across pages, not within one. §A.2 (TileInto) is harder — the striped reassembly buffer is already an internal scratch space, so the API would need to be designed differently. §A.3 (splice template) doesn't apply directly because NDPI tiles are reassembled, not table-spliced.
+Most of §A.1 (mmap), §A.4 (WarmLevel), and all of §B apply unchanged. NDPI's stripped path has per-page mutexes; concurrency is across pages, not within one. §A.2 (TileInto) is harder — the stripped reassembly buffer is already an internal scratch space, so the API would need to be designed differently. §A.3 (splice template) doesn't apply directly because NDPI tiles are reassembled, not table-spliced.
 
 If your consumer mixes SVS and NDPI in the same harness, §A.1 still wins for both. Don't expect linear scaling under NDPI for tiles within the same page.
 

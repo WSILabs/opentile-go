@@ -34,7 +34,7 @@ type decodedTiler interface {
 // fast path succeeds, returns its output directly. ErrUnsupported from
 // the reader signals "no fast path for this level" and falls through to
 // the v0.26 RawTile + fresh-decoder path. Any other error propagates.
-// Other formats and non-striped NDPI levels keep the original RawTile +
+// Other formats and non-stripped NDPI levels keep the original RawTile +
 // fresh-decoder path, which is preserved unchanged.
 func (s *Slide) imageDecodedTile(image, level, tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
 	cfg := newDecodeConfig(opts)

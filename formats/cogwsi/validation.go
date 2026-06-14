@@ -154,7 +154,7 @@ func collectLevels(es []pyrEntry) []uint32 {
 }
 
 // pageIsTiled reports whether the IFD has TileWidth + TileLength
-// tags (== tiled storage, not striped). internal/tiff doesn't
+// tags (== tiled storage, not stripped). internal/tiff doesn't
 // expose an IsTiled() helper as of v0.19; we read the tags
 // directly via ScalarU32.
 func pageIsTiled(p *tiff.Page) bool {

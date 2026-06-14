@@ -7,7 +7,7 @@ Hamamatsu's NanoZoomer scanner output. File extension `.ndpi`. Common in patholo
 - **TIFF dialect**: classic TIFF magic (42), but with a Hamamatsu-specific 64-bit-offset extension that lets files exceed 4 GB without committing to BigTIFF magic. Detection sniffs tag 65420 (NDPI FileFormat) in the first IFD and dispatches a custom IFD walker.
 - **Pyramid layout**: top-level IFDs. Pages alternate by `Magnification` (tag 65421, IEEE-754 single-precision); positive magnifications are pyramid levels, `Magnification == -1.0` is the overview, `-2.0` is the Map page.
 - **Compression**: JPEG only.
-- **Pyramid level shapes**: each level is a single big JPEG ("OneFrame") OR a striped JPEG with restart markers driving stripe boundaries (the McuStarts table at tag 65426 lists per-stripe RST offsets).
+- **Pyramid level shapes**: each level is a single big JPEG ("OneFrame") OR a stripped JPEG with restart markers driving strip boundaries (the McuStarts table at tag 65426 lists per-strip RST offsets).
 
 ## What's supported
 
@@ -74,7 +74,7 @@ NDPI's pixel-size lives on the per-axis TIFF resolution tags — and on every fi
 - Our metadata accessor: `ndpi.MetadataOf(opentile.Tiler) (*Metadata, bool)`.
 - Shared OneFrame machinery: `internal/oneframe/` (factored from NDPI in v0.6 to support OME-TIFF).
 - Upstream Python: [`opentile/formats/ndpi/`](https://github.com/imi-bigpicture/opentile/tree/main/opentile/formats/ndpi).
-- The `__need_fill_background` gate ported from PyTurboJPEG (`turbojpeg.py:839-863`); see `formats/ndpi/striped.go`.
+- The `__need_fill_background` gate ported from PyTurboJPEG (`turbojpeg.py:839-863`); see `formats/ndpi/stripped.go`.
 
 ## Known issues + history
 
