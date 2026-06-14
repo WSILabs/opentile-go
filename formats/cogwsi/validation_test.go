@@ -81,7 +81,7 @@ func TestValidateIFDs_SpecViolations(t *testing.T) {
 			},
 		},
 		{
-			// WSIImageType=pyramid on a striped IFD (no TileWidth/Length).
+			// WSIImageType=pyramid on a stripped IFD (no TileWidth/Length).
 			name: "pyramid IFD not tiled",
 			build: func() []byte {
 				return buildMultiIFDTIFF(t, []ifdSpec{
@@ -141,7 +141,7 @@ func TestValidateIFDs_SpecViolations(t *testing.T) {
 // ifdSpec describes how to assemble one synthetic IFD for the
 // validation tests. Only the WSI-tag-relevant knobs are exposed —
 // every IFD gets the same minimal structural skeleton (ImageWidth=
-// ImageLength=512, 8-bit YCbCr JPEG; tiled vs striped controlled
+// ImageLength=512, 8-bit YCbCr JPEG; tiled vs stripped controlled
 // by the tiled bool).
 type ifdSpec struct {
 	tiled         bool

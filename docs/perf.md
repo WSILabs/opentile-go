@@ -129,7 +129,7 @@ population) is the same.
 
 - **Tile reads are concurrent-safe** on every format. SVS / Philips /
   OME tiled / BIF / IFE have no internal locks on the tile hot path.
-  NDPI's striped reader takes a per-page mutex on its assembled-frame
+  NDPI's stripped reader takes a per-page mutex on its assembled-frame
   cache; concurrent reads of *different* pages run in parallel,
   concurrent reads of the *same* page serialize. OME OneFrame is
   similar.
@@ -153,7 +153,7 @@ Measurements on Apple M4 (darwin/arm64) under warm-cache pool TileInto:
 | **SVS** | 240×240 | **99.7** | **0** | In-place splice (v0.9 T8) |
 | **Philips** | 512×512 | **425** | **0** | In-place splice (v0.9 T8) |
 | Ventana BIF | 1024×1024 | 3,225 | 0 | Larger tiles, more memcpy |
-| NDPI striped | 512×512 | 185k (parallel) | 4 | CPU-bound libjpeg-turbo crop |
+| NDPI stripped | 512×512 | 185k (parallel) | 4 | CPU-bound libjpeg-turbo crop |
 
 NDPI is the outlier. Per-tile work includes a libjpeg-turbo
 `tjTransform` pass (DCT-domain crop), which is genuinely CPU-bound

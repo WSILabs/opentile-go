@@ -16,7 +16,7 @@ import (
 )
 
 // TestNDPIDecodedTilePathParity walks each NDPI fixture and asserts
-// that DecodedTile (v0.27 fast path for striped levels, slow-path
+// that DecodedTile (v0.27 fast path for stripped levels, slow-path
 // fallback for oneframe) returns the same pixels as RawTile + decode
 // on a sampled scatter of interior tiles per level.
 //

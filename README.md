@@ -55,7 +55,7 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 | Format | Extension | Levels | Associated | Compression | Parity bar | Detail |
 |---|---|---|---|---|---|---|
 | **Aperio SVS** | `.svs` | tiled | label, overview, thumbnail | JPEG, JP2K (passthrough) | byte-parity vs. Python opentile | [docs/formats/svs.md](./docs/formats/svs.md) |
-| **Hamamatsu NDPI** | `.ndpi` | tiled (striped + OneFrame) | overview, synthesised label\*, Map\* | JPEG | byte-parity vs. Python opentile | [docs/formats/ndpi.md](./docs/formats/ndpi.md) |
+| **Hamamatsu NDPI** | `.ndpi` | tiled (stripped + OneFrame) | overview, synthesised label\*, Map\* | JPEG | byte-parity vs. Python opentile | [docs/formats/ndpi.md](./docs/formats/ndpi.md) |
 | **Philips TIFF** | `.tiff` | tiled, with sparse-tile fill | label, overview, thumbnail | JPEG | byte-parity vs. Python opentile | [docs/formats/philipstiff.md](./docs/formats/philipstiff.md) |
 | **OME-TIFF** | `.ome.tiff` | tiled (SubIFD) + OneFrame | overview, label, thumbnail | JPEG (uint8 RGB only) | byte-parity vs. Python opentile + tifffile | [docs/formats/ometiff.md](./docs/formats/ometiff.md) |
 | **Ventana BIF** | `.bif` | tiled, serpentine remap, with overlap metadata\* + ScanWhitePoint blank-tile fill | overview, probability\*, thumbnail | JPEG | tifffile (DP 200) + sampled-tile SHAs (both fixtures) | [docs/formats/bif.md](./docs/formats/bif.md) |
@@ -79,7 +79,7 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 - **Optional codec libraries**, each disableable with a `no<codec>` build tag if you don't have it: OpenJPEG / JPEG 2000 (`nojp2k`), libjxl (`nojxl`), libwebp (`nowebp`), libavif (`noavif`), openjph / HTJ2K (`nohtj2k`). libjpeg-turbo is the only codec linked under every cgo build.
 - **`pkg-config`** to resolve the above at build time.
 
-opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`level.Tile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-striped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.
+opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`level.Tile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-stripped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.
 
 ## Install
 
@@ -299,7 +299,7 @@ Leica-SCN, COG-WSI).
 
 ### Concurrency
 
-`Level.Tile`, `Level.TileInto`, `Level.TileAt`, and `Level.TileReader` are safe to call concurrently from multiple goroutines. SVS / Philips / OME tiled / BIF / IFE have no internal locks on the tile hot path. NDPI's striped reader takes a per-page mutex on its assembled-frame cache; concurrent reads of *different* pages run in parallel, concurrent reads of the *same* page serialize. OME OneFrame is similar.
+`Level.Tile`, `Level.TileInto`, `Level.TileAt`, and `Level.TileReader` are safe to call concurrently from multiple goroutines. SVS / Philips / OME tiled / BIF / IFE have no internal locks on the tile hot path. NDPI's stripped reader takes a per-page mutex on its assembled-frame cache; concurrent reads of *different* pages run in parallel, concurrent reads of the *same* page serialize. OME OneFrame is similar.
 
 All internal caches (parsed IFDs, per-tile offset / length tables, metadata) are populated at `Open()` time and then immutable — no locks on the tile hot path. Format packages with shared lazy caches use `sync.Once` and produce byte-deterministic output regardless of which goroutine populates them first.
 

@@ -432,7 +432,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 - **cgo is for codec decode only.** `internal/jpegturbo/` links libjpeg-turbo (also the `tjTransform` lossless DCT-domain crops); it is the only codec linked under *every* `cgo` build. `decoder/jpeg2000` (OpenJPEG) and `decoder/{jpegxl,webp,avif,htj2k}` (libjxl/libwebp/libavif/openjph) are each disableable via a `no<codec>` build tag — `nojp2k`, `nojxl`, `nowebp`, `noavif`, `nohtj2k` (CI builds `nohtj2k`). `internal/openslideshim/` (build tag `openslidebench`) links libopenslide for the benchmark suite only. Raw-tile reads are pure Go; under `nocgo` / `CGO_ENABLED=0` the decode paths return `ErrCGORequired` and the rest works.
 - **Ported portions under Apache 2.0** with attribution to Sectra AB retained in `NOTICE` (a license obligation — keep it even as the project grows independent). Not affiliated with or endorsed by Sectra AB or the BigPicture project.
 - **Parity with upstream is the correctness bar.** Upstream's pytest cases are ported to Go tests; a fixture-backed integration suite compares tile bytes against a committed snapshot. An opt-in `//go:build parity` harness that shells out to Python opentile is v0.2.
-- **Lock-free hot path for metadata.** Parsed IFDs, per-tile offset/length arrays, and metadata are populated at `Open()` time and immutable thereafter. `Tile()` is safe to call concurrently from many goroutines — the shared-state caches in `formats/ndpi/striped.go` (per-frame assembly cache) and `formats/ndpi/oneframe.go` (extended-frame cache) use double-checked locking and `sync.Once` respectively and produce byte-deterministic results regardless of which goroutine populates them first.
+- **Lock-free hot path for metadata.** Parsed IFDs, per-tile offset/length arrays, and metadata are populated at `Open()` time and immutable thereafter. `Tile()` is safe to call concurrently from many goroutines — the shared-state caches in `formats/ndpi/stripped.go` (per-frame assembly cache) and `formats/ndpi/oneframe.go` (extended-frame cache) use double-checked locking and `sync.Once` respectively and produce byte-deterministic results regardless of which goroutine populates them first.
 
 ## Conventions
 
@@ -442,6 +442,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 - Format subpackages (`formats/svs/`, `formats/ndpi/`, …) are public; `formats/all` is the umbrella registration package
 - `io.ReaderAt` + `int64` size is the core input (stdlib `*os.File` satisfies concurrent-use semantics)
 - Public tile methods: `Level.Tile(x, y int)` returns raw compressed bytes; `Level.TileReader(x, y)` streams via `io.SectionReader`; `Level.Tiles(ctx)` is serial row-major via `iter.Seq2`
+- **Spelling: a strip-organised TIFF level is `stripped`, never `striped`.** The TIFF spec word is `strip` (`StripOffsets`/`StripByteCounts`/`RowsPerStrip`), so the past participle is `stripped`; `striped` derives from `stripe` (a colour band) and is the legacy v0.2 misspelling the v0.12 rename retired. The wrong spelling *looks* right, so it keeps creeping back into fresh identifiers/comments — don't reintroduce it. (Historical records — CHANGELOG, `docs/deferred.md §terminology`, milestone notes above — deliberately keep the old spelling verbatim.)
 
 ## Sample slides
 

@@ -45,7 +45,7 @@ func TestLabelMultiStripDecodesRestitchesEncodes(t *testing.T) {
 		counts = append(counts, uint64(enc.Len()))
 		off += uint64(enc.Len())
 	}
-	a := &stripedAssociated{
+	a := &strippedAssociated{
 		imageType:    opentile.AssociatedLabel,
 		stripOffsets: offsets,
 		stripCounts:  counts,
@@ -74,7 +74,7 @@ func TestLabelMultiStripDecodesRestitchesEncodes(t *testing.T) {
 // without any JPEG assembly (upstream SvsLabelImage.get_tile semantics).
 func TestLabelSingleStripPassthrough(t *testing.T) {
 	payload := []byte("this is a fake LZW strip body")
-	a := &stripedAssociated{
+	a := &strippedAssociated{
 		imageType:    opentile.AssociatedLabel,
 		stripOffsets: []uint64{0},
 		stripCounts:  []uint64{uint64(len(payload))},

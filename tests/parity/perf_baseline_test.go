@@ -39,7 +39,7 @@ import (
 
 // benchFixtures lists one representative slide per format. The
 // chosen fixtures are the smallest-but-meaningful sample for each:
-// CMU-1.svs (177 MB tiled JPEG SVS), CMU-1.ndpi (188 MB striped),
+// CMU-1.svs (177 MB tiled JPEG SVS), CMU-1.ndpi (188 MB stripped),
 // Philips-1.tiff (311 MB), Leica-1.ome.tiff (689 MB single-pyramid
 // OME), Ventana-1.bif (227 MB DP 200), cervix_2x_jpeg.iris (2.16 GB).
 // Bench focuses on level 0 — the hot path consumers care about.

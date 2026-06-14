@@ -38,19 +38,19 @@ type ndpiWarmer interface {
 
 // tiler is the NDPI implementation of format.Reader.
 type tiler struct {
-	md          Metadata
-	images      []opentile.Pyramid
-	levelImpls  []ndpiLevel // parallel to images[0].Levels
-	associated  []opentile.AssociatedImage
-	icc         []byte
-	dirSpecs    []ndpiDirSpec // page→role mapping captured at Open; used by TIFFDirectories
+	md         Metadata
+	images     []opentile.Pyramid
+	levelImpls []ndpiLevel // parallel to images[0].Levels
+	associated []opentile.AssociatedImage
+	icc        []byte
+	dirSpecs   []ndpiDirSpec // page→role mapping captured at Open; used by TIFFDirectories
 }
 
-func (t *tiler) Format() opentile.Format              { return opentile.FormatNDPI }
-func (t *tiler) Pyramids() []opentile.Pyramid         { return t.images }
+func (t *tiler) Format() opentile.Format                      { return opentile.FormatNDPI }
+func (t *tiler) Pyramids() []opentile.Pyramid                 { return t.images }
 func (t *tiler) AssociatedImages() []opentile.AssociatedImage { return t.associated }
-func (t *tiler) Metadata() opentile.Metadata            { return t.md.Metadata }
-func (t *tiler) ICCProfile() []byte                     { return t.icc }
+func (t *tiler) Metadata() opentile.Metadata                  { return t.md.Metadata }
+func (t *tiler) ICCProfile() []byte                           { return t.icc }
 func (t *tiler) Close() error {
 	// v0.27: release each strippedImage's long-lived decoder handle.
 	var firstErr error
@@ -69,8 +69,8 @@ func (t *tiler) Close() error {
 // reader against the unexported decodedTiler interface and calls
 // this method when it matches.
 //
-// For striped levels (the common case), delegates to
-// strippedImage.DecodedTile. For non-striped levels (oneframe,
+// For stripped levels (the common case), delegates to
+// strippedImage.DecodedTile. For non-stripped levels (oneframe,
 // associated images), returns fastpath.ErrUnsupported to signal the
 // caller to fall back to the slow path.
 //
