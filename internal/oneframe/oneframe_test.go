@@ -170,7 +170,7 @@ func buildTIFFWithJPEGPage(t *testing.T, width, height int) (*bytes.Reader, *tif
 	if len(pages) == 0 {
 		t.Fatalf("no pages found in TIFF")
 	}
-	page := pages[0]
+	page := smallestPage(pages)
 
 	// Return a new Reader (old one consumed by parsing)
 	return bytes.NewReader(data), page
@@ -182,9 +182,9 @@ func TestNewValidation(t *testing.T) {
 
 	// Valid construction
 	img, err := New(page, reader, Options{
-		Index:     0,
+		Index:      0,
 		PyramidIdx: 0,
-		TileSize:  opentile.Size{W: 128, H: 128},
+		TileSize:   opentile.Size{W: 128, H: 128},
 	})
 	if err != nil {
 		t.Fatalf("New with valid opts: %v", err)
@@ -195,17 +195,17 @@ func TestNewValidation(t *testing.T) {
 
 	// Test with zero tile size
 	if _, err := New(page, reader, Options{
-		Index:     0,
+		Index:      0,
 		PyramidIdx: 0,
-		TileSize:  opentile.Size{W: 0, H: 128},
+		TileSize:   opentile.Size{W: 0, H: 128},
 	}); err == nil {
 		t.Fatal("expected error for zero TileSize.W")
 	}
 
 	if _, err := New(page, reader, Options{
-		Index:     0,
+		Index:      0,
 		PyramidIdx: 0,
-		TileSize:  opentile.Size{W: 128, H: 0},
+		TileSize:   opentile.Size{W: 128, H: 0},
 	}); err == nil {
 		t.Fatal("expected error for zero TileSize.H")
 	}
@@ -493,10 +493,10 @@ func TestWarm(t *testing.T) {
 
 func TestGridCalculation(t *testing.T) {
 	tests := []struct {
-		imgW, imgH int
-		tileW, tileH int
+		imgW, imgH           int
+		tileW, tileH         int
 		wantGridW, wantGridH int
-		name string
+		name                 string
 	}{
 		{256, 256, 128, 128, 2, 2, "even grid"},
 		{256, 256, 100, 100, 3, 3, "uneven grid (ceil)"},
@@ -717,7 +717,7 @@ func TestNewWithExplicitSizeIgnoresMissingDims(t *testing.T) {
 	buf.Write([]byte{'I', 'I', 42, 0})
 	buf.Write([]byte{0x08, 0, 0, 0}) // IFD at offset 8
 
-	buf.Write([]byte{0x00, 0x00}) // 0 tags (empty IFD)
+	buf.Write([]byte{0x00, 0x00})             // 0 tags (empty IFD)
 	buf.Write([]byte{0x00, 0x00, 0x00, 0x00}) // next IFD offset
 
 	data := buf.Bytes()
@@ -765,6 +765,27 @@ func getFixture(t *testing.T, subdir, name string) (string, bool) {
 	return "", false
 }
 
+// smallestPage returns the page with the smallest pixel area. The integration
+// tests use it instead of pages[0] (the full-resolution level) so the oneframe
+// whole-frame decode stays cheap: the oneframe path decodes the ENTIRE frame to
+// serve each tile, so a 46000×64512 L0 page costs seconds per tile. The code
+// path exercised (New → Tiles/TileInto/TileReader → decode-and-crop) is
+// identical regardless of frame size, so a tiny page gives the same coverage.
+func smallestPage(pages []*tiff.Page) *tiff.Page {
+	best := pages[0]
+	bw, _ := best.ImageWidth()
+	bh, _ := best.ImageLength()
+	bestArea := uint64(bw) * uint64(bh)
+	for _, p := range pages[1:] {
+		w, _ := p.ImageWidth()
+		h, _ := p.ImageLength()
+		if a := uint64(w) * uint64(h); a > 0 && a < bestArea {
+			best, bestArea = p, a
+		}
+	}
+	return best
+}
+
 func TestIntegrationWithOMETIFF(t *testing.T) {
 	// This test opens a real OME-TIFF or NDPI fixture and exercises oneframe
 	// via the ometiff/ndpi format packages. If fixtures aren't present, skip.
@@ -797,7 +818,7 @@ func TestIntegrationWithOMETIFF(t *testing.T) {
 	// Try to construct a oneframe.Image from a page with JPEG compression
 	// (we don't know which pages are JPEG-compressed, so try first page)
 	if len(pages) > 0 {
-		page := pages[0]
+		page := smallestPage(pages)
 		img, err := New(page, reader, Options{
 			Index:      0,
 			PyramidIdx: 0,
@@ -852,7 +873,7 @@ func TestIntegrationTilesIteration(t *testing.T) {
 	}
 
 	// Try to create and use a oneframe image
-	page := pages[0]
+	page := smallestPage(pages)
 	img, err := New(page, reader, Options{
 		Index:      0,
 		PyramidIdx: 0,
@@ -903,7 +924,7 @@ func TestIntegrationTileInto(t *testing.T) {
 		t.Fatal("no pages found")
 	}
 
-	page := pages[0]
+	page := smallestPage(pages)
 	img, err := New(page, reader, Options{
 		Index:      0,
 		PyramidIdx: 0,
@@ -952,7 +973,7 @@ func TestIntegrationTileReader(t *testing.T) {
 		t.Fatal("no pages found")
 	}
 
-	page := pages[0]
+	page := smallestPage(pages)
 	img, err := New(page, reader, Options{
 		Index:      0,
 		PyramidIdx: 0,
