@@ -12,17 +12,20 @@ import (
 	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
-// newAssociatedImage dispatches construction by type. Thumbnail and overview
-// are striped JPEG assembled via ConcatenateScans; label is raw strip
-// passthrough (codec as advertised by the TIFF Compression tag).
+// newAssociatedImage dispatches construction by the IFD's actual compression,
+// not by image role. Canonical Aperio stores thumbnail/overview as striped
+// JPEG (assembled via ConcatenateScans) and the label as LZW; but ImageScope
+// can re-export any associated image as LZW or uncompressed to match the
+// pyramid's tile codec (GH #29 — an LZW thumbnail must not be routed to the
+// JPEG-reassembly path). JPEG (tag 7) goes through the striped-JPEG assembler;
+// every other codec (LZW / uncompressed / Deflate) goes through the
+// compression-aware strip path, which reverses the predictor and stacks strips.
 func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (opentile.AssociatedImage, error) {
-	switch imageType {
-	case opentile.AssociatedThumbnail, opentile.AssociatedOverview:
+	comp, _ := p.Compression()
+	if comp == 7 { // JPEG
 		return newStripedJPEGAssociated(imageType, p, r)
-	case opentile.AssociatedLabel:
-		return newStripedLabel(p, r)
 	}
-	return nil, fmt.Errorf("svs: unknown associated type %q", imageType)
+	return newStripedAssociated(imageType, p, r)
 }
 
 // stripedJPEGAssociated is the SVS AssociatedImage implementation for
@@ -304,12 +307,15 @@ func newStripedJPEGAssociated(imageType opentile.AssociatedType, p *tiff.Page, r
 	}, nil
 }
 
-// stripedLabel is the SVS AssociatedImage implementation for the label page.
-// Label compression varies (LZW=5 in all three CMU fixtures, but can be JPEG
-// or uncompressed); upstream SvsLabelImage returns the raw first strip bytes
-// and advertises whatever Compression the TIFF carries. Callers are expected
-// to decode with an external codec if needed.
-type stripedLabel struct {
+// stripedAssociated is the SVS AssociatedImage implementation for any
+// non-JPEG associated image (label, and — for ImageScope re-exports —
+// thumbnail/overview too). Compression varies (LZW=5 in all three CMU
+// labels, but can be uncompressed or Deflate); upstream SvsLabelImage
+// returns the raw first strip bytes and advertises whatever Compression the
+// TIFF carries. imageType records the page's role so Type() reports it
+// faithfully regardless of which codec the strips use.
+type stripedAssociated struct {
+	imageType    opentile.AssociatedType
 	size         opentile.Size
 	compression  opentile.Compression
 	stripOffsets []uint64
@@ -323,21 +329,21 @@ type stripedLabel struct {
 	tiffTags     opentile.TIFFTags
 }
 
-func (a *stripedLabel) Type() opentile.AssociatedType     { return opentile.AssociatedLabel }
-func (a *stripedLabel) Size() opentile.Size               { return a.size }
-func (a *stripedLabel) Compression() opentile.Compression { return a.compression }
+func (a *stripedAssociated) Type() opentile.AssociatedType     { return a.imageType }
+func (a *stripedAssociated) Size() opentile.Size               { return a.size }
+func (a *stripedAssociated) Compression() opentile.Compression { return a.compression }
 
 // Decode returns the faithfully-decoded label pixels. Unlike Bytes() — which
 // re-encodes LZW and drops the predictor — this decompresses the strips,
 // reverses Predictor=2 horizontal differencing, and interprets the samples
 // as RGB(A) (GH #20). Strip-based codecs only (LZW / Deflate / none); the
 // CMU Aperio labels are LZW + Predictor=2.
-func (a *stripedLabel) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+func (a *stripedAssociated) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
 	strips := make([][]byte, len(a.stripOffsets))
 	for i := range a.stripOffsets {
 		buf := make([]byte, a.stripCounts[i])
 		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
-			return nil, fmt.Errorf("svs: read label strip %d: %w", i, err)
+			return nil, fmt.Errorf("svs: read %s strip %d: %w", a.imageType, i, err)
 		}
 		strips[i] = buf
 	}
@@ -362,39 +368,52 @@ func (a *stripedLabel) Decode(opts decoder.DecodeOptions) (*decoder.Image, error
 // Python opentile 0.20.0 SvsLabelImage.get_tile((0,0)) which returns only
 // strip 0 — a long-standing upstream bug; we'll file a PR there separately
 // so parity can re-engage once Python lands the same fix.
-func (a *stripedLabel) Bytes() ([]byte, error) {
+func (a *stripedAssociated) Bytes() ([]byte, error) {
 	if len(a.stripOffsets) == 0 || len(a.stripCounts) == 0 {
-		return nil, fmt.Errorf("svs: label has no strips")
+		return nil, fmt.Errorf("svs: %s has no strips", a.imageType)
 	}
 	if len(a.stripOffsets) == 1 {
-		// Single-strip label: decode-restitch is a no-op; return as-is.
+		// Single-strip image: decode-restitch is a no-op; return as-is.
 		buf := make([]byte, a.stripCounts[0])
 		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[0])); err != nil {
-			return nil, fmt.Errorf("svs: read label strip 0: %w", err)
+			return nil, fmt.Errorf("svs: read %s strip 0: %w", a.imageType, err)
 		}
 		return buf, nil
-	}
-	// Multi-strip label: only LZW is supported in v0.3. JPEG/uncompressed
-	// multi-strip labels would need their own restitch path; we haven't seen
-	// one in the wild yet (all three CMU fixtures are LZW=5).
-	if a.compression != opentile.CompressionLZW {
-		return nil, fmt.Errorf("svs: multi-strip label compression %s unsupported (LZW only in v0.3)", a.compression)
 	}
 	strips := make([][]byte, len(a.stripOffsets))
 	for i := range a.stripOffsets {
 		buf := make([]byte, a.stripCounts[i])
 		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
-			return nil, fmt.Errorf("svs: read label strip %d: %w", i, err)
+			return nil, fmt.Errorf("svs: read %s strip %d: %w", a.imageType, i, err)
 		}
 		strips[i] = buf
 	}
-	return reconstructLZWLabel(strips, a.rowsPerStrip, a.size.H, a.size.W, a.samples)
+	switch a.compression {
+	case opentile.CompressionLZW:
+		return reconstructLZWLabel(strips, a.rowsPerStrip, a.size.H, a.size.W, a.samples)
+	case opentile.CompressionNone:
+		// Uncompressed strips are raw pixel rows; concatenating them row-major
+		// yields the full-height raster (still a valid single uncompressed
+		// bytestream).
+		var total int
+		for _, s := range strips {
+			total += len(s)
+		}
+		out := make([]byte, 0, total)
+		for _, s := range strips {
+			out = append(out, s...)
+		}
+		return out, nil
+	}
+	// Other multi-strip codecs (Deflate/JPEG) would each need their own
+	// restitch path; we haven't seen one in the wild yet.
+	return nil, fmt.Errorf("svs: multi-strip %s compression %s unsupported", a.imageType, a.compression)
 }
 
 // Encoding returns the LZW label's source strips + tags for faithful
 // standalone re-emission (GH #22). The label keeps Predictor (typically 2);
 // a consumer MUST emit tag 317 or the differencing isn't reversed.
-func (a *stripedLabel) Encoding() (opentile.AssociatedEncoding, bool) {
+func (a *stripedAssociated) Encoding() (opentile.AssociatedEncoding, bool) {
 	strips, err := readStrips(a.reader, a.stripOffsets, a.stripCounts)
 	if err != nil {
 		return opentile.AssociatedEncoding{}, false
@@ -410,7 +429,7 @@ func (a *stripedLabel) Encoding() (opentile.AssociatedEncoding, bool) {
 }
 
 // TIFFTags returns the parsed TIFF tags of this associated image's backing IFD.
-func (a *stripedLabel) TIFFTags() (opentile.TIFFTags, bool) {
+func (a *stripedAssociated) TIFFTags() (opentile.TIFFTags, bool) {
 	if a.tiffTags == nil {
 		return nil, false
 	}
@@ -418,36 +437,37 @@ func (a *stripedLabel) TIFFTags() (opentile.TIFFTags, bool) {
 }
 
 // IFDOffset returns the byte offset of this associated image's backing IFD.
-func (a *stripedLabel) IFDOffset() (int64, bool) {
+func (a *stripedAssociated) IFDOffset() (int64, bool) {
 	if a.ifdOffset <= 0 {
 		return 0, false
 	}
 	return a.ifdOffset, true
 }
 
-func newStripedLabel(p *tiff.Page, r io.ReaderAt) (*stripedLabel, error) {
+func newStripedAssociated(imageType opentile.AssociatedType, p *tiff.Page, r io.ReaderAt) (*stripedAssociated, error) {
 	iw, ok := p.ImageWidth()
 	if !ok {
-		return nil, fmt.Errorf("svs: label ImageWidth missing")
+		return nil, fmt.Errorf("svs: %s ImageWidth missing", imageType)
 	}
 	il, ok := p.ImageLength()
 	if !ok {
-		return nil, fmt.Errorf("svs: label ImageLength missing")
+		return nil, fmt.Errorf("svs: %s ImageLength missing", imageType)
 	}
 	offsets, err := p.ScalarArrayU64(tiff.TagStripOffsets)
 	if err != nil {
-		return nil, fmt.Errorf("svs: label strip offsets: %w", err)
+		return nil, fmt.Errorf("svs: %s strip offsets: %w", imageType, err)
 	}
 	counts, err := p.ScalarArrayU64(tiff.TagStripByteCounts)
 	if err != nil {
-		return nil, fmt.Errorf("svs: label strip counts: %w", err)
+		return nil, fmt.Errorf("svs: %s strip counts: %w", imageType, err)
 	}
 	comp, _ := p.Compression()
 	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
 	spp, _ := p.SamplesPerPixel()
 	pred, _ := p.Predictor()
 	photo, _ := p.Photometric()
-	return &stripedLabel{
+	return &stripedAssociated{
+		imageType:    imageType,
 		size:         opentile.Size{W: int(iw), H: int(il)},
 		compression:  tiffCompressionToOpentile(comp),
 		stripOffsets: offsets,
