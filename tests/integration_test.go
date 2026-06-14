@@ -26,12 +26,17 @@ var slideCandidates = []string{
 	"JP2K-33003-1.svs",
 	"scan_620_.svs",
 	"svs_40x_bigtiff.svs",
-	// NOTE: the ImageScope LZW/uncompressed SVS crops (590_crop_lzw / _none,
-	// in svs/) are intentionally NOT in the parity list yet — their thumbnail
-	// associated image fails to decode (a separate multi-strip-JPEG-reassembly
-	// issue), which blocks snapshot generation. Their tiled-level decode (the
-	// codec-Dst bug they surfaced) is covered by TestDecodedTileTiledNonSelf-
-	// Describing. Add here once the thumbnail issue is resolved.
+	// ImageScope export crops of a 590 tissue-microarray slide (in svs/),
+	// published in wsi-fixtures under CC-BY-4.0. Four codec variants from
+	// ImageScope's export matrix: jp2k/jpeg70 as Aperio SVS, lzw/none as
+	// plain TIFF. They surfaced #28 (tiled non-self-describing DecodedTile)
+	// and #29 (non-JPEG associated-image decode) — both fixed — and the
+	// lzw/none crops carry mixed-codec associated-image sets (non-JPEG
+	// thumbnail/label + JPEG overview) that the JPEG-only fixtures don't.
+	"590_crop_jp2k_imagescope.svs",
+	"590_crop_jpeg70_imagescope.svs",
+	"590_crop_lzw_imagescope.tif",
+	"590_crop_none_imagescope.tif",
 	"CMU-1.ndpi",
 	"OS-2.ndpi",
 	"Hamamatsu-1.ndpi",
