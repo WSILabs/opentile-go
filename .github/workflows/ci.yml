@@ -110,12 +110,65 @@ jobs:
           ASAN_OPTIONS: detect_leaks=0
         run: go test -asan -tags nohtj2k ./decoder/... -count=1 -timeout 10m
 
-  # Integration suite (TestSlideParity etc.) and the parity oracle
-  # require sample slides that aren't checked into the repo (they're
-  # ~10 GB of WSI data, gitignored). Both are run locally before
-  # release tags but skipped in CI.
+  # Integration suite against the public WSILabs/wsi-fixtures corpus.
+  # The full local sample set is ~10 GB and gitignored, but wsi-fixtures
+  # ships small CC0 versions of a subset; the integration-backed tests
+  # (TestSlideParity, the per-format reader/decoder tests) skip-if-missing,
+  # so they exercise whatever the public corpus provides. macOS gets the
+  # full codec set (incl. HTJ2K via openjph); Linux runs nohtj2k.
   #
-  # Coverage gate (make cover) is skipped for the same reason — without
-  # OPENTILE_TESTDIR the integration-backed paths report ~0% and the
-  # 80%-per-package threshold can't be met. Coverage is enforced in
-  # release-readiness sweeps where the env is provisioned.
+  # The full-fixture parity oracle (`make parity`) and the 80%-per-package
+  # coverage gate (`make cover`) still need the complete local sample set
+  # and remain release-readiness-only.
+  integration:
+    name: integration (public fixtures, Go 1.23 / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install cgo deps (macOS)
+        if: runner.os == 'macOS'
+        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
+
+      - name: Install cgo deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          for i in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y \
+                libturbojpeg0-dev libopenjp2-7-dev libjxl-dev \
+                libavif-dev libwebp-dev pkg-config; then
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+
+      - name: Download public fixture corpus (WSILabs/wsi-fixtures)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/tars" "$RUNNER_TEMP/wsi-fixtures"
+          gh release download --repo WSILabs/wsi-fixtures \
+            --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
+          for t in "$RUNNER_TEMP/tars"/*.tar; do
+            tar xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
+          done
+          echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
+          echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
+
+      - name: go test (integration, macOS — full codecs)
+        if: runner.os == 'macOS'
+        run: go test ./... -count=1 -timeout 15m
+
+      - name: go test (integration, Linux — nohtj2k)
+        if: runner.os == 'Linux'
+        run: go test -tags nohtj2k ./... -count=1 -timeout 15m
