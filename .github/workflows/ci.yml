@@ -110,23 +110,23 @@ jobs:
           ASAN_OPTIONS: detect_leaks=0
         run: go test -asan -tags nohtj2k ./decoder/... -count=1 -timeout 10m
 
-  # Integration suite against the public WSILabs/wsi-fixtures corpus.
-  # The full local sample set is ~10 GB and gitignored, but wsi-fixtures
-  # ships small CC0 versions of a subset; the integration-backed tests
-  # (TestSlideParity, the per-format reader/decoder tests) skip-if-missing,
-  # so they exercise whatever the public corpus provides. macOS gets the
-  # full codec set (incl. HTJ2K via openjph); Linux runs nohtj2k.
+  # Integration against the public WSILabs/wsi-fixtures corpus. The full local
+  # sample set is ~10 GB and gitignored; wsi-fixtures ships small CC0 versions
+  # of a subset. The integration-backed tests (TestSlideParity, per-format
+  # reader/decoder tests) skip-if-missing, so they exercise whatever the corpus
+  # provides. Both jobs run ONLY the fixture-env-gated packages (root, formats,
+  # internal, tests) — the rest already run under -race in the `test` job, so
+  # re-running them here adds nothing.
   #
-  # The full-fixture parity oracle (`make parity`) and the 80%-per-package
-  # coverage gate (`make cover`) still need the complete local sample set
-  # and remain release-readiness-only.
+  # Linux runs on every push + PR. The macOS variant (full codec set incl.
+  # HTJ2K via openjph) runs on push only — HTJ2K stays gated on every merge to
+  # main, just not on every PR iteration, keeping PR turnaround fast.
+  #
+  # `make parity` (full oracle) and `make cover` (80%/pkg gate) still need the
+  # complete local sample set and remain release-readiness-only.
   integration:
-    name: integration (public fixtures, Go 1.23 / ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    name: integration (public fixtures, Linux)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -135,12 +135,7 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Install cgo deps (macOS)
-        if: runner.os == 'macOS'
-        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
-
       - name: Install cgo deps (Linux)
-        if: runner.os == 'Linux'
         run: |
           for i in 1 2 3; do
             if sudo apt-get update && sudo apt-get install -y \
@@ -165,10 +160,38 @@ jobs:
           echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
           echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
 
-      - name: go test (integration, macOS — full codecs)
-        if: runner.os == 'macOS'
-        run: go test ./... -count=1 -timeout 15m
+      - name: go test (fixture-backed packages, nohtj2k)
+        run: go test -tags nohtj2k . ./formats/... ./internal/... ./tests/... -count=1 -timeout 15m
 
-      - name: go test (integration, Linux — nohtj2k)
-        if: runner.os == 'Linux'
-        run: go test -tags nohtj2k ./... -count=1 -timeout 15m
+  # macOS integration — adds HTJ2K (openjph) coverage. Push-only (skipped on
+  # PRs) so PR turnaround isn't gated on the slower macOS runner.
+  integration-htj2k:
+    name: integration (public fixtures, macOS + HTJ2K)
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install cgo deps (macOS)
+        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
+
+      - name: Download public fixture corpus (WSILabs/wsi-fixtures)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/tars" "$RUNNER_TEMP/wsi-fixtures"
+          gh release download --repo WSILabs/wsi-fixtures \
+            --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
+          for t in "$RUNNER_TEMP/tars"/*.tar; do
+            tar xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
+          done
+          echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
+          echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
+
+      - name: go test (fixture-backed packages, full codecs incl HTJ2K)
+        run: go test . ./formats/... ./internal/... ./tests/... -count=1 -timeout 20m
