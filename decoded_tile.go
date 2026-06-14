@@ -71,10 +71,30 @@ func (s *Slide) imageDecodedTile(image, level, tx, ty int, opts ...DecodeOption)
 		return nil, err
 	}
 	defer pool.Return(dec)
-	return dec.Decode(compressed, decoder.DecodeOptions{
+	dopts := decoder.DecodeOptions{
 		Scale:  cfg.scale,
 		Format: cfg.format,
-	})
+	}
+	// LZW / uncompressed / Deflate tile bytes carry no intrinsic dimensions,
+	// so the decoder requires a sized Dst (JPEG / JPEG2000 / HTJ2K / WebP /
+	// AVIF / JPEG XL / PNG self-describe and allocate their own output). A
+	// tiled TIFF tile is always TileWidth×TileLength — even at the image edge,
+	// where it is zero-padded — so the level's TileSize is the decoded size.
+	if needsExplicitTileDims(lvl.Compression) {
+		dopts.Dst = decoder.NewImageFormat(lvl.TileSize.W, lvl.TileSize.H, cfg.format)
+	}
+	return dec.Decode(compressed, dopts)
+}
+
+// needsExplicitTileDims reports whether a codec's decompressed bytes carry no
+// intrinsic dimensions, so decoding a tile through it needs a sized Dst.
+func needsExplicitTileDims(c Compression) bool {
+	switch c {
+	case CompressionLZW, CompressionNone, CompressionDeflate:
+		return true
+	default:
+		return false
+	}
 }
 
 // imageDecodedTileInto is the logic-bearing decode-into-dst read,
