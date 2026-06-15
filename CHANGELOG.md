@@ -11,6 +11,22 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Fixed
+
+- **BIF: detect legacy classic-TIFF iScan slides** (#37). Legacy iScan scanners
+  (Coreo / HT, ~2010-2012, XMP `BuildVersion="3.x"`) wrote BIF as *classic*
+  (non-BigTIFF) little-endian TIFF. Detection required BigTIFF in addition to the
+  `<iScan` XMP marker, so these slides weren't claimed by the BIF reader — most
+  fell through to the generic-TIFF reader, which reads tiles row-major while BIF
+  stores them serpentine + vertically flipped (`TileOffsets[0]` = bottom-left,
+  odd stage rows right-to-left), producing the scrambled "corrupt BIF" symptom in
+  viewers; some failed to open entirely. `Detect()` now keys on the `<iScan` XMP
+  marker alone (matching openslide's `INITIAL_XML_ISCAN` rule), with no BigTIFF
+  requirement. The reader's serpentine / blank-tile / associated-image machinery
+  is container-agnostic, so it reads classic-TIFF iScan slides once detected
+  (verified end-to-end on real legacy slides). No false positives across the
+  non-BIF fixtures.
+
 ## [0.41.2] — 2026-06-15
 
 OME-TIFF associated-image + strip-level read fixes. No public API changes.

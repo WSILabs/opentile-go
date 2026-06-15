@@ -183,7 +183,8 @@ README.md and per-format docs link here.
   rejecting any slide whose IFD-0 `<iScan>/@ScannerModel` is not
   `"VENTANA DP 200"` ("Stop processing the BIF-file if the string
   does not match model name").
-- **opentile-go:** accepts any iScan-tagged BigTIFF and routes
+- **opentile-go:** accepts any iScan-tagged TIFF (BigTIFF or
+  classic — see #37 for legacy classic-TIFF iScan) and routes
   internally based on `strings.HasPrefix(scannerModel, "VENTANA DP")`:
   spec-compliant path (DP 200, DP 600, future DP scanners) vs.
   legacy-iScan path (missing attribute, iScan Coreo, iScan HT).
