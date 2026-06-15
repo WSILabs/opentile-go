@@ -11,6 +11,12 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.42.0] — 2026-06-15
+
+Two additive features — a header-only decoder codestream `Probe` (#41, new
+public `decoder.Prober` API) and a synthesized BIF `label` associated image
+(#19). No breaking changes.
+
 ### Added
 
 - **Decoder codestream `Probe` — header-only codec metadata** (#41). New
