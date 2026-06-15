@@ -85,6 +85,51 @@ fail:
     JxlDecoderDestroy(dec);
     return -1;
 }
+
+// wsi_jxl_probe reads ONLY the basic info (header) of a JPEG-XL codestream and
+// reports the color-channel count, extra-channel count, and bit depth. It stops
+// at JXL_DEC_BASIC_INFO and never decodes the image (GH #41 header-only probe).
+// Returns 0 on success, -1 on error.
+static int wsi_jxl_probe(
+    const uint8_t *src, size_t src_len,
+    int *out_channels, int *out_extra, int *out_bits)
+{
+    *out_channels = 0;
+    *out_extra    = 0;
+    *out_bits     = 0;
+
+    JxlDecoder *dec = JxlDecoderCreate(NULL);
+    if (!dec) return -1;
+    if (JxlDecoderSubscribeEvents(dec, JXL_DEC_BASIC_INFO) != JXL_DEC_SUCCESS) {
+        JxlDecoderDestroy(dec);
+        return -1;
+    }
+    if (JxlDecoderSetInput(dec, src, src_len) != JXL_DEC_SUCCESS) {
+        JxlDecoderDestroy(dec);
+        return -1;
+    }
+    JxlDecoderCloseInput(dec);
+
+    for (;;) {
+        JxlDecoderStatus st = JxlDecoderProcessInput(dec);
+        if (st == JXL_DEC_BASIC_INFO) {
+            JxlBasicInfo info;
+            if (JxlDecoderGetBasicInfo(dec, &info) != JXL_DEC_SUCCESS) {
+                JxlDecoderDestroy(dec);
+                return -1;
+            }
+            *out_channels = (int)info.num_color_channels;
+            *out_extra    = (int)info.num_extra_channels;
+            *out_bits     = (int)info.bits_per_sample;
+            JxlDecoderDestroy(dec);
+            return 0;
+        } else if (st == JXL_DEC_ERROR || st == JXL_DEC_NEED_MORE_INPUT || st == JXL_DEC_SUCCESS) {
+            JxlDecoderDestroy(dec);
+            return -1;
+        }
+        // Other statuses before BASIC_INFO: keep pumping.
+    }
+}
 */
 import "C"
 
@@ -105,6 +150,52 @@ type factory struct{}
 func (f *factory) Name() string                  { return "jpegxl" }
 func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{50002} }
 func (f *factory) New() decoder.Decoder          { return &cgoDecoder{} }
+
+// Probe reads the JPEG-XL header (JxlBasicInfo) without decoding the frame
+// (GH #41). Components is color + extra (alpha) channels; ColorEncoding is
+// derived from the color-channel count. Lossless is LosslessUnknown: libjxl's
+// JxlBasicInfo exposes no header-only reversibility flag.
+func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
+	if len(src) == 0 {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpegxl: empty input: %w", decoder.ErrCorruptInput)
+	}
+	var ch, extra, bits C.int
+	rc := C.wsi_jxl_probe((*C.uint8_t)(unsafe.Pointer(&src[0])), C.size_t(len(src)), &ch, &extra, &bits)
+	runtime.KeepAlive(src)
+	if rc != 0 {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpegxl: probe failed: %w", decoder.ErrCorruptInput)
+	}
+	ci := decoder.CodestreamInfo{
+		Components: int(ch) + int(extra),
+		BitDepth:   int(bits),
+		Lossless:   decoder.LosslessUnknown, // libjxl's JxlBasicInfo carries no lossless flag
+		Boxed:      isJXLContainer(src),
+	}
+	switch ch {
+	case 1:
+		ci.ColorEncoding = decoder.ColorGrayscale
+	case 3:
+		ci.ColorEncoding = decoder.ColorRGB
+	default:
+		ci.ColorEncoding = decoder.ColorUnknown
+	}
+	return ci, nil
+}
+
+// isJXLContainer reports whether src is the ISOBMFF-boxed JXL form (the 12-byte
+// JXL signature box) rather than a raw codestream (which starts 0xFF 0x0A).
+func isJXLContainer(src []byte) bool {
+	sig := []byte{0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A}
+	if len(src) < len(sig) {
+		return false
+	}
+	for i, b := range sig {
+		if src[i] != b {
+			return false
+		}
+	}
+	return true
+}
 
 type cgoDecoder struct {
 	closed bool
