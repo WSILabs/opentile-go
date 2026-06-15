@@ -334,6 +334,15 @@
       "sha256": "4cf1d4afe22752b69a770554607fa8ffeb82060f4da0cff9beed3d137e90c990"
     },
     {
+      "type": "label",
+      "size": [
+        1251,
+        1228
+      ],
+      "compression": "none",
+      "sha256": "b0581f5947d91162baaff8f1e7783b8ed20f977905baca5b98fb7d9a83052596"
+    },
+    {
       "type": "probability",
       "size": [
         1251,

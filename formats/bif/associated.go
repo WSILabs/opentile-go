@@ -279,3 +279,87 @@ func typeFromIFDRole(role ifdRole) opentile.AssociatedType {
 		return "" // empty = unknown; caller skips
 	}
 }
+
+// labelHeightDenom is the denominator of the top-fraction of the overview
+// (Label_Image) that the synthesized "label" covers. The Roche BIF whitepaper
+// v1.0 reserves the top 25 mm of every 75 mm slide for the printed label, so
+// the label is the top 25/75 = 1/3. A fixed geometric fraction is robust across
+// both generations where the XMP boundary metadata is not (LabelBoundary is
+// 1000 on OS-1 but 0 on Ventana-1 / DP 200). See GH #19.
+const labelHeightDenom = 3
+
+// synthesizedLabel is a top-fraction crop of another associated image (BIF's
+// Label_Image, surfaced as "overview"), exposed with Type() == "label". It
+// mirrors NDPI's macro-crop label so consumers can ask both formats "where is
+// the label" (GH #19) — but BIF's overview can be uncompressed multi-strip RGB
+// (DP 200) or tiled abbreviated JPEG (legacy OS-1), so the crop is pixel-domain
+// (decode the source, keep the top rows) rather than NDPI's JPEG-domain crop.
+// It is synthesized: no backing IFD, so Encoding / TIFFTags / IFDOffset report
+// false, and Compression() is None (the cropped raster is uncompressed).
+type synthesizedLabel struct {
+	source opentile.AssociatedImage // the overview (Label_Image)
+	size   opentile.Size            // {source.W, source.H / labelHeightDenom}
+}
+
+// newSynthesizedLabel builds the top-1/labelHeightDenom crop of source. Returns
+// nil if the crop would be empty (degenerate source height).
+func newSynthesizedLabel(source opentile.AssociatedImage) *synthesizedLabel {
+	h := source.Size().H / labelHeightDenom
+	if h < 1 {
+		return nil
+	}
+	return &synthesizedLabel{source: source, size: opentile.Size{W: source.Size().W, H: h}}
+}
+
+func (l *synthesizedLabel) Type() opentile.AssociatedType     { return opentile.AssociatedLabel }
+func (l *synthesizedLabel) Size() opentile.Size               { return l.size }
+func (l *synthesizedLabel) Compression() opentile.Compression { return opentile.CompressionNone }
+
+// Decode returns the decoded label pixels — the top 1/labelHeightDenom of the
+// decoded overview. The crop height is derived from the decoded image, so it
+// stays a true top-third even when the overview is decoded at WithScale > 1.
+func (l *synthesizedLabel) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	full, err := l.source.Decode(opts)
+	if err != nil {
+		return nil, fmt.Errorf("bif: decode source for synthesized label: %w", err)
+	}
+	h := full.Height / labelHeightDenom
+	if h < 1 {
+		h = 1
+	}
+	return cropTopRows(full, h), nil
+}
+
+// Bytes returns the cropped label as tightly-packed RGB (Compression() == None).
+func (l *synthesizedLabel) Bytes() ([]byte, error) {
+	img, err := l.Decode(decoder.DecodeOptions{Format: decoder.PixelFormatRGB})
+	if err != nil {
+		return nil, err
+	}
+	return img.Pix, nil
+}
+
+// Encoding is unsupported — the label is synthesized, with no source strip form.
+func (l *synthesizedLabel) Encoding() (opentile.AssociatedEncoding, bool) {
+	return opentile.AssociatedEncoding{}, false
+}
+
+// TIFFTags / IFDOffset report false — synthesized, no backing IFD.
+func (l *synthesizedLabel) TIFFTags() (opentile.TIFFTags, bool) { return nil, false }
+func (l *synthesizedLabel) IFDOffset() (int64, bool)            { return 0, false }
+
+// cropTopRows returns a tightly-packed copy of the top h rows of src.
+func cropTopRows(src *decoder.Image, h int) *decoder.Image {
+	if h > src.Height {
+		h = src.Height
+	}
+	bpp := 3
+	if src.Format == decoder.PixelFormatRGBA {
+		bpp = 4
+	}
+	dst := decoder.NewImageFormat(src.Width, h, src.Format)
+	for y := 0; y < h; y++ {
+		copy(dst.Pix[y*dst.Stride:y*dst.Stride+src.Width*bpp], src.Pix[y*src.Stride:y*src.Stride+src.Width*bpp])
+	}
+	return dst
+}
