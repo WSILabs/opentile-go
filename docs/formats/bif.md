@@ -6,8 +6,8 @@ Roche's WSI format for the VENTANA DP family of scanners (DP 200, DP 600, …) a
 
 ## Format basics
 
-- **TIFF dialect**: BigTIFF only (the spec mandates it; both real fixtures match).
-- **Detection**: BigTIFF with at least one IFD whose XMP packet (TIFF tag 700) contains the substring `<iScan`. Mirrors openslide's `INITIAL_XML_ISCAN` rule. Verified via the T1 detection gate against 17 sample fixtures: 2 BIF hits, 0 false positives across SVS / NDPI / Philips / OME / generic-TIFF.
+- **TIFF dialect**: BigTIFF for the DP generation (the whitepaper mandates it; both committed fixtures match). Legacy iScan scanners (Coreo / HT, ~2010-2012, XMP `BuildVersion="3.x"`) predate the whitepaper and wrote **classic** (non-BigTIFF) little-endian TIFF — opentile-go reads both containers.
+- **Detection**: at least one IFD whose XMP packet (TIFF tag 700) contains the substring `<iScan` — the marker **alone**, with no BigTIFF requirement (mirrors openslide's `INITIAL_XML_ISCAN` rule, which also keys solely on the marker). Earlier opentile-go additionally required BigTIFF, which wrongly rejected legacy classic-TIFF iScan slides — they then fell through to the generic-TIFF reader, which renders BIF's serpentine tile order scrambled (#37). The `<iScan` substring is BIF-specific: 0 false positives across the non-BIF fixtures (SVS / NDPI / Philips / OME / generic-TIFF).
 - **Generation classification**: post-detection, the IFD-0 `<iScan>/@ScannerModel` attribute routes the slide. `strings.HasPrefix(scannerModel, "VENTANA DP")` → spec-compliant path (DP 200, DP 600, future DP); everything else → legacy-iScan path (missing attribute, iScan Coreo, iScan HT).
 - **Pyramid layout**: top-level IFDs sorted by parsed `level=N` from each IFD's ImageDescription. Spec describes IFD 0 = label, IFD 1 = probability, IFD 2 = scan, IFD 3+ = pyramid; **OS-1 (legacy) violates this**: IFD 0 = label, IFD 1 = thumbnail, IFD 2..11 = pyramid (no probability). v0.7 classifies by ImageDescription content, not by IFD index.
 - **Compression**: JPEG (tag 7) on every pyramid IFD. Associated images: NONE (Ventana-1 IFD 0 RGB raw strips), LZW (Ventana-1 IFD 1 grayscale probability strips), or JPEG (OS-1 IFD 0/1 single-tile).
@@ -27,7 +27,7 @@ The two fixtures are deliberately complementary — one tests the spec-compliant
 
 | Capability | Status | Notes |
 |---|---|---|
-| BigTIFF detection + classification | ✅ | T1 / T2 / T3 gates pin the discriminator behaviour (see deferred.md §9 v0.7 gates) |
+| iScan detection + classification (BigTIFF or classic TIFF) | ✅ | T1 / T2 / T3 gates pin the discriminator behaviour (see deferred.md §9 v0.7 gates); detection keys on the `<iScan` XMP marker alone, so legacy classic-TIFF iScan slides are read too (#37) |
 | Tiled pyramid levels | ✅ | Both raw-passthrough (Ventana-1: no JPEGTables) and `jpeg.InsertTables`-spliced output (OS-1: shared tables) |
 | Serpentine → image-space remap | ✅ | `imageToSerpentine` + inverse, round-trip-tested |
 | Empty tiles (TileOffsets[i]=0 AND TileByteCounts[i]=0) | ✅ | Filled with `ScanWhitePoint`-coloured JPEG via `formats/bif/blanktile.go` (T9). Both real fixtures have zero empty tiles — synthetic-only fixture coverage on this path |
@@ -80,7 +80,7 @@ Upstream Python opentile doesn't read BIF, so every v0.7 behaviour is technicall
 |---|---|---|---|
 | Probability map exposure as `type="probability"` | v0.7 | iterate `Associated()` and skip the type | Slide author embedded it; throwing it away is value loss. Joins the existing type taxonomy (overview / macro / thumbnail / label / map / probability) |
 | `Level.TileOverlap() image.Point` interface evolution | v0.7 | non-BIF formats return `image.Point{}` (zero) — no caller change needed | Tile() returns raw compressed bytes (preserving byte-passthrough hot path); consumer needs the overlap value to position tiles correctly |
-| Non-strict `ScannerModel` acceptance | v0.7 | not opt-out-able | Spec mandates `ScannerModel == "VENTANA DP 200"` rejection-otherwise; we accept any iScan-tagged BigTIFF and route via `HasPrefix("VENTANA DP")` so legacy iScan slides aren't worse-than-openslide |
+| Non-strict `ScannerModel` acceptance | v0.7 | not opt-out-able | Spec mandates `ScannerModel == "VENTANA DP 200"` rejection-otherwise; we accept any iScan-tagged TIFF (BigTIFF or classic, per #37) and route via `HasPrefix("VENTANA DP")` so legacy iScan slides aren't worse-than-openslide |
 
 ## Cross-format Metadata mapping (v0.17)
 
