@@ -41,18 +41,22 @@ func TestSupportsBIFWithIScanOnLaterIFD(t *testing.T) {
 	}
 }
 
-// TestSupportsRejectsClassicTIFFWithIScan: detection requires BigTIFF
-// per spec §5.1; a classic TIFF whose XMP contains `<iScan` must NOT
-// match. Classic-TIFF iScan files don't exist (the BIF whitepaper
-// mandates BigTIFF) but we double-check the gate.
-func TestSupportsRejectsClassicTIFFWithIScan(t *testing.T) {
+// TestSupportsClassicTIFFWithIScan: a *classic* (non-BigTIFF) TIFF whose XMP
+// contains `<iScan` must match. The BIF whitepaper mandates BigTIFF for the DP
+// generation, but legacy iScan scanners (Coreo/HT, ~2010-2012, BuildVersion
+// 3.x) wrote classic little-endian TIFF — opentile-go's earlier "BigTIFF
+// required" gate wrongly rejected those, so they fell through to the generic-
+// TIFF reader, which renders BIF's serpentine tile order scrambled. Detection
+// now mirrors openslide's `INITIAL_XML_ISCAN = "iScan"` rule: the `<iScan`
+// XMP marker alone is the discriminator (#37).
+func TestSupportsClassicTIFFWithIScan(t *testing.T) {
 	data := buildClassicTIFFWithXMP(t, []byte(`<iScan/>`))
 	f, err := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		t.Fatalf("tiff.Open: %v", err)
 	}
-	if New().Supports(f) {
-		t.Fatal("expected Supports=false on classic TIFF (BigTIFF required)")
+	if !New().Supports(f) {
+		t.Fatal("expected Supports=true on classic-TIFF iScan (legacy Coreo/HT slides are classic TIFF)")
 	}
 }
 
