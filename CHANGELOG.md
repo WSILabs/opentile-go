@@ -11,6 +11,11 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.42.1] — 2026-06-15
+
+Pre-adoption rename of the v0.42.0 codestream-inspection API (#41). Marked
+breaking for discoverability, but the API was one release old with no consumers.
+
 ### Changed (BREAKING)
 
 - **Renamed the #41 codestream-inspection API** for self-documentation:
