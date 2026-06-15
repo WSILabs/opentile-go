@@ -27,10 +27,10 @@ func TestAssociatedSpecCompliantHasOverviewAndProbability(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 	ai := tiler.AssociatedImages()
-	if len(ai) != 2 {
-		t.Fatalf("Associated count: got %d, want 2 (overview + probability)", len(ai))
+	if len(ai) != 3 {
+		t.Fatalf("Associated count: got %d, want 3 (overview + synthesized label + probability)", len(ai))
 	}
-	want := map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedProbability: true}
+	want := map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedLabel: true, opentile.AssociatedProbability: true}
 	for _, a := range ai {
 		if !want[a.Type()] {
 			t.Errorf("unexpected associated type %q", a.Type())
@@ -59,10 +59,10 @@ func TestAssociatedLegacyHasOverviewAndThumbnail(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 	ai := tiler.AssociatedImages()
-	if len(ai) != 2 {
-		t.Fatalf("Associated count: got %d, want 2 (overview + thumbnail)", len(ai))
+	if len(ai) != 3 {
+		t.Fatalf("Associated count: got %d, want 3 (overview + synthesized label + thumbnail)", len(ai))
 	}
-	wantSet := map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedThumbnail: true}
+	wantSet := map[opentile.AssociatedType]bool{opentile.AssociatedOverview: true, opentile.AssociatedLabel: true, opentile.AssociatedThumbnail: true}
 	for _, a := range ai {
 		if !wantSet[a.Type()] {
 			t.Errorf("unexpected associated type %q", a.Type())
@@ -84,12 +84,19 @@ func TestAssociatedDimensionsAndCompression(t *testing.T) {
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
 	ai := tiler.AssociatedImages()
-	if len(ai) != 1 {
-		t.Fatalf("Associated count: got %d, want 1", len(ai))
+	if len(ai) != 2 {
+		t.Fatalf("Associated count: got %d, want 2 (overview + synthesized label)", len(ai))
 	}
-	a := ai[0]
+	a := ai[0] // overview is appended before the synthesized label
+	if a.Type() != opentile.AssociatedOverview {
+		t.Fatalf("ai[0] type: got %q, want overview", a.Type())
+	}
 	if got, want := a.Size(), (opentile.Size{W: 100, H: 200}); got != want {
 		t.Errorf("Size: got %v, want %v", got, want)
+	}
+	// The synthesized label is the top 1/3 of the overview (200/3 = 66).
+	if got, want := ai[1].Size(), (opentile.Size{W: 100, H: 66}); ai[1].Type() != opentile.AssociatedLabel || got != want {
+		t.Errorf("label: got type %q size %v, want label 100x66", ai[1].Type(), got)
 	}
 	// Synthetic non-tiled IFDs have no Compression tag → CompressionUnknown.
 	if got := a.Compression(); got != opentile.CompressionUnknown {

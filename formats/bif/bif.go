@@ -122,6 +122,17 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		}
 		associated = append(associated, a)
 		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirAssociated, assoc: imageType})
+
+		// GH #19: BIF's Label_Image (IFD 0, surfaced as "overview") carries the
+		// printed label as its top band. Synthesize a "label" associated image
+		// (top 1/3 crop) so consumers can locate the label — parity with NDPI,
+		// which exposes a macro-crop label. No dirSpec: the label is synthesized,
+		// with no backing IFD.
+		if c.Role == ifdRoleLabel {
+			if lbl := newSynthesizedLabel(a); lbl != nil {
+				associated = append(associated, lbl)
+			}
+		}
 	}
 	// Capture orphan pages (IFDs not surfaced as a level or associated image).
 	for _, c := range unknownIFDs {
@@ -469,7 +480,7 @@ func (t *Tiler) ICCProfile() []byte {
 type bifDirSpec struct {
 	page  *tiff.Page
 	typ   opentile.DirectoryType
-	level int    // valid when typ==DirLevel
+	level int                     // valid when typ==DirLevel
 	assoc opentile.AssociatedType // valid when typ==DirAssociated; matches AssociatedImage.Type()
 }
 

@@ -11,6 +11,20 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added
+
+- **BIF: synthesized `label` associated image** (#19). BIF exposed only the whole
+  `Label_Image` as `overview`, with no `label` — unlike NDPI, which synthesizes a
+  macro-crop label. BIF now also exposes `AssociatedImage.Type() == "label"`: the
+  **top 1/3** of the overview (the printed-label band; the Roche whitepaper
+  reserves the top 25 mm of every 75 mm slide for the label). The crop is
+  pixel-domain (the overview can be uncompressed RGB on DP 200 or tiled JPEG on
+  legacy iScan), so the label reports `Compression() == none` and is synthesized
+  (`Encoding()`/`TIFFTags()`/`IFDOffset()` → false). `overview` is unchanged (the
+  full Label_Image), giving BIF and NDPI a consistent "where is the label"
+  answer. Verified on Ventana-1 (DP 200) + OS-1 / legacy classic-TIFF iScan
+  slides; the label crop visually captures the printed ID + barcode band.
+
 ## [0.41.3] — 2026-06-15
 
 BIF legacy-slide read fix. No public API changes.
