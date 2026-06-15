@@ -46,6 +46,12 @@ var slideCandidates = []string{
 	"Philips-4.tiff",
 	"Leica-1.ome.tiff",
 	"Leica-2.ome.tiff",
+	// wsitools-converted OME-TIFF from CMU-1-Small-Region.svs (CC0 derivative).
+	// Small full-walk fixture whose associated images use the non-Aperio codecs
+	// wsitools' faithful writer emits — LZW label + multi-strip JPEG
+	// thumbnail/overview — the #23 regression case (OME reader previously
+	// reported LZW as 'unknown' and truncated multi-strip JPEGs to strip 0).
+	"CMU-1-Small-Region.ome.tiff",
 	"Ventana-1.bif",
 	"OS-1.bif",
 	"cervix_2x_jpeg.iris",
