@@ -11,6 +11,10 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.41.3] — 2026-06-15
+
+BIF legacy-slide read fix. No public API changes.
+
 ### Fixed
 
 - **BIF: detect legacy classic-TIFF iScan slides** (#37). Legacy iScan scanners
