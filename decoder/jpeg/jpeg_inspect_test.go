@@ -21,14 +21,14 @@ func encodeJPEG(t *testing.T, im image.Image) []byte {
 	return b.Bytes()
 }
 
-func TestJPEGProbe(t *testing.T) {
+func TestJPEGInspect(t *testing.T) {
 	f, ok := decoder.Get("jpeg")
 	if !ok {
 		t.Skip("jpeg decoder not registered")
 	}
-	p, ok := f.(decoder.Prober)
+	p, ok := f.(decoder.CodestreamInspector)
 	if !ok {
-		t.Fatal("jpeg factory does not implement decoder.Prober")
+		t.Fatal("jpeg factory does not implement decoder.CodestreamInspector")
 	}
 
 	// Color JPEG (image/jpeg encodes YCbCr).
@@ -38,13 +38,13 @@ func TestJPEGProbe(t *testing.T) {
 			rgb.Set(x, y, color.RGBA{uint8(x * 16), uint8(y * 16), 128, 255})
 		}
 	}
-	ci, err := p.Probe(encodeJPEG(t, rgb))
+	ci, err := p.Inspect(encodeJPEG(t, rgb))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessNo ||
 		ci.ColorEncoding != decoder.ColorYCbCr || ci.Boxed {
-		t.Errorf("color JPEG probe = %+v, want comps=3 depth=8 lossy YCbCr raw", ci)
+		t.Errorf("color JPEG inspect = %+v, want comps=3 depth=8 lossy YCbCr raw", ci)
 	}
 
 	// Grayscale JPEG.
@@ -52,16 +52,16 @@ func TestJPEGProbe(t *testing.T) {
 	for i := range gray.Pix {
 		gray.Pix[i] = uint8(i)
 	}
-	ci, err = p.Probe(encodeJPEG(t, gray))
+	ci, err = p.Inspect(encodeJPEG(t, gray))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ci.Components != 1 || ci.ColorEncoding != decoder.ColorGrayscale {
-		t.Errorf("gray JPEG probe = %+v, want comps=1 grayscale", ci)
+		t.Errorf("gray JPEG inspect = %+v, want comps=1 grayscale", ci)
 	}
 
 	// Corrupt input → error.
-	if _, err := p.Probe([]byte{0x00, 0x01, 0x02}); err == nil {
+	if _, err := p.Inspect([]byte{0x00, 0x01, 0x02}); err == nil {
 		t.Error("expected error probing non-JPEG bytes")
 	}
 }

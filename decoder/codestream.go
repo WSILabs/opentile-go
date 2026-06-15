@@ -1,23 +1,23 @@
 package decoder
 
-// Prober is implemented by codec Factories that can return codec-domain
+// CodestreamInspector is implemented by codec Factories that can return codec-domain
 // metadata about an encoded codestream from its header alone — without fully
 // decoding the frame (GH #41). Not every Factory implements it; consumers
 // type-assert:
 //
 //	f, _ := decoder.GetByCompressionTag(tag)
-//	if p, ok := f.(decoder.Prober); ok {
-//		info, err := p.Probe(compressed)
+//	if p, ok := f.(decoder.CodestreamInspector); ok {
+//		info, err := p.Inspect(compressed)
 //	}
 //
 // Implemented by jpeg, jpeg2000, htj2k, and jpegxl. Codecs without a meaningful
 // codestream header (none / lzw / deflate / webp / avif) do not implement it,
 // so the type assertion reports ok == false.
-type Prober interface {
-	// Probe parses src's codestream header and returns codec-domain metadata
+type CodestreamInspector interface {
+	// Inspect parses src's codestream header and returns codec-domain metadata
 	// without decoding the pixels. Returns ErrCorruptInput if the header can't
 	// be parsed. Header-only is the contract: it must not decode the full frame.
-	Probe(src []byte) (CodestreamInfo, error)
+	Inspect(src []byte) (CodestreamInfo, error)
 }
 
 // CodestreamInfo is header-only metadata about an encoded tile/frame, obtained

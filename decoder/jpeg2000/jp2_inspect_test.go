@@ -9,14 +9,14 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 )
 
-func TestJPEG2000Probe(t *testing.T) {
+func TestJPEG2000Inspect(t *testing.T) {
 	f, ok := decoder.Get("jpeg2000")
 	if !ok {
 		t.Skip("jpeg2000 decoder not registered")
 	}
-	p, ok := f.(decoder.Prober)
+	p, ok := f.(decoder.CodestreamInspector)
 	if !ok {
-		t.Fatal("jpeg2000 factory does not implement decoder.Prober")
+		t.Fatal("jpeg2000 factory does not implement decoder.CodestreamInspector")
 	}
 
 	for _, tc := range []struct {
@@ -34,18 +34,18 @@ func TestJPEG2000Probe(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ci, err := p.Probe(b)
+		ci, err := p.Inspect(b)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.file, err)
 		}
 		if ci.Components != tc.components || ci.BitDepth != 8 || ci.Lossless != tc.lossless ||
 			ci.ColorEncoding != tc.color || ci.Boxed {
-			t.Errorf("%s probe = %+v, want comps=%d depth=8 lossless=%s color=%s raw",
+			t.Errorf("%s inspect = %+v, want comps=%d depth=8 lossless=%s color=%s raw",
 				tc.file, ci, tc.components, tc.lossless, tc.color)
 		}
 	}
 
-	if _, err := p.Probe([]byte{0xFF, 0xD8}); err == nil { // JPEG SOI, not J2K
+	if _, err := p.Inspect([]byte{0xFF, 0xD8}); err == nil { // JPEG SOI, not J2K
 		t.Error("expected error probing non-J2K bytes")
 	}
 }

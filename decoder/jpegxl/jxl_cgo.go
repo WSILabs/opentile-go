@@ -86,11 +86,11 @@ fail:
     return -1;
 }
 
-// wsi_jxl_probe reads ONLY the basic info (header) of a JPEG-XL codestream and
+// wsi_jxl_inspect reads ONLY the basic info (header) of a JPEG-XL codestream and
 // reports the color-channel count, extra-channel count, and bit depth. It stops
-// at JXL_DEC_BASIC_INFO and never decodes the image (GH #41 header-only probe).
+// at JXL_DEC_BASIC_INFO and never decodes the image (GH #41 header-only inspect).
 // Returns 0 on success, -1 on error.
-static int wsi_jxl_probe(
+static int wsi_jxl_inspect(
     const uint8_t *src, size_t src_len,
     int *out_channels, int *out_extra, int *out_bits)
 {
@@ -151,19 +151,19 @@ func (f *factory) Name() string                  { return "jpegxl" }
 func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{50002} }
 func (f *factory) New() decoder.Decoder          { return &cgoDecoder{} }
 
-// Probe reads the JPEG-XL header (JxlBasicInfo) without decoding the frame
+// Inspect reads the JPEG-XL header (JxlBasicInfo) without decoding the frame
 // (GH #41). Components is color + extra (alpha) channels; ColorEncoding is
 // derived from the color-channel count. Lossless is LosslessUnknown: libjxl's
 // JxlBasicInfo exposes no header-only reversibility flag.
-func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
+func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	if len(src) == 0 {
 		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpegxl: empty input: %w", decoder.ErrCorruptInput)
 	}
 	var ch, extra, bits C.int
-	rc := C.wsi_jxl_probe((*C.uint8_t)(unsafe.Pointer(&src[0])), C.size_t(len(src)), &ch, &extra, &bits)
+	rc := C.wsi_jxl_inspect((*C.uint8_t)(unsafe.Pointer(&src[0])), C.size_t(len(src)), &ch, &extra, &bits)
 	runtime.KeepAlive(src)
 	if rc != 0 {
-		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpegxl: probe failed: %w", decoder.ErrCorruptInput)
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpegxl: inspect failed: %w", decoder.ErrCorruptInput)
 	}
 	ci := decoder.CodestreamInfo{
 		Components: int(ch) + int(extra),

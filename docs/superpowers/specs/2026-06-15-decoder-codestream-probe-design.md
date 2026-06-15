@@ -1,4 +1,9 @@
-# Decoder codestream Probe — design (#41)
+# Decoder codestream Inspect — design (#41)
+
+> **Naming note:** this shipped in v0.42.0 as `decoder.Prober` / `Probe`, then
+> was renamed to `decoder.CodestreamInspector` / `Inspect` immediately after
+> (before any consumer adopted it) for self-documentation. This document uses
+> the current names.
 
 **Goal:** expose codec-domain metadata about an encoded tile/frame
 (components, bit depth, reversibility, color encoding, boxed-vs-raw)
@@ -11,11 +16,11 @@ non-trivial.
 ## API (additive, non-breaking)
 
 A new **optional** interface on `decoder.Factory`. Codecs opt in; consumers
-type-assert (the codebase's established optional-capability pattern). Probe
+type-assert (the codebase's established optional-capability pattern). Inspect
 lives on the `Factory` (stateless header parse — no `New()` lifecycle):
 
 ```go
-type Prober interface { Probe(src []byte) (CodestreamInfo, error) }
+type CodestreamInspector interface { Inspect(src []byte) (CodestreamInfo, error) }
 
 type CodestreamInfo struct {
     Components    int           // sample/channel count
@@ -33,13 +38,13 @@ Consumer path:
 
 ```go
 f, _ := decoder.GetByCompressionTag(tag)
-if p, ok := f.(decoder.Prober); ok { info, err := p.Probe(src) }
+if p, ok := f.(decoder.CodestreamInspector); ok { info, err := p.Inspect(src) }
 ```
 
 **Decisions**
 
-- **Optional interface, not a Factory-interface method** — adding `Probe`
-  to `Factory` would break every existing factory. `Prober` is opt-in; codecs
+- **Optional interface, not a Factory-interface method** — adding `Inspect`
+  to `Factory` would break every existing factory. `CodestreamInspector` is opt-in; codecs
   without a meaningful header (`none`/`lzw`/`deflate`/`webp`/`avif`) simply
   don't implement it (assertion `ok == false`), which is the idiomatic
   "unsupported".
@@ -47,7 +52,7 @@ if p, ok := f.(decoder.Prober); ok { info, err := p.Probe(src) }
   reversibility flag (the issue assumed it did). J2K/HTJ2K report Yes/No from
   the COD transform and JPEG baseline is always lossy, but **JXL reports
   `LosslessUnknown`** — honest rather than silently wrong.
-- **Probe on `Factory`** (stateless), not `Decoder` — no instance needed; the
+- **Inspect on `Factory`** (stateless), not `Decoder` — no instance needed; the
   consumer already holds the factory via `Get`/`GetByCompressionTag`.
 - **Color encoding is codec-domain** (how samples are stored, what a frame-copy
   preserves), not display intent: JP2K MCT → YBR_RCT (reversible) / YBR_ICT
@@ -60,7 +65,7 @@ if p, ok := f.(decoder.Prober); ok { info, err := p.Probe(src) }
 | jpeg | `tjDecompressHeader3` (already linked) | components/color from colorspace; 8-bit; always lossy; raw |
 | jpeg2000 | pure-Go `internal/j2kheader` (SIZ + COD + JP2 boxes) | reversibility from COD transform (5/3 vs 9/7); MCT → RCT/ICT; boxed from JP2 signature |
 | htj2k | same `internal/j2kheader` | HTJ2K SIZ/COD are the same J2K-family markers |
-| jpegxl | new libjxl `wsi_jxl_probe` shim (`JxlBasicInfo`, stops at `JXL_DEC_BASIC_INFO`) | channels/bits from basic info; boxed from JXL signature box; **Lossless = Unknown** |
+| jpegxl | new libjxl `wsi_jxl_inspect` shim (`JxlBasicInfo`, stops at `JXL_DEC_BASIC_INFO`) | channels/bits from basic info; boxed from JXL signature box; **Lossless = Unknown** |
 
 `internal/j2kheader` is a pure-Go, library-version-independent SIZ/COD/box
 parser shared by the jpeg2000 and htj2k decoders (which have separate
@@ -70,19 +75,19 @@ the two codecs share the mapping.
 
 ## Build tags / availability
 
-`Probe` lives in each codec's cgo file, so it is present only when that codec
+`Inspect` lives in each codec's cgo file, so it is present only when that codec
 is built. A compiled-out codec (`nojp2k`/`nohtj2k`/`nojxl`/`nocgo`) leaves the
-factory unregistered or a Probe-less stub, so the consumer's `Prober` assertion
-reports `ok == false` — a clear "can't probe", not a link failure. The pure-Go
-`CodestreamInfo`/`Prober`/enum types in `decoder/probe.go` always compile.
+factory unregistered or an Inspect-less stub, so the consumer's `CodestreamInspector` assertion
+reports `ok == false` — a clear "can't inspect", not a link failure. The pure-Go
+`CodestreamInfo`/`CodestreamInspector`/enum types in `decoder/codestream.go` always compile.
 
 ## Verification
 
-- Per-codec probe tests (jpeg synthetic, jpeg2000 committed `.j2k` testdata,
+- Per-codec inspect tests (jpeg synthetic, jpeg2000 committed `.j2k` testdata,
   htj2k via the encode helper, jpegxl via a committed raw tile).
-- The `decoder/all` no-panic-on-garbage matrix is extended to fuzz `Probe`.
+- The `decoder/all` no-panic-on-garbage matrix is extended to fuzz `Inspect`.
 - End-to-end on the real DICOM acceptance fixtures: 3DHISTECH HTJ2K and JP2K
-  frames probe to 3 components / 8-bit / reversible (lossless) / RGB / raw —
+  frames inspect to 3 components / 8-bit / reversible (lossless) / RGB / raw —
   matching the issue's acceptance criterion — without a full decode.
 
 ## Out of scope (this cut)
