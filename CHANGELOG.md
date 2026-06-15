@@ -11,6 +11,43 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.41.2] — 2026-06-15
+
+OME-TIFF associated-image + strip-level read fixes. No public API changes.
+
+### Fixed
+
+- **OME-TIFF associated images decode for non-JPEG + multi-strip codecs** (#23).
+  The OME reader mis-decoded associated images two ways, while the generic-TIFF
+  / SVS readers handled the same on-disk IFDs correctly — surfaced by wsitools'
+  faithful associated-image writes (verbatim multi-strip strips +
+  Predictor/JPEGTables): (1) an LZW associated reported `Compression() = unknown`
+  → `Decode` failed (`tiffCompressionToOpentile` mapped only None/JPEG); now maps
+  LZW / Deflate / JP2K, mirroring `formats/generictiff`; (2) a multi-strip
+  associated truncated to its first strip — `Decode()` routed through the
+  strip-0-only `Bytes()` (a Python-parity quirk for the Leica planar=2 macro), so
+  a multi-strip JPEG thumbnail/overview decoded to only `RowsPerStrip` rows.
+  `Decode()` now dispatches like generictiff (`tiffstrip.Decode` for
+  LZW/None/Deflate; concat+SOF-patch or per-strip-stack for multi-strip JPEG);
+  the Leica planar=2 and single-strip JPEG paths are unchanged, so existing OME
+  behavior and parity are byte-for-byte preserved. Verified byte-identical to the
+  generic-TIFF reader.
+
+### Tests / Docs
+
+- **OME-TIFF strip-based (OneFrame) level coverage + boundary docs** (#24). Added
+  a synthetic in-tree fixture (tiled JPEG base + strip-based JPEG SubIFD level)
+  exercising the OME OneFrame dispatch end-to-end, plus a negative test pinning
+  that a *pure* strip-based OME (non-tiled base) is rejected (the OneFrame tile
+  size derives from the base page's `TileWidth`). `docs/formats/ometiff.md` gains
+  a "Strip-based (non-tiled) levels — the OneFrame boundary" section (the
+  whole-frame-per-tile memory caveat; the JPEG-only + mixed-vs-pure-strip
+  boundary; the deliberate non-goal that bare non-OME strip-only TIFFs return
+  `ErrUnsupportedFormat`).
+- New CC0 fixture `ome-tiff/CMU-1-Small-Region.ome.tiff` published in
+  WSILabs/wsi-fixtures release v7 (wired into the parity + associated-decode
+  gates as the #23 regression case).
+
 ## [0.41.1] — 2026-06-14
 
 Bug-fix release. No public API changes. Fixes two decode paths that
