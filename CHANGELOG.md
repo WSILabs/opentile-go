@@ -11,6 +11,52 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.41.1] — 2026-06-14
+
+Bug-fix release. No public API changes. Fixes two decode paths that
+broke on Aperio ImageScope export files (which re-encode the pyramid
+and associated images in non-Aperio codecs), plus an internal-spelling
+cleanup and public CI fixtures for both.
+
+### Fixed
+
+- **Tiled LZW / uncompressed / Deflate levels now decode via `DecodedTile`** (#28).
+  The allocating `DecodedTile` path didn't hand the decoder a sized `Dst`, so
+  tile codecs that carry no intrinsic dimensions (LZW, uncompressed, Deflate)
+  errored with "Dst is required" — while `RawTile`, `ReadRegion`, and
+  `DecodedTileInto` worked. A tiled TIFF tile is always `TileWidth×TileLength`,
+  so the level's `TileSize` is now passed as the decode output size. Surfaced by
+  ImageScope-exported SVS/TIFF files.
+- **SVS associated images decode for non-JPEG thumbnails** (#29). ImageScope
+  re-exports a slide's associated images (thumbnail / label / overview) in
+  whatever codec matches the pyramid, so an LZW or uncompressed thumbnail is
+  routine — not just canonical Aperio JPEG. The associated-image dispatcher
+  routed thumbnail/overview to the striped-JPEG reassembler by image *role*, so
+  a non-JPEG thumbnail hit libjpeg ("Could not determine subsampling — corrupt
+  input data"). Dispatch is now by the IFD's actual Compression tag (per-IFD, so
+  a mixed-codec set — e.g. uncompressed thumbnail + LZW label + JPEG overview —
+  is handled correctly); `Bytes()` multi-strip restitch extended to uncompressed
+  alongside the existing LZW path.
+
+### Changed
+
+- **Internal `striped` → `stripped` spelling normalized** (no API change — every
+  renamed identifier is unexported). The TIFF spec word is `strip`
+  (`StripOffsets` / `StripByteCounts` / `RowsPerStrip`); `striped` derives from
+  `stripe` (a colour band) and was the legacy v0.2 misspelling the v0.12 rename
+  retired. Also repaired stale `formats/ndpi/striped.go` doc/filename references
+  (the file has been `stripped.go` since v0.12) and added a `CLAUDE.md`
+  convention note so it stops recurring.
+
+### Tests / CI
+
+- CI now runs an integration job against the public WSILabs/wsi-fixtures corpus
+  (#25/#26/#27); the macOS HTJ2K variant is push-only to keep PR turnaround fast.
+- Four `590_crop` Aperio ImageScope export fixtures (JP2K / JPEG-q70 SVS;
+  LZW / uncompressed TIFF) are published in wsi-fixtures release v6 (CC-BY-4.0)
+  and wired into the parity suite — covering non-self-describing tiled levels and
+  mixed-codec associated-image sets that the JPEG-only fixtures don't reach.
+
 ## [0.41.0] — 2026-06-13
 
 ### Changed (BREAKING) — v1.0 API restructure
