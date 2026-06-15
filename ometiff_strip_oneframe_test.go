@@ -1,3 +1,9 @@
+//go:build cgo && !nocgo
+
+// This test decodes JPEG via libjpeg-turbo (the oneframe engine and the
+// ground-truth comparison), so it is gated to cgo builds — matching the
+// repo convention for decode-dependent tests.
+
 package opentile_test
 
 import (
