@@ -49,6 +49,12 @@ func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
 		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: tjDecompressHeader3: %s: %w",
 			C.GoString(C.tjGetErrorStr2(h)), decoder.ErrCorruptInput)
 	}
+	// tjDecompressHeader3 can report success with zero dimensions on truncated
+	// input (observed on Linux libjpeg-turbo) — treat that as corrupt, matching
+	// the Decode path.
+	if w <= 0 || hgt <= 0 {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: probe: invalid dimensions %dx%d: %w", int(w), int(hgt), decoder.ErrCorruptInput)
+	}
 	ci := decoder.CodestreamInfo{BitDepth: 8, Lossless: decoder.LosslessNo}
 	switch colorspace {
 	case C.TJCS_GRAY:
