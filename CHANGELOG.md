@@ -11,6 +11,15 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- **Renamed the #41 codestream-inspection API** for self-documentation:
+  `decoder.Prober` → `decoder.CodestreamInspector` and its method `Probe` →
+  `Inspect`. The `CodestreamInfo` / `Lossless` / `ColorEncoding` types are
+  unchanged. This corrects the name introduced one release earlier in v0.42.0,
+  before any consumer adopted it; the consumer path is now
+  `f.(decoder.CodestreamInspector)` → `insp.Inspect(src)`.
+
 ## [0.42.0] — 2026-06-15
 
 Two additive features — a header-only decoder codestream `Probe` (#41, new

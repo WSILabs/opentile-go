@@ -38,14 +38,14 @@ func (f *factory) Name() string                  { return "htj2k" }
 func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{60003} }
 func (f *factory) New() decoder.Decoder          { return &cgoDecoder{} }
 
-// Probe parses the HTJ2K main header (SIZ + COD, same JPEG 2000-family markers
+// Inspect parses the HTJ2K main header (SIZ + COD, same JPEG 2000-family markers
 // as Part 1) without decoding tile data (GH #41). HTJ2K reversibility comes
 // from the COD transform just like classic J2K; the shared internal/j2kheader
 // parser handles both.
-func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
+func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	h, err := j2kheader.Parse(src)
 	if err != nil {
-		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/htj2k: probe: %w", decoder.ErrCorruptInput)
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/htj2k: inspect: %w", decoder.ErrCorruptInput)
 	}
 	return h.CodestreamInfo(), nil
 }

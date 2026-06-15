@@ -271,14 +271,14 @@ func (f *factory) Name() string                  { return "jpeg2000" }
 func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{33003, 34712} }
 func (f *factory) New() decoder.Decoder          { return &cgoDecoder{} }
 
-// Probe parses the JPEG 2000 main header (SIZ + COD, and the JP2 box structure
+// Inspect parses the JPEG 2000 main header (SIZ + COD, and the JP2 box structure
 // for boxed inputs) without decoding any tile data (GH #41). Pure-Go marker
 // parsing via internal/j2kheader — no OpenJPEG call — so it's library-version
 // independent.
-func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
+func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	h, err := j2kheader.Parse(src)
 	if err != nil {
-		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg2000: probe: %w", decoder.ErrCorruptInput)
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg2000: inspect: %w", decoder.ErrCorruptInput)
 	}
 	return h.CodestreamInfo(), nil
 }

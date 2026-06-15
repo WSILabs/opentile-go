@@ -55,18 +55,18 @@ func TestDecoderNoPanicOnGarbage(t *testing.T) {
 				}
 			}()
 
-			// Same class-level guard for the header-only Probe path (#41):
-			// a Prober fed garbage must return an error, never panic or
+			// Same class-level guard for the header-only Inspect path (#41):
+			// a CodestreamInspector fed garbage must return an error, never panic or
 			// over-read (a cgo header parse would crash here under -asan).
-			if pr, isProber := fac.(decoder.Prober); isProber {
+			if pr, isInspector := fac.(decoder.CodestreamInspector); isInspector {
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							t.Errorf("prober %q panicked on garbage input #%d: %v", name, i, r)
+							t.Errorf("inspector %q panicked on garbage input #%d: %v", name, i, r)
 						}
 					}()
-					if _, err := pr.Probe(in); err == nil {
-						t.Errorf("prober %q returned nil error on garbage input #%d", name, i)
+					if _, err := pr.Inspect(in); err == nil {
+						t.Errorf("inspector %q returned nil error on garbage input #%d", name, i)
 					}
 				}()
 			}

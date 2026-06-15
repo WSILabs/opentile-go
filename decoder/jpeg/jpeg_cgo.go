@@ -29,11 +29,11 @@ func (f *factory) Name() string                  { return "jpeg" }
 func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{7} }
 func (f *factory) New() decoder.Decoder          { return newCGODecoder() }
 
-// Probe reads the JPEG header (up to SOF) via tjDecompressHeader3 without
+// Inspect reads the JPEG header (up to SOF) via tjDecompressHeader3 without
 // decoding the scan (GH #41). Baseline/progressive DCT JPEG is always lossy
 // and 8-bit; the component count and color encoding come from the detected
 // colorspace.
-func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
+func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	if len(src) == 0 {
 		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: empty src: %w", decoder.ErrCorruptInput)
 	}
@@ -53,7 +53,7 @@ func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
 	// input (observed on Linux libjpeg-turbo) — treat that as corrupt, matching
 	// the Decode path.
 	if w <= 0 || hgt <= 0 {
-		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: probe: invalid dimensions %dx%d: %w", int(w), int(hgt), decoder.ErrCorruptInput)
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: inspect: invalid dimensions %dx%d: %w", int(w), int(hgt), decoder.ErrCorruptInput)
 	}
 	ci := decoder.CodestreamInfo{BitDepth: 8, Lossless: decoder.LosslessNo}
 	switch colorspace {

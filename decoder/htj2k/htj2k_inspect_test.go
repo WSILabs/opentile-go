@@ -8,8 +8,8 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 )
 
-func TestHTJ2KProbe(t *testing.T) {
-	// Encode a small reversible (lossless) HTJ2K codestream and probe its header.
+func TestHTJ2KInspect(t *testing.T) {
+	// Encode a small reversible (lossless) HTJ2K codestream and inspect its header.
 	const w, h = 8, 4
 	rgb := make([]byte, w*h*3)
 	for i := range rgb {
@@ -20,16 +20,16 @@ func TestHTJ2KProbe(t *testing.T) {
 		t.Fatalf("encodeTestLossless: %v", err)
 	}
 
-	var p decoder.Prober = &factory{}
-	ci, err := p.Probe(cs)
+	var p decoder.CodestreamInspector = &factory{}
+	ci, err := p.Inspect(cs)
 	if err != nil {
-		t.Fatalf("Probe: %v", err)
+		t.Fatalf("Inspect: %v", err)
 	}
 	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessYes {
-		t.Errorf("htj2k probe = %+v, want comps=3 depth=8 lossless", ci)
+		t.Errorf("htj2k inspect = %+v, want comps=3 depth=8 lossless", ci)
 	}
 
-	if _, err := p.Probe([]byte{0xFF, 0xD8}); err == nil { // JPEG SOI, not J2K
+	if _, err := p.Inspect([]byte{0xFF, 0xD8}); err == nil { // JPEG SOI, not J2K
 		t.Error("expected error probing non-J2K bytes")
 	}
 }
