@@ -16,11 +16,11 @@ func garbageInputs() [][]byte {
 		rand[i] = byte(i*7 + 13)
 	}
 	return [][]byte{
-		{},                                  // empty
-		{0x00},                              // one byte
-		rand,                                // pseudo-random
+		{},                                   // empty
+		{0x00},                               // one byte
+		rand,                                 // pseudo-random
 		{0xFF, 0x4F, 0xFF, 0x51, 0x00, 0x2F}, // J2K SOC+SIZ then truncated
-		{0xFF, 0xD8, 0xFF, 0xE0, 0x00},      // JPEG SOI + APP0 truncated
+		{0xFF, 0xD8, 0xFF, 0xE0, 0x00},       // JPEG SOI + APP0 truncated
 		{'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'}, // WEBP container, no data
 		{0x00, 0x00, 0x00, 0x0C, 'j', 'P', 0x20, 0x20},       // JP2 box signature truncated
 	}
@@ -54,6 +54,22 @@ func TestDecoderNoPanicOnGarbage(t *testing.T) {
 					t.Errorf("decoder %q returned (nil, nil) on garbage input #%d", name, i)
 				}
 			}()
+
+			// Same class-level guard for the header-only Probe path (#41):
+			// a Prober fed garbage must return an error, never panic or
+			// over-read (a cgo header parse would crash here under -asan).
+			if pr, isProber := fac.(decoder.Prober); isProber {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							t.Errorf("prober %q panicked on garbage input #%d: %v", name, i, r)
+						}
+					}()
+					if _, err := pr.Probe(in); err == nil {
+						t.Errorf("prober %q returned nil error on garbage input #%d", name, i)
+					}
+				}()
+			}
 		}
 	}
 }

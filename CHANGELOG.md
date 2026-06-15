@@ -13,6 +13,22 @@ upstream references, and retirement audit per milestone.
 
 ### Added
 
+- **Decoder codestream `Probe` — header-only codec metadata** (#41). New
+  optional `decoder.Prober` interface (`Probe(src) (CodestreamInfo, error)`)
+  implemented by the jpeg, jpeg2000, htj2k, and jpegxl factories. It returns
+  components, bit depth, reversibility, color encoding, and boxed-vs-raw from a
+  codestream **header alone**, without decoding the frame — so a frame-copying
+  consumer (e.g. wsitools `convert --to dicom`) can derive a DICOM
+  TransferSyntax + PhotometricInterpretation per tile without re-decoding or
+  re-shipping a codestream parser (notably for JPEG XL). `CodestreamInfo.Lossless`
+  is tri-state because libjxl exposes no header-only reversibility flag, so JXL
+  reports `LosslessUnknown` while J2K/HTJ2K report it from the COD transform.
+  Codecs without a meaningful header (none/lzw/deflate/webp/avif) don't
+  implement `Prober`. J2K/HTJ2K share a pure-Go `internal/j2kheader` SIZ/COD/box
+  parser; `Probe` respects the `nojp2k`/`nohtj2k`/`nojxl`/`nocgo` build tags
+  (a compiled-out codec's factory simply isn't a `Prober`). Verified end-to-end
+  on the 3DHISTECH DICOM HTJ2K/JP2K frames.
+
 - **BIF: synthesized `label` associated image** (#19). BIF exposed only the whole
   `Label_Image` as `overview`, with no `label` — unlike NDPI, which synthesizes a
   macro-crop label. BIF now also exposes `AssociatedImage.Type() == "label"`: the

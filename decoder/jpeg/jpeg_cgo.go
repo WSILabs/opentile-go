@@ -29,6 +29,48 @@ func (f *factory) Name() string                  { return "jpeg" }
 func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{7} }
 func (f *factory) New() decoder.Decoder          { return newCGODecoder() }
 
+// Probe reads the JPEG header (up to SOF) via tjDecompressHeader3 without
+// decoding the scan (GH #41). Baseline/progressive DCT JPEG is always lossy
+// and 8-bit; the component count and color encoding come from the detected
+// colorspace.
+func (f *factory) Probe(src []byte) (decoder.CodestreamInfo, error) {
+	if len(src) == 0 {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: empty src: %w", decoder.ErrCorruptInput)
+	}
+	h := C.tjInitDecompress()
+	if h == nil {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: tjInitDecompress failed")
+	}
+	defer C.tjDestroy(h)
+	var w, hgt, subsamp, colorspace C.int
+	if rc := C.tjDecompressHeader3(h,
+		(*C.uchar)(unsafe.Pointer(&src[0])), C.ulong(len(src)),
+		&w, &hgt, &subsamp, &colorspace); rc != 0 {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: tjDecompressHeader3: %s: %w",
+			C.GoString(C.tjGetErrorStr2(h)), decoder.ErrCorruptInput)
+	}
+	// tjDecompressHeader3 can report success with zero dimensions on truncated
+	// input (observed on Linux libjpeg-turbo) — treat that as corrupt, matching
+	// the Decode path.
+	if w <= 0 || hgt <= 0 {
+		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg: probe: invalid dimensions %dx%d: %w", int(w), int(hgt), decoder.ErrCorruptInput)
+	}
+	ci := decoder.CodestreamInfo{BitDepth: 8, Lossless: decoder.LosslessNo}
+	switch colorspace {
+	case C.TJCS_GRAY:
+		ci.Components, ci.ColorEncoding = 1, decoder.ColorGrayscale
+	case C.TJCS_RGB:
+		ci.Components, ci.ColorEncoding = 3, decoder.ColorRGB
+	case C.TJCS_YCbCr:
+		ci.Components, ci.ColorEncoding = 3, decoder.ColorYCbCr
+	case C.TJCS_CMYK, C.TJCS_YCCK:
+		ci.Components, ci.ColorEncoding = 4, decoder.ColorUnknown
+	default:
+		ci.Components, ci.ColorEncoding = 3, decoder.ColorUnknown
+	}
+	return ci, nil
+}
+
 type cgoDecoder struct {
 	mu     sync.Mutex
 	handle C.tjhandle
