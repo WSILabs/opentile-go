@@ -71,9 +71,10 @@ func TestAssociatedDecodeAllFormats(t *testing.T) {
 		"ome-tiff/Leica-1.ome.tiff",
 		"bif/Ventana-1.bif",
 		"ife/cervix_2x_jpeg.iris",
-		"generic-tiff/CMU-1.stripped.tiff", // LZW label + JPEG thumbnail/macro
-		"svs/590_crop_lzw_imagescope.tif",  // ImageScope LZW export: LZW thumbnail+label, JPEG overview
-		"svs/590_crop_none_imagescope.tif", // ImageScope uncompressed export: RAW thumbnail+label
+		"generic-tiff/CMU-1.stripped.tiff",      // LZW label + JPEG thumbnail/macro
+		"svs/590_crop_lzw_imagescope.tif",       // ImageScope LZW export: LZW thumbnail+label, JPEG overview
+		"svs/590_crop_none_imagescope.tif",      // ImageScope uncompressed export: RAW thumbnail+label
+		"ome-tiff/CMU-1-Small-Region.ome.tiff",  // #23: wsitools OME — LZW label + multi-strip JPEG thumbnail/overview
 		"leica-scn/Leica-1.scn",
 		"szi/CMU-1.szi",
 		"cog-wsi/CMU-1_cog-wsi.tiff",

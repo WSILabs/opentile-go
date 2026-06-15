@@ -9,6 +9,7 @@ import (
 	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	"github.com/wsilabs/opentile-go/internal/jpeg"
 	"github.com/wsilabs/opentile-go/internal/tiff"
+	"github.com/wsilabs/opentile-go/internal/tiffstrip"
 )
 
 // associatedImage is the OME opentile.AssociatedImage implementation
@@ -29,6 +30,7 @@ type associatedImage struct {
 	jpegTables   []byte
 	samples      int // SamplesPerPixel (planar JPEG reassembly)
 	rowsPerStrip int
+	predictor    int // TIFF tag 317 (1/0 none, 2 horizontal differencing) — for LZW/Deflate strip decode
 	planar       int // PlanarConfiguration (2 = separate R/G/B planes)
 	photometric  int
 	reader       io.ReaderAt
@@ -82,14 +84,169 @@ func (a *associatedImage) IFDOffset() (int64, bool) { return 0, false }
 // Bytes() deliberately returns only strip 0 for Python byte-parity, so it
 // can't be used for decode. Other (single-strip) JPEGs decode via Bytes().
 func (a *associatedImage) Decode(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	// Leica's macro is PlanarConfiguration=2 multi-strip JPEG (one grayscale
+	// JPEG per plane/row) — reassembled per channel.
 	if a.compression == opentile.CompressionJPEG && a.planar == 2 && len(a.stripOffsets) > 1 {
 		return a.decodePlanarJPEG(opts)
 	}
-	data, err := a.Bytes()
+	switch a.compression {
+	case opentile.CompressionNone, opentile.CompressionLZW, opentile.CompressionDeflate:
+		// Non-self-describing strip codecs: decode every strip with predictor +
+		// sample interpretation (GH #23). Previously these routed through the
+		// strip-0-only Bytes(), truncating multi-strip images — and an LZW
+		// associated reported CompressionUnknown so it had no decoder at all.
+		strips, err := a.readAllStrips()
+		if err != nil {
+			return nil, err
+		}
+		return tiffstrip.Decode(tiffstrip.Params{
+			Width:        a.size.W,
+			Height:       a.size.H,
+			Samples:      a.samples,
+			Photometric:  a.photometric,
+			Predictor:    a.predictor,
+			Compression:  int(opentile.CompressionToTIFFTag(a.compression)),
+			RowsPerStrip: a.rowsPerStrip,
+			Strips:       strips,
+		}, opts)
+	case opentile.CompressionJPEG:
+		return a.decodeJPEG(opts)
+	default:
+		data, err := a.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		return assocdecode.ViaCodec(a.compression, data, opts)
+	}
+}
+
+// decodeJPEG decodes a non-planar JPEG associated image. Single-strip JPEGs
+// keep the pre-#23 path (Bytes() + registry) so existing OME behavior is
+// byte-for-byte unchanged. Multi-strip JPEGs (GH #23) mirror
+// formats/generictiff: a restart-marker-split stream (libtiff default)
+// concatenates — splice JPEGTables, patch the SOF to the full height; the
+// "one complete JPEG per strip" layout (strip[1] starts with SOI) decodes each
+// strip and stacks vertically.
+func (a *associatedImage) decodeJPEG(opts decoder.DecodeOptions) (*decoder.Image, error) {
+	if len(a.stripOffsets) <= 1 {
+		data, err := a.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		return assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts)
+	}
+	strips, err := a.readAllStrips()
 	if err != nil {
 		return nil, err
 	}
-	return assocdecode.ViaCodec(a.Compression(), data, opts)
+	separateJPEGs := len(strips[1]) >= 2 && strips[1][0] == 0xFF && strips[1][1] == 0xD8
+	if separateJPEGs {
+		return a.decodeJPEGStripStack(opts, strips)
+	}
+	data := concatStrips(strips)
+	if len(a.jpegTables) > 0 {
+		if a.photometric == 2 { // RGB stored
+			data, err = jpeg.InsertTablesAndAPP14(data, a.jpegTables)
+		} else {
+			data, err = jpeg.InsertTables(data, a.jpegTables)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("ome: splice JPEGTables for associated %s: %w", a.imageType, err)
+		}
+	}
+	// A restart-marker-split multi-strip JPEG's SOF carries the first strip's
+	// height (RowsPerStrip); patch it to the full image size.
+	if a.size.W <= 0xFFFF && a.size.H <= 0xFFFF {
+		if patched, perr := jpeg.ReplaceSOFDimensions(data, uint16(a.size.W), uint16(a.size.H)); perr == nil {
+			data = patched
+		}
+	}
+	if img, derr := assocdecode.ViaCodec(opentile.CompressionJPEG, data, opts); derr == nil {
+		return img, nil
+	}
+	// Fall back to per-strip decode + stack (separate JPEGs the SOI sniff missed).
+	return a.decodeJPEGStripStack(opts, strips)
+}
+
+// decodeJPEGStripStack decodes each strip as an independent abbreviated JPEG
+// (tables in JPEGTables) and stacks them vertically into the full image.
+func (a *associatedImage) decodeJPEGStripStack(opts decoder.DecodeOptions, strips [][]byte) (*decoder.Image, error) {
+	if opts.Scale > 1 {
+		return nil, decoder.ErrUnsupportedScale
+	}
+	fac, ok := decoder.GetByCompressionTag(7) // JPEG
+	if !ok {
+		return nil, fmt.Errorf("ome: no JPEG decoder: %w", decoder.ErrCodecUnavailable)
+	}
+	dec := fac.New()
+	defer dec.Close()
+	full := decoder.NewImageFormat(a.size.W, a.size.H, opts.Format)
+	bpp := 3
+	if opts.Format == decoder.PixelFormatRGBA {
+		bpp = 4
+	}
+	rps := a.rowsPerStrip
+	if rps <= 0 {
+		rps = a.size.H
+	}
+	for i, strip := range strips {
+		data := strip
+		if len(a.jpegTables) > 0 {
+			var err error
+			if a.photometric == 2 {
+				data, err = jpeg.InsertTablesAndAPP14(strip, a.jpegTables)
+			} else {
+				data, err = jpeg.InsertTables(strip, a.jpegTables)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("ome: splice tables strip %d: %w", i, err)
+			}
+		}
+		sub, err := dec.Decode(data, decoder.DecodeOptions{Format: opts.Format})
+		if err != nil {
+			return nil, fmt.Errorf("ome: decode JPEG strip %d: %w", i, err)
+		}
+		y0 := i * rps
+		rows := sub.Height
+		if y0+rows > full.Height {
+			rows = full.Height - y0
+		}
+		w := sub.Width
+		if w > full.Width {
+			w = full.Width
+		}
+		for y := 0; y < rows; y++ {
+			copy(full.Pix[(y0+y)*full.Stride:(y0+y)*full.Stride+w*bpp], sub.Pix[y*sub.Stride:y*sub.Stride+w*bpp])
+		}
+	}
+	return full, nil
+}
+
+// readAllStrips reads every strip of the associated image into memory.
+func (a *associatedImage) readAllStrips() ([][]byte, error) {
+	strips := make([][]byte, len(a.stripOffsets))
+	for i := range a.stripOffsets {
+		buf := make([]byte, a.stripCounts[i])
+		if err := tiff.ReadAtFull(a.reader, buf, int64(a.stripOffsets[i])); err != nil {
+			return nil, fmt.Errorf("ome: read associated %s strip %d: %w", a.imageType, i, err)
+		}
+		strips[i] = buf
+	}
+	return strips, nil
+}
+
+// concatStrips joins every strip's bytes in offset order. For a restart-marker-
+// split multi-strip JPEG (libtiff default) this reproduces the original stream.
+func concatStrips(strips [][]byte) []byte {
+	var n int
+	for _, s := range strips {
+		n += len(s)
+	}
+	out := make([]byte, 0, n)
+	for _, s := range strips {
+		out = append(out, s...)
+	}
+	return out
 }
 
 // decodePlanarJPEG reassembles a PlanarConfiguration=2 multi-strip JPEG page.
@@ -234,6 +391,7 @@ func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.Re
 	rps, _ := p.ScalarU32(tiff.TagRowsPerStrip)
 	planar, _ := p.ScalarU32(284) // PlanarConfiguration
 	photo, _ := p.Photometric()
+	pred, _ := p.Predictor()
 
 	return &associatedImage{
 		imageType:    imageType,
@@ -244,6 +402,7 @@ func newAssociatedImage(imageType opentile.AssociatedType, p *tiff.Page, r io.Re
 		jpegTables:   jpegTables,
 		samples:      int(spp),
 		rowsPerStrip: int(rps),
+		predictor:    int(pred),
 		planar:       int(planar),
 		photometric:  int(photo),
 		reader:       r,

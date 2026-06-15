@@ -154,9 +154,9 @@ func (l *tiledImage) Size() opentile.Size               { return l.size }
 func (l *tiledImage) TileSize() opentile.Size           { return l.tileSize }
 func (l *tiledImage) Grid() opentile.Size               { return l.grid }
 func (l *tiledImage) Compression() opentile.Compression { return l.compression }
-func (l *tiledImage) MPP() opentile.MPP                  { return l.mpp }
+func (l *tiledImage) MPP() opentile.MPP                 { return l.mpp }
 func (l *tiledImage) FocalPlane() float64               { return 0 }
-func (l *tiledImage) TileOverlap() opentile.Point          { return opentile.Point{} }
+func (l *tiledImage) TileOverlap() opentile.Point       { return opentile.Point{} }
 
 // Tile returns the JPEG bytes for tile (x, y). Out-of-bounds → wrapped
 // ErrTileOutOfBounds. Zero-length tile entries (which would mean the
@@ -356,14 +356,23 @@ func scaleMPP(baseMPP opentile.MPP, baseSize, lvlSize opentile.Size) opentile.MP
 }
 
 // tiffCompressionToOpentile maps TIFF tag 259 numeric values to the
-// opentile.Compression enum. OME slides we've seen carry only JPEG
-// (7); other codes degrade to CompressionUnknown.
+// opentile.Compression enum. OME pyramid levels we've seen carry only JPEG
+// (7), but associated images (label / thumbnail / overview) written by
+// wsitools' faithful path can be LZW or Deflate — so the full TIFF-family
+// codec set is mapped here, mirroring formats/generictiff (GH #23). Unknown
+// codes still degrade to CompressionUnknown.
 func tiffCompressionToOpentile(tiffCode uint32) opentile.Compression {
 	switch tiffCode {
 	case 1:
 		return opentile.CompressionNone
+	case 5:
+		return opentile.CompressionLZW
 	case 7:
 		return opentile.CompressionJPEG
+	case 8, 32946:
+		return opentile.CompressionDeflate
+	case 33003, 34712:
+		return opentile.CompressionJP2K
 	}
 	return opentile.CompressionUnknown
 }
