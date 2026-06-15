@@ -42,6 +42,17 @@ contentH := min(ts.H, sz.H - y*ts.H)
 
 Matches upstream Python opentile. SZI/DZI is the exception — its readers return border-sized tiles per spec; see `docs/formats/szi.md`.
 
+## Strip-based (non-tiled) levels — the OneFrame boundary
+
+The reader dispatches **per page** on `TileWidth`: a page with `TileWidth` → `tiledImage`; a page without → `internal/oneframe.Image`. So a pyramid may mix tiled and strip-based levels, and strip-based levels read fine — within two boundaries worth knowing:
+
+- **`internal/oneframe` is JPEG-only**, and serves a tile by decoding the **entire level** to a padded full-frame JPEG (cached per level) and lossless-cropping the tile out of it. That is cheap for small upper levels (the usual OneFrame case) but **decodes the whole frame to serve one tile** — expensive for a large strip-based *base* level. A strip-based level must be a single-strip JPEG; LZW/uncompressed/Deflate strip *levels* are not decodable through OneFrame (those codecs surface only as associated images — see below).
+- **The OneFrame tile size is derived from the base page's `TileWidth`** (`defaultOneFrameTileSize`, mirroring upstream). Consequently a *mixed* file — **tiled base + strip-based JPEG SubIFD levels** — is readable, but a **pure strip-based OME (non-tiled base page) is rejected at `Open`** with *"first main pyramid base page has no TileWidth — cannot default OneFrame tile size"*. This is an intentional, pinned boundary, not a silent failure.
+
+Both paths are covered end-to-end by a synthetic in-tree fixture in `ometiff_strip_oneframe_test.go` (`TestOMEStripBasedOneFrameLevel` for the mixed/readable case, `TestOMEStripOnlyBaseRejected` for the boundary).
+
+**Bare (non-OME) strip-only TIFF** is a separate, deliberate non-goal: `internal/tiff.ClassifyPyramid` routes non-tiled IFDs to "Others" and requires at least one tiled level, so a plain strip-only TIFF returns `ErrUnsupportedFormat`. Strip IFDs are consumed only as *associated* images, never as pyramid levels. opentile-go is a tile reader; reading strip-only TIFFs as pyramids is YAGNI.
+
 ## What's not supported
 
 | Capability | Status | Why |
