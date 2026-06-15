@@ -14,22 +14,27 @@ import (
 // without an XML element).
 const iScanMarker = "<iScan"
 
-// Detect reports whether file is a BIF candidate. The rule, per spec
-// §5.1: BigTIFF AND at least one IFD's XMP packet (TIFF tag 700)
-// contains the substring `<iScan`. Both predicates are necessary —
-// classic-TIFF iScan files don't exist (the BIF whitepaper mandates
-// BigTIFF), and the substring catches both spec-compliant DP scanners
-// (whose IFD 0 XMP starts `<?xml ... ?><Metadata><iScan ...>`) and
-// legacy iScan slides (whose IFD 0 XMP starts directly `<iScan ...>`).
+// Detect reports whether file is a BIF candidate. The rule: at least one
+// IFD's XMP packet (TIFF tag 700) contains the substring `<iScan`. This
+// mirrors openslide's detection (`INITIAL_XML_ISCAN = "iScan"`), which keys
+// solely on the XMP marker — and catches both spec-compliant DP scanners
+// (whose IFD 0 XMP starts `<?xml ... ?><Metadata><iScan ...>`) and legacy
+// iScan slides (whose IFD 0 XMP starts directly `<iScan ...>`).
 //
-// Verified across all 17 sample fixtures: 2 BIFs match, 0 false
-// positives across the 15 non-BIF fixtures (5 SVS, 3 NDPI, 1 generic
-// TIFF, 2 OME-TIFF, 4 Philips TIFF). See `docs/deferred.md §9 → v0.7
-// gates → Task 1` for the gate outcome record.
+// The marker alone is the discriminator — we do NOT additionally require
+// BigTIFF. The BIF whitepaper mandates BigTIFF for the DP generation, but
+// legacy iScan scanners (Coreo/HT, ~2010-2012, BuildVersion 3.x) wrote
+// *classic* little-endian TIFF. The earlier BigTIFF gate wrongly rejected
+// those, so they fell through to the generic-TIFF reader, which renders BIF's
+// serpentine (boustrophedon, bottom-up) tile order scrambled — the "corrupt
+// BIF" symptom in downstream viewers (#37). The serpentine + blank-tile +
+// associated-image machinery is container-agnostic (it operates on parsed
+// pages), so the reader handles classic-TIFF iScan slides once detected.
+//
+// The `<iScan` substring is BIF-specific: verified 0 false positives across
+// the non-BIF fixtures (SVS, NDPI, generic TIFF, OME-TIFF, Philips TIFF), none
+// of which carry an `<iScan` XMP element.
 func Detect(file *tiff.File) bool {
-	if !file.BigTIFF() {
-		return false
-	}
 	for _, p := range file.Pages() {
 		xmp, ok := p.XMP()
 		if !ok {
