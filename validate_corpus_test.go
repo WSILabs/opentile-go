@@ -169,3 +169,23 @@ func TestValidateIFEFixtureOK(t *testing.T) {
 		t.Fatalf("Format = %q, want ife", rep.Format)
 	}
 }
+
+// TestValidateSZIFixtureOK validates the CMU-1.szi SZI fixture and confirms
+// no CheckOffsetsOutOfBounds (or other Error-severity) findings.
+// The test is skipped when OPENTILE_TESTDIR is unset or the file is absent.
+func TestValidateSZIFixtureOK(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "szi", "CMU-1.szi")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(p)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("clean SZI fixture not OK: %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatSZI {
+		t.Fatalf("Format = %q, want szi", rep.Format)
+	}
+}
