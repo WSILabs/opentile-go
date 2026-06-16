@@ -108,6 +108,12 @@ func TestValidatorOfMissing(t *testing.T) {
 	}
 }
 
+func TestValidateNonPositiveSize(t *testing.T) {
+	if _, err := Validate(bytes.NewReader(nil), 0); err == nil {
+		t.Fatal("size<=0 should be an operational error")
+	}
+}
+
 func TestValidateFileUnopenable(t *testing.T) {
 	if _, err := ValidateFile("/nonexistent/path/zzz.svs"); err == nil {
 		t.Fatal("ValidateFile on a missing path should return an operational error")

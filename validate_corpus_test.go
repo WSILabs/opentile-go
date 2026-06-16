@@ -190,6 +190,40 @@ func TestValidateSZIFixtureOK(t *testing.T) {
 	}
 }
 
+func TestValidateSVSFixtureOK(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "svs", "CMU-1-Small-Region.svs")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(p)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("clean SVS fixture not OK: %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatSVS {
+		t.Fatalf("Format = %q, want svs", rep.Format)
+	}
+}
+
+func TestValidateGenericTIFFFixtureOK(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "generic-tiff", "CMU-1-Small-Region.stripped.tiff")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(p)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("clean generic-TIFF fixture not OK: %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatGenericTIFF {
+		t.Fatalf("Format = %q, want generic-tiff", rep.Format)
+	}
+}
+
 // TestValidateDICOMFixtureOK validates a known-good DICOM WSM series
 // (scan_621_grundium_dicom) and confirms no CheckOffsetsOutOfBounds
 // (or other Error-severity) findings. DICOM is multi-file, so the test
