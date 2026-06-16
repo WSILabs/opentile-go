@@ -45,25 +45,25 @@ func Check(f *tiff.File, s Sink, levelOf func(ifdOffset int64) int, reachable fu
 	for _, p := range f.Pages() {
 		lvl := levelOf(p.IFDOffset())
 
-		if offs, err := p.TileOffsets(); err == nil && len(offs) > 0 {
-			counts, _ := p.TileByteCounts()
+		if offs, err := p.TileOffsets64(); err == nil && len(offs) > 0 {
+			counts, _ := p.TileByteCounts64()
 			for i, off := range offs {
 				var length uint64
 				if i < len(counts) {
-					length = uint64(counts[i])
+					length = counts[i]
 				}
-				checkRange(s, lvl, uint64(off), length, size)
+				checkRange(s, lvl, off, length, size)
 			}
 		}
 
-		if offs, err := p.StripOffsets(); err == nil && len(offs) > 0 {
-			counts, _ := p.StripByteCounts()
+		if offs, err := p.ScalarArrayU64(tiff.TagStripOffsets); err == nil && len(offs) > 0 {
+			counts, _ := p.ScalarArrayU64(tiff.TagStripByteCounts)
 			for i, off := range offs {
 				var length uint64
 				if i < len(counts) {
-					length = uint64(counts[i])
+					length = counts[i]
 				}
-				checkRange(s, lvl, uint64(off), length, size)
+				checkRange(s, lvl, off, length, size)
 			}
 		}
 

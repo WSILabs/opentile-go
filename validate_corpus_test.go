@@ -54,7 +54,7 @@ func TestValidatePhilipsTIFFFixtureOK(t *testing.T) {
 }
 
 func TestValidateLeicaSCNFixtureOK(t *testing.T) {
-	p := filepath.Join(corpusDir(t), "leica-scn", "Leica-1.scn")
+	p := filepath.Join(corpusDir(t), "scn", "Leica-1.scn")
 	if _, err := os.Stat(p); err != nil {
 		t.Skipf("fixture absent: %v", err)
 	}
@@ -101,5 +101,25 @@ func TestValidateBIFFixtureOK(t *testing.T) {
 	}
 	if rep.Format != opentile.FormatBIF {
 		t.Fatalf("Format = %q, want bif", rep.Format)
+	}
+}
+
+// TestValidateHamamatsu1NDPIOK validates the 64-bit-offset NDPI fixture
+// (Hamamatsu-1.ndpi) and confirms no false CheckOffsetsOutOfBounds are
+// emitted — this is the key regression test for the 64-bit accessor fix.
+func TestValidateHamamatsu1NDPIOK(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "ndpi", "Hamamatsu-1.ndpi")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(p)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("64-bit-offset NDPI fixture not OK (false positive?): %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatNDPI {
+		t.Fatalf("Format = %q, want ndpi", rep.Format)
 	}
 }
