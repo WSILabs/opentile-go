@@ -148,3 +148,24 @@ func TestValidateHamamatsu1NDPIOK(t *testing.T) {
 		t.Fatalf("Format = %q, want ndpi", rep.Format)
 	}
 }
+
+// TestValidateIFEFixtureOK validates the cervix_2x_jpeg.iris IFE fixture and
+// confirms no CheckOffsetsOutOfBounds (or other Error-severity) findings.
+// The fixture is large (~2 GB) so the test is skipped when OPENTILE_TESTDIR
+// is unset or the file is absent.
+func TestValidateIFEFixtureOK(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "ife", "cervix_2x_jpeg.iris")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(p)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("clean IFE fixture not OK: %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatIFE {
+		t.Fatalf("Format = %q, want ife", rep.Format)
+	}
+}
