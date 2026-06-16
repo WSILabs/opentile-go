@@ -152,7 +152,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p "$RUNNER_TEMP/tars" "$RUNNER_TEMP/wsi-fixtures"
-          gh release download --repo WSILabs/wsi-fixtures \
+          # Resolve the newest fixture-corpus release (v1, v2, …) explicitly
+          # instead of trusting the repo's "Latest" pointer: a non-corpus
+          # release (e.g. a tools-* validator-binary mirror) can grab Latest
+          # and carry no *.tar, which would silently break this download.
+          TAG="$(gh release list --repo WSILabs/wsi-fixtures --json tagName \
+            --jq '.[].tagName' | grep -E '^v[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)"
+          echo "fixture corpus tag: ${TAG:?no v* corpus release found}"
+          gh release download "$TAG" --repo WSILabs/wsi-fixtures \
             --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
           for t in "$RUNNER_TEMP/tars"/*.tar; do
             tar xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
@@ -185,7 +192,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p "$RUNNER_TEMP/tars" "$RUNNER_TEMP/wsi-fixtures"
-          gh release download --repo WSILabs/wsi-fixtures \
+          # Resolve the newest fixture-corpus release (v1, v2, …) explicitly
+          # instead of trusting the repo's "Latest" pointer: a non-corpus
+          # release (e.g. a tools-* validator-binary mirror) can grab Latest
+          # and carry no *.tar, which would silently break this download.
+          TAG="$(gh release list --repo WSILabs/wsi-fixtures --json tagName \
+            --jq '.[].tagName' | grep -E '^v[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)"
+          echo "fixture corpus tag: ${TAG:?no v* corpus release found}"
+          gh release download "$TAG" --repo WSILabs/wsi-fixtures \
             --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
           for t in "$RUNNER_TEMP/tars"/*.tar; do
             tar xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"

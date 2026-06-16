@@ -19,10 +19,11 @@ func htj2kInstance(t *testing.T) string {
 	return p
 }
 
-// TestParseInstanceHTJ2K: suyashkumar/dicom v1.1.0 doesn't know the HTJ2K
-// transfer syntaxes and SIGSEGVs (nil byte order). ParseInstance substitutes
-// the meta-header UID with the JPEG 2000 (.91) proxy — same Explicit VR LE
-// data-set encoding — for the cold-path parse, then reports the real syntax.
+// TestParseInstanceHTJ2K: github.com/WSILabs/dicom recognizes the HTJ2K
+// transfer syntaxes directly and reports the real UID. Upstream
+// suyashkumar/dicom v1.1.0 SIGSEGV'd on the nil byte order, so opentile-go
+// proxy-substituted the meta-header UID; the fork fixes it, so that workaround
+// was retired (parse is now a plain ParseFile).
 func TestParseInstanceHTJ2K(t *testing.T) {
 	in, err := ParseInstance(htj2kInstance(t))
 	if err != nil {

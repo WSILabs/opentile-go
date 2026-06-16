@@ -28,13 +28,13 @@ associated image.
 | TILED_SPARSE organization | ✅ | Per-frame `(ColumnPosition, RowPosition)` map built at Open; Leica GT450 |
 | JPEG Baseline levels | ✅ | libjpeg-turbo decode via the existing decoder pool |
 | JPEG 2000 levels (`.90` / `.91`) | ✅ | OpenJPEG decode; frame extraction is codec-agnostic (raw J2K codestream), only the transfer-syntax → `CompressionJP2K` mapping was needed. Colour verified within 1 LSB vs the original JPEG via a lossless `gdcmconv --j2k` transcode |
-| HTJ2K levels (`.201` / `.202` / `.203`) | ✅ | openjph decode. Required a parser workaround: `suyashkumar/dicom` v1.1.0 doesn't know the HTJ2K syntaxes and SIGSEGVs (nil byte order), so `internal/dicom` substitutes a `.91` proxy (same Explicit VR LE encoding) in the meta header for the cold-path parse and records the real syntax. Colour verified within 5 LSB vs the original JPEG (ojph_compress + pydicom lossless transcode). Subject to the `nohtj2k` build tag |
+| HTJ2K levels (`.201` / `.202` / `.203`) | ✅ | openjph decode. `github.com/WSILabs/dicom` recognizes the HTJ2K transfer syntaxes directly, so the cold-path parse is a plain `ParseFile`. (Upstream `suyashkumar/dicom` v1.1.0 didn't know them and SIGSEGV'd on the nil byte order, so `internal/dicom` used to substitute a `.91` proxy UID in the meta header; that workaround was retired when we moved to the fork.) Colour verified within 5 LSB vs the original JPEG (ojph_compress + pydicom lossless transcode). Subject to the `nohtj2k` build tag |
 | Uncompressed associated images | ✅ | `decoder/none` raw passthrough; Leica GT450 label |
 | JPEG associated images | ✅ | label / overview / thumbnail per `ImageType` tokens |
 | `Levels()` / `Metadata()` / `RawTile` / `DecodedTile` / `ReadRegion` / `ScaledStrips` | ✅ | Standard opentile-go interfaces |
 | Verified scanners | Leica GT450, 3DHISTECH, Grundium | Cross-scanner byte-identical frame extraction confirmed |
 | `opentile.FormatDICOM` enum | ✅ | Format string `"dicom"` |
-| `internal/dicom` parser (cold path) | ✅ | Wraps `github.com/suyashkumar/dicom` (pure Go); no new cgo |
+| `internal/dicom` parser (cold path) | ✅ | Wraps `github.com/WSILabs/dicom` (pure Go); no new cgo |
 | Own mmap fragment-offset-walk (hot path) | ✅ | ~16 bytes/frame overhead; byte-identical to library on all 3 scanners |
 
 ## What's not supported (deferred)
@@ -92,7 +92,7 @@ pure probe.
 ## Implementation references
 
 - Reader package: `formats/dicom/`
-- Metadata parser: `internal/dicom/` — wraps `github.com/suyashkumar/dicom` for
+- Metadata parser: `internal/dicom/` — wraps `github.com/WSILabs/dicom` for
   cold-path attribute parsing (preamble + group-0002 meta, nested undefined-length
   SQ traversal for functional-group sequences, encapsulated PixelData header); own
   mmap fragment-offset-walk for the hot path.
@@ -307,7 +307,7 @@ The full reader design:
 - **`internal/dicom` parser is the cold-path layer.** Handles preamble +
   `DICM`, group-0002 meta header → transfer syntax, Explicit-VR data set,
   **nested undefined-length SQ traversal**, encapsulated PixelData
-  fragment header. Backed by `github.com/suyashkumar/dicom` (pure Go —
+  fragment header. Backed by `github.com/WSILabs/dicom` (pure Go —
   no new cgo). The attribute set actually read at Open is small and
   knowable; the library is not used on the hot path.
 - **`RawTile` fit is clean**: find frame index for `(tx,ty)` via the
@@ -352,7 +352,8 @@ way openslide already serves the benchmark suite.
 - `pydicom`: low-level parsing reference.
 - openslide DICOM support (LGPL 2.1, read-for-understanding only):
   independent C implementation; series assembly + level detection.
-- `suyashkumar/dicom` (MIT): https://github.com/suyashkumar/dicom —
+- `WSILabs/dicom` (MIT): https://github.com/WSILabs/dicom — a maintained
+  fork of [`suyashkumar/dicom`](https://github.com/suyashkumar/dicom); the
   pure-Go DICOM parser used for cold-path attribute parsing in
   `internal/dicom/`. No new cgo.
 - Inspection tooling: DCMTK `dcmdump` (`brew install dcmtk`).
