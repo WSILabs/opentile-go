@@ -208,6 +208,9 @@ type tiler struct {
 	// dirSpecs captures the page→role mapping for every IFD, recorded
 	// at Open time so TIFFDirectories() can build the public view lazily.
 	dirSpecs []omeDirSpec
+
+	// file is retained for Validate; may be nil for unit-test tilers.
+	file *tiff.File
 }
 
 func (t *tiler) Format() opentile.Format                  { return opentile.FormatOMETIFF }

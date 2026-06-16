@@ -202,5 +202,6 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		sizeC:      sizeC,
 		channels:   md.Channels,
 		dirSpecs:   dirSpecs,
+		file:       file,
 	}, nil
 }

@@ -188,5 +188,5 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		Index:  0,
 		Levels: levelToValueSlice(levelImpls),
 	}}
-	return &tiler{md: md, images: images, levelImpls: levelImpls, associated: associated, dirSpecs: dirSpecs}, nil
+	return &tiler{md: md, images: images, levelImpls: levelImpls, associated: associated, dirSpecs: dirSpecs, file: file}, nil
 }

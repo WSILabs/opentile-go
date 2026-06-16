@@ -10,6 +10,7 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/internal/fastpath"
 	"github.com/wsilabs/opentile-go/internal/format"
+	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
 // Compile-time assertion: *tiler satisfies format.Reader.
@@ -44,6 +45,7 @@ type tiler struct {
 	associated []opentile.AssociatedImage
 	icc        []byte
 	dirSpecs   []ndpiDirSpec // page→role mapping captured at Open; used by TIFFDirectories
+	file       *tiff.File   // retained for Validate; may be nil for unit-test tilers
 }
 
 func (t *tiler) Format() opentile.Format                      { return opentile.FormatNDPI }
