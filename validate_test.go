@@ -70,3 +70,37 @@ func TestProbeSize(t *testing.T) {
 		t.Fatalf("Size() = %d, want 4242", got)
 	}
 }
+
+// fakeValidatorReader implements just enough to test validatorOf discovery
+// through the UnwrapReader chain.
+type fakeValidatorReader struct {
+	flagged bool
+}
+
+func (f *fakeValidatorReader) Validate(p *ValidationProbe) {
+	f.flagged = true
+	p.Flag(CheckNonConformantFormat, -1, -1, "fake reader says non-conformant")
+}
+
+// validatorWrapper mimics fileCloser/mmapCloser: it delegates via UnwrapReader.
+type validatorWrapper struct{ inner any }
+
+func (w validatorWrapper) UnwrapReader() any { return w.inner }
+
+func TestValidatorOfWalksUnwrapChain(t *testing.T) {
+	fv := &fakeValidatorReader{}
+	got, ok := validatorOfAny(validatorWrapper{inner: validatorWrapper{inner: fv}})
+	if !ok || got == nil {
+		t.Fatal("validatorOfAny should find the validator through the unwrap chain")
+	}
+	got.Validate(newProbe(0))
+	if !fv.flagged {
+		t.Fatal("discovered validator's Validate was not called")
+	}
+}
+
+func TestValidatorOfMissing(t *testing.T) {
+	if _, ok := validatorOfAny(struct{}{}); ok {
+		t.Fatal("a non-validator with no UnwrapReader should yield ok=false")
+	}
+}

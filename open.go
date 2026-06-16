@@ -88,7 +88,7 @@ func Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Slide{r: rdr, readBudget: cfg.resolveMemoryBudget()}, nil
+	return &Slide{r: rdr, size: size, readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
 // OpenFile opens path for reading and delegates to [Open]. The
@@ -148,7 +148,7 @@ func OpenFile(path string, opts ...Option) (*Slide, error) {
 			if !ok {
 				return nil, fmt.Errorf("opentile: dicom hook returned unexpected type %T", result)
 			}
-			return &Slide{r: sr, readBudget: cfg.resolveMemoryBudget()}, nil
+			return &Slide{r: sr, size: 0, readBudget: cfg.resolveMemoryBudget()}, nil
 		}
 		if !errors.Is(err, ErrUnsupportedFormat) {
 			return nil, err
@@ -185,7 +185,7 @@ func openFilePread(path string, opts []Option) (*Slide, error) {
 		return nil, fmt.Errorf("opentile: %s: %w", path, err)
 	}
 	fc := &fileCloser{slideReader: rdr, f: f}
-	return &Slide{r: fc, readBudget: cfg.resolveMemoryBudget()}, nil
+	return &Slide{r: fc, size: info.Size(), readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
 // openFileMmap is the v0.9 default path. Memory-maps the file and
@@ -204,7 +204,7 @@ func openFileMmap(path string, opts []Option) (*Slide, error) {
 		return nil, fmt.Errorf("opentile: %s: %w", path, err)
 	}
 	mc := &mmapCloser{slideReader: rdr, m: m}
-	return &Slide{r: mc, readBudget: cfg.resolveMemoryBudget()}, nil
+	return &Slide{r: mc, size: m.Size(), readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
 // fileCloser wraps a slideReader and closes the underlying os.File on Close.

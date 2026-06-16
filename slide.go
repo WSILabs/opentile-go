@@ -52,6 +52,10 @@ type slideReader interface {
 type Slide struct {
 	r slideReader
 
+	// size is the backing file size in bytes, captured at Open. Read by
+	// (*Slide).Validate for byte-range bounds checks.
+	size int64
+
 	// v0.28: per-codec decoder pool cache. Lazy: nil until first
 	// decoderFor() call. Drained by Close. Keyed by TIFF compression
 	// tag (the same tag space CompressionToTIFFTag emits).

@@ -157,3 +157,31 @@ func (p *ValidationProbe) findings() []Finding {
 	})
 	return out
 }
+
+// Validator is implemented by format readers that contribute Tier-1 structural
+// findings. The method is exported because readers live in other packages. A
+// reader that does not implement it still gets the format-agnostic engine
+// checks. Readers call ValidationProbe.Flag once per problem occurrence.
+type Validator interface {
+	Validate(p *ValidationProbe)
+}
+
+// validatorOfAny walks the UnwrapReader chain (like tiffProviderOf) looking for
+// a reader that implements Validator.
+func validatorOfAny(start any) (Validator, bool) {
+	cur := start
+	for cur != nil {
+		if v, ok := cur.(Validator); ok {
+			return v, true
+		}
+		u, ok := cur.(interface{ UnwrapReader() any })
+		if !ok {
+			return nil, false
+		}
+		cur = u.UnwrapReader()
+	}
+	return nil, false
+}
+
+// validatorOf finds the Validator behind a Slide's reader, if any.
+func validatorOf(s *Slide) (Validator, bool) { return validatorOfAny(s.r) }
