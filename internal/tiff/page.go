@@ -217,6 +217,16 @@ func (p *Page) TileByteCounts() ([]uint32, error) {
 	return p.arrayU32(TagTileByteCounts)
 }
 
+// StripOffsets returns the StripOffsets array (tag 273).
+func (p *Page) StripOffsets() ([]uint32, error) {
+	return p.arrayU32(TagStripOffsets)
+}
+
+// StripByteCounts returns the StripByteCounts array (tag 279).
+func (p *Page) StripByteCounts() ([]uint32, error) {
+	return p.arrayU32(TagStripByteCounts)
+}
+
 func (p *Page) arrayU32(tag uint16) ([]uint32, error) {
 	e, ok := p.ifd.get(tag)
 	if !ok {
