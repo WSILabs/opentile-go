@@ -61,10 +61,10 @@ conveys the general nature and scale, not a per-occurrence repair list.
 | `CheckUnopenable` | Error | `Open` dispatch fails (no format matches, or the matched reader errors). Wrapped reason in `Message`; `Report.Format == FormatUnknown`. |
 | `CheckOffsetsOutOfBounds` | Error | Any tile/strip/frame `offset+length` points past EOF, overflows, or is negative. The headline check — catches truncation and dangling pointers that `Open` silently passes. |
 | `CheckTileGridMismatch` | Error | The tile offset-array length disagrees with `ceil(W/tw)·ceil(H/th)`, or a level reports zero dims / zero tiles. |
-| `CheckNonConformantFormat` | Error | Format-specific spec violations the reader already detects (e.g. COG-WSI `validateGhost`/`validateIFDs`). Surfaced as findings rather than a bare sentinel. |
+| `CheckNonConformantFormat` | Error | Format-specific spec violations the reader already detects (e.g. COG-WSI `validateGhost`/`validateIFDs`). Surfaced as findings rather than a bare sentinel. _(v1: not emitted by any reader — COG-WSI conformance violations are fatal at Open and surface as `unopenable`; the code is reserved for future per-format soft checks.)_ |
 | `CheckInconsistentPyramid` | Warning | Level dimensions not monotonically shrinking, or downsample ratios drift beyond the existing generic-TIFF tolerance. |
 | `CheckMissingMetadata` | Warning | Expected-but-optional fields absent (e.g. MPP, objective power). |
-| `CheckOrphanIFD` | Info | Unreferenced IFDs present (generic-TIFF already flags these as `DirOther`). Legal-but-unusual. |
+| `CheckOrphanIFD` | Info | Unreferenced IFDs present (generic-TIFF already flags these as `DirOther`). Legal-but-unusual. _(v1: not emitted — orphan-IFD detection is deferred until a reader reachability map is wired; the code is reserved.)_ |
 
 The catalog is open-ended — new `CheckCode` constants are additive.
 

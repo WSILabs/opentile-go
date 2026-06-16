@@ -19,5 +19,8 @@ func (s probeSink) OrphanIFD(msg string) {
 // for now (always-reachable predicate) to avoid false positives until a real
 // reachability map is wired.
 func (t *tiler) Validate(p *opentile.ValidationProbe) {
+	if t.file == nil {
+		return
+	}
 	tiffvalidate.Check(t.file, probeSink{p}, func(int64) int { return -1 }, func(int64) bool { return true })
 }

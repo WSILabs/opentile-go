@@ -43,10 +43,15 @@ const (
 	CheckUnopenable          CheckCode = "unopenable"
 	CheckOffsetsOutOfBounds  CheckCode = "offsets-out-of-bounds"
 	CheckTileGridMismatch    CheckCode = "tile-grid-mismatch"
+	// CheckNonConformantFormat is reserved: no reader emits it in v1 (COG-WSI
+	// conformance is enforced fatally at Open). Kept for future per-format soft checks.
 	CheckNonConformantFormat CheckCode = "non-conformant-format"
 	CheckInconsistentPyramid CheckCode = "inconsistent-pyramid"
 	CheckMissingMetadata     CheckCode = "missing-metadata"
-	CheckOrphanIFD           CheckCode = "orphan-ifd"
+	// CheckOrphanIFD is reserved: orphan-IFD detection is wired off in v1 (the
+	// TIFF hooks pass an always-reachable predicate). Kept for when a reachability
+	// map is added.
+	CheckOrphanIFD CheckCode = "orphan-ifd"
 )
 
 // Finding is one rolled-up validation problem. Many occurrences of the same
