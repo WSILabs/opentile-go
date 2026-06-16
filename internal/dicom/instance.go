@@ -1,7 +1,7 @@
 // Package dicom parses the metadata of DICOM VL Whole Slide Microscopy
 // (WSM) SOP instances for the formats/dicom reader. It is the only place
-// in opentile-go that imports github.com/suyashkumar/dicom, and no
-// suyashkumar type is exported from here. It parses metadata only — it
+// in opentile-go that imports github.com/WSILabs/dicom, and no
+// WSILabs/dicom type is exported from here. It parses metadata only — it
 // does not read pixel data and does not import the root opentile package.
 package dicom
 
@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/suyashkumar/dicom"
-	"github.com/suyashkumar/dicom/pkg/tag"
+	"github.com/WSILabs/dicom"
+	"github.com/WSILabs/dicom/pkg/tag"
 )
 
 // WSMStorageUID is the SOP Class UID for VL Whole Slide Microscopy Image Storage.
@@ -74,15 +74,17 @@ var (
 )
 
 // ParseInstance parses one instance's metadata (pixel data skipped). It never
-// panics: a malformed instance (e.g. an input that trips a parser bug)
-// returns an error. HTJ2K transfer syntaxes are handled via parseDataset.
+// panics: a malformed instance (e.g. an input that trips a parser bug) returns
+// an error via the recover guard. HTJ2K transfer syntaxes parse directly —
+// github.com/WSILabs/dicom recognizes them (the upstream suyashkumar/dicom
+// proxy-substitution workaround was retired when we moved to the fork).
 func ParseInstance(path string) (inst Instance, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			inst, err = Instance{}, fmt.Errorf("dicom: recovered from panic parsing %q: %v", path, r)
 		}
 	}()
-	ds, realTS, err := parseDataset(path)
+	ds, err := dicom.ParseFile(path, nil, dicom.SkipPixelData(), dicom.AllowMismatchPixelDataLength())
 	if err != nil {
 		return Instance{}, err
 	}
@@ -119,11 +121,6 @@ func ParseInstance(path string) (inst Instance, err error) {
 		if v, ok := e.Value.GetValue().([]byte); ok {
 			in.ICCProfile = v
 		}
-	}
-	// parseDataset substitutes a proxy transfer syntax for HTJ2K; restore the
-	// real one it reported.
-	if realTS != "" {
-		in.TransferSyntax = realTS
 	}
 	return in, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 // FuzzParseInstance is the class-level guard against parser crashes on
-// malformed DICOM (the bug class behind the suyashkumar/dicom HTJ2K SIGSEGV).
+// malformed DICOM (the bug class behind the (pre-fork) suyashkumar/dicom HTJ2K SIGSEGV).
 // ParseInstance must always return — value or error — never panic/SIGSEGV.
 // Run: go test ./internal/dicom -run x -fuzz FuzzParseInstance -fuzztime 30s
 func FuzzParseInstance(f *testing.F) {

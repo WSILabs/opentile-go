@@ -11,6 +11,25 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed
+
+- **DICOM dependency migrated to `github.com/WSILabs/dicom`** (a maintained
+  pure-Go fork of `github.com/suyashkumar/dicom`, replacing the now-unmaintained
+  upstream). Transitive only — no opentile-go public API change, and the
+  one-cgo-dep invariant is unaffected (the fork remains pure Go). A consumer's
+  module graph now pulls `WSILabs/dicom v1.1.0-wsilabs.1` instead of
+  `suyashkumar/dicom v1.1.0`.
+
+### Removed
+
+- **HTJ2K transfer-syntax SIGSEGV workaround** (`internal/dicom/htj2k_compat.go`).
+  Upstream `suyashkumar/dicom v1.1.0` crashed (nil `ByteOrder`) on the unknown
+  HTJ2K transfer syntaxes (`1.2.840.10008.1.2.4.201`–`.203`), so opentile-go
+  proxy-substituted the meta-header UID before parsing and restored it after.
+  The fork recognizes HTJ2K directly, so `ParseInstance` is now a plain
+  `dicom.ParseFile`. The `recover()` guard stays as general defense (backed by
+  the parser fuzz test).
+
 ## [0.44.0] — 2026-06-16
 
 Additive: WebP gains codec-domain scaled decode (#11), completing the feasible
