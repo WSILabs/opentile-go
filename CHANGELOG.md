@@ -11,6 +11,11 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.44.0] — 2026-06-16
+
+Additive: WebP gains codec-domain scaled decode (#11), completing the feasible
+codec set under the `DecodeOptions.Scale` contract.
+
 ### Added
 
 - **WebP codec-domain scaled decode** (#11). The webp decoder now honors
