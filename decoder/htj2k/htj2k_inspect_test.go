@@ -25,8 +25,9 @@ func TestHTJ2KInspect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inspect: %v", err)
 	}
-	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessYes {
-		t.Errorf("htj2k inspect = %+v, want comps=3 depth=8 lossless", ci)
+	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessYes ||
+		ci.ChromaSubsampling != decoder.Subsampling444 {
+		t.Errorf("htj2k inspect = %+v, want comps=3 depth=8 lossless 4:4:4", ci)
 	}
 
 	if _, err := p.Inspect([]byte{0xFF, 0xD8}); err == nil { // JPEG SOI, not J2K

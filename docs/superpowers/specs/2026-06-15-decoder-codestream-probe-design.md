@@ -23,11 +23,12 @@ lives on the `Factory` (stateless header parse — no `New()` lifecycle):
 type CodestreamInspector interface { Inspect(src []byte) (CodestreamInfo, error) }
 
 type CodestreamInfo struct {
-    Components    int           // sample/channel count
-    BitDepth      int           // bits per component
-    Lossless      Lossless      // tri-state (see below)
-    ColorEncoding ColorEncoding // Unknown/Grayscale/RGB/YCbCr/YBR_ICT/YBR_RCT
-    Boxed         bool          // boxed container vs raw codestream
+    Components        int               // sample/channel count
+    BitDepth          int               // bits per component
+    Lossless          Lossless          // tri-state (see below)
+    ColorEncoding     ColorEncoding     // Unknown/Grayscale/RGB/YCbCr/YBR_ICT/YBR_RCT
+    ChromaSubsampling ChromaSubsampling // None/4:4:4/4:2:2/4:2:0/4:4:0/4:1:1 (added post-v0.42.1)
+    Boxed             bool              // boxed container vs raw codestream
 }
 
 type Lossless uint8       // LosslessUnknown | LosslessYes | LosslessNo
@@ -57,6 +58,13 @@ if p, ok := f.(decoder.CodestreamInspector); ok { info, err := p.Inspect(src) }
 - **Color encoding is codec-domain** (how samples are stored, what a frame-copy
   preserves), not display intent: JP2K MCT → YBR_RCT (reversible) / YBR_ICT
   (irreversible); no MCT → RGB (or grayscale/sYCC from a JP2 `colr` box).
+- **Chroma subsampling** (added after v0.42.1, on wsitools feedback) lets a
+  consumer distinguish DICOM YBR_FULL_422 (4:2:2) from YBR_FULL (4:4:4) — a
+  dciodvfy conformance distinction — so wsitools' `jpegmeta` (and `jp2kmeta`)
+  raw-byte parsers retire fully. JPEG reads it from the SOF component sampling
+  factors (already returned by `tjDecompressHeader3`, previously discarded);
+  J2K/HTJ2K from the SIZ per-component XRsiz/YRsiz; JPEG XL reports
+  `SubsamplingUnknown`. Grayscale codestreams report `SubsamplingNone`.
 
 ## Per-codec implementation
 

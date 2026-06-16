@@ -23,12 +23,13 @@ func TestJPEG2000Inspect(t *testing.T) {
 		file       string
 		lossless   decoder.Lossless
 		color      decoder.ColorEncoding
+		chroma     decoder.ChromaSubsampling
 		components int
 	}{
-		// Reversible 5/3 + MCT → YBR_RCT, lossless.
-		{"testdata/lowres_2levels.j2k", decoder.LosslessYes, decoder.ColorYBRRCT, 3},
-		// Irreversible 9/7, no MCT.
-		{"testdata/subsampled_422_256.j2k", decoder.LosslessNo, decoder.ColorRGB, 3},
+		// Reversible 5/3 + MCT → YBR_RCT, lossless, no subsampling.
+		{"testdata/lowres_2levels.j2k", decoder.LosslessYes, decoder.ColorYBRRCT, decoder.Subsampling444, 3},
+		// Irreversible 9/7, no MCT, 4:2:2 chroma (XRsiz=2 on the chroma components).
+		{"testdata/subsampled_422_256.j2k", decoder.LosslessNo, decoder.ColorRGB, decoder.Subsampling422, 3},
 	} {
 		b, err := os.ReadFile(tc.file)
 		if err != nil {
@@ -39,9 +40,9 @@ func TestJPEG2000Inspect(t *testing.T) {
 			t.Fatalf("%s: %v", tc.file, err)
 		}
 		if ci.Components != tc.components || ci.BitDepth != 8 || ci.Lossless != tc.lossless ||
-			ci.ColorEncoding != tc.color || ci.Boxed {
-			t.Errorf("%s inspect = %+v, want comps=%d depth=8 lossless=%s color=%s raw",
-				tc.file, ci, tc.components, tc.lossless, tc.color)
+			ci.ColorEncoding != tc.color || ci.ChromaSubsampling != tc.chroma || ci.Boxed {
+			t.Errorf("%s inspect = %+v, want comps=%d depth=8 lossless=%s color=%s chroma=%s raw",
+				tc.file, ci, tc.components, tc.lossless, tc.color, tc.chroma)
 		}
 	}
 

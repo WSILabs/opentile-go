@@ -68,6 +68,22 @@ func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	default:
 		ci.Components, ci.ColorEncoding = 3, decoder.ColorUnknown
 	}
+	switch subsamp {
+	case C.TJSAMP_444:
+		ci.ChromaSubsampling = decoder.Subsampling444
+	case C.TJSAMP_422:
+		ci.ChromaSubsampling = decoder.Subsampling422
+	case C.TJSAMP_420:
+		ci.ChromaSubsampling = decoder.Subsampling420
+	case C.TJSAMP_440:
+		ci.ChromaSubsampling = decoder.Subsampling440
+	case C.TJSAMP_411:
+		ci.ChromaSubsampling = decoder.Subsampling411
+	case C.TJSAMP_GRAY:
+		ci.ChromaSubsampling = decoder.SubsamplingNone
+	default:
+		ci.ChromaSubsampling = decoder.SubsamplingUnknown
+	}
 	return ci, nil
 }
 

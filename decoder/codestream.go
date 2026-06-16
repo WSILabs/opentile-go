@@ -46,6 +46,14 @@ type CodestreamInfo struct {
 	// ColorEncoding is the codec-domain color encoding of the samples.
 	ColorEncoding ColorEncoding
 
+	// ChromaSubsampling is the chroma subsampling of the samples. It matters to
+	// frame-copy consumers that must distinguish, e.g., DICOM YBR_FULL_422
+	// (4:2:2) from YBR_FULL (4:4:4) — a conformance distinction. JPEG reports it
+	// from the SOF component sampling factors; JPEG 2000 / HTJ2K from the SIZ
+	// per-component XRsiz/YRsiz. Grayscale codestreams report SubsamplingNone;
+	// codecs that don't expose it (e.g. JPEG XL) report SubsamplingUnknown.
+	ChromaSubsampling ChromaSubsampling
+
 	// Boxed reports whether src is a boxed container (JP2 / JPH / JXL container)
 	// rather than a raw codestream (J2K / raw JXL). Targets such as DICOM
 	// require a specific encapsulated form (e.g. HTJ2K wants the raw .j2c
@@ -105,6 +113,40 @@ func (c ColorEncoding) String() string {
 		return "YBR_ICT"
 	case ColorYBRRCT:
 		return "YBR_RCT"
+	default:
+		return "unknown"
+	}
+}
+
+// ChromaSubsampling is the chroma subsampling of a codestream's samples,
+// expressed in the conventional J:a:b notation. SubsamplingNone is a
+// single-channel (grayscale) codestream with no chroma to subsample.
+type ChromaSubsampling uint8
+
+const (
+	SubsamplingUnknown ChromaSubsampling = iota
+	SubsamplingNone                      // grayscale / no chroma channels
+	Subsampling444                       // no chroma subsampling
+	Subsampling422                       // 2:1 horizontal
+	Subsampling420                       // 2:1 horizontal + vertical
+	Subsampling440                       // 2:1 vertical
+	Subsampling411                       // 4:1 horizontal
+)
+
+func (s ChromaSubsampling) String() string {
+	switch s {
+	case SubsamplingNone:
+		return "none"
+	case Subsampling444:
+		return "4:4:4"
+	case Subsampling422:
+		return "4:2:2"
+	case Subsampling420:
+		return "4:2:0"
+	case Subsampling440:
+		return "4:4:0"
+	case Subsampling411:
+		return "4:1:1"
 	default:
 		return "unknown"
 	}
