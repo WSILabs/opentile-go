@@ -1,6 +1,9 @@
 package opentile
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestReportOK(t *testing.T) {
 	r := &Report{Findings: []Finding{
@@ -102,5 +105,62 @@ func TestValidatorOfWalksUnwrapChain(t *testing.T) {
 func TestValidatorOfMissing(t *testing.T) {
 	if _, ok := validatorOfAny(struct{}{}); ok {
 		t.Fatal("a non-validator with no UnwrapReader should yield ok=false")
+	}
+}
+
+func TestValidateFileUnopenable(t *testing.T) {
+	if _, err := ValidateFile("/nonexistent/path/zzz.svs"); err == nil {
+		t.Fatal("ValidateFile on a missing path should return an operational error")
+	}
+}
+
+func TestValidateUnopenableBytes(t *testing.T) {
+	garbage := bytes.Repeat([]byte{0xAB}, 512)
+	rep, err := Validate(bytes.NewReader(garbage), int64(len(garbage)))
+	if err != nil {
+		t.Fatalf("Validate returned operational error %v; want a report with Unopenable", err)
+	}
+	if rep.Format != FormatUnknown {
+		t.Fatalf("Format = %q, want FormatUnknown", rep.Format)
+	}
+	if rep.OK() {
+		t.Fatal("garbage should not be OK")
+	}
+	if len(rep.Findings) != 1 || rep.Findings[0].Code != CheckUnopenable {
+		t.Fatalf("findings = %+v, want exactly one CheckUnopenable", rep.Findings)
+	}
+}
+
+func TestEngineGridMismatchFromLevels(t *testing.T) {
+	lvls := []Level{{
+		Index: 0, PyramidIndex: 0,
+		Size:     Size{W: 1024, H: 1024},
+		TileSize: Size{W: 256, H: 256},
+		Grid:     Size{W: 2, H: 2}, // wrong: should be 4x4
+		MPP:      MPP{X: 0.25, Y: 0.25},
+	}}
+	p := newProbe(0)
+	checkLevelGeometry(p, 0, lvls)
+	got := p.findings()
+	if len(got) != 1 || got[0].Code != CheckTileGridMismatch {
+		t.Fatalf("findings = %+v, want one CheckTileGridMismatch", got)
+	}
+}
+
+func TestEngineInconsistentPyramid(t *testing.T) {
+	lvls := []Level{
+		{Index: 0, Size: Size{W: 512, H: 512}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 2, H: 2}},
+		{Index: 1, Size: Size{W: 1024, H: 1024}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 4, H: 4}},
+	}
+	p := newProbe(0)
+	checkLevelGeometry(p, 0, lvls)
+	found := false
+	for _, f := range p.findings() {
+		if f.Code == CheckInconsistentPyramid {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected CheckInconsistentPyramid, got %+v", p.findings())
 	}
 }

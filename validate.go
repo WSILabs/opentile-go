@@ -1,6 +1,11 @@
 package opentile
 
-import "sort"
+import (
+	"fmt"
+	"io"
+	"os"
+	"sort"
+)
 
 // Severity ranks a validation Finding.
 type Severity int
@@ -185,3 +190,112 @@ func validatorOfAny(start any) (Validator, bool) {
 
 // validatorOf finds the Validator behind a Slide's reader, if any.
 func validatorOf(s *Slide) (Validator, bool) { return validatorOfAny(s.r) }
+
+// ValidateOption is the additive seam for future decode-based checks (Tier 2).
+// v1 ships zero options.
+type ValidateOption func(*validateConfig)
+
+type validateConfig struct{}
+
+// ValidateFile opens path and validates it (tiers 0 + 1). The returned error is
+// operational only (path missing / unreadable); a file that fails to open or is
+// structurally broken yields a *Report whose findings describe the problem.
+//
+// We stat first so a genuinely absent/unreadable path is an operational error,
+// while a path that exists but fails to open/parse becomes a CheckUnopenable
+// finding. OpenFile handles both the single-file and DICOM series-directory
+// cases.
+func ValidateFile(path string, opts ...ValidateOption) (*Report, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, err
+	}
+	return validateOpened(func() (*Slide, error) { return OpenFile(path) }, opts...)
+}
+
+// Validate validates an in-memory / streamed source of the given size
+// (tiers 0 + 1). Operational error semantics match ValidateFile.
+func Validate(r io.ReaderAt, size int64, opts ...ValidateOption) (*Report, error) {
+	if size <= 0 {
+		return nil, fmt.Errorf("opentile: Validate: non-positive size %d", size)
+	}
+	return validateOpened(func() (*Slide, error) { return Open(r, size) }, opts...)
+}
+
+// validateOpened runs Tier 0 (open) then Tier 1 (slide.Validate). An open
+// failure is reported as a CheckUnopenable finding, not an operational error.
+func validateOpened(open func() (*Slide, error), opts ...ValidateOption) (*Report, error) {
+	s, err := open()
+	if err != nil {
+		return &Report{
+			Format: FormatUnknown,
+			Findings: []Finding{{
+				Severity: Error,
+				Code:     CheckUnopenable,
+				Message:  err.Error(),
+				Pyramid:  -1,
+				Level:    -1,
+				Count:    1,
+			}},
+		}, nil
+	}
+	defer s.Close()
+	return s.Validate(opts...), nil
+}
+
+// Validate runs the Tier-1 structural checks on an already-open Slide. There is
+// no Tier 0 (it already opened) and no operation can fail, so there is no error
+// return. Reuses the Slide's parsed state.
+func (s *Slide) Validate(opts ...ValidateOption) *Report {
+	p := newProbe(s.size)
+	// Layer 1: format-agnostic geometry checks over every pyramid's levels.
+	s.ensurePyramids()
+	for pi := range s.pyramids {
+		checkLevelGeometry(p, s.pyramids[pi].Index, s.pyramids[pi].Levels)
+	}
+	// Layer 2: per-reader hook, if the reader implements Validator.
+	if v, ok := validatorOf(s); ok {
+		v.Validate(p)
+	}
+	return &Report{Format: s.r.Format(), Findings: p.findings()}
+}
+
+// checkLevelGeometry runs the format-agnostic Tier-1 checks for one pyramid's
+// levels: grid math, monotone downsampling, and MPP presence.
+func checkLevelGeometry(p *ValidationProbe, pyramid int, levels []Level) {
+	for _, l := range levels {
+		if l.Size.W <= 0 || l.Size.H <= 0 ||
+			l.TileSize.W <= 0 || l.TileSize.H <= 0 {
+			p.Flag(CheckTileGridMismatch, pyramid, l.Index,
+				fmt.Sprintf("level %d has degenerate size %dx%d / tile %dx%d",
+					l.Index, l.Size.W, l.Size.H, l.TileSize.W, l.TileSize.H))
+			continue
+		}
+		wantW := ceilDiv(l.Size.W, l.TileSize.W)
+		wantH := ceilDiv(l.Size.H, l.TileSize.H)
+		if l.Grid.W != wantW || l.Grid.H != wantH {
+			p.Flag(CheckTileGridMismatch, pyramid, l.Index,
+				fmt.Sprintf("level %d grid %dx%d != ceil(size/tile) %dx%d",
+					l.Index, l.Grid.W, l.Grid.H, wantW, wantH))
+		}
+		if l.MPP.IsZero() {
+			p.Flag(CheckMissingMetadata, pyramid, l.Index,
+				fmt.Sprintf("level %d has no MPP (microns-per-pixel) metadata", l.Index))
+		}
+	}
+	for i := 1; i < len(levels); i++ {
+		if levels[i].Size.W > levels[i-1].Size.W ||
+			levels[i].Size.H > levels[i-1].Size.H {
+			p.Flag(CheckInconsistentPyramid, pyramid, levels[i].Index,
+				fmt.Sprintf("level %d (%dx%d) is larger than level %d (%dx%d)",
+					levels[i].Index, levels[i].Size.W, levels[i].Size.H,
+					levels[i-1].Index, levels[i-1].Size.W, levels[i-1].Size.H))
+		}
+	}
+}
+
+func ceilDiv(a, b int) int {
+	if b == 0 {
+		return 0
+	}
+	return (a + b - 1) / b
+}
