@@ -11,6 +11,18 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added
+
+- **WebP codec-domain scaled decode** (#11). The webp decoder now honors
+  `DecodeOptions.Scale ∈ {1,2,4,8}` (→ `ceil(dim/Scale)`) via libwebp's internal
+  rescaler (`WebPDecoderConfig.use_scaling`), giving a faster, anti-aliased,
+  seam-free downscale instead of full-decode-then-box — matching the jpeg /
+  jpeg2000 / htj2k contract. Other factors return `ErrUnsupportedScale` (the
+  consumer falls back to spatial reduction). Scale=1 output is byte-identical to
+  before. JPEG XL stays spatial-fallback by design: its only header-level
+  reduced-resolution path is the 1/8 VarDCT DC image, whose libjxl API is
+  deprecated/removed and yields only Scale=8 (documented at the decode site).
+
 ## [0.43.0] — 2026-06-15
 
 Additive: the codestream inspector (#41) gains `CodestreamInfo.ChromaSubsampling`.

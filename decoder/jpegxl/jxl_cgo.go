@@ -205,6 +205,12 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	if d.closed {
 		return nil, fmt.Errorf("decoder/jpegxl: decoder closed")
 	}
+	// Codec-domain scaled decode (GH #11) is not implemented for JPEG XL: the
+	// only header-level reduced-resolution path is the 1/8 VarDCT DC image,
+	// whose libjxl API (JXL_DEC_DC_IMAGE) is deprecated/removed in modern
+	// libjxl, and it would yield only Scale=8 (finer factors need progressive
+	// passes). So we return ErrUnsupportedScale and let the consumer fall back
+	// to full-decode + spatial reduction — same as AVIF.
 	if opts.Scale != 0 && opts.Scale != 1 {
 		return nil, fmt.Errorf("decoder/jpegxl: scale=%d not supported: %w", opts.Scale, decoder.ErrUnsupportedScale)
 	}
