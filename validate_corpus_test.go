@@ -104,6 +104,31 @@ func TestValidateBIFFixtureOK(t *testing.T) {
 	}
 }
 
+// TestValidateCOGWSIFixtureOK confirms that ValidateFile on a COG-WSI file
+// returns OK and correctly reports FormatCOGWSI. COG-WSI delegates its
+// tile-byte machinery to an inner generictiff reader via UnwrapReader(); the
+// validatorOfAny chain therefore reaches the generictiff Validate hook
+// automatically — no separate cogwsi/validate.go is required. All COG-WSI
+// conformance checks (ghost-area invariants, WSIImageType enum, IFD ordering)
+// are fatal at Open time (ErrNotConformantCOGWSI), so a successfully-opened
+// file carries no soft post-open nonconformant findings.
+func TestValidateCOGWSIFixtureOK(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "cog-wsi", "CMU-1-Small-Region_cog-wsi.tiff")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(p)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("clean cog-wsi fixture not OK: %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatCOGWSI {
+		t.Fatalf("Format = %q, want cog-wsi", rep.Format)
+	}
+}
+
 // TestValidateHamamatsu1NDPIOK validates the 64-bit-offset NDPI fixture
 // (Hamamatsu-1.ndpi) and confirms no false CheckOffsetsOutOfBounds are
 // emitted — this is the key regression test for the 64-bit accessor fix.
