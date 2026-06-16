@@ -11,6 +11,10 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.43.0] — 2026-06-15
+
+Additive: the codestream inspector (#41) gains `CodestreamInfo.ChromaSubsampling`.
+
 ### Added
 
 - **`CodestreamInfo.ChromaSubsampling`** (#41 follow-up, on wsitools feedback).
