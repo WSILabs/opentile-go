@@ -42,12 +42,13 @@ func TestJPEGInspect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// image/jpeg encodes YCbCr with 4:2:0 chroma subsampling.
 	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessNo ||
-		ci.ColorEncoding != decoder.ColorYCbCr || ci.Boxed {
-		t.Errorf("color JPEG inspect = %+v, want comps=3 depth=8 lossy YCbCr raw", ci)
+		ci.ColorEncoding != decoder.ColorYCbCr || ci.ChromaSubsampling != decoder.Subsampling420 || ci.Boxed {
+		t.Errorf("color JPEG inspect = %+v, want comps=3 depth=8 lossy YCbCr 4:2:0 raw", ci)
 	}
 
-	// Grayscale JPEG.
+	// Grayscale JPEG → no chroma.
 	gray := image.NewGray(image.Rect(0, 0, 16, 16))
 	for i := range gray.Pix {
 		gray.Pix[i] = uint8(i)
@@ -56,8 +57,8 @@ func TestJPEGInspect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ci.Components != 1 || ci.ColorEncoding != decoder.ColorGrayscale {
-		t.Errorf("gray JPEG inspect = %+v, want comps=1 grayscale", ci)
+	if ci.Components != 1 || ci.ColorEncoding != decoder.ColorGrayscale || ci.ChromaSubsampling != decoder.SubsamplingNone {
+		t.Errorf("gray JPEG inspect = %+v, want comps=1 grayscale none", ci)
 	}
 
 	// Corrupt input → error.

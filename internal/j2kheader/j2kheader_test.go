@@ -3,6 +3,8 @@ package j2kheader
 import (
 	"encoding/binary"
 	"testing"
+
+	"github.com/wsilabs/opentile-go/decoder"
 )
 
 // buildCodestream assembles a minimal raw J2K main header: SOC + SIZ + COD.
@@ -50,6 +52,10 @@ func TestParseRawReversibleRGB(t *testing.T) {
 	}
 	if got.Components != 3 || got.BitDepth != 8 || !got.Reversible || !got.MCT || got.Boxed {
 		t.Fatalf("got %+v, want comps=3 depth=8 reversible MCT raw", got)
+	}
+	// All components XRsiz=YRsiz=1 (buildCodestream default) → 4:4:4.
+	if cs := got.CodestreamInfo().ChromaSubsampling; cs != decoder.Subsampling444 {
+		t.Errorf("ChromaSubsampling = %s, want 4:4:4", cs)
 	}
 }
 

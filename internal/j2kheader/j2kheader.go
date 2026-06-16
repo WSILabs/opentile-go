@@ -30,6 +30,11 @@ type Info struct {
 	// EnumColorspace is the JP2 'colr' box enumerated colorspace when present
 	// on a boxed input (16 = sRGB, 17 = grayscale, 18 = sYCC); -1 otherwise.
 	EnumColorspace int
+
+	// XRsiz / YRsiz are the per-component horizontal / vertical sub-sampling
+	// factors from SIZ (component 0 = luma, typically 1/1). Used to derive
+	// chroma subsampling (4:2:2 vs 4:4:4, etc.).
+	XRsiz, YRsiz []int
 }
 
 // CodestreamInfo maps the codec-agnostic J2K header facts to the
@@ -40,7 +45,12 @@ type Info struct {
 // it, three components are RGB unless a JP2 'colr' box declares an enumerated
 // grayscale / sYCC space.
 func (h Info) CodestreamInfo() decoder.CodestreamInfo {
-	ci := decoder.CodestreamInfo{Components: h.Components, BitDepth: h.BitDepth, Boxed: h.Boxed}
+	ci := decoder.CodestreamInfo{
+		Components:        h.Components,
+		BitDepth:          h.BitDepth,
+		Boxed:             h.Boxed,
+		ChromaSubsampling: h.chromaSubsampling(),
+	}
 	if h.Reversible {
 		ci.Lossless = decoder.LosslessYes
 	} else {
@@ -64,6 +74,31 @@ func (h Info) CodestreamInfo() decoder.CodestreamInfo {
 		}
 	}
 	return ci
+}
+
+// chromaSubsampling derives the chroma subsampling from the SIZ per-component
+// sub-sampling factors (component 1 = first chroma, relative to luma's 1/1).
+func (h Info) chromaSubsampling() decoder.ChromaSubsampling {
+	if h.Components == 1 {
+		return decoder.SubsamplingNone
+	}
+	if h.Components < 3 || len(h.XRsiz) < 2 || len(h.YRsiz) < 2 {
+		return decoder.SubsamplingUnknown
+	}
+	switch hx, vy := h.XRsiz[1], h.YRsiz[1]; {
+	case hx == 1 && vy == 1:
+		return decoder.Subsampling444
+	case hx == 2 && vy == 1:
+		return decoder.Subsampling422
+	case hx == 2 && vy == 2:
+		return decoder.Subsampling420
+	case hx == 1 && vy == 2:
+		return decoder.Subsampling440
+	case hx == 4 && vy == 1:
+		return decoder.Subsampling411
+	default:
+		return decoder.SubsamplingUnknown
+	}
 }
 
 // J2K marker codes (big-endian, 0xFFxx).
@@ -96,12 +131,14 @@ func Parse(src []byte) (Info, error) {
 		return Info{}, ErrNotJ2K
 	}
 
-	comps, bitDepth, sizEnd, err := parseSIZ(cs)
+	comps, bitDepth, xr, yr, sizEnd, err := parseSIZ(cs)
 	if err != nil {
 		return Info{}, err
 	}
 	info.Components = comps
 	info.BitDepth = bitDepth
+	info.XRsiz = xr
+	info.YRsiz = yr
 
 	mct, reversible, ok := findCOD(cs, sizEnd)
 	if !ok {
@@ -115,29 +152,36 @@ func Parse(src []byte) (Info, error) {
 // parseSIZ reads the SIZ marker (which must immediately follow SOC) and returns
 // the component count, component-0 bit depth, and the offset just past the SIZ
 // segment (where main-header marker walking resumes).
-func parseSIZ(cs []byte) (components, bitDepth, sizEnd int, err error) {
+func parseSIZ(cs []byte) (components, bitDepth int, xr, yr []int, sizEnd int, err error) {
 	// cs[0:2] = SOC. SIZ marker begins at cs[2].
 	if len(cs) < 4 || cs[2] != 0xFF || cs[3] != mrkSIZ {
-		return 0, 0, 0, ErrNotJ2K
+		return 0, 0, nil, nil, 0, ErrNotJ2K
 	}
 	siz := 2 // SIZ marker offset
 	if len(cs) < siz+40 {
-		return 0, 0, 0, ErrNotJ2K
+		return 0, 0, nil, nil, 0, ErrNotJ2K
 	}
 	lsiz := int(binary.BigEndian.Uint16(cs[siz+2 : siz+4]))
 	// Csiz (component count) sits 38 bytes into the SIZ marker (after FF51,
 	// Lsiz, Rsiz, and the eight 4-byte image/tile geometry fields).
 	csiz := int(binary.BigEndian.Uint16(cs[siz+38 : siz+40]))
 	if csiz < 1 {
-		return 0, 0, 0, ErrNotJ2K
+		return 0, 0, nil, nil, 0, ErrNotJ2K
 	}
-	// Ssiz of component 0 immediately follows Csiz.
-	if len(cs) < siz+41 {
-		return 0, 0, 0, ErrNotJ2K
+	// Per-component triplets [Ssiz, XRsiz, YRsiz] follow Csiz, starting at
+	// siz+40 (3 bytes each).
+	if len(cs) < siz+40+3*csiz {
+		return 0, 0, nil, nil, 0, ErrNotJ2K
 	}
-	ssiz0 := cs[siz+40]
-	bitDepth = int(ssiz0&0x7F) + 1
-	return csiz, bitDepth, siz + 2 + lsiz, nil
+	xr = make([]int, csiz)
+	yr = make([]int, csiz)
+	for i := 0; i < csiz; i++ {
+		base := siz + 40 + 3*i
+		xr[i] = int(cs[base+1])
+		yr[i] = int(cs[base+2])
+	}
+	bitDepth = int(cs[siz+40]&0x7F) + 1 // Ssiz of component 0
+	return csiz, bitDepth, xr, yr, siz + 2 + lsiz, nil
 }
 
 // findCOD walks the main-header markers from offset start until it finds COD,

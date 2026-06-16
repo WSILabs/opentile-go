@@ -30,7 +30,7 @@ func TestJPEGXLInspect(t *testing.T) {
 	}
 	// libjxl exposes no header-only lossless flag → LosslessUnknown is expected.
 	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessUnknown ||
-		ci.ColorEncoding != decoder.ColorRGB || ci.Boxed {
+		ci.ColorEncoding != decoder.ColorRGB || ci.ChromaSubsampling != decoder.SubsamplingUnknown || ci.Boxed {
 		t.Errorf("jxl inspect = %+v, want comps=3 depth=8 lossless=unknown RGB raw", ci)
 	}
 

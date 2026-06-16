@@ -11,6 +11,19 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added
+
+- **`CodestreamInfo.ChromaSubsampling`** (#41 follow-up, on wsitools feedback).
+  The codestream inspector now reports chroma subsampling (`4:4:4` / `4:2:2` /
+  `4:2:0` / `4:4:0` / `4:1:1`, `none` for grayscale, `unknown` where unavailable),
+  so a frame-copy consumer can distinguish DICOM YBR_FULL_422 (4:2:2) from
+  YBR_FULL (4:4:4) — a dciodvfy conformance distinction — letting wsitools retire
+  both its `jp2kmeta` and `jpegmeta` raw-byte parsers. JPEG reads it from the SOF
+  component sampling factors (`tjDecompressHeader3`, previously discarded);
+  JPEG 2000 / HTJ2K from the SIZ per-component XRsiz/YRsiz (verified: a 4:2:2
+  J2K codestream reports `Subsampling422`); JPEG XL reports
+  `SubsamplingUnknown`. Additive — a new field + `ChromaSubsampling` enum.
+
 ## [0.42.1] — 2026-06-15
 
 Pre-adoption rename of the v0.42.0 codestream-inspection API (#41). Marked
