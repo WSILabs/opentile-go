@@ -11,6 +11,12 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.44.1] — 2026-06-16
+
+Maintenance: the DICOM metadata parser moves to the maintained `WSILabs/dicom`
+fork, retiring the HTJ2K SIGSEGV workaround. Transitive dependency change only —
+no opentile-go public API or behavior change.
+
 ### Changed
 
 - **DICOM dependency migrated to `github.com/WSILabs/dicom`** (a maintained
