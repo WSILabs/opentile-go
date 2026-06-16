@@ -189,3 +189,25 @@ func TestValidateSZIFixtureOK(t *testing.T) {
 		t.Fatalf("Format = %q, want szi", rep.Format)
 	}
 }
+
+// TestValidateDICOMFixtureOK validates a known-good DICOM WSM series
+// (scan_621_grundium_dicom) and confirms no CheckOffsetsOutOfBounds
+// (or other Error-severity) findings. DICOM is multi-file, so the test
+// passes the series directory path to ValidateFile. The test is skipped
+// when OPENTILE_TESTDIR is unset or the fixture directory is absent.
+func TestValidateDICOMFixtureOK(t *testing.T) {
+	dir := filepath.Join(corpusDir(t), "dicom", "scan_621_grundium_dicom")
+	if _, err := os.Stat(dir); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	rep, err := opentile.ValidateFile(dir)
+	if err != nil {
+		t.Fatalf("ValidateFile: %v", err)
+	}
+	if !rep.OK() {
+		t.Fatalf("clean DICOM series not OK: %+v", rep.Findings)
+	}
+	if rep.Format != opentile.FormatDICOM {
+		t.Fatalf("Format = %q, want dicom", rep.Format)
+	}
+}
