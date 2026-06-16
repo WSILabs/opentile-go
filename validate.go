@@ -1,5 +1,7 @@
 package opentile
 
+import "sort"
+
 // Severity ranks a validation Finding.
 type Severity int
 
@@ -80,4 +82,78 @@ func (r *Report) Worst() Severity {
 		}
 	}
 	return worst
+}
+
+// codeSeverity is the canonical severity for each CheckCode. Defining it once
+// keeps severity assignment in a single place; readers/engine never pass it.
+var codeSeverity = map[CheckCode]Severity{
+	CheckUnopenable:          Error,
+	CheckOffsetsOutOfBounds:  Error,
+	CheckTileGridMismatch:    Error,
+	CheckNonConformantFormat: Error,
+	CheckInconsistentPyramid: Warning,
+	CheckMissingMetadata:     Warning,
+	CheckOrphanIFD:           Info,
+}
+
+// ValidationProbe is the collector handed to a reader's Validate hook. Readers
+// call Flag once per problem occurrence; the engine rolls occurrences up by
+// (Code, Pyramid, Level) into count-only Findings. Readers never count and
+// never assign severity.
+type ValidationProbe struct {
+	size int64
+	agg  map[probeKey]*Finding
+	keys []probeKey // insertion order, for deterministic output
+}
+
+type probeKey struct {
+	code           CheckCode
+	pyramid, level int
+}
+
+func newProbe(size int64) *ValidationProbe {
+	return &ValidationProbe{size: size, agg: map[probeKey]*Finding{}}
+}
+
+// Size is the backing file size in bytes (for byte-range bounds checks).
+func (p *ValidationProbe) Size() int64 { return p.size }
+
+// Flag records one occurrence of a problem at the given locus. Use pyramid=-1
+// and/or level=-1 when the locus is the whole file or not applicable. The first
+// occurrence's msg is kept as the Finding's Message; later occurrences only
+// bump the Count.
+func (p *ValidationProbe) Flag(code CheckCode, pyramid, level int, msg string) {
+	k := probeKey{code, pyramid, level}
+	if f, ok := p.agg[k]; ok {
+		f.Count++
+		return
+	}
+	p.agg[k] = &Finding{
+		Severity: codeSeverity[code],
+		Code:     code,
+		Message:  msg,
+		Pyramid:  pyramid,
+		Level:    level,
+		Count:    1,
+	}
+	p.keys = append(p.keys, k)
+}
+
+// findings returns the rolled-up findings in a deterministic order: by severity
+// (Error first), then code, then level.
+func (p *ValidationProbe) findings() []Finding {
+	out := make([]Finding, 0, len(p.keys))
+	for _, k := range p.keys {
+		out = append(out, *p.agg[k])
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Severity != out[j].Severity {
+			return out[i].Severity > out[j].Severity // Error first
+		}
+		if out[i].Code != out[j].Code {
+			return out[i].Code < out[j].Code
+		}
+		return out[i].Level < out[j].Level
+	})
+	return out
 }
