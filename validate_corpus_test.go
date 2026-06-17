@@ -36,6 +36,30 @@ func TestValidateNDPIFixtureOK(t *testing.T) {
 	}
 }
 
+// TestValidateNDPINoMPPFalsePositive guards GH #55: CMU-1.ndpi carries MPP at
+// the slide level (Metadata.MPP) but not per-level (Level.MPP). Validate must
+// NOT emit a missing-metadata finding for it.
+func TestValidateNDPINoMPPFalsePositive(t *testing.T) {
+	p := filepath.Join(corpusDir(t), "ndpi", "CMU-1.ndpi")
+	if _, err := os.Stat(p); err != nil {
+		t.Skipf("fixture absent: %v", err)
+	}
+	s, err := opentile.OpenFile(p)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer s.Close()
+	if s.Metadata().MPP.IsZero() {
+		t.Skip("fixture has no slide-level MPP; nothing to guard")
+	}
+	rep := s.Validate()
+	for _, f := range rep.Findings {
+		if f.Code == opentile.CheckMissingMetadata {
+			t.Fatalf("missing-metadata false positive despite slide MPP %v: %+v", s.Metadata().MPP, f)
+		}
+	}
+}
+
 func TestValidatePhilipsTIFFFixtureOK(t *testing.T) {
 	p := filepath.Join(corpusDir(t), "philips-tiff", "Philips-1.tiff")
 	if _, err := os.Stat(p); err != nil {

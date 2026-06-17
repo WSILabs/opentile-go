@@ -40,9 +40,9 @@ func (s Severity) String() string {
 type CheckCode string
 
 const (
-	CheckUnopenable          CheckCode = "unopenable"
-	CheckOffsetsOutOfBounds  CheckCode = "offsets-out-of-bounds"
-	CheckTileGridMismatch    CheckCode = "tile-grid-mismatch"
+	CheckUnopenable         CheckCode = "unopenable"
+	CheckOffsetsOutOfBounds CheckCode = "offsets-out-of-bounds"
+	CheckTileGridMismatch   CheckCode = "tile-grid-mismatch"
 	// CheckNonConformantFormat is reserved: no reader emits it in v1 (COG-WSI
 	// conformance is enforced fatally at Open). Kept for future per-format soft checks.
 	CheckNonConformantFormat CheckCode = "non-conformant-format"
@@ -253,9 +253,13 @@ func validateOpened(open func() (*Slide, error), opts ...ValidateOption) (*Repor
 func (s *Slide) Validate(opts ...ValidateOption) *Report {
 	p := newProbe(s.size)
 	// Layer 1: format-agnostic geometry checks over every pyramid's levels.
+	// MPP is a slide-level property; several readers expose it only via
+	// Metadata.MPP (not per-level Level.MPP), so treat it as the source of
+	// truth for the missing-metadata check (GH #55).
+	slideHasMPP := !s.r.Metadata().MPP.IsZero()
 	s.ensurePyramids()
 	for pi := range s.pyramids {
-		checkLevelGeometry(p, s.pyramids[pi].Index, s.pyramids[pi].Levels)
+		checkLevelGeometry(p, s.pyramids[pi].Index, s.pyramids[pi].Levels, slideHasMPP)
 	}
 	// Layer 2: per-reader hook, if the reader implements Validator.
 	if v, ok := validatorOf(s); ok {
@@ -266,8 +270,18 @@ func (s *Slide) Validate(opts ...ValidateOption) *Report {
 
 // checkLevelGeometry runs the format-agnostic Tier-1 checks for one pyramid's
 // levels: grid math, monotone downsampling, and MPP presence.
-func checkLevelGeometry(p *ValidationProbe, pyramid int, levels []Level) {
+// checkLevelGeometry runs the per-pyramid structural checks. slideHasMPP is
+// true when the slide carries an MPP at the slide level (Metadata.MPP); MPP is
+// fundamentally a slide property, so the missing-metadata check is evaluated
+// once per pyramid against the slide-level MPP OR any per-level MPP, not per
+// level — several readers populate only the slide-level Metadata.MPP and leave
+// Level.MPP zero, which must not be reported as missing (GH #55).
+func checkLevelGeometry(p *ValidationProbe, pyramid int, levels []Level, slideHasMPP bool) {
+	pyramidHasMPP := slideHasMPP
 	for _, l := range levels {
+		if !l.MPP.IsZero() {
+			pyramidHasMPP = true
+		}
 		if l.Size.W <= 0 || l.Size.H <= 0 ||
 			l.TileSize.W <= 0 || l.TileSize.H <= 0 {
 			p.Flag(CheckTileGridMismatch, pyramid, l.Index,
@@ -282,10 +296,10 @@ func checkLevelGeometry(p *ValidationProbe, pyramid int, levels []Level) {
 				fmt.Sprintf("level %d grid %dx%d != ceil(size/tile) %dx%d",
 					l.Index, l.Grid.W, l.Grid.H, wantW, wantH))
 		}
-		if l.MPP.IsZero() {
-			p.Flag(CheckMissingMetadata, pyramid, l.Index,
-				fmt.Sprintf("level %d has no MPP (microns-per-pixel) metadata", l.Index))
-		}
+	}
+	if !pyramidHasMPP {
+		p.Flag(CheckMissingMetadata, pyramid, -1,
+			"no MPP (microns-per-pixel) metadata at the slide or any level")
 	}
 	for i := 1; i < len(levels); i++ {
 		if levels[i].Size.W > levels[i-1].Size.W ||
