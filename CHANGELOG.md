@@ -11,6 +11,22 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.45.2] — 2026-06-17
+
+Fix: `Validate`'s missing-metadata check no longer false-positives on slides
+whose MPP is slide-level only.
+
+### Fixed
+
+- **`Validate`: evaluate MPP at the slide level, not per-`Level`** (#55). The
+  `missing-metadata` check tested `Level.MPP` per level, so it fired on every
+  level of ndpi, leica-scn, dicom, cog-wsi/generic-tiff, ife, and szi — readers
+  that populate the slide-level `Metadata.MPP` but leave per-level `Level.MPP`
+  zero. The check now consults the slide-level `Metadata.MPP` (or any per-level
+  MPP) and emits at most one `missing-metadata` finding per pyramid, only when
+  the slide carries no MPP anywhere; a genuinely resolution-less slide still
+  flags. (The per-level `Level.MPP` data gap is a separate, deferred follow-up.)
+
 ## [0.45.1] — 2026-06-16
 
 Fix: JPEG 2000 decoder no longer misreads RGB codestreams as YCbCr.
