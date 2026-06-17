@@ -11,18 +11,25 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.45.0] — 2026-06-16
+
+Additive: a structural WSI validator. New, no breaking changes.
+
 ### Added
 
 - **`Validate` API** (`opentile.ValidateFile`, `opentile.Validate`,
   `(*Slide).Validate`) — structural WSI validation (tiers 0 + 1: openability and
   no-decode structural integrity). Returns a findings-as-data `Report`
-  (`Finding`/`Severity`/`CheckCode`, `report.OK()`), rolling repeated problems up
-  by category with a count. Checks: unopenable, out-of-bounds
-  tile/strip/frame offsets (64-bit-correct: classic TIFF, BigTIFF, NDPI), tile-grid
-  mismatch, format non-conformance, inconsistent pyramid, missing metadata, orphan
-  IFD. Wired for all 11 format readers. Decode-free (nocgo-safe). Pixel-correctness
-  and full spec-conformance are explicitly out of scope (see `docs/validate.md`).
-  Tier 2 (pixel-decode checks) is reserved via the `ValidateOption` seam, not built.
+  (`Finding`/`Severity`/`CheckCode`, `report.OK()`/`Worst()`), rolling repeated
+  problems up by category with a count. Active checks: unopenable, out-of-bounds
+  tile/strip/frame offsets (64-bit-correct: classic TIFF, BigTIFF, NDPI),
+  tile-grid mismatch, inconsistent pyramid, and missing metadata. Wired for all
+  11 format readers (TIFF formats share `internal/tiffvalidate`; IFE/SZI/DICOM
+  check their own byte ranges; COG-WSI delegates to the inner TIFF reader).
+  Decode-free (nocgo-safe). The `orphan-ifd` and `non-conformant-format` check
+  codes are defined but reserved (not emitted in v1 — see `docs/validate.md`).
+  Pixel-correctness and full spec-conformance are explicitly out of scope. Tier 2
+  (pixel-decode checks) is reserved via the `ValidateOption` seam, not built.
   Also adds `opentile.FormatUnknown` (the named `Format` zero value).
 
 ## [0.44.1] — 2026-06-16
