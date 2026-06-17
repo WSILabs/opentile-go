@@ -146,10 +146,52 @@ func TestEngineGridMismatchFromLevels(t *testing.T) {
 		MPP:      MPP{X: 0.25, Y: 0.25},
 	}}
 	p := newProbe(0)
-	checkLevelGeometry(p, 0, lvls)
+	checkLevelGeometry(p, 0, lvls, false)
 	got := p.findings()
 	if len(got) != 1 || got[0].Code != CheckTileGridMismatch {
 		t.Fatalf("findings = %+v, want one CheckTileGridMismatch", got)
+	}
+}
+
+// TestEngineMPPSlideLevelSuppresses: a level with zero Level.MPP must NOT
+// produce a missing-metadata finding when the slide carries MPP at the slide
+// level (Metadata.MPP). Guards the GH #55 false-positive on readers that
+// populate only the slide-level MPP (ndpi/leica-scn/dicom/generic-tiff/...).
+func TestEngineMPPSlideLevelSuppresses(t *testing.T) {
+	lvls := []Level{{
+		Index: 0, Size: Size{W: 512, H: 512}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 2, H: 2},
+		// Level.MPP intentionally zero.
+	}}
+	p := newProbe(0)
+	checkLevelGeometry(p, 0, lvls, true /* slide has MPP */)
+	for _, f := range p.findings() {
+		if f.Code == CheckMissingMetadata {
+			t.Fatalf("missing-metadata flagged despite slide-level MPP: %+v", f)
+		}
+	}
+}
+
+// TestEngineMPPMissingEverywhere: when neither the slide nor any level carries
+// MPP, exactly one missing-metadata finding fires, once per pyramid (locus -1),
+// not once per level.
+func TestEngineMPPMissingEverywhere(t *testing.T) {
+	lvls := []Level{
+		{Index: 0, Size: Size{W: 512, H: 512}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 2, H: 2}},
+		{Index: 1, Size: Size{W: 256, H: 256}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 1, H: 1}},
+	}
+	p := newProbe(0)
+	checkLevelGeometry(p, 0, lvls, false /* no slide MPP */)
+	var mm []Finding
+	for _, f := range p.findings() {
+		if f.Code == CheckMissingMetadata {
+			mm = append(mm, f)
+		}
+	}
+	if len(mm) != 1 {
+		t.Fatalf("want exactly one missing-metadata finding, got %d: %+v", len(mm), mm)
+	}
+	if mm[0].Level != -1 {
+		t.Fatalf("missing-metadata locus level = %d, want -1 (per-pyramid)", mm[0].Level)
 	}
 }
 
@@ -159,7 +201,7 @@ func TestEngineInconsistentPyramid(t *testing.T) {
 		{Index: 1, Size: Size{W: 1024, H: 1024}, TileSize: Size{W: 256, H: 256}, Grid: Size{W: 4, H: 4}},
 	}
 	p := newProbe(0)
-	checkLevelGeometry(p, 0, lvls)
+	checkLevelGeometry(p, 0, lvls, true)
 	found := false
 	for _, f := range p.findings() {
 		if f.Code == CheckInconsistentPyramid {
