@@ -11,6 +11,25 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.45.1] — 2026-06-16
+
+Fix: JPEG 2000 decoder no longer misreads RGB codestreams as YCbCr.
+
+### Fixed
+
+- **`decoder/jpeg2000`: decide RGB vs YCbCr from the codestream** (#53). The
+  decode shim assumed any 3-component codestream with `color_space != SRGB` was
+  YCbCr. A raw J2K codestream (`FF4F`) carries no colorspace (it lives in JP2
+  boxes), so OpenJPEG reports `UNSPECIFIED` and the heuristic misclassified every
+  raw 3-component J2K as YCbCr — including standard RGB / RGB-MCT codestreams that
+  OpenJPEG had already decoded to RGB, applying a spurious YCbCr→RGB step and
+  producing wrong colors (e.g. wsitools' JP2K-encoder output). The decoder now
+  decides from the codestream via the pure-Go `internal/j2kheader` parser: COD
+  MCT flag set → already RGB (no conversion); explicit sRGB box → RGB; sYCC box →
+  YCbCr; ambiguous (no MCT, no decisive box — the Aperio 33003 convention) →
+  YCbCr. Aperio 33003 decoding is byte-identical to before; `nojp2k`/`nocgo`
+  builds unaffected.
+
 ## [0.45.0] — 2026-06-16
 
 Additive: a structural WSI validator. New, no breaking changes.
