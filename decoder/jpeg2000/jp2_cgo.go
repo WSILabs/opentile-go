@@ -113,7 +113,7 @@ static int opj_jpeg2000_dimensions(const uint8_t *in, size_t in_len,
 static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
                                int codec_format, int resolution_factor,
                                uint8_t *out, int w, int h, int bpp,
-                               int *color_space_out) {
+                               int apply_ycbcr, int *color_space_out) {
     buf_stream_state_t state = { in, in_len, 0 };
 
     opj_stream_t *stream = opj_stream_default_create(OPJ_TRUE);
@@ -177,11 +177,14 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
         return -1;
     }
 
-    // Pack component planes into packed RGB (or YCbCr -> RGB).
-    // For Aperio 33003 tiles, color_space is typically OPJ_CLRSPC_SYCC or
-    // OPJ_CLRSPC_UNSPECIFIED; treat 3-component as YCbCr by default.
-    // For Aperio 33005 (RGB), color_space == OPJ_CLRSPC_SRGB.
-    int is_ycbcr = (image->numcomps == 3 && image->color_space != OPJ_CLRSPC_SRGB);
+    // Pack component planes into packed RGB (or YCbCr -> RGB). Whether the
+    // 3-component data is YCbCr is decided by the Go caller from the codestream
+    // (COD MCT flag + any JP2 colorspace box), not from image->color_space —
+    // a raw J2K codestream carries no colorspace, so the old "non-sRGB => YCbCr"
+    // heuristic misread standard RGB / RGB-MCT codestreams (GH #53). The
+    // numcomps==3 guard preserves the historical RGB/RGBA-passthrough for
+    // non-3-component images.
+    int is_ycbcr = (image->numcomps == 3 && apply_ycbcr);
 
     // Each component may be chroma-subsampled (4:2:2 / 4:2:0): comps[c].data
     // holds only comps[c].w * comps[c].h samples, NOT w*h. Index every
@@ -295,6 +298,42 @@ func detectCodecFormat(src []byte) C.int {
 	return C.OPJ_CODEC_JP2
 }
 
+// JP2 'colr' box enumerated colorspace values.
+const (
+	jp2EnumSRGB = 16
+	jp2EnumSYCC = 18
+)
+
+// decodeIsYCbCr reports whether the decoded 3-component planes need a
+// YCbCr->RGB conversion, decided from the codestream rather than a blanket
+// assumption (GH #53). OpenJPEG applies the inverse multiple-component
+// transform (MCT) during decode, so an MCT codestream's components are already
+// RGB. The decoder therefore treats 3-component data as YCbCr only on a
+// positive signal: an sYCC JP2 colorspace box, or — the Aperio 33003 convention
+// — a raw codestream with no MCT and no (decisive) colorspace box. An MCT
+// codestream or an explicit sRGB box is RGB and needs no conversion.
+func decodeIsYCbCr(src []byte) bool {
+	h, err := j2kheader.Parse(src)
+	if err != nil {
+		// Unparseable header: fall back to the historical default (treat
+		// 3-component data as YCbCr), preserving Aperio 33003 behavior.
+		return true
+	}
+	if h.MCT {
+		return false // OpenJPEG already inverted the MCT -> RGB
+	}
+	switch h.EnumColorspace {
+	case jp2EnumSRGB:
+		return false // explicit RGB
+	case jp2EnumSYCC:
+		return true // explicit YCbCr
+	}
+	// No MCT and no decisive colorspace box: ambiguous. Default to YCbCr to
+	// preserve the Aperio 33003 convention (raw J2K, YCbCr, no MCT, no box).
+	// A standard RGB encoder uses MCT or carries an sRGB box, both handled above.
+	return true
+}
+
 func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Image, error) {
 	if len(src) == 0 {
 		return nil, fmt.Errorf("decoder/jpeg2000: empty input: %w", decoder.ErrCorruptInput)
@@ -375,6 +414,11 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		decodeImg = decoder.NewImageFormat(codecW, codecH, format)
 	}
 
+	applyYCbCr := C.int(0)
+	if decodeIsYCbCr(src) {
+		applyYCbCr = 1
+	}
+
 	var colorSpaceOut C.int
 	rc = C.opj_jpeg2000_decode(
 		(*C.uint8_t)(unsafe.Pointer(&src[0])),
@@ -382,6 +426,7 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 		C.int(codecFmt), cActualReduce,
 		(*C.uint8_t)(unsafe.Pointer(&decodeImg.Pix[0])),
 		cW, cH, C.int(bpp),
+		applyYCbCr,
 		&colorSpaceOut,
 	)
 	runtime.KeepAlive(src)
