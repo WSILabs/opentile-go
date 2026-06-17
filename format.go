@@ -45,4 +45,7 @@ const (
 	// series (one directory of .dcm instances per series). The first multi-file
 	// format in opentile-go; opened via OpenFile(directoryPath). Added in v0.32.
 	FormatDICOM Format = "dicom"
+	// FormatUnknown is the zero value of Format, used when a file did not
+	// open as any known format (e.g. Report.Format on an Unopenable file).
+	FormatUnknown Format = ""
 )

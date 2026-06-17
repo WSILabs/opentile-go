@@ -217,6 +217,7 @@ func (p *Page) TileByteCounts() ([]uint32, error) {
 	return p.arrayU32(TagTileByteCounts)
 }
 
+
 func (p *Page) arrayU32(tag uint16) ([]uint32, error) {
 	e, ok := p.ifd.get(tag)
 	if !ok {

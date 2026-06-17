@@ -297,6 +297,25 @@ formats (IFE, SZI) return `ok=false`. Pixel-pointer tags
 TIFF-based formats (SVS, NDPI, Philips, OME-TIFF, BIF, generic-TIFF,
 Leica-SCN, COG-WSI).
 
+### Validating a slide
+
+`opentile.ValidateFile` checks whether a WSI file is structurally well-formed
+without decoding any pixels:
+
+```go
+rep, err := opentile.ValidateFile("slide.svs")
+if err != nil { /* unreadable input */ }
+if !rep.OK() {
+    for _, f := range rep.Findings {
+        fmt.Printf("%s [%s] %s (x%d)\n", f.Severity, f.Code, f.Message, f.Count)
+    }
+}
+```
+
+"OK" means well-formed per opentile-go's reader — **not** that pixels are correct
+or the file is fully spec-conformant. See [`docs/validate.md`](./docs/validate.md)
+for the full check catalog, the four fences, and entry-point details.
+
 ### Concurrency
 
 `Level.Tile`, `Level.TileInto`, `Level.TileAt`, and `Level.TileReader` are safe to call concurrently from multiple goroutines. SVS / Philips / OME tiled / BIF / IFE have no internal locks on the tile hot path. NDPI's stripped reader takes a per-page mutex on its assembled-frame cache; concurrent reads of *different* pages run in parallel, concurrent reads of the *same* page serialize. OME OneFrame is similar.
