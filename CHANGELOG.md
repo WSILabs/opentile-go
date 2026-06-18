@@ -9,6 +9,21 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [Unreleased]
+
+### Added
+
+- **`Level.Overlapping bool`** (#71) — explicit signal that a level's stored
+  tiles overlap, so `Grid` does **not** tile `Size` (`Grid.W × TileSize.W >
+  Size.W`). True only for stitched BIF levels (#60); false for every other
+  format and for non-overlapping BIF levels. Consumers that re-tile / reassemble
+  pixels must route through the region API (`ReadRegion` / `ReadRegionScaled` /
+  `ScaledStrips`) when `Overlapping` is true, and gate any verbatim per-tile-copy
+  fast path on `!Overlapping` — the per-tile accessors (`Tile` / `DecodedTile` /
+  `Grid` iteration) return the raw overlapping tiles, not a partition of the
+  stitched image. Documented the contract on `Level.Grid` / `Level.Overlapping`
+  and in `docs/formats/bif.md`. Additive; no behavior change.
+
 ## [0.47.1] — 2026-06-18
 
 ### Fixed

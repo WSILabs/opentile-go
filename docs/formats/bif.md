@@ -12,7 +12,7 @@ Roche's WSI format for the VENTANA DP family of scanners (DP 200, DP 600, …) a
 - **Pyramid layout**: top-level IFDs sorted by parsed `level=N` from each IFD's ImageDescription. Spec describes IFD 0 = label, IFD 1 = probability, IFD 2 = scan, IFD 3+ = pyramid; **OS-1 (legacy) violates this**: IFD 0 = label, IFD 1 = thumbnail, IFD 2..11 = pyramid (no probability). v0.7 classifies by ImageDescription content, not by IFD index.
 - **Compression**: JPEG (tag 7) on every pyramid IFD. Associated images: NONE (Ventana-1 IFD 0 RGB raw strips), LZW (Ventana-1 IFD 1 grayscale probability strips), or JPEG (OS-1 IFD 0/1 single-tile).
 - **Storage order**: `TILE_OFFSETS` is **row-major**, top-left origin — the order declared by the `<Frame>` nodes (`Frame[k] = (k % cols, k / cols)`), and the order legacy iScan files (which carry no `<Frame>` nodes) use too. `formats/bif/level.go` honors the `<Frame>` nodes when they form a complete per-tile permutation of the grid (`buildFrameIndex`), otherwise maps row-major. Verified against **bio-formats** (`TestBIFTilePlacementSpatial` — the tissue lands in the correct half of a multi-tile level; openslide rejects this DP 200 file). BIF *also* uses **serpentine** numbering, but only for the `TileJointInfo` `Tile1`/`Tile2` stitch-graph IDs (whitepaper Fig 2) — NOT for pixel storage. Earlier opentile-go conflated the two and applied serpentine to `TILE_OFFSETS`, which scrambled multi-tile levels (#57). Per-index raw-byte fidelity is checked against tifffile (`TestTifffileParityBIF`), which is placement-agnostic — it confirms the bytes, not the placement (that's what the bio-formats spatial oracle is for; #59).
-- **Tile overlap**: spec-compliant DP 200 slides record per-tile-pair overlap in the `<EncodeInfo>/<SlideStitchInfo>/<ImageInfo>/<TileJointInfo>` XMP elements. v0.7 collapses these to a single weighted-average `image.Point` per level, exposed via the new `Level.TileOverlap()` interface method. Pyramid IFDs 1+ are non-overlapping per spec.
+- **Tile overlap**: spec-compliant DP 200 slides record per-tile-pair overlap in the `<EncodeInfo>/<SlideStitchInfo>/<ImageInfo>/<TileJointInfo>` XMP elements. v0.7 collapses these to a single weighted-average `Point` per level, exposed via the `Level.TileOverlap` field (magnitude); the boolean "this level's tiles overlap, so `Grid` does not tile `Size`" contract signal is `Level.Overlapping` (#71). Pyramid IFDs 1+ are non-overlapping per spec.
 
 ## Fixture inventory
 
@@ -52,6 +52,17 @@ BIF tiles are **overlapping camera frames**: adjacent frames share a small borde
 ### Level.Size, ReadRegion, and scaled APIs
 
 `Level.Size` (and by extension `ReadRegion`, `ReadRegionScaled`, and `ScaledStrips` / DZI output) report and produce the **stitched content extent** — the pixel hull after overlap compaction. This is the meaningful slide area a consumer would display; it is smaller than (or equal to) the raw frame-grid extent `Grid.W×TileSize.W × Grid.H×TileSize.H`.
+
+### The two-grid contract — `Level.Overlapping` (GH #71)
+
+A stitched level has **two grids** that disagree, and `Level.Overlapping` is the signal:
+
+- `Level.Size` is the **stitched** content hull (e.g. Ventana-1 L0 = 23432×21504).
+- `Level.Grid` is the **raw stored tile grid** of *overlapping* tiles (e.g. 24×21), which does **not** tile `Size` — `Grid.W × TileSize.W > Size.W`.
+
+For a stitched level `Level.Overlapping == true`. The **per-tile** accessors (`Tile`, `TileInto`, `DecodedTile`, `Tiles`, indexed by `Grid`) return the **raw overlapping tiles at their stored positions** — they are *not* a clean partition of the stitched image. The **region** accessors (`ReadRegion`, `ReadRegionScaled`, `ScaledStrips`) composite the stitched image and are the correct path for re-tiling / pixel reassembly.
+
+**Consumer contract:** if `Level.Overlapping`, do **not** iterate `Grid` as if it tiled `Size`; route pixel reassembly through the region API (gate any verbatim per-tile-copy fast path on `!Overlapping`). `Overlapping` is `false` for every non-BIF format and for non-overlapping BIF levels (pyramid levels ≥1 are pre-stitched). `Level.TileOverlap` carries the overlap magnitude.
 
 ### DP generation (VENTANA DP 200 / DP 600) — pixel-exact stitching
 

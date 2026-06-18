@@ -101,6 +101,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			Compression:  l.compression,
 			MPP:          l.mpp,
 			TileOverlap:  l.tileOverlap,
+			Overlapping:  l.overlapping,
 			FocalPlane:   0,
 			// l0Width is the level-0 STITCHED width (the compacted hull, #60);
 			// lower levels report their own IFD extent (pre-stitched, no joints
