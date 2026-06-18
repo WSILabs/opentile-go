@@ -41,6 +41,7 @@ type levelImpl struct {
 	compression opentile.Compression
 	mpp         opentile.MPP
 	tileOverlap opentile.Point // non-zero only on level 0 of overlapping spec-compliant slides
+	overlapping bool           // true when the stitch layout compacted the grid (raw tiles overlap; Grid does NOT tile Size — see opentile.Level.Overlapping, GH #71)
 
 	offsets []uint64 // TileOffsets, in row-major (TILE_OFFSETS / <Frame>) storage order
 	counts  []uint64 // TileByteCounts, in row-major storage order
@@ -226,6 +227,12 @@ func newLevelImpl(
 		size = opentile.Size{W: layout.Width, H: layout.Height}
 	}
 
+	// overlapping: the layout compacted the grid, so the stored tiles overlap
+	// and Grid does NOT tile Size — consumers must use the region API, not
+	// per-tile Grid iteration (GH #71). buildNaiveLayout sets Width = cols*tileW
+	// exactly, so this is false for non-compacted (lower / zero-overlap) levels.
+	overlapping := layout.Width < cols*int(tw) || layout.Height < rows*int(tl)
+
 	return &levelImpl{
 		index:          index,
 		pyrIndex:       c.Level,
@@ -235,6 +242,7 @@ func newLevelImpl(
 		compression:    ocomp,
 		mpp:            mpp,
 		tileOverlap:    tileOverlap,
+		overlapping:    overlapping,
 		frameIndex:     buildFrameIndex(encodeInfo, cols, rows, imageDepth),
 		offsets:        offsets,
 		counts:         counts,
