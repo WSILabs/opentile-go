@@ -10,27 +10,22 @@ import (
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
-// TestOS1LegacyNaiveDims LOCKS the current legacy (GenerationLegacyIScan)
-// behavior: opentile-go does NOT yet stitch overlapping legacy iScan BIF
-// (Coreo/HT) — the DP stitch engine is gated to GenerationSpecCompliant, so
-// legacy gets the naive (un-compacted) layout and L0 reports the raw frame-grid
-// extent.
+// TestOS1LegacyNaiveDims LOCKS the legacy iScan BIF (Coreo/HT) L0 dimensions
+// after buildLegacyLayout (#63) was wired in. The Roche whitepaper disclaims
+// legacy reconstruction ("cannot be reconstructed correctly") but the
+// per-gap-average separable model (#63 Phase 0) is the best clean-room
+// approach available without porting GPL bio-formats logic.
 //
-// bio-formats reaches a smaller compacted size via a GPL columnXAdjust
-// heuristic we will not port; the Roche whitepaper disclaims legacy
-// reconstruction ("cannot be reconstructed correctly"). A clean-room
-// reconstruction recipe (stitch-graph spanning-tree propagation, accumulate-Y,
-// dead-join/confidence handling) is characterized in #63. Locking this so a
-// future legacy-stitching fix (see #63) is a deliberate, reviewed change —
-// not silent drift. See design §E.
+// Pinned values (buildLegacyLayout separable per-gap-average compaction, #63):
+//
+//	L0: 105818×93924  (per-gap-average overlap reconstruction)
+//
+// If a future change to buildLegacyLayout (e.g. a spanning-tree or improved
+// overlap model) shifts these, update them deliberately after verifying the new
+// values are closer to the bio-formats ground truth.
 //
 // Skipped when OPENTILE_TESTDIR/bif/OS-1.bif is not present (large local-only
 // fixture; not in CI fixtures).
-//
-// Pinned values (naive extent = Cols×TileW × Rows×TileH, no overlap
-// compaction):
-//
-//	L0: 118784×102000  (116 cols × 1024 = 118784; 75 rows × 1360 = 102000)
 func TestOS1LegacyNaiveDims(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -52,12 +47,11 @@ func TestOS1LegacyNaiveDims(t *testing.T) {
 		t.Fatalf("Level(0): %v", err)
 	}
 
-	// Pinned naive extent (no overlap compaction; DP stitch engine is gated to
-	// spec-compliant DP slides only). A future legacy-stitching implementation
-	// (see #63) that compacts legacy iScan frames should update these constants —
-	// deliberately, after verifying against bio-formats or another authoritative
-	// oracle.
-	const wantW, wantH = 118784, 102000
+	// Pinned compacted extent (buildLegacyLayout per-gap-average separable model,
+	// #63). Bio-formats reports a different compacted size via a GPL heuristic
+	// (columnXAdjust) we do not port; these values are the clean-room per-gap
+	// average result. Update deliberately if the algorithm improves.
+	const wantW, wantH = 105818, 93924
 	if lvl.Size.W != wantW || lvl.Size.H != wantH {
 		t.Errorf("OS-1 L0 = %dx%d, want %dx%d (legacy naive extent; stitching deferred — see #63)",
 			lvl.Size.W, lvl.Size.H, wantW, wantH)

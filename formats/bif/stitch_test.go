@@ -103,17 +103,22 @@ func TestBuildDPLayoutTwoAOIsWithOrigins(t *testing.T) {
 }
 
 func TestBuildDPLayoutGatingDeclinesToNaive(t *testing.T) {
-	// Ver<2 → naive; legacy generation → naive even with joints.
+	// Ver<2 → naive (no DP compaction, no legacy compaction — Ver<2 implies a
+	// spec-compliant DP file that is malformed; legacy slides that arrive here
+	// have their own buildLegacyLayout path below).
 	verLow := singleAOIEncodeInfo(2, 1, 120, 0)
 	verLow.Ver = 1
 	l := BuildLayout(StitchInput{Cols: 2, Rows: 1, TileW: 1024, TileH: 1024, EncodeInfo: verLow, Generation: GenerationSpecCompliant})
 	if x, _, _ := l.TileOrigin(1, 0); x != 1024 {
 		t.Errorf("Ver<2 must fall back to naive (x=1024), got %d", x)
 	}
+	// Legacy generation with live joins → buildLegacyLayout compacts (#63).
+	// singleAOIEncodeInfo sets Confidence=100 >= legacyConfidenceCutoff(98), so
+	// the overlap is trusted: X[1] = 1024 - 120 = 904.
 	legacy := singleAOIEncodeInfo(2, 1, 120, 0)
 	l2 := BuildLayout(StitchInput{Cols: 2, Rows: 1, TileW: 1024, TileH: 1024, EncodeInfo: legacy, Generation: GenerationLegacyIScan})
-	if x, _, _ := l2.TileOrigin(1, 0); x != 1024 {
-		t.Errorf("legacy generation must fall back to naive (x=1024), got %d", x)
+	if x, _, _ := l2.TileOrigin(1, 0); x != 904 {
+		t.Errorf("legacy generation with live joints uses buildLegacyLayout (x=904), got %d", x)
 	}
 }
 

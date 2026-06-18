@@ -70,6 +70,9 @@ func BuildLayout(in StitchInput) *Layout {
 	if dp := buildDPLayout(in); dp != nil {
 		return dp
 	}
+	if lg := buildLegacyLayout(in); lg != nil {
+		return lg
+	}
 	return buildNaiveLayout(in)
 }
 
@@ -227,6 +230,140 @@ func buildDPLayout(in StitchInput) *Layout {
 	}
 	finalizeExtent(l, in) // hull + normalize + white-pad
 	return l
+}
+
+// legacyConfidenceCutoff is the minimum TileJointInfo Confidence trusted when
+// reconstructing legacy iScan placement. Phase 0: the value is non-critical
+// (98 vs 0 move OS-1 dims by a few px); 98 keeps only high-confidence joins.
+const legacyConfidenceCutoff = 98
+
+// buildLegacyLayout reconstructs tile placement for legacy iScan BIF (Coreo/HT),
+// which carry no <Frame> nodes — the only position signal is the TileJointInfo
+// overlap graph. The graph is too fragmented to traverse per-tile (Phase 0:
+// ~5% reachable from a root), so we use a SEPARABLE per-axis model derived from
+// the aggregate per-gap overlap statistics (this is #63's recommended
+// "accumulate per-gap", NOT a single global average): tile (col,row) lands at
+// (X[col], Y[row]) where X[]/Y[] accumulate (tile - perGapAvgOverlap) across
+// gaps, in float, with empty gaps taking the global mean overlap. Clean-room —
+// derived from the file's own joints; bio-formats/openslide are test oracles
+// only. Declines (nil → naive) unless this is a legacy slide with live joints.
+func buildLegacyLayout(in StitchInput) *Layout {
+	ei := in.EncodeInfo
+	if in.Generation != GenerationLegacyIScan || ei == nil || len(ei.ImageInfos) == 0 {
+		return nil
+	}
+	if !hasLiveJoint(ei) {
+		return nil
+	}
+	cols, rows, tw, th := in.Cols, in.Rows, in.TileW, in.TileH
+	resolve := func(idx int) (c, r int, ok bool) {
+		c, r = serpentineToImage(idx-1, cols, rows) // legacy: 1-based serpentine
+		if c < 0 {
+			return 0, 0, false
+		}
+		return c, r, true
+	}
+	colSum := make([]float64, cols)
+	colN := make([]int, cols)
+	rowSum := make([]float64, rows)
+	rowN := make([]int, rows)
+	var gXs, gYs float64
+	var gXn, gYn int
+	for _, ii := range ei.ImageInfos {
+		for _, j := range ii.Joints {
+			if !j.FlagJoined || j.Confidence < legacyConfidenceCutoff {
+				continue
+			}
+			ac, ar, aok := resolve(j.Tile1)
+			bc, br, bok := resolve(j.Tile2)
+			if !aok || !bok {
+				continue
+			}
+			if ar == br && absDelta(ac, bc) == 1 {
+				g := min(ac, bc)
+				colSum[g] += float64(j.OverlapX)
+				colN[g]++
+				gXs += float64(j.OverlapX)
+				gXn++
+			}
+			if ac == bc && absDelta(ar, br) == 1 {
+				g := min(ar, br)
+				rowSum[g] += float64(j.OverlapY)
+				rowN[g]++
+				gYs += float64(j.OverlapY)
+				gYn++
+			}
+		}
+	}
+	gX := 0.0
+	if gXn > 0 {
+		gX = gXs / float64(gXn)
+	}
+	gY := 0.0
+	if gYn > 0 {
+		gY = gYs / float64(gYn)
+	}
+	X := make([]int, cols)
+	acc := 0.0
+	for col := 1; col < cols; col++ {
+		ov := gX
+		if colN[col-1] > 0 {
+			ov = colSum[col-1] / float64(colN[col-1])
+		}
+		acc += float64(tw) - ov
+		X[col] = int(acc + 0.5)
+	}
+	Y := make([]int, rows)
+	acc = 0.0
+	for row := 1; row < rows; row++ {
+		ov := gY
+		if rowN[row-1] > 0 {
+			ov = rowSum[row-1] / float64(rowN[row-1])
+		}
+		acc += float64(th) - ov
+		Y[row] = int(acc + 0.5)
+	}
+	l := newLayout(cols, rows, tw, th)
+	maxX, maxY := 0, 0
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			l.origin[[2]int{col, row}] = TilePlacement{Col: col, Row: row, X: X[col], Y: Y[row]}
+		}
+	}
+	for col := 0; col < cols; col++ {
+		if X[col]+tw > maxX {
+			maxX = X[col] + tw
+		}
+	}
+	for row := 0; row < rows; row++ {
+		if Y[row]+th > maxY {
+			maxY = Y[row] + th
+		}
+	}
+	l.Width = maxX
+	l.Height = maxY
+	return l
+}
+
+// hasLiveJoint reports whether any joint is FlagJoined with confidence at or
+// above the legacy cutoff (so buildLegacyLayout has overlap data to use).
+func hasLiveJoint(ei *bifxml.EncodeInfo) bool {
+	for _, ii := range ei.ImageInfos {
+		for _, j := range ii.Joints {
+			if j.FlagJoined && j.Confidence >= legacyConfidenceCutoff {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// absDelta returns |a-b|.
+func absDelta(a, b int) int {
+	if a > b {
+		return a - b
+	}
+	return b - a
 }
 
 func hasConfidentJoint(ei *bifxml.EncodeInfo) bool {
