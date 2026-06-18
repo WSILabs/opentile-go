@@ -11,6 +11,33 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.45.3] — 2026-06-17
+
+Fix: BIF tiles were placed serpentine, scrambling multi-tile levels.
+
+### Fixed
+
+- **BIF: `TILE_OFFSETS` is row-major, not serpentine** (#57). The reader mapped
+  image `(col,row)` → tile-offset index via a serpentine (boustrophedon,
+  bottom-up) remap, but real VENTANA DP 200 *and* legacy iScan files store tiles
+  **row-major, top-left** — the order the `<Frame>` nodes declare. The remap
+  vertically scrambled every multi-tile level (single-tile top levels looked
+  fine, hiding it). `indexOf` now maps row-major, honoring the `<Frame>` nodes
+  when they form a complete per-tile permutation. Verified against bio-formats
+  ground truth. Serpentine is kept (`serpentine.go`) as the `TileJointInfo`
+  stitch-graph numbering it actually is, scoped out of pixel-storage indexing.
+- **BIF: spatial placement oracle** (#59). Added `TestBIFTilePlacementSpatial`,
+  which checks tile *placement* against bio-formats (the property the old
+  per-index byte-parity test never verified, which is why #57 shipped). The
+  tifffile oracle now maps row-major too; the `Ventana-1`/`OS-1` parity fixtures
+  were regenerated.
+- **BIF: docs/comments corrected** (#58) — `docs/formats/bif.md` and the
+  `level.go`/`detection.go`/`serpentine.go` comments now state `TILE_OFFSETS` is
+  row-major and that serpentine is the `TileJointInfo` numbering only.
+
+A separate L0 grid/width discrepancy (padded `ImageWidth` → phantom tile column)
+is tracked as #60.
+
 ## [0.45.2] — 2026-06-17
 
 Fix: `Validate`'s missing-metadata check no longer false-positives on slides
