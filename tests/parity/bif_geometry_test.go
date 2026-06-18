@@ -71,7 +71,11 @@ var bifFixtures = []bifFixture{
 	{
 		filename: "OS-1.bif",
 		levels: []bifLevelExpect{
-			{W: 118784, H: 102000, TileW: 1024, TileH: 1360, GridW: 116, GridH: 75, OverlapX: 18, OverlapY: 26},
+			// L0 Size is the STITCHED content hull (105818×93924) — per-column/row-gap-
+			// average overlap reconstruction from the TileJointInfo graph (#63). Grid
+			// stays 116×75 (raw frame addressing unchanged). ~0.05% height residual vs
+			// openslide (un-modeled per-column Y baseline); width clean-room-exact.
+			{W: 105818, H: 93924, TileW: 1024, TileH: 1360, GridW: 116, GridH: 75, OverlapX: 18, OverlapY: 26},
 			{W: 59392, H: 51000, TileW: 1024, TileH: 1360, GridW: 58, GridH: 38},
 			{W: 29696, H: 25504, TileW: 1024, TileH: 1360, GridW: 29, GridH: 19},
 			{W: 14848, H: 12752, TileW: 1024, TileH: 1360, GridW: 15, GridH: 10},

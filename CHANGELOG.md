@@ -43,11 +43,27 @@ BIF overlap-aware stitching for DP-generation slides (#60).
   placed at their naive grid positions without overlap compaction. The stitching
   engine eliminates these artefacts; output is now pixel-exact vs bio-formats.
 
-Note: legacy iScan (Coreo / HT) BIF stitching is **not yet implemented** — these
-slides use the naive extent and raw frame-grid layout as before. Deferred; the
-clean-room placement-reconstruction characterization lives in
-[#63](https://github.com/WSILabs/opentile-go/issues/63) and the padded-width
-issue in [#60](https://github.com/WSILabs/opentile-go/issues/60).
+- **BIF: legacy iScan (Coreo / HT) overlap-aware stitching** (#63). `buildLegacyLayout`
+  reconstructs per-tile placement from the `TileJointInfo` overlap graph using a
+  separable per-column/row-gap-average model: X[col] and Y[row] accumulate per-gap
+  average overlaps (Confidence ≥ 98 joins; global-mean fill for empty gaps). The
+  implementation is clean-room — derived from the whitepaper geometry and the file's
+  own `TileJointInfo` data; bio-formats and openslide are black-box dimension oracles
+  only. Validated by placement-fidelity gates (`TestLegacyPlacementResidual`,
+  `TestLegacySeamContinuity`, `TestLegacyDimsVsOpenslide`). Width is clean-room-exact
+  for all 4 tested fixtures; height carries a ~0.05% residual (the per-column
+  `columnYAdjust` Y-baseline used by openslide is GPL-shaped and not replicated).
+  Multi-AOI untested (all 4 fixtures are single-AOI).
+
+### Changed (legacy stitching)
+
+- **BIF: legacy iScan L0 `Level.Size` is now the stitched content extent** (#63).
+  Was the naive raw-frame-grid extent (`Grid.W × TileSize.W`, `Grid.H × TileSize.H`),
+  which over-stated the real content area by the cumulative overlap. Now matches the
+  stitched hull consistent with the DP path. See
+  [docs/migrations/2026-06-18-bif-level-size-stitched.md](migrations/2026-06-18-bif-level-size-stitched.md).
+  `ReadRegion`, `ReadRegionScaled`, and `ScaledStrips` now produce stitched legacy
+  output; per-tile raw/decoded APIs are unchanged.
 
 ## [0.45.3] — 2026-06-17
 

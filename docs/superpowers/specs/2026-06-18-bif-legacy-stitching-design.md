@@ -1,0 +1,355 @@
+# BIF legacy (iScan) overlap-aware stitching — design
+
+**Status:** design / approved-to-plan
+**Issues:** [#63](https://github.com/WSILabs/opentile-go/issues/63) (clean-room placement characterization), [#60](https://github.com/WSILabs/opentile-go/issues/60) (L0 width)
+**Builds on:** PR #64 (DP-generation stitching) — `docs/superpowers/specs/2026-06-18-bif-overlap-stitching-design.md`
+**Date:** 2026-06-18
+
+---
+
+## 0. Background
+
+PR #64 made **DP-generation** BIF (ScannerModel `"VENTANA DP*"`) stitched output
+pixel-exact, but **legacy iScan** BIF (Coreo/HT — `OS-1.bif`, `S12-18199-1A.bif`,
+`AC1.592.bif`, `1_19.bif`) is deliberately gated off the stitch engine: it falls
+to the naive regular-grid layout, so `Level.Size` over-states the real content
+by the cumulative tile overlap (OS-1: naive 118784×102000 vs bio-formats
+105817×93978 — **+12967 / +8022 px**, ~11% / ~8% too large) and `ReadRegion` /
+`ScaledStrips` show seam artifacts.
+
+Legacy differs structurally from DP (per [#63](https://github.com/WSILabs/opentile-go/issues/63),
+a clean-room characterization derived purely from observing `<EncodeInfo>` bytes
+in the 5 fixtures):
+
+- **No `<Frame>` nodes.** DP files carry explicit per-tile grid positions;
+  legacy files do not. Placement must come from the `<TileJointInfo>` stitch
+  graph alone.
+- **Substantial, per-file overlap** (~110px on OS-1, ~73px on the others) — not
+  the ~0–24px of DP. There is no canonical legacy overlap constant.
+- **Fragmented, partially-dead graph.** OS-1: 17209 joints, **7035 live /
+  10174 dead** (`FlagJoined=0`), confidence 84–100. Live-join fraction across
+  fixtures swings 11%→100%.
+
+### Phase-0 empirical study (this design's foundation)
+
+A throwaway alignment study (`formats/bif`, against the real OS-1 fixture, with
+bio-formats `showinf` as a black-box dims oracle) tested candidate models:
+
+| model | OS-1 dims | Δ vs bio-formats (105817×93978) |
+|---|---|---|
+| naive (current behavior) | 118784×102000 | **+12967 / +8022** |
+| single-root spanning-tree propagation | ≈118784×102000 | +12967 / +8022 (only ~456/8700 tiles reachable — graph too sparse to traverse) |
+| per-column-gap average overlap (int) | 106206×93957 | +389 / −21 |
+| per-gap average **+ global-mean fill for empty gaps** (int) | 105870×93957 | **+53 / −21** |
+| per-gap average + global-fill (**float**, round once) | 105818×93924 | **+1 / −54** |
+| **bio-formats** | **105817×93978** | — |
+
+**Conclusions that fix the architecture:**
+
+1. **Graph propagation is the wrong model.** The live-join graph is too
+   fragmented to traverse from a root (≈5% reachable on OS-1); a position graph
+   cannot be built. The usable signal is the *aggregate per-gap overlap
+   statistic*, not a traversable graph.
+2. **Per-column-gap average overlap, accumulated, reproduces width clean-room
+   to ±1px** (float, with empty gaps filled by the global mean). This is
+   derived entirely from the file's own joint overlaps — no GPL code.
+3. **Height is the irreducible residual** (~20–54px ≈ 0.05% on a 94000px axis).
+   bio-formats reaches its exact height via a per-column Y term (`columnYAdjust`
+   + max-over-columns) that is heuristic-shaped; replicating it bit-exactly
+   approaches porting the GPL behavior, which is out of scope.
+
+### Phase-0 follow-up: oracle availability + cross-fixture validation
+
+Two further findings (study extended to all 4 legacy fixtures):
+
+- **bio-formats opens only OS-1.** It crashes on `S12-18199-1A`, `AC1.592`, and
+  `1_19` with an integer-underflow (`IllegalArgumentException: -2147… must be
+  neither null nor strictly negative` — a dimension computation wrapping past
+  −2³¹). opentile-go reads all four (the #37 classic-TIFF detection fix).
+- **openslide opens all four** (LGPL — usable as a black-box dims oracle), and
+  agrees with bio-formats on OS-1 to within ~30px (openslide 105813×93951 vs
+  bio-formats 105817×93978). So there is **no single canonical target** — the
+  two reference readers themselves differ by tens of px — which is itself
+  evidence that "near-exact" (not "bit-exact") is the only well-defined bar.
+
+The per-gap-float model, run against the **openslide all-4 oracle**:
+
+| fixture | grid | naive | openslide | model (cut 98) | Δ (W / H) |
+|---|---|---|---|---|---|
+| 1_19 | 10×9 | 10240×12240 | 9583×11645 | 9582×11644 | **−1 / −1** |
+| AC1.592 | 27×17 | 27648×23120 | 25754×21966 | 25754×21960 | **+0 / −6** |
+| S12-18199-1A | 18×8 | 18432×10880 | 17194×10349 | 17195×10360 | **+1 / +11** |
+| OS-1 | 116×75 | 118784×102000 | 105813×93951 | 105818×93924 | **+5 / −27** |
+
+Width within **±5px** and height within **±27px** on every fixture (tile
+1024×1360 throughout; confidence cutoff 98 vs 0 moves dims ≤ a few px). The
+model generalizes across the full live-fraction range (#63: 11%→100% live).
+
+The agreed correctness bar (decision record below) is therefore **near-exact,
+clean-room**: validated against openslide on all 4 fixtures within a tolerance
+that also covers the openslide-vs-bio-formats reader disagreement (~30px), and
+dramatically better than naive.
+
+---
+
+## 1. Goals / non-goals
+
+### Goals
+
+1. **Legacy BIF stitched output is near-exact vs bio-formats**, clean-room:
+   `Level.Size` (L0), `ReadRegion`, `ReadRegionScaled`, `ScaledStrips` reflect
+   the compacted (stitched) geometry instead of the naive raw-frame extent.
+   Bar: width within ±~5px, height within ≤0.1% of bio-formats, and
+   dramatically better than naive, across **all 4 legacy fixtures**.
+2. **Reuse the PR #64 machinery.** The legacy path emits the same `*Layout`,
+   so the `regionLayout` capability, the layout-aware `ReadRegion` branch, and
+   the layout-aware `ScaledStrips` all work unchanged.
+3. **Correct per-tile placement, not just correct dimensions.** Overall dims
+   are necessary but *not sufficient* — an averaged layout can hit the right
+   bounding box while individual tiles drift. The headline gate is therefore
+   **placement fidelity** (§5.1), validated two ways: a per-join residual bound
+   and a seam-continuity pixel check. Dimensions are a secondary coarse check.
+4. **Per-tile raw/decoded bytes unchanged**; the DP path and the 10 non-BIF
+   formats are byte-identical.
+
+### Non-goals
+
+- **Bit-exact height.** The ~0.05% height residual (bio-formats' per-column
+  `columnYAdjust` — a per-*column* Y baseline our separable model omits) is
+  deliberately not replicated — it is the GPL-shaped heuristic the chosen bar
+  excludes. It manifests as a systematic ≤~27px per-column vertical shift vs
+  openslide, documented, not chased.
+- **Per-pixel parity with an external reader** (a DP-style oracle that matches
+  bio-formats/openslide pixel-for-pixel). Not pursued — the reference readers
+  themselves disagree by ~30px and use their own per-column aggregates. Instead
+  we validate placement *intrinsically* via seam continuity (do adjacent tiles'
+  overlap bands match at our computed positions?), which needs no external
+  reader and directly proves physical correctness.
+
+  Note: the alarming "mid-column divergence up to 187px" in #63 is the error of
+  a *single global* average overlap × row-count. Our model uses **per-gap**
+  averages (#63's recommended *accumulate*), which empirically places each tile
+  within **median ~0.5px / p99 ~3px** of its own measured join on OS-1 (the
+  within-gap overlap spread is only ~2px). The per-tile drift the global-average
+  warning describes does **not** occur with the per-gap model — confirmed in
+  Phase 0, and guarded by the §5.1 residual gate.
+- **Multi-AOI legacy.** All 4 fixtures are single-AOI; the `AoiOrigin` path is
+  applied defensively but cannot be validated against a real file.
+- Changing DP behavior or per-tile addressing.
+
+---
+
+## 2. Licensing / clean-room
+
+Same hard constraint as PR #64. The legacy algorithm is derived from (a) the
+BIF file's own `<TileJointInfo>` overlap statistics and (b) the clean-room
+characterization in #63 — **not** from `bio-formats` `VentanaReader.java` (GPL)
+or `openslide` (LGPL). bio-formats is used **only as a black-box dimensions
+oracle** in tests (run `showinf`, read the reported series dims; never read or
+translate its source). The deliberately-unreplicated `columnYAdjust` behavior
+is named only to document *why* height is approximate.
+
+---
+
+## 3. The algorithm — `buildLegacyLayout`
+
+A **separable per-axis** model: tile `(col, row)` lands at `(X[col], Y[row])`,
+where `X[]`/`Y[]` are computed independently from the column-gap / row-gap
+overlap statistics. (Phase 0 proved the live-join graph is non-traversable, so
+no per-tile graph positions; the separable model is both correct-to-bar and far
+simpler.)
+
+### 3.1 Resolve joints to grid positions
+
+Legacy files have no `<Frame>` nodes, so map each joint's `Tile1`/`Tile2`
+(physical serpentine indices, **1-based** — validated: 17209/17209 OS-1 joints
+resolve in-grid at base-1) to image `(col, row)` via the existing
+`serpentineToImage(idx-1, cols, rows)`. `cols, rows` come from the IFD
+`TileGrid()`. Drop joints that resolve out of grid.
+
+### 3.2 Per-gap overlap accumulation (each axis)
+
+For the X axis:
+
+```
+colSum[g], colN[g] = 0            // g = column-gap index 0..cols-2
+for each joint j:
+    if !j.FlagJoined or j.Confidence < cutoff: continue
+    resolve a=(ac,ar), b=(bc,br)  // skip if either out of grid
+    if ar == br and |ac-bc| == 1: // horizontal adjacency → column gap
+        g = min(ac,bc); colSum[g] += j.OverlapX; colN[g]++
+
+globalMeanX = mean of all qualifying OverlapX        // for empty-gap fill
+X[0] = 0
+for col in 1..cols-1:
+    g = col-1
+    ovX = colN[g]>0 ? colSum[g]/colN[g] : globalMeanX  // FLOAT mean
+    X[col] = X[col-1] + (tileW - ovX)                  // accumulate in float
+// round X[] once at the end
+width = round(X[cols-1]) + tileW
+```
+
+Y axis is symmetric over **vertical** adjacencies (`ac==bc && |ar-br|==1`),
+`OverlapY`, `tileH`, `globalMeanY`.
+
+Key details (all Phase-0-validated):
+- **Float accumulation, round once** — integer per-gap division accumulated
+  over ~115 gaps drifts ~50px (the +389→+53→+1 progression).
+- **Empty-gap global-mean fill** — gaps with no qualifying join take the global
+  mean overlap, not 0 (closed +389→+53 on OS-1: 3 empty column-gaps × ~112px).
+- **Confidence cutoff** — pinned constant (default proposal **98**; Phase 0:
+  98 vs 84 move dims ≤~12px, so the exact value is non-critical; justify from
+  the cross-fixture data in the plan).
+- **Per-file** — every statistic is computed from *this file's* joints; no
+  hardcoded overlap.
+
+### 3.3 Emit the Layout
+
+Build the same `*Layout` as the DP path: for every in-grid `(col,row)`, a
+`TilePlacement{Col, Row, X: X[col], Y: Y[row]}`; `Width`/`Height` as above.
+(No hull-normalization needed for single-AOI since `X[0]=Y[0]=0`; the
+`AoiOrigin` offset + normalization from the DP path is reused if/when multi-AOI
+appears.) The legacy layout populates placements for **all** grid `(col,row)`
+(unlike DP, where the frame set may be a sub-grid) — legacy tiles are stored
+row-major over the full grid.
+
+### 3.4 Gating
+
+`BuildLayout` selects `buildLegacyLayout` when:
+`Generation == GenerationLegacyIScan` **and** `EncodeInfo != nil` **and** there
+is ≥1 live joint. Otherwise → naive (unchanged). DP slides
+(`GenerationSpecCompliant`) keep `buildDPLayout`. Pyramid levels ≥1 carry no
+joints → naive (they are pre-stitched, like DP).
+
+---
+
+## 4. Integration
+
+- **`BuildLayout` dispatch** (`formats/bif/stitch.go`): add the legacy branch
+  before the naive fallback. DP branch untouched.
+- **`Level.Size` (L0)** becomes the legacy stitched extent — same wiring as PR
+  #64 (`newLevelImpl` already sets L0 `size` from `layout.Width/Height`; legacy
+  now produces a non-naive layout so the value changes automatically). Levels
+  ≥1 keep their IFD extent. `Grid` stays the raw frame grid.
+- **`regionLayout` reuse**: the legacy `*Layout` flows through the existing
+  `TileOrigin`/`TilesIntersecting`/`StitchedSize` accessors, so `ReadRegion` /
+  `ReadRegionScaled` / `ScaledStrips` composite legacy stitched output with no
+  new code. Per-tile decode addressing: legacy storage is row-major (#57), so
+  `indexOf(col,row)` aligns with the layout's `(col,row)` keys.
+- **Validate**: the `tile-grid-mismatch` cover-not-equal relaxation from PR #64
+  already accommodates a stitched Size smaller than `Grid × Tile`.
+
+No public API change. The only externally-visible effect is legacy BIF L0
+`Level.Size` (and the region/scaled outputs) now reporting/producing the
+stitched geometry.
+
+---
+
+## 5. Correctness bar & testing
+
+### 5.1 Placement-fidelity gates (the headline — dims alone are insufficient)
+
+Overall dimensions can converge while individual tiles drift, so placement —
+not the bounding box — is the primary gate. Two complementary checks:
+
+**(a) Per-join residual bound (cheap, no decode, fixture-gated).** Build the
+legacy layout, then for every live high-confidence join compute the per-tile
+placement delta the layout assigns to that adjacent pair and compare it to the
+join's own measured offset (`tileW − OverlapX` horizontally, `tileH − OverlapY`
+vertically). Assert the residual distribution stays tight:
+**p99 ≤ 8px, max ≤ 64px** (Phase-0 OS-1 measured: X median 0.3 / p99 3.1 /
+max 55.9; Y median 0.5 / p99 1.8 / max 3.3). This directly bounds how far the
+per-gap-average layout places any tile from its own measured registration, and
+would fire if a fixture had many wide-spread gaps (the averaging trap). Run on
+all 4 fixtures.
+
+**(b) Seam-continuity pixel check (decode, fixture-gated, sampled).** For a
+sample of adjacent tile pairs with a live high-confidence join, decode both
+tiles and compute the pixel mean-abs-diff in the **overlap band** at the
+layout's computed relative position. Correct placement → the bands hold the
+same image content → low MAD; a misplaced tile → high MAD. Assert the sampled
+MAD stays below a small threshold (pin empirically in the plan, e.g. mean MAD
+≤ ~12/channel, accommodating JPEG noise), and that it is **dramatically lower
+than the naive (no-overlap) placement's** MAD on the same pairs (proves the
+stitch is doing real work). Sample ~30–50 pairs per fixture (h + v) to keep it
+fast. This is the intrinsic, clean-room proof of physical correctness — no
+external reader needed.
+
+### 5.2 Dimensions cross-check (secondary, coarse)
+
+A coarse sanity check against an external reader. Oracle is **openslide**
+(`openslide-show-properties`) — it opens all 4 legacy fixtures, whereas
+bio-formats crashes on 3 (§0). Assert L0 `Level.Size` is within tolerance of:
+
+| fixture | openslide L0 target |
+|---|---|
+| 1_19 | 9583×11645 |
+| AC1.592 | 25754×21966 |
+| S12-18199-1A | 17194×10349 |
+| OS-1 | 105813×93951 |
+
+**Tolerance: width ±8px, height ±35px** (model residual max +5/−27 + the
+~30px openslide-vs-bio-formats reader disagreement + the un-modeled per-column
+Y baseline). Also assert **< 10%** of the naive error. On OS-1, additionally
+cross-check bio-formats (105817×93978) within the same tolerance. Targets are
+Phase-0-measured constants, hardcoded with provenance (the existing
+`openslide_runner.py` uses the Python binding, which is not installed here; the
+`openslide-show-properties` CLI is — but the simplest CI-safe choice is to
+hardcode the measured constants and cite them, matching how the bio-formats
+spatial oracle hardcodes its ground-truth). Fixture-gated (local PHI); skips in
+CI.
+
+### 5.3 Fixture-free engine unit tests (CI-safe)
+
+Synthetic joint sets exercising the pure math: uniform per-gap overlap (known
+accumulation), empty-gap global-fill, dead-join (`FlagJoined=0`) exclusion,
+sub-cutoff confidence exclusion, float-accumulation rounding, single-row /
+single-column degenerate grids. These pin the algorithm without fixtures and
+are the only legacy tests that run in CI.
+
+### 5.4 Lock-test update
+
+`TestOS1LegacyNaiveDims` (currently asserts the naive 118784×102000) is
+replaced by the near-exact assertion (≈105818×93924, within tolerance) and
+renamed to reflect it now locks the *stitched* legacy extent.
+
+### 5.5 Regression
+
+`make test` green under `-race`; DP golden (`TestVentana1DPExactDimensions`),
+`TestBIFTilePlacementSpatial`, tifffile parity, and non-BIF region/scaled tests
+all unchanged. The Ventana-1 parity fixture is untouched (DP path unchanged).
+Legacy fixtures have no committed parity fixtures (local PHI).
+
+---
+
+## 6. Open questions (settle in the plan or inline)
+
+- **Q1 — confidence cutoff value.** Proposal: 98. Decide from the cross-fixture
+  dims sweep (the value that minimizes max error across all 4). Phase 0:
+  non-critical (≤12px swing on OS-1).
+- **Q2 — tolerance constants.** Settled: **width ±8px, height ±35px** (from the
+  measured cross-fixture residuals max +5/−27 plus reader-disagreement margin).
+- **Q3 — empty-gap fill source.** Global mean (chosen, Phase-0-validated).
+  Alternative (nearest non-empty gap) deferred unless a fixture needs it.
+- **Q4 — float vs fixed rounding convention.** `round(accumulate_float)` chosen
+  (gave +1px width). Confirm the rounding (round-half-up vs trunc) that best
+  matches across fixtures.
+- **Q5 — horizontal joins' OverlapY (and vice versa).** The separable model
+  uses only OverlapX for column gaps and OverlapY for row gaps. Phase 0 shows
+  this suffices for dims; the cross-coupling (stage drift) is what bit-exact
+  per-tile would need and is out of scope.
+
+---
+
+## 7. Summary of changes
+
+| Area | Change | Breaking? |
+|---|---|---|
+| `formats/bif/stitch.go` | `buildLegacyLayout` (per-gap-average separable model) + `BuildLayout` dispatch | additive |
+| `formats/bif` | legacy L0 `Level.Size` = stitched extent (was naive) | **value change** (documented; consumers re-validate) |
+| tests | dims oracle ×4 fixtures, engine unit tests, lock-test update | — |
+| docs | `bif.md` legacy section (now stitched, near-exact, residual documented); CHANGELOG; migration note update | — |
+
+Per-tile bytes, DP path, non-BIF formats: **unchanged.** Legacy stitched
+output: **near-exact vs bio-formats (width ±1px, height ≤0.05%), clean-room.**
+The height residual and multi-AOI are documented limitations, not silent caps.

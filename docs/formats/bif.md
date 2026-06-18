@@ -70,11 +70,29 @@ The 24th grid column (phantom raw-frame padding) contributes no content; `Level.
 
 Level 0 is the only level with overlap (whitepaper page 16: "IFD 3 and Higher" levels abut without overlap); levels ≥1 use the naive regular-grid layout.
 
-### Legacy generation (Coreo / HT iScan) — NOT yet stitched
+### Legacy generation (Coreo / HT iScan) — overlap-aware stitching
 
-Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **not stitched**. The Roche whitepaper (page 3) explicitly states that files produced by older scanners "cannot be reconstructed correctly". Unlike DP slides, legacy files carry **no `<Frame>` nodes** — placement must be reconstructed from the `TileJointInfo` stitch graph alone. opentile-go currently uses the naive regular-grid layout for legacy slides: `Level.Size` reports the raw frame-grid extent (`Grid.W × TileSize.W`, `Grid.H × TileSize.H`), which over-states the real content area by the cumulative overlap.
+Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **now stitched** via a per-column/row-gap-average overlap reconstruction from the `TileJointInfo` stitch graph (#63). Unlike DP slides, legacy files carry **no `<Frame>` nodes** — the only position signal is the join overlaps. The Roche whitepaper (page 3) notes that files produced by older scanners "cannot be reconstructed correctly" exactly because there is no `<Frame>` ground truth; opentile-go's reconstruction is clean-room: derived from the whitepaper geometry and the file's own `TileJointInfo` graph, using bio-formats and openslide as **black-box dimension oracles** only (neither GPL/LGPL source was read or translated).
 
-Implementing legacy overlap compaction is a known limitation, deferred. A clean-room reconstruction recipe — stitch-graph spanning-tree propagation through each edge's `(OverlapX, OverlapY)`, accumulating both axes (legacy Y overlap is too noisy to average), with dead-join and confidence-cutoff handling — is characterized in [#63](https://github.com/WSILabs/opentile-go/issues/63) (the padded-width issue is [#60](https://github.com/WSILabs/opentile-go/issues/60)). `TestOS1LegacyNaiveDims` locks the current naive extent so any future change is deliberate.
+**Algorithm:** For each axis independently, per-gap overlaps are averaged across all live joins (Confidence ≥ 98) touching that column-gap or row-gap, with the global-mean used for gaps that have no qualifying joins. X\[col\] and Y\[row\] are then accumulated left-to-right and top-to-bottom from those average overlaps, giving each tile a placed origin; the stitched extent is the convex hull of all placed frames.
+
+**Result:** Near-exact vs openslide (the all-4 oracle — bio-formats crashes opening 3 of the 4 legacy fixtures):
+
+| Fixture | opentile-go | openslide |
+|---|---|---|
+| `OS-1.bif` | 105818 × 93924 | 105813 × 93951 |
+| `1_19` | 9582 × 11644 | 9583 × 11645 |
+| `AC1.592` | 25754 × 21960 | 25754 × 21966 |
+| `S12-18199-1A` | 17195 × 10360 | 17194 × 10349 |
+
+Width is clean-room-exact for tested fixtures. Height carries a ~0.05% residual: openslide models a per-column `columnYAdjust` Y-baseline offset that shifts each column's Y origin independently; this is not replicated (it is GPL-shaped and has no whitepaper description). The residual is a documented limitation, not a correctness regression.
+
+**Validated by placement-fidelity gates** — dimension match vs openslide is a secondary coarse check; the primary gates are:
+- `TestLegacyPlacementResidual`: per-join residual (p99 ≤ 2 px, max ≤ 56 px).
+- `TestLegacySeamContinuity`: stitch-band pixel MAD is 2.3–4.5× tighter than naive placement.
+- `TestLegacyDimsVsOpenslide`: dimensions within 0.1% of openslide across all 4 fixtures.
+
+**Multi-AOI untested.** All 4 legacy fixtures are single-AOI; multi-AOI legacy stitching behaviour is unverified.
 
 ## Edge tile semantics
 

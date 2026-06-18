@@ -5,8 +5,8 @@
     {
       "index": 0,
       "size": [
-        118784,
-        102000
+        105818,
+        93924
       ],
       "tile_size": [
         1024,
@@ -201,6 +201,10 @@
       "sha256": "52b840b56e08c26459518cea11c672700e9c4978127a42a6e46478fb177e5ace",
       "reason": "top-right corner; OOB fill in x"
     },
+    "0:115:37": {
+      "sha256": "abc0d9648fb52656ff8c26bce5d2e6fbf07baf7a98ecd2ba976b4218bf9b29b8",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
     "0:115:74": {
       "sha256": "2f1860fa01a4f5117b0c728ab028a836432c917b83b351002ff90ecec8764ed2",
       "reason": "bottom-right corner; OOB fill in both axes"
@@ -220,6 +224,10 @@
     "0:58:37": {
       "sha256": "65e27f0bc013e69aa3298d1c18d325ebf63c9e90314c9e7e7a5af28f33aa5ea6",
       "reason": "interior diagonal q2 (center)"
+    },
+    "0:58:74": {
+      "sha256": "b9d307c9bf85ec7d2ff09aa914395270bef46e0b167b4ecc47f7faea810e71e8",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
     },
     "0:87:56": {
       "sha256": "11785c09a51a632be707f7dd3927c2592424538f3f9d2391f02ae7c5a51a20d2",
