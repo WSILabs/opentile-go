@@ -289,11 +289,18 @@ func checkLevelGeometry(p *ValidationProbe, pyramid int, levels []Level, slideHa
 					l.Index, l.Size.W, l.Size.H, l.TileSize.W, l.TileSize.H))
 			continue
 		}
+		// The tile grid must COVER the image: Grid >= ceil(Size/Tile) per axis.
+		// A grid larger than that is legitimate padding, not corruption — e.g. a
+		// BIF level-0 reports a stitched content Size (smaller than the raw tile
+		// grid × tile, because adjacent camera frames overlap and the right edge
+		// is padded to a tile multiple), so Grid.W can exceed ceil(Size.W/Tile.W)
+		// by the phantom padding column(s) (GH #60). Only under-coverage — too few
+		// tiles to span the image — is a real defect.
 		wantW := ceilDiv(l.Size.W, l.TileSize.W)
 		wantH := ceilDiv(l.Size.H, l.TileSize.H)
-		if l.Grid.W != wantW || l.Grid.H != wantH {
+		if l.Grid.W < wantW || l.Grid.H < wantH {
 			p.Flag(CheckTileGridMismatch, pyramid, l.Index,
-				fmt.Sprintf("level %d grid %dx%d != ceil(size/tile) %dx%d",
+				fmt.Sprintf("level %d grid %dx%d does not cover ceil(size/tile) %dx%d",
 					l.Index, l.Grid.W, l.Grid.H, wantW, wantH))
 		}
 	}

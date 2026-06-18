@@ -48,7 +48,11 @@ var bifFixtures = []bifFixture{
 	{
 		filename: "Ventana-1.bif",
 		levels: []bifLevelExpect{
-			{W: 24576, H: 21504, TileW: 1024, TileH: 1024, GridW: 24, GridH: 21, OverlapX: 2, OverlapY: 0},
+			// L0 Size is the STITCHED content hull (23432 = 23 content cols × 1024
+			// − 120 cumulative horizontal overlap), NOT the raw 24×21 frame grid
+			// extent (24576) — the 24th column is phantom padding. Grid stays 24×21
+			// (raw frame addressing unchanged). See GH #60 / stitch.go.
+			{W: 23432, H: 21504, TileW: 1024, TileH: 1024, GridW: 24, GridH: 21, OverlapX: 2, OverlapY: 0},
 			{W: 12288, H: 10752, TileW: 1024, TileH: 1024, GridW: 12, GridH: 11},
 			{W: 6144, H: 5376, TileW: 1024, TileH: 1024, GridW: 6, GridH: 6},
 			{W: 3072, H: 2688, TileW: 1024, TileH: 1024, GridW: 3, GridH: 3},
