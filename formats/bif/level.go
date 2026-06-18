@@ -25,10 +25,13 @@ func bytesReader(b []byte) io.Reader { return bytes.NewReader(b) }
 // decode, no pixel-space crop. The byte-passthrough hot path is
 // preserved.
 //
-// Tile addressing: callers use image-space row-major (col, row);
-// internally the (col, row) is remapped via imageToSerpentine to find
-// the entry in TileOffsets/TileByteCounts. The remap is cheap (a
-// few ops) — no per-tile XMP lookup required.
+// Tile addressing: callers use image-space (col, row). TILE_OFFSETS is stored
+// ROW-MAJOR, top-left origin — the order declared by the <Frame> nodes (and the
+// order legacy iScan files, which carry no <Frame> nodes, use too). The reader
+// honors the <Frame> nodes when they form a complete per-tile permutation of
+// the grid (frameIndex), otherwise maps row-major. (Serpentine is the
+// TileJointInfo stitch-graph numbering — NOT the pixel-storage order; see
+// serpentine.go and GH #57.)
 type levelImpl struct {
 	index       int           // 0-based level index in the Image's Levels slice
 	pyrIndex    int           // parsed `level=N` value from ImageDescription
@@ -39,8 +42,13 @@ type levelImpl struct {
 	mpp         opentile.MPP
 	tileOverlap opentile.Point // non-zero only on level 0 of overlapping spec-compliant slides
 
-	offsets []uint64 // TileOffsets, in serpentine storage order
-	counts  []uint64 // TileByteCounts, in serpentine storage order
+	offsets []uint64 // TileOffsets, in row-major (TILE_OFFSETS / <Frame>) storage order
+	counts  []uint64 // TileByteCounts, in row-major storage order
+
+	// frameIndex maps (z, col, row) → storage index when the <Frame> nodes
+	// describe this level's tile table as a complete permutation; nil → the
+	// reader falls back to plain row-major. See indexOf and buildFrameIndex.
+	frameIndex map[[3]int]int
 
 	// jpegTables is TIFF tag 347 (JPEGTables) if present. Older
 	// BIFs embed full JPEG headers in each tile (jpegTables nil);
@@ -194,6 +202,7 @@ func newLevelImpl(
 		compression:    ocomp,
 		mpp:            mpp,
 		tileOverlap:    tileOverlap,
+		frameIndex:     buildFrameIndex(encodeInfo, cols, rows, imageDepth),
 		offsets:        offsets,
 		counts:         counts,
 		jpegTables:     jpegTables,
@@ -238,9 +247,9 @@ func (l *levelImpl) Size() opentile.Size               { return l.size }
 func (l *levelImpl) TileSize() opentile.Size           { return l.tileSize }
 func (l *levelImpl) Grid() opentile.Size               { return l.grid }
 func (l *levelImpl) Compression() opentile.Compression { return l.compression }
-func (l *levelImpl) MPP() opentile.MPP                  { return l.mpp }
+func (l *levelImpl) MPP() opentile.MPP                 { return l.mpp }
 func (l *levelImpl) FocalPlane() float64               { return 0 }
-func (l *levelImpl) TileOverlap() opentile.Point          { return l.tileOverlap }
+func (l *levelImpl) TileOverlap() opentile.Point       { return l.tileOverlap }
 
 // indexOf validates (z, col, row) and returns the storage index
 // into offsets/counts. For non-volumetric IFDs (imageDepth == 1)
@@ -264,16 +273,60 @@ func (l *levelImpl) indexOf(z, col, row int) (int, error) {
 	if col < 0 || row < 0 || col >= l.grid.W || row >= l.grid.H {
 		return 0, &opentile.TileError{Level: l.index, X: col, Y: row, Err: opentile.ErrTileOutOfBounds}
 	}
-	serp := imageToSerpentine(col, row, l.grid.W, l.grid.H)
-	if serp < 0 {
-		// Defensive — imageToSerpentine should never return -1 for in-bounds (col, row).
-		return 0, &opentile.TileError{Level: l.index, X: col, Y: row, Err: opentile.ErrTileOutOfBounds}
+	// TILE_OFFSETS is ROW-MAJOR (top-left). Honor the <Frame> nodes when they
+	// describe this level's tiles as a complete permutation; otherwise map
+	// row-major. (Applying serpentine here — the TileJointInfo stitch-graph
+	// numbering — scrambled multi-tile levels; see GH #57.)
+	var idx int
+	if l.frameIndex != nil {
+		s, ok := l.frameIndex[[3]int{z, col, row}]
+		if !ok {
+			return 0, &opentile.TileError{Level: l.index, X: col, Y: row, Err: opentile.ErrTileOutOfBounds}
+		}
+		idx = s
+	} else {
+		idx = z*(l.grid.W*l.grid.H) + row*l.grid.W + col
 	}
-	idx := z*(l.grid.W*l.grid.H) + serp
 	if idx < 0 || idx >= len(l.offsets) {
 		return 0, &opentile.TileError{Level: l.index, X: col, Y: row, Err: opentile.ErrTileOutOfBounds}
 	}
 	return idx, nil
+}
+
+// buildFrameIndex derives a (z, col, row) → storage-index map from the
+// EncodeInfo <Frame> nodes when they describe this level's tile table exactly:
+// one frame per tile, every grid position covered exactly once. The k-th frame
+// names the image position of TILE_OFFSETS[k]. Returns nil when the frames are
+// absent or don't form a complete permutation of the grid — callers then fall
+// back to plain row-major (legacy iScan carries no <Frame> nodes; some DP 200
+// levels have a padded grid the frames don't cover — see GH #60).
+func buildFrameIndex(ei *bifxml.EncodeInfo, cols, rows, depth int) map[[3]int]int {
+	if ei == nil {
+		return nil
+	}
+	var frames []bifxml.Frame
+	for _, ii := range ei.ImageInfos {
+		frames = append(frames, ii.Frames...)
+	}
+	want := cols * rows * depth
+	if want == 0 || len(frames) != want {
+		return nil
+	}
+	m := make(map[[3]int]int, len(frames))
+	for k, f := range frames {
+		if f.Col < 0 || f.Col >= cols || f.Row < 0 || f.Row >= rows || f.Z < 0 || f.Z >= depth {
+			return nil // outside the grid — distrust the frames, fall back
+		}
+		key := [3]int{f.Z, f.Col, f.Row}
+		if _, dup := m[key]; dup {
+			return nil // not a permutation
+		}
+		m[key] = k
+	}
+	if len(m) != want {
+		return nil
+	}
+	return m
 }
 
 // readTileAtIdx is the canonical tile read: empty-tile blank fill,

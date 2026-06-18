@@ -109,26 +109,23 @@ def _bif_pyramid_pages(tf):
     return [p for _, p in out]
 
 
-def _bif_serpentine_index(col: int, row: int, cols: int, rows: int) -> int:
-    """imageToSerpentine port from formats/bif/serpentine.go.
+def _bif_row_major_index(col: int, row: int, cols: int, rows: int) -> int:
+    """Image (col, row) → TILE_OFFSETS index, ROW-MAJOR (top-left origin).
 
-    Stage rows count up from bottom; even stage rows go left-to-right,
-    odd go right-to-left. Image (col, row) → serpentine TileOffsets index.
+    BIF stores TILE_OFFSETS row-major (declared by the <Frame> nodes; legacy
+    iScan files are row-major too). The whitepaper's "serpentine" describes the
+    TileJointInfo stitch-graph numbering, NOT the pixel-storage order — applying
+    it here scrambled multi-tile levels (GH #57). Matches opentile-go's reader.
     """
     if col < 0 or row < 0 or col >= cols or row >= rows:
         raise IndexError(f"({col},{row}) out of grid {cols}x{rows}")
-    stage_row = rows - 1 - row
-    stage_col = col
-    if stage_row % 2 == 1:
-        stage_col = cols - 1 - col
-    return stage_row * cols + stage_col
+    return row * cols + col
 
 
 def _tile_raw_bytes_bif(tf, file_handle, level_idx: int,
                         col: int, row: int) -> bytes:
     """Read raw tile bytes for BIF level_idx tile at image-space (col, row).
-    Applies the serpentine remap before reading dataoffsets — matches
-    opentile-go's storage layout."""
+    TILE_OFFSETS is row-major — matches opentile-go's storage layout."""
     pages = _bif_pyramid_pages(tf)
     if level_idx < 0 or level_idx >= len(pages):
         raise IndexError(f"level index {level_idx} out of range (have {len(pages)})")
@@ -137,9 +134,9 @@ def _tile_raw_bytes_bif(tf, file_handle, level_idx: int,
         raise _NotTiledLevel()
     grid_w = (page.imagewidth + page.tilewidth - 1) // page.tilewidth
     grid_h = (page.imagelength + page.tilelength - 1) // page.tilelength
-    idx = _bif_serpentine_index(col, row, grid_w, grid_h)
+    idx = _bif_row_major_index(col, row, grid_w, grid_h)
     if idx >= len(page.dataoffsets):
-        raise IndexError(f"serpentine index {idx} >= dataoffsets length {len(page.dataoffsets)}")
+        raise IndexError(f"row-major index {idx} >= dataoffsets length {len(page.dataoffsets)}")
     file_handle.seek(page.dataoffsets[idx])
     return file_handle.read(page.databytecounts[idx])
 

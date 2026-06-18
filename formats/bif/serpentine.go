@@ -1,9 +1,17 @@
 package bif
 
-// Serpentine tile ordering converts between image-space row-major
-// coordinates (the API consumer's view: col 0 is image-left, row 0 is
-// image-top) and the physical-stage serpentine index used by BIF's
-// `TileOffsets` array (per spec §"Image stitching process").
+// Serpentine tile ordering is the BIF physical-stage / stitch-graph tile
+// numbering (whitepaper Figure 2): tile 1 is the lower-left tile, the path
+// snakes up the slide, even stage rows go left-to-right and odd right-to-left.
+//
+// IMPORTANT (GH #57): this is the numbering of the `TileJointInfo`
+// `Tile1`/`Tile2` stitch-graph IDs — NOT the `TILE_OFFSETS` pixel-storage
+// order, which is ROW-MAJOR (declared by the `<Frame>` nodes; see level.go's
+// indexOf / buildFrameIndex). Applying this serpentine remap to `TILE_OFFSETS`
+// indexing scrambled multi-tile levels. These helpers are retained for the
+// (currently global-averaged) tile-overlap path — a future per-join overlap
+// implementation needs serpentine `Tile1`/`Tile2` ⇄ image-position mapping —
+// and are NOT used for pixel-storage indexing.
 //
 // Stage convention (per Roche BIF whitepaper Figure 2):
 //   - Stage rows count UP from the bottom of the slide.

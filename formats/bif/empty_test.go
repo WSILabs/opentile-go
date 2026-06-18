@@ -19,7 +19,7 @@ import (
 // path is fixture-untested in production data — synthetic-only
 // coverage is the v0.7 reality (spec §10).
 func TestEmptyTilePathReturnsBlank(t *testing.T) {
-	// 2x2 grid, one tile marked empty in serpentine slot 1. White
+	// 2x2 grid, one tile marked empty at row-major storage slot 1. White
 	// point 200 so the resulting blank decodes to ~RGB(200, 200, 200).
 	const tw, th, gridW, gridH = 32, 32, 2, 2
 	xmp := []byte(`<iScan ScannerModel="VENTANA DP 200" ScanRes="0.25" ScanWhitePoint="200"/>`)
@@ -43,11 +43,8 @@ func TestEmptyTilePathReturnsBlank(t *testing.T) {
 	}
 	lvl := tiler.levelImpls[0]
 
-	// Map serpentine index 1 to image-space (col, row).
-	emptyCol, emptyRow := serpentineToImage(1, gridW, gridH)
-	if emptyCol < 0 {
-		t.Fatalf("serpentineToImage(1, %d, %d): out of bounds", gridW, gridH)
-	}
+	// Storage index 1 maps row-major to image (col, row).
+	emptyCol, emptyRow := 1%gridW, 1/gridW
 
 	tile, err := lvl.Tile(emptyCol, emptyRow)
 	if err != nil {
@@ -93,7 +90,7 @@ func TestEmptyTileFallsBackTo255WhenScanWhitePointAbsent(t *testing.T) {
 	}
 	lvl := tiler.levelImpls[0]
 
-	emptyCol, emptyRow := serpentineToImage(0, gridW, gridH)
+	emptyCol, emptyRow := 0%gridW, 0/gridW
 	tile, err := lvl.Tile(emptyCol, emptyRow)
 	if err != nil {
 		t.Fatalf("Tile: %v", err)
@@ -130,7 +127,7 @@ func TestEmptyTileReaderReturnsBlank(t *testing.T) {
 	f, _ := tiff.Open(bytes.NewReader(data), int64(len(data)))
 	tiler, _ := New().Open(f, nil)
 	lvl := tiler.levelImpls[0]
-	emptyCol, emptyRow := serpentineToImage(2, gridW, gridH)
+	emptyCol, emptyRow := 2%gridW, 2/gridW
 
 	want, err := lvl.Tile(emptyCol, emptyRow)
 	if err != nil {

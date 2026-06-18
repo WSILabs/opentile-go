@@ -25,11 +25,12 @@ const iScanMarker = "<iScan"
 // BigTIFF. The BIF whitepaper mandates BigTIFF for the DP generation, but
 // legacy iScan scanners (Coreo/HT, ~2010-2012, BuildVersion 3.x) wrote
 // *classic* little-endian TIFF. The earlier BigTIFF gate wrongly rejected
-// those, so they fell through to the generic-TIFF reader, which renders BIF's
-// serpentine (boustrophedon, bottom-up) tile order scrambled — the "corrupt
-// BIF" symptom in downstream viewers (#37). The serpentine + blank-tile +
-// associated-image machinery is container-agnostic (it operates on parsed
-// pages), so the reader handles classic-TIFF iScan slides once detected.
+// those, so they fell through to the generic-TIFF reader — which lacks BIF's
+// blank-tile fill and associated-image handling and so mis-rendered them (the
+// "corrupt BIF" symptom in downstream viewers, #37). The BIF reader's
+// row-major tile addressing, blank-tile, and associated-image machinery is
+// container-agnostic (it operates on parsed pages), so the reader handles
+// classic-TIFF iScan slides once detected.
 //
 // The `<iScan` substring is BIF-specific: verified 0 false positives across
 // the non-BIF fixtures (SVS, NDPI, generic TIFF, OME-TIFF, Philips TIFF), none
