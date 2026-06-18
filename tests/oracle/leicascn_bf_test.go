@@ -70,6 +70,16 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 			levels := tlr.Levels()
 			associated := tlr.AssociatedImages()
 
+			// SizeC: Pyramid.SizeC() was removed in the v1.0 API. Derive
+			// the fluorescence-channel count from the Leica-SCN metadata
+			// instead — Metadata.Channels is populated only when SizeC > 1
+			// (nil for brightfield), so SizeC == max(1, len(Channels)).
+			md, _ := leicascn.MetadataOf(tlr)
+			sizeC := 1
+			if md != nil && len(md.Channels) > 0 {
+				sizeC = len(md.Channels)
+			}
+
 			// Pin our level count + associated count up front (bio-
 			// formats's series count includes both, plus its own
 			// "Thumbnail series" splits, so a direct equality isn't
@@ -80,7 +90,7 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 			if got := len(associated); got != tc.expectMacros {
 				t.Errorf("opentile len(Associated()) = %d, want %d", got, tc.expectMacros)
 			}
-			if got := tlr.Pyramids()[0].SizeC(); got != tc.expectSizeC {
+			if got := sizeC; got != tc.expectSizeC {
 				t.Errorf("opentile SizeC = %d, want %d", got, tc.expectSizeC)
 			}
 
@@ -95,7 +105,6 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 			// per-image series list). We instead verify that bio-
 			// formats reports series count consistent with
 			// (mains × pyramid depth + auxiliaries × aux-depth).
-			md, _ := leicascn.MetadataOf(tlr)
 			regionCount := len(md.Regions)
 
 			bfSizes := make(map[[2]int]bool, len(bf.Series))
@@ -106,10 +115,10 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 			if regionCount == 1 {
 				// Per-level size-presence check.
 				for i, lvl := range levels {
-					key := [2]int{lvl.Size().W, lvl.Size().H}
+					key := [2]int{lvl.Size.W, lvl.Size.H}
 					if !bfSizes[key] {
 						t.Errorf("L%d size %v missing from bio-formats series list (single-region)",
-							i, lvl.Size())
+							i, lvl.Size)
 					}
 				}
 			} else {
@@ -127,7 +136,7 @@ func TestBioFormatsParity_SCN(t *testing.T) {
 
 			t.Logf("✓ %s: opentile %d levels / %d regions / %d associated / SizeC=%d ; bio-formats %d series",
 				tc.filename, len(levels), regionCount, len(associated),
-				tlr.Pyramids()[0].SizeC(), bf.SeriesCount)
+				sizeC, bf.SeriesCount)
 		})
 	}
 }
