@@ -119,23 +119,27 @@ func bandMAD(a, b *decoder.Image, aCol0, bCol0, bandWidth int) float64 {
 // S12-18199-1A is intentionally skipped: only ~11% live joins → too few
 // interior horizontal pairs to sample meaningfully.
 //
+// The band is measured at the LAYOUT's ACTUAL placement (overlap =
+// tileW - (X[col+1] - X[col]) from the layout), so this gates where the layout
+// really puts the tiles — not where a join's raw OverlapX would.
+//
 // Observed (OPENTILE_TESTDIR=$PWD/sample_files, libjpeg-turbo, n=40 each):
 //
-//	OS-1:    stitchMAD=7.32   naiveMAD=33.40  (ratio 0.22)
-//	AC1.592: stitchMAD=21.13  naiveMAD=47.68  (ratio 0.44)
-//	1_19:    stitchMAD=15.73  naiveMAD=52.16  (ratio 0.30)
+//	OS-1:    stitchMAD=7.35   naiveMAD=33.39  (ratio 0.22)
+//	AC1.592: stitchMAD=21.15  naiveMAD=47.69  (ratio 0.44)
+//	1_19:    stitchMAD=15.78  naiveMAD=52.15  (ratio 0.30)
 //
 // The ratio (stitch ÷ naive) is the load-bearing signal: the stitched-alignment
 // band is 2.3–4.5× closer than the naive no-overlap control on every fixture,
 // proving the placement aligns real content rather than just hitting a bounding
 // box. The ABSOLUTE stitchMAD runs higher than a clean re-encode would (single
-// digits) because legacy iScan placement is per-gap-AVERAGE: buildLegacyLayout
-// removes each column's mean OverlapX (rounded to int), so an individual pair's
-// own measured OverlapX — what bandMAD uses — can sit a pixel or two off the
-// average, smearing the band; legacy scans also carry genuine sub-pixel
-// registration drift the separable model can't undo. Absolute bound pinned to
-// 30 (above the worst observed 21.13 with margin, still well below every
-// naiveMAD); ratio bound stitch < 0.6 × naive is the primary gate.
+// digits) NOT from misplacement — it persists at the layout-exact offset (the
+// layout's per-gap-average placement matches each join's own offset to ≤2px,
+// per TestLegacyPlacementResidual) — but from high-contrast tissue content at
+// the seams, JPEG decode noise, and the genuine sub-pixel registration drift
+// the separable per-axis model cannot undo. Absolute bound pinned to 30 (above
+// the worst observed 21.15 with margin, still well below every naiveMAD); the
+// ratio bound stitch < 0.6 × naive is the primary gate.
 func TestLegacySeamContinuity(t *testing.T) {
 	// S12-18199-1A excluded (too few live horizontal joins; see doc above).
 	const absBound = 30.0  // above worst observed stitchMAD (21.13), below every naiveMAD
@@ -185,8 +189,16 @@ func TestLegacySeamContinuity(t *testing.T) {
 				if !bok {
 					continue
 				}
-				ov := p.ov
-				if ov >= a.Width || ov >= b.Width {
+				// Measure the seam at the LAYOUT's ACTUAL placement, not at the
+				// per-join OverlapX: tile B is placed at X[col+1], so the real
+				// overlap the layout produces is tileW - (X[col+1] - X[col]).
+				// (Pair selection used the per-join overlap only to find pairs
+				// that have a live join; the band itself must reflect where the
+				// layout actually puts the tiles.)
+				ax, _, _ := l0.layout.TileOrigin(p.col, p.row)
+				bx, _, _ := l0.layout.TileOrigin(p.col+1, p.row)
+				ov := tileW - (bx - ax)
+				if ov <= 4 || ov >= a.Width || ov >= b.Width {
 					continue
 				}
 				// Stitched alignment: A's right band [W-ov,W) vs B's left band [0,ov).
