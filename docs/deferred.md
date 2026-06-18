@@ -707,8 +707,13 @@ L25 below — fixture-driven; cervix has no annotations.
   translation of `columnYAdjust`), plus a per-column placement check.
   Low priority; no consumer-reported problem.
 
-### L37 — `bfparity` oracle package fails to compile (v1.0-API drift in leicascn_bf_test.go) (since v0.46) — [#66](https://github.com/WSILabs/opentile-go/issues/66)
+### L37 — `bfparity` oracle package fails to compile (v1.0-API drift in leicascn_bf_test.go) (since v0.46) — RESOLVED v0.46 follow-up, [#66](https://github.com/WSILabs/opentile-go/issues/66)
 
+- **Resolution:** ✅ Fixed (commit `8cde5da`, #66 closed). `leicascn_bf_test.go`
+  moved to the v1.0 API (`Pyramid.SizeC()` → `len(leicascn.MetadataOf(tlr).Channels)`;
+  `lvl.Size()` → `lvl.Size`). The `bfparity` package compiles; `TestBIFStitchPixelOracle`
+  (the #64 BIF stitch oracle) and `TestBioFormatsParity_SCN` both pass locally.
+  Retained here for the audit trail; no longer an active limitation.
 - **Source:** v0.46 BIF stitching milestone (pre-existing; predates
   #64/#65).
 - **Severity:** Test-infra tech-debt — `tests/oracle/leicascn_bf_test.go`
