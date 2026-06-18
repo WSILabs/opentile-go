@@ -128,6 +128,27 @@ func buildDPLayout(in StitchInput) *Layout {
 		for i, f := range ii.Frames {
 			framePos[i] = key{f.Col, f.Row}
 		}
+		// Serpentine grid for resolving Tile1/Tile2. The whitepaper (page 13)
+		// defines Tile1/Tile2 as indices in the PHYSICAL (stage) coordinate
+		// system — the serpentine path of Figure 2/4 (lower-left = tile 1, even
+		// stage rows left→right, odd rows right→left), and they are 1-BASED
+		// ("starting with tile 1"). They are NOT the row-major TILE_OFFSETS
+		// storage index the <Frame> nodes declare. Use this AOI's scanned grid
+		// (NumCols×NumRows) for the conversion; fall back to the level grid when
+		// the AOI omits it (defensive — real DP files always carry it).
+		scols, srows := ii.NumCols, ii.NumRows
+		if scols <= 0 || srows <= 0 {
+			scols, srows = in.Cols, in.Rows
+		}
+		// jointTile resolves a 1-based serpentine Tile index to its image-space
+		// (col,row). Returns ok=false for out-of-grid indices (skip the joint).
+		jointTile := func(idx int) (key, bool) {
+			c, r := serpentineToImage(idx-1, scols, srows)
+			if c < 0 {
+				return key{}, false
+			}
+			return key{c, r}, true
+		}
 		// Anchor: place every frame at its nominal grid position first, then
 		// relax along confident joints. Iterate to a fixed point (the joint
 		// graph is a DAG over a grid, so |cols|+|rows| passes converge).
@@ -135,33 +156,63 @@ func buildDPLayout(in StitchInput) *Layout {
 		for _, p := range framePos {
 			pos[p] = [2]int{p[0] * in.TileW, p[1] * in.TileH}
 		}
-		for pass := 0; pass < in.Cols+in.Rows; pass++ {
+		seeded := make(map[key]bool, len(framePos)) // has this tile been compacted yet?
+		for pass := 0; pass < scols+srows; pass++ {
 			for _, j := range ii.Joints {
 				if !j.FlagJoined || j.Confidence != 100 {
 					continue // whitepaper page 13: trust only confident, joined pairs
 				}
-				if j.Tile1 < 0 || j.Tile1 >= len(framePos) || j.Tile2 < 0 || j.Tile2 >= len(framePos) {
+				a, aok := jointTile(j.Tile1)
+				b, bok := jointTile(j.Tile2)
+				if !aok || !bok {
 					continue
 				}
-				a, b := framePos[j.Tile1], framePos[j.Tile2]
+				if _, ok := pos[a]; !ok {
+					continue
+				}
+				if _, ok := pos[b]; !ok {
+					continue
+				}
+				// Whitepaper page 15 + Figure 4: a horizontal joint places Tile2
+				// one image-column to the RIGHT of Tile1, overlapping by OverlapX
+				// (Tile2's left edge sits OverlapX pixels inside Tile1's right
+				// edge); a vertical joint places Tile2 one image-row ABOVE Tile1
+				// (serpentine "UP"), overlapping by OverlapY. Direction names the
+				// serpentine traversal step, NOT a spatial inversion: confirmed
+				// against the real Ventana-1 joints, every LEFT joint has Tile2 at
+				// col+1 same row, every UP joint has Tile2 at row−1 same col.
+				//
+				// LEFT/RIGHT are the two horizontal traversal labels (the real
+				// DP-200 serpentine emits only LEFT; synthetic grids emit RIGHT);
+				// UP/DOWN are the two vertical labels (DP-200 emits only UP). All
+				// four reduce to the same anchor→neighbor compaction: the tile
+				// that is spatially right/below is shifted inward toward its
+				// left/upper neighbor by the overlap. We normalize to "anchor =
+				// the left/upper tile, target = the right/lower tile" by sorting
+				// the pair on the relevant image-axis, so every direction label
+				// is handled uniformly and correctly.
 				switch j.Direction {
-				case "RIGHT":
-					// Whitepaper page 15 + Figure 4: Tile2 sits OverlapX pixels
-					// left of Tile1's right edge — Tile2.X = Tile1.X + tileW -
-					// OverlapX, Y unchanged. Take the smallest consistent X
-					// (compaction). LEFT is the mirror case used by the real
-					// serpentine path; this task's grid emits only RIGHT.
-					nx := pos[a][0] + in.TileW - j.OverlapX
-					if pass == 0 || nx < pos[b][0] {
-						pos[b] = [2]int{nx, pos[b][1]}
+				case "LEFT", "RIGHT":
+					left, right := a, b
+					if right[0] < left[0] {
+						left, right = right, left
 					}
-				case "DOWN":
+					nx := pos[left][0] + in.TileW - j.OverlapX
+					if !seeded[right] || nx < pos[right][0] {
+						pos[right] = [2]int{nx, pos[right][1]}
+						seeded[right] = true
+					}
+				case "UP", "DOWN":
 					// Whitepaper page 15: "Similar rules apply for the overlap
-					// between vertical tile pairs." Tile2.Y = Tile1.Y + tileH -
-					// OverlapY; X unchanged. (DP 200 has OverlapY==0, page 15.)
-					ny := pos[a][1] + in.TileH - j.OverlapY
-					if pass == 0 || ny < pos[b][1] {
-						pos[b] = [2]int{pos[b][0], ny}
+					// between vertical tile pairs." (DP 200 has OverlapY==0.)
+					upper, lower := a, b
+					if lower[1] < upper[1] {
+						upper, lower = lower, upper
+					}
+					ny := pos[upper][1] + in.TileH - j.OverlapY
+					if !seeded[lower] || ny < pos[lower][1] {
+						pos[lower] = [2]int{pos[lower][0], ny}
+						seeded[lower] = true
 					}
 				}
 			}
@@ -189,24 +240,29 @@ func hasConfidentJoint(ei *bifxml.EncodeInfo) bool {
 	return false
 }
 
-// finalizeExtent computes the stitched extent as the convex hull of all AOI
-// tile placements (whitepaper page 16 + Figure 5: "The BIF-image approximates
-// the convex hull of all AOIs"), normalized so the hull's top-left corner is
-// (0,0), then padded up to a tile multiple.
+// finalizeExtent computes the stitched extent as the convex hull (bounding box)
+// of all AOI tile placements (whitepaper page 16 + Figure 5: "The BIF-image
+// approximates the convex hull of all AOIs"), normalized so the hull's top-left
+// corner is (0,0).
 //
-// Pad edge: whitepaper page 5 — "If the convex hull of all AOIs combined in the
-// BIF-image is not a multiple of the tile size, the image will be padded with
-// empty white pixels to the top and right." The image coordinate system has its
-// origin at the top-left with Y increasing downward (page 4/15), and AoiOrigins
-// are always tile-multiples (page 14). Normalizing to the min corner then
-// rounding the max corner up to a tile multiple pads on the right (and bottom).
+// No tile-multiple rounding. The Roche whitepaper (page 5/16) pads the
+// underlying raw-frame TIFF up to a tile multiple (that is the IFD ImageWidth ×
+// ImageLength — for Ventana-1, the padded 24×21 grid = 24576×21504, including
+// the phantom 24th column), but the STITCHED CONTENT extent that consumers want
+// is the compacted hull itself. Black-box bio-formats (showinf, dimension
+// oracle only — never a source reference) reports Ventana-1 L0 as exactly
+// 23432×21504 (the compacted hull), and its lower pyramid levels are exact /2
+// downsamples of those numbers — so the un-rounded hull, not 23552, is the
+// ground truth. Rounding here would re-introduce a (different) padding artifact;
+// the #60 bug being fixed is precisely that opentile-go reported a padded
+// extent. White padding to the IFD grid is a pixel-fill concern of the
+// compositing layer, not the reported stitched dimensions.
+//
 // For VENTANA DP 200 spec-compliant slides OverlapY is always 0 (page 15: "do
-// not contain vertical tile overlap"), so every Y coordinate is already a tile
-// multiple and the vertical roundUp is a no-op — the bottom-vs-top pad-edge
-// distinction therefore cannot manifest. The horizontal (right) pad matches the
-// whitepaper exactly. (Tile5 of the level's golden test in Task 5 should confirm
-// vertical extent stays a clean tile multiple.)
+// not contain vertical tile overlap"), so every Y coordinate is already a clean
+// tile multiple and the height is exactly rows × tileH.
 func finalizeExtent(l *Layout, in StitchInput) {
+	_ = in
 	if len(l.origin) == 0 {
 		l.Width, l.Height = 0, 0
 		return
@@ -232,13 +288,6 @@ func finalizeExtent(l *Layout, in StitchInput) {
 			maxY = p.Y + l.tileH
 		}
 	}
-	l.Width = roundUpToMultiple(maxX, in.TileW)
-	l.Height = roundUpToMultiple(maxY, in.TileH)
-}
-
-func roundUpToMultiple(v, m int) int {
-	if m <= 0 || v%m == 0 {
-		return v
-	}
-	return ((v / m) + 1) * m
+	l.Width = maxX
+	l.Height = maxY
 }
