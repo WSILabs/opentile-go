@@ -31,14 +31,20 @@ raw extent should be invalidated and regenerated.
 for DP-generation slides; the old output included seam artefacts where raw frame
 boundaries produced visible lines at the 1024-pixel grid spacing.
 
-## Legacy iScan slides are unchanged
+## Legacy iScan slides are also affected (#63)
 
-Legacy iScan BIF slides (Coreo / HT, e.g. OS-1.bif) are **not affected**. The DP
-stitch engine is gated to spec-compliant DP slides only. Legacy slides continue to
-report the naive frame-grid extent as `Level.Size`. Overlap compaction for legacy
-iScan slides is a known limitation, deferred: the clean-room placement-
-reconstruction characterization is tracked in [#63](https://github.com/WSILabs/opentile-go/issues/63)
-and the padded-width issue in [#60](https://github.com/WSILabs/opentile-go/issues/60).
+Legacy iScan BIF slides (Coreo / HT, e.g. OS-1.bif) **are also affected** by a
+subsequent change (#63). Prior to #63, legacy slides reported the naive raw-frame-grid
+extent as `Level.Size`; after #63 they report the stitched near-exact extent
+reconstructed from the `TileJointInfo` overlap graph (per-column/row-gap-average
+overlap model). `ReadRegion`, `ReadRegionScaled`, and `ScaledStrips` now produce
+stitched output for legacy slides too.
+
+Consumers (wsitools, openscope, or any code that cached legacy BIF `Level.Size`)
+**should invalidate and regenerate** any stored dimensions for legacy iScan slides,
+just as for DP slides. The stitched legacy dimensions are near-exact vs openslide
+(~0.05% height residual from the un-modeled per-column Y-baseline; width is
+clean-room-exact).
 
 ## Validate `tile-grid-mismatch` relaxed
 
