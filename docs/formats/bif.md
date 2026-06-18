@@ -41,6 +41,41 @@ The two fixtures are deliberately complementary — one tests the spec-compliant
 | Defensive Direction value tolerance | ✅ | All 4 spec values + any unknown string passes through verbatim into `bifxml.TileJoint.Direction` (no enum validation, unlike openslide) |
 | Volumetric Z-stack reading (since v0.7 multi-dim closeout) | ✅ | `IMAGE_DEPTH` (tag 32997) drives `Image.SizeZ()`; per-Z tile data read via `Level.TileAt(TileCoord{Z, X, Y})` with stride `Z * (cols*rows) + serpIdx` per BIF whitepaper §"Whole slide imaging process" storage layout. `<iScan>/@Z-spacing` drives `Image.ZPlaneFocus(z)`: Z=0 nominal, Z=1..nNear near focus, Z=nNear+1..N-1 far focus. Synthetic-fixture coverage only — both real fixtures have IMAGE_DEPTH=1 (verified via the multi-dim T1 gate) |
 
+## Tile stitching & dimensions
+
+BIF tiles are **overlapping camera frames**: adjacent frames share a small border region captured twice on the scanner stage. The displayed slide image is the stitched result — frames composited so their shared content aligns. Raw tile bytes and the grid addressing system are unaffected by stitching; the overlap is an output-space concern only.
+
+### Per-tile API (raw / decoded tile reads)
+
+`Tile(col, row)`, `DecodedTile(col, row)`, `TileReader(col, row)`, `Tiles(ctx)`, and `TileAt(coord)` return the **raw camera frames** indexed by image-grid `(col, row)`. These are unchanged by stitching — you always get the full raw frame at its grid address. `Level.Grid` reports the grid dimensions in frame units.
+
+### Level.Size, ReadRegion, and scaled APIs
+
+`Level.Size` (and by extension `ReadRegion`, `ReadRegionScaled`, and `ScaledStrips` / DZI output) report and produce the **stitched content extent** — the pixel hull after overlap compaction. This is the meaningful slide area a consumer would display; it is smaller than (or equal to) the raw frame-grid extent `Grid.W×TileSize.W × Grid.H×TileSize.H`.
+
+### DP generation (VENTANA DP 200 / DP 600) — pixel-exact stitching
+
+Spec-compliant DP slides carry per-tile-pair overlap values in the `<EncodeInfo>/<SlideStitchInfo>/<ImageInfo>/<TileJointInfo>` XMP elements. opentile-go computes the stitched layout from these joints using the algorithm described in the **Roche BIF whitepaper** (v1.0, 2020, MC--06058 1120, §"Image stitching process", page 15): each confident (FlagJoined, Confidence=100) joint shifts the right/lower tile inward by its OverlapX/OverlapY; the stitched extent is the convex hull of all resulting tile placements.
+
+The implementation is whitepaper-derived only. bio-formats and openslide are used as **black-box dimension oracles** to validate output (e.g., bio-formats reports Ventana-1 L0 as 23432×21504, which opentile-go matches exactly); their GPL/LGPL source is not read or translated.
+
+Arithmetic for Ventana-1 L0 as a concrete example (whitepaper page 15):
+
+```
+width  = 23 content columns × 1024 − (5 LEFT joints × OverlapX=24) = 23552 − 120 = 23432
+height = 21 rows × 1024 = 21504   (DP 200 has no vertical overlap)
+```
+
+The 24th grid column (phantom raw-frame padding) contributes no content; `Level.Grid.W=24` but `Level.Size.W=23432`.
+
+Level 0 is the only level with overlap (whitepaper page 16: "IFD 3 and Higher" levels abut without overlap); levels ≥1 use the naive regular-grid layout.
+
+### Legacy generation (Coreo / HT iScan) — NOT yet stitched
+
+Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **not stitched**. The Roche whitepaper (page 3) explicitly states that files produced by older scanners "cannot be reconstructed correctly", and the overlap metadata needed for the DP algorithm is absent. opentile-go uses the naive regular-grid layout for legacy slides: `Level.Size` reports the raw frame-grid extent (`Grid.W × TileSize.W`, `Grid.H × TileSize.H`), which over-states the real content area by the cumulative overlap.
+
+Implementing legacy overlap compaction is a known limitation tracked as **#60-legacy** (deferred; no authoritative non-GPL algorithm is currently available). `TestOS1LegacyNaiveDims` locks the current naive extent so any future change is deliberate.
+
 ## Edge tile semantics
 
 Tiles are stored at full `TileSize` regardless of position; right-edge and bottom-edge tiles include padding bytes in the unused region (the TIFF tile format stores them this way). The row-major `(col, row) → TILE_OFFSETS` mapping changes which physical tile address corresponds to logical (x, y), but does not change per-tile dimensions. The ScanWhitePoint blank-tile fill emits a synthetic full-`TileSize` blank tile for sparse regions; same edge semantics. opentile-go returns the bytes verbatim per the byte-passthrough invariant. Consumers should clip rendered output to the meaningful sub-rect:
