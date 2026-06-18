@@ -149,7 +149,7 @@ for pos, res := range base.Tiles(ctx) {
 
 ### Multi-image files
 
-OME-TIFF can carry multiple main pyramids in a single file. `s.Pyramids()` returns them all; `s.Levels()` is a shortcut to `s.Pyramids()[0].LevelPtrs()` for callers that don't need to distinguish.
+OME-TIFF can carry multiple main pyramids in a single file. `s.Pyramids()` returns them all; `s.Levels()` is a shortcut for the first pyramid's levels (`s.Pyramids()[0].Levels`) for callers that don't need to distinguish.
 
 ```go
 for _, pyr := range t.Pyramids() {

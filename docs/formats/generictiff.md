@@ -63,8 +63,8 @@ SZI/DZI is the exception — its readers return border-sized tiles per spec; see
 | Stripped pyramid IFDs | ❌ — stripped IFDs route to associated-image classifier | `docs/deferred.md` §2 L26 — fixture-driven |
 | Multi-pyramid TIFFs | ❌ — `ErrPyramidMultiplePyramid` (OME's job) | `docs/deferred.md` §2 L27 — permanent |
 | Multi-strip JPEG with `PlanarConfiguration=2` (each strip an independent JPEG) | ❌ — OME-specific quirk | `docs/deferred.md` §2 L28 — permanent |
-| Multi-strip Deflate associated images | ❌ — `errUnsupportedAssociatedShape`; silently dropped from `Associated()` | re-encode path not implemented in v0.10; flate writers compose differently from the LZW pattern |
-| Tiled associated images | ❌ — silently dropped from `Associated()` | rare; OME emits these but its own reader handles them |
+| Multi-strip Deflate associated images | ❌ — `errUnsupportedAssociatedShape`; silently dropped from `AssociatedImages()` | re-encode path not implemented in v0.10; flate writers compose differently from the LZW pattern |
+| Tiled associated images | ❌ — silently dropped from `AssociatedImages()` | rare; OME emits these but its own reader handles them |
 | Pluggable associated-image classifier | ❌ — heuristic only | `docs/deferred.md` §2 L29 — YAGNI |
 | Magnification | ❌ — always 0 | No standard TIFF tag for it; consumers can derive from `MPP.Symmetric()` if desired |
 
@@ -87,11 +87,11 @@ Upstream Python opentile doesn't have a generic-TIFF reader, so every v0.10 beha
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|
 | Generic-TIFF reader for non-vendor tiled pyramidal TIFFs | v0.10 | not opt-out-able once registered; any TIFF that no vendor factory claims AND that passes the validator routes here | Real-world WSI authoring outside Aperio / Hamamatsu / Philips is common (Grundium, Roche legacy iScan, vendor-stripped derivatives, libtiff-encoded research outputs); a catch-all reader makes opentile-go consume any structurally valid pyramid TIFF |
-| `"associated"` AssociatedImage Type value addition | v0.10 | iterate `Associated()` and skip the type | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / overview / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible type label |
+| `"associated"` AssociatedImage Type value addition | v0.10 | iterate `AssociatedImages()` and skip the type | Generic TIFFs may carry non-pyramid IFDs the heuristic classifier can't confidently match to label / overview / thumbnail; surfacing them as `"associated"` lets the consumer access Bytes() / Size() without a wrong-but-plausible type label |
 
 ## v0.15 — Type() rename + value alignment
 
-`Tiler.Associated()` for generic TIFFs emits one of: `"label"`, `"overview"`, `"thumbnail"`, `"associated"` (heuristic-fallback).
+`s.AssociatedImages()` for generic TIFFs emits one of: `"label"`, `"overview"`, `"thumbnail"`, `"associated"` (heuristic-fallback).
 
 The wide-field slide image (when the heuristic classifier identifies one) is emitted as `"overview"` from v0.15 onward, matching DICOM PS3.3 + upstream Python opentile + opentile-go's other format readers. Pre-v0.15 (v0.10–v0.14) this was emitted as `"macro"`.
 

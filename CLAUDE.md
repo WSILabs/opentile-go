@@ -2,7 +2,51 @@
 
 Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 11 WSI formats with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo core; optional OpenJPEG/JPEG2000, JPEG-XL, WebP, AVIF, HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths. Note: the DICOM reader uses `github.com/WSILabs/dicom` (a maintained pure-Go fork of `suyashkumar/dicom`, no new cgo) for cold-path attribute parsing.
 
-## Current milestone — v1.0 API breaking pass (shipped 2026-06-13, v0.41.0)
+## Current milestone — BIF overlap-aware tile stitching (shipped 2026-06-18, v0.46.0)
+
+- **Scope:** BIF tiles are overlapping camera frames; the displayed
+  slide is the *stitched* result. This milestone makes BIF
+  stitched-pixel output correct (PRs #64 DP + #65 legacy), closing
+  #60 and #63. Per-tile raw/decoded bytes and the 10 non-BIF formats
+  are unchanged.
+- **DP generation** (ScannerModel `"VENTANA DP*"`): pixel-exact,
+  byte-identical to bio-formats. `buildDPLayout` reads the
+  `<Frame XY="C,R">` nodes + applies `<TileJointInfo>` overlap
+  compaction. L0 `Level.Size` → stitched content hull (Ventana-1
+  24576×21504 → 23432×21504); `Grid` keeps the raw frame grid.
+- **Legacy iScan** (Coreo/HT — no `<Frame>` nodes): near-exact,
+  clean-room. `buildLegacyLayout` reconstructs placement from the
+  `<TileJointInfo>` graph via a separable per-column/row-gap-AVERAGE
+  overlap model (float, global-mean fill, Confidence≥98). Validated
+  vs openslide (the all-4 oracle — bio-formats crashes on 3/4 legacy
+  files): width clean-room-exact, height ~0.05% residual.
+- **Compositing:** new internal `regionLayout` capability (discovered
+  via the `UnwrapReader` chain) → `ReadRegion`/`ReadRegionScaled`/
+  `ScaledStrips` all composite stitched output; non-BIF formats
+  bit-identical. Validate `tile-grid-mismatch` relaxed to
+  cover-not-equal.
+- **Validation philosophy:** placement-fidelity is the headline gate
+  (per-join residual + seam-continuity pixel MAD), dims secondary —
+  dims-convergence alone can hide per-tile drift (measured: it
+  doesn't, p99 ≤ 2px).
+- **Clean-room:** algorithm from the Roche whitepaper
+  (`sample_files/bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf`) +
+  the file's own joints; bio-formats (GPL) / openslide (LGPL) are
+  black-box oracle constants only, never translated.
+- **Deferred (filed):** #67 multi-AOI (no fixture), #68 legacy height
+  residual (per-column `columnYAdjust` is GPL-shaped). #66 (bfparity
+  compile drift) fixed post-release.
+- **Specs/plans:** docs/superpowers/specs|plans/2026-06-18-bif-*
+- **Work branches:** fix/bif-l0-grid-width-60 (DP), feat/bif-legacy-stitching
+
+> **Version history note:** the CHANGELOG (`CHANGELOG.md`) is the
+> canonical per-release record. The milestone sections below are a
+> curated subset and skip v0.32–v0.45 (DICOM 11th-format reader,
+> codec-domain scaled decode, `Validate()` API, decoder
+> codestream-inspect, and assorted format fixes) — see the CHANGELOG
+> for those.
+
+## Previous milestone — v1.0 API breaking pass (shipped 2026-06-13, v0.41.0)
 
 - **Scope:** Mechanical API restructure to the v1.0 public surface. No
   new format support or behavior changes — purely a naming and receiver
@@ -28,8 +72,10 @@ Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpictur
     `ReadRegion` takes `opentile.Region`; stdlib `image.*` types gone
     from public surface.
   - `opentile.TIFFDirectoriesOf(s)` → `s.TIFFDirectories()`.
-- **API additions:** `Pyramid.LevelPtrs() []*Level` convenience; all
-  prior additive additions (constants, options) unchanged.
+- **API additions:** all prior additive additions (constants,
+  options) unchanged. (A `Pyramid.LevelPtrs()` convenience was
+  proposed but dropped in final review — it does not exist; use
+  `Slide.Levels()`, which returns `[]*Level` directly.)
 - **Correctness bar:** `make test` green under `-race`; all 11 format
   readers compile against the new surface.
 - **Migration note:** docs/migrations/2026-06-12-v1-api-breaking-pass.md

@@ -31,7 +31,7 @@ associated image.
 | HTJ2K levels (`.201` / `.202` / `.203`) | ✅ | openjph decode. `github.com/WSILabs/dicom` recognizes the HTJ2K transfer syntaxes directly, so the cold-path parse is a plain `ParseFile`. (Upstream `suyashkumar/dicom` v1.1.0 didn't know them and SIGSEGV'd on the nil byte order, so `internal/dicom` used to substitute a `.91` proxy UID in the meta header; that workaround was retired when we moved to the fork.) Colour verified within 5 LSB vs the original JPEG (ojph_compress + pydicom lossless transcode). Subject to the `nohtj2k` build tag |
 | Uncompressed associated images | ✅ | `decoder/none` raw passthrough; Leica GT450 label |
 | JPEG associated images | ✅ | label / overview / thumbnail per `ImageType` tokens |
-| `Levels()` / `Metadata()` / `RawTile` / `DecodedTile` / `ReadRegion` / `ScaledStrips` | ✅ | Standard opentile-go interfaces |
+| `Levels()` / `Metadata()` / tile reads via `Level.Tile` / `Level.DecodedTile` / `Level.ReadRegion` / `Pyramid.ScaledStrips` | ✅ | Standard opentile-go interfaces |
 | Verified scanners | Leica GT450, 3DHISTECH, Grundium | Cross-scanner byte-identical frame extraction confirmed |
 | `opentile.FormatDICOM` enum | ✅ | Format string `"dicom"` |
 | `internal/dicom` parser (cold path) | ✅ | Wraps `github.com/WSILabs/dicom` (pure Go); no new cgo |
@@ -46,7 +46,7 @@ associated image.
 | JPEG-LS / RLE transfer syntaxes | ❌ deferred; JP2K (`.90`/`.91`) and HTJ2K (`.201`–`.203`) now supported, JPEG-LS / RLE remain deferred |
 | Multi-optical-path / Z-stack / multi-pyramid series | ❌ deferred; opentile-go reads single-path brightfield WSM series |
 | DICOMweb / PACS network fetch | ❌ permanent YAGNI for this library |
-| Raw DICOM attribute access API | ❌ deferred; `TIFFDirectoriesOf` returns `ok=false` for DICOM |
+| Raw DICOM attribute access API | ❌ deferred; `s.TIFFDirectories()` returns `ok=false` for DICOM |
 
 ## Open contracts
 
@@ -315,7 +315,7 @@ The full reader design:
   Open-built mmap offset → return bytes. `DecodedTile` routes to the
   existing pooled decoder by transfer syntax; uncompressed instances go
   through `decoder/none`.
-- **TIFF-tag API is N/A** — like IFE/SZI, `TIFFDirectoriesOf` returns
+- **TIFF-tag API is N/A** — like IFE/SZI, `s.TIFFDirectories()` returns
   `ok=false`. A raw DICOM-attribute exposure API is a separate future
   opportunity.
 - **Robustness note**: `Leica-4`'s `AcquisitionDateTime` carries a
