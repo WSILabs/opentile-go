@@ -74,7 +74,7 @@ func (s *TifffileSession) Tile(imageIdx, levelIdx, x, y int) ([]byte, error) {
 }
 
 // TileBIF returns the raw tile bytes at BIF-pyramid level (col, row)
-// in image-space. The Python runner applies the serpentine remap
+// in image-space. The Python runner maps (col, row) row-major
 // before reading dataoffsets. Pages are sorted by parsed
 // ImageDescription "level=N" — non-pyramid IFDs are excluded.
 //

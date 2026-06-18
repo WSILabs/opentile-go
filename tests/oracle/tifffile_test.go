@@ -57,7 +57,7 @@ func TestTifffileParity(t *testing.T) {
 	}
 }
 
-// bifTifffileSlideCandidates: slides where tifffile's serpentine-aware
+// bifTifffileSlideCandidates: slides where tifffile's row-major
 // raw-byte read should match opentile-go's Tile() output verbatim.
 // Restricted to fixtures WITHOUT shared JPEGTables (where opentile-go
 // returns raw passthrough bytes — same as tifffile). Fixtures WITH
@@ -71,9 +71,11 @@ var bifTifffileSlideCandidates = []string{
 // fixtures whose Tile() output is raw-passthrough (no JPEGTables
 // splice). Parity bar: byte-equality between opentile-go's Tile(col,
 // row) and tifffile's raw bytes at the same image-space position
-// (with serpentine remap applied on the Python side).
+// (with the row-major (col,row)→TILE_OFFSETS map applied on the Python
+// side). It is placement-agnostic — spatial placement is checked by the
+// bio-formats oracle (TestBIFTilePlacementSpatial, #59).
 //
-// Catches: wrong serpentine algebra, wrong page selection (level=N
+// Catches: wrong row-major indexing, wrong page selection (level=N
 // ordering vs IFD index), wrong tile array indexing.
 func TestTifffileParityBIF(t *testing.T) {
 	dir := tests.TestdataDir()

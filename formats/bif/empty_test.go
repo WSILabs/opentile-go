@@ -8,7 +8,7 @@ import (
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
-// TestEmptyTilePathReturnsBlank: a synthetic BIF with serpentine
+// TestEmptyTilePathReturnsBlank: a synthetic BIF with row-major storage
 // index 1 marked empty (TileOffsets[1] = 0, TileByteCounts[1] = 0)
 // returns a JPEG-decodable blank tile, not an error.
 //

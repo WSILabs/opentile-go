@@ -2,8 +2,9 @@
 //
 // BIF files carry two XMP payloads:
 //   - IFD 0 XMP: an <iScan> element with scanner settings and AOI geometry.
-//   - IFD 2 XMP: an <EncodeInfo> element with tile grid layout, tile joints,
-//     serpentine frame ordering, and AOI origin coordinates.
+//   - IFD 2 XMP: an <EncodeInfo> element with tile grid layout, tile joints
+//     (the serpentine stitch-graph numbering), row-major <Frame> ordering, and
+//     AOI origin coordinates.
 //
 // Parsing is lenient: missing attributes produce zero/default values rather than
 // errors. Unknown attributes are collected in IScan.RawAttributes for caller use

@@ -77,8 +77,8 @@ required metadata present), and its tile/byte pointers land in-bounds.
 Four things it does **not** mean:
 
 1. **Valid ≠ correct pixels.** Structural validation cannot catch "decodes fine
-   but shows garbage" — e.g. a BIF serpentine-descramble bug or an LZW writer
-   corruption that produces a structurally-perfect but visually-wrong label. Those
+   but shows garbage" — e.g. the BIF serpentine tile-misplacement bug (#57) or an
+   LZW writer corruption that produces a structurally-perfect but visually-wrong image. Those
    files are *structurally perfect*. Catching them requires pixel comparison against
    an independent oracle (`tests/oracle` / tifffile / openslide / dciodvfy), which
    is fundamentally outside a self-contained `Validate()`. Even the reserved Tier 2

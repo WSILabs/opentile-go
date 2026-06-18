@@ -14,10 +14,11 @@ import (
 // TestLegacyClassicTIFFBIF is the #37 regression: legacy iScan scanners
 // (Coreo/HT, ~2010-2012, BuildVersion 3.x) wrote BIF as *classic* (non-BigTIFF)
 // little-endian TIFF. opentile-go's BIF detection used to require BigTIFF, so
-// these slides fell through to the generic-TIFF reader, which renders BIF's
-// serpentine tile order scrambled (the "corrupt BIF" symptom in viewers) — or
-// failed to open at all. After the detection fix they must open through the BIF
-// reader (which de-serpentines the tile order) and read cleanly.
+// these slides fell through to the generic-TIFF reader, which lacks BIF's
+// blank-tile/associated-image handling and mis-rendered them (the "corrupt BIF"
+// symptom in viewers) — or failed to open at all. After the detection fix they
+// must open through the BIF reader (which addresses tiles row-major) and read
+// cleanly.
 //
 // These are real clinical slides (PHI in the labels / accession-numbered
 // filenames), so they live only in the local gitignored sample set and are
@@ -38,8 +39,8 @@ func TestLegacyClassicTIFFBIF(t *testing.T) {
 			}
 			defer s.Close()
 
-			// Must be claimed by the BIF reader — not generic-TIFF (which would
-			// scramble the serpentine layout) and not rejected as unknown.
+			// Must be claimed by the BIF reader — not generic-TIFF (which lacks
+			// BIF's blank-tile/associated-image handling) and not rejected as unknown.
 			if s.Format() != opentile.FormatBIF {
 				t.Fatalf("format = %s, want bif (legacy classic-TIFF iScan must route to the BIF reader)", s.Format())
 			}
