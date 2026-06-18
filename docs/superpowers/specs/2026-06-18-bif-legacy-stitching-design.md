@@ -104,18 +104,35 @@ dramatically better than naive.
 2. **Reuse the PR #64 machinery.** The legacy path emits the same `*Layout`,
    so the `regionLayout` capability, the layout-aware `ReadRegion` branch, and
    the layout-aware `ScaledStrips` all work unchanged.
-3. **Per-tile raw/decoded bytes unchanged**; the DP path and the 10 non-BIF
+3. **Correct per-tile placement, not just correct dimensions.** Overall dims
+   are necessary but *not sufficient* — an averaged layout can hit the right
+   bounding box while individual tiles drift. The headline gate is therefore
+   **placement fidelity** (§5.1), validated two ways: a per-join residual bound
+   and a seam-continuity pixel check. Dimensions are a secondary coarse check.
+4. **Per-tile raw/decoded bytes unchanged**; the DP path and the 10 non-BIF
    formats are byte-identical.
 
 ### Non-goals
 
 - **Bit-exact height.** The ~0.05% height residual (bio-formats' per-column
-  `columnYAdjust`) is deliberately not replicated — it is the GPL-shaped
-  heuristic the chosen bar excludes. Documented, not chased.
-- **Per-tile pixel parity with bio-formats** (a DP-style pixel oracle). The
-  Y-axis variance (#63: per-row σ 7–70× the X-axis; mid-column divergence up to
-  187px) means per-tile Y cannot be hit clean-room. Legacy is validated on
-  **dimensions**, not per-pixel.
+  `columnYAdjust` — a per-*column* Y baseline our separable model omits) is
+  deliberately not replicated — it is the GPL-shaped heuristic the chosen bar
+  excludes. It manifests as a systematic ≤~27px per-column vertical shift vs
+  openslide, documented, not chased.
+- **Per-pixel parity with an external reader** (a DP-style oracle that matches
+  bio-formats/openslide pixel-for-pixel). Not pursued — the reference readers
+  themselves disagree by ~30px and use their own per-column aggregates. Instead
+  we validate placement *intrinsically* via seam continuity (do adjacent tiles'
+  overlap bands match at our computed positions?), which needs no external
+  reader and directly proves physical correctness.
+
+  Note: the alarming "mid-column divergence up to 187px" in #63 is the error of
+  a *single global* average overlap × row-count. Our model uses **per-gap**
+  averages (#63's recommended *accumulate*), which empirically places each tile
+  within **median ~0.5px / p99 ~3px** of its own measured join on OS-1 (the
+  within-gap overlap spread is only ~2px). The per-tile drift the global-average
+  warning describes does **not** occur with the per-gap model — confirmed in
+  Phase 0, and guarded by the §5.1 residual gate.
 - **Multi-AOI legacy.** All 4 fixtures are single-AOI; the `AoiOrigin` path is
   applied defensively but cannot be validated against a real file.
 - Changing DP behavior or per-tile addressing.
@@ -230,12 +247,39 @@ stitched geometry.
 
 ## 5. Correctness bar & testing
 
-### 5.1 Dimensions oracle (the headline gate)
+### 5.1 Placement-fidelity gates (the headline — dims alone are insufficient)
 
-The oracle is **openslide** (`openslide-show-properties`, shelled out like the
-existing bftools harness) — it opens all 4 legacy fixtures, whereas bio-formats
-crashes on 3 of them (§0). For each fixture, assert the reader's L0 `Level.Size`
-is within tolerance of the openslide target:
+Overall dimensions can converge while individual tiles drift, so placement —
+not the bounding box — is the primary gate. Two complementary checks:
+
+**(a) Per-join residual bound (cheap, no decode, fixture-gated).** Build the
+legacy layout, then for every live high-confidence join compute the per-tile
+placement delta the layout assigns to that adjacent pair and compare it to the
+join's own measured offset (`tileW − OverlapX` horizontally, `tileH − OverlapY`
+vertically). Assert the residual distribution stays tight:
+**p99 ≤ 8px, max ≤ 64px** (Phase-0 OS-1 measured: X median 0.3 / p99 3.1 /
+max 55.9; Y median 0.5 / p99 1.8 / max 3.3). This directly bounds how far the
+per-gap-average layout places any tile from its own measured registration, and
+would fire if a fixture had many wide-spread gaps (the averaging trap). Run on
+all 4 fixtures.
+
+**(b) Seam-continuity pixel check (decode, fixture-gated, sampled).** For a
+sample of adjacent tile pairs with a live high-confidence join, decode both
+tiles and compute the pixel mean-abs-diff in the **overlap band** at the
+layout's computed relative position. Correct placement → the bands hold the
+same image content → low MAD; a misplaced tile → high MAD. Assert the sampled
+MAD stays below a small threshold (pin empirically in the plan, e.g. mean MAD
+≤ ~12/channel, accommodating JPEG noise), and that it is **dramatically lower
+than the naive (no-overlap) placement's** MAD on the same pairs (proves the
+stitch is doing real work). Sample ~30–50 pairs per fixture (h + v) to keep it
+fast. This is the intrinsic, clean-room proof of physical correctness — no
+external reader needed.
+
+### 5.2 Dimensions cross-check (secondary, coarse)
+
+A coarse sanity check against an external reader. Oracle is **openslide**
+(`openslide-show-properties`) — it opens all 4 legacy fixtures, whereas
+bio-formats crashes on 3 (§0). Assert L0 `Level.Size` is within tolerance of:
 
 | fixture | openslide L0 target |
 |---|---|
@@ -244,32 +288,32 @@ is within tolerance of the openslide target:
 | S12-18199-1A | 17194×10349 |
 | OS-1 | 105813×93951 |
 
-**Tolerance: width ±8px, height ±35px** (covers the measured model residual —
-max +5/−27 — plus margin, and the openslide-vs-bio-formats reader disagreement
-of ~30px on OS-1). Also assert the result is **< 10%** of the naive error
-(dramatically better than naive). On OS-1, additionally cross-check against
-bio-formats (105817×93978) within the same tolerance. Fixture-gated (local PHI)
-**and** tool-gated (`openslide-show-properties` present); skips in CI.
+**Tolerance: width ±8px, height ±35px** (model residual max +5/−27 + the
+~30px openslide-vs-bio-formats reader disagreement + the un-modeled per-column
+Y baseline). Also assert **< 10%** of the naive error. On OS-1, additionally
+cross-check bio-formats (105817×93978) within the same tolerance. Targets are
+Phase-0-measured constants, hardcoded with provenance (the existing
+`openslide_runner.py` uses the Python binding, which is not installed here; the
+`openslide-show-properties` CLI is — but the simplest CI-safe choice is to
+hardcode the measured constants and cite them, matching how the bio-formats
+spatial oracle hardcodes its ground-truth). Fixture-gated (local PHI); skips in
+CI.
 
-These openslide targets are measured constants (captured in Phase 0); the test
-hardcodes them rather than re-running openslide at test time only if a live
-shell-out is undesirable — default is to shell out and parse, matching the
-bftools oracle pattern, so the targets stay self-checking.
-
-### 5.2 Fixture-free engine unit tests (CI-safe)
+### 5.3 Fixture-free engine unit tests (CI-safe)
 
 Synthetic joint sets exercising the pure math: uniform per-gap overlap (known
 accumulation), empty-gap global-fill, dead-join (`FlagJoined=0`) exclusion,
 sub-cutoff confidence exclusion, float-accumulation rounding, single-row /
-single-column degenerate grids. These pin the algorithm without fixtures.
+single-column degenerate grids. These pin the algorithm without fixtures and
+are the only legacy tests that run in CI.
 
-### 5.3 Lock-test update
+### 5.4 Lock-test update
 
 `TestOS1LegacyNaiveDims` (currently asserts the naive 118784×102000) is
-replaced by the near-exact assertion (≈105818×93924, within tolerance of
-bio-formats). Rename to reflect it now locks the *stitched* legacy extent.
+replaced by the near-exact assertion (≈105818×93924, within tolerance) and
+renamed to reflect it now locks the *stitched* legacy extent.
 
-### 5.4 Regression
+### 5.5 Regression
 
 `make test` green under `-race`; DP golden (`TestVentana1DPExactDimensions`),
 `TestBIFTilePlacementSpatial`, tifffile parity, and non-BIF region/scaled tests
