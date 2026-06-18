@@ -95,6 +95,7 @@ type TileJoint struct {
 	Direction          string // pass-through; "LEFT"|"RIGHT"|"UP"|"DOWN" or any value
 	Tile1, Tile2       int
 	OverlapX, OverlapY int
+	Confidence         int // 0..100; whitepaper §"Image Stitching": only Confidence==100 joins are trusted
 }
 
 // Frame is one <Frame> element inside a <FrameInfo> child of <ImageInfo>.
@@ -442,6 +443,8 @@ func parseTileJoint(attrs []xml.Attr) TileJoint {
 			tj.OverlapX = parseInt(a.Value)
 		case "OverlapY":
 			tj.OverlapY = parseInt(a.Value)
+		case "Confidence":
+			tj.Confidence = parseInt(a.Value)
 		}
 	}
 	return tj

@@ -6,6 +6,34 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 )
 
+// regionLayout is the optional capability a reader implements when its tile
+// grid is not a regular spatial partition of the level (BIF stitching, #60).
+// Discovered via the UnwrapReader chain in imageReadRegionImpl; absent → the
+// regular-grid compositing path runs unchanged. Coordinates are image-grid
+// (col,row) and level-resolution stitched-output pixels.
+type regionLayout interface {
+	TileOrigin(level, col, row int) (x, y int, ok bool)
+	TilesIntersecting(level, x, y, w, h int) []struct{ Col, Row int }
+	StitchedSize(level int) (w, h int, ok bool)
+}
+
+const regionLayoutMaxHops = 16
+
+// regionLayoutOf walks the UnwrapReader chain looking for a regionLayout.
+func regionLayoutOf(v any) (regionLayout, bool) {
+	for i := 0; v != nil && i <= regionLayoutMaxHops; i++ {
+		if rl, ok := v.(regionLayout); ok {
+			return rl, true
+		}
+		u, ok := v.(interface{ UnwrapReader() any })
+		if !ok {
+			return nil, false
+		}
+		v = u.UnwrapReader()
+	}
+	return nil, false
+}
+
 // imageReadRegion is the logic-bearing region read, backing
 // (*Level).ReadRegion. All coords are at the level's own resolution.
 //
@@ -74,6 +102,48 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 	}
 	if x0 >= x1 || y0 >= y1 {
 		return ErrRegionEmpty
+	}
+
+	// Layout-aware compositing branch (#60): readers whose tile grid is not
+	// a regular spatial partition of the level (BIF stitching) implement the
+	// regionLayout capability, discovered via the UnwrapReader chain. When
+	// present, composite by per-tile origin/intersection rather than the
+	// regular txMin..txMax grid. Absent → the naive grid path below runs
+	// UNCHANGED (the 10 non-BIF formats are bit-identical).
+	if rl, ok := regionLayoutOf(s.r); ok {
+		if sw, sh, ok := rl.StitchedSize(level); ok {
+			if x1 > sw {
+				x1 = sw
+			}
+			if y1 > sh {
+				y1 = sh
+			}
+		}
+		if x0 >= x1 || y0 >= y1 {
+			return ErrRegionEmpty
+		}
+		fillWhite(dst) // stitched output always white-initialized (overlaps/gaps)
+		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
+		defer returnTileScratch(scratch)
+		for _, tp := range rl.TilesIntersecting(level, x0, y0, x1-x0, y1-y0) {
+			tileX, tileY, ok := rl.TileOrigin(level, tp.Col, tp.Row)
+			if !ok {
+				continue
+			}
+			if err := s.imageDecodedTileInto(image, level, tp.Col, tp.Row, scratch, opts...); err != nil {
+				return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tp.Col, tp.Row, level, err)
+			}
+			tileW, tileH := lvl.TileSize.W, lvl.TileSize.H
+			ix0 := maxInt(tileX, x0)
+			iy0 := maxInt(tileY, y0)
+			ix1 := minInt(tileX+tileW, x1)
+			iy1 := minInt(tileY+tileH, y1)
+			if ix0 >= ix1 || iy0 >= iy1 {
+				continue
+			}
+			blitInto(scratch, ix0-tileX, iy0-tileY, ix1-ix0, iy1-iy0, dst, ix0-x, iy0-y)
+		}
+		return nil
 	}
 
 	// v0.29 Layer 1: skip fillWhite when the requested region is fully

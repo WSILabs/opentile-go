@@ -11,6 +11,44 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+BIF overlap-aware stitching for DP-generation slides (#60).
+
+### Added
+
+- **BIF: overlap-aware tile stitching** (#60). New `formats/bif/stitch.go` pure
+  stitch engine computes per-tile placed layout from the `<EncodeInfo>` XMP joints
+  (whitepaper-derived; bio-formats is a black-box dimension oracle only). For
+  spec-compliant DP slides (VENTANA DP 200 / DP 600) `Level.Size` now reports the
+  stitched content hull; `ReadRegion`, `ReadRegionScaled`, and `ScaledStrips` (DZI)
+  composite correctly stitched output via a new internal `regionLayout` capability
+  interface. Level 0 is the only overlapping level; higher pyramid levels use the
+  naive regular-grid layout (whitepaper page 16).
+
+### Changed
+
+- **BIF: `Level.Size` at L0 is now the stitched content extent** (#60). For
+  Ventana-1 (DP 200) this changes 24576×21504 → 23432×21504. `Level.Grid` and
+  all per-tile APIs are unchanged. See
+  [docs/migrations/2026-06-18-bif-level-size-stitched.md](migrations/2026-06-18-bif-level-size-stitched.md).
+- **Validate: `tile-grid-mismatch` relaxed to flag only under-coverage** (#60).
+  The check now requires `Grid >= ceil(Size/Tile)` (the grid must cover the image);
+  a larger grid is allowed (it is padding). BIF's phantom extra column no longer
+  triggers a false-positive validation finding.
+
+### Fixed
+
+- **BIF: `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` seam artefacts** (#60).
+  For DP-generation slides the raw frame-grid boundary (24×21 grid, 1024 px pitch)
+  produced visible seam lines in region/DZI output because adjacent frames were
+  placed at their naive grid positions without overlap compaction. The stitching
+  engine eliminates these artefacts; output is now pixel-exact vs bio-formats.
+
+Note: legacy iScan (Coreo / HT) BIF stitching is **not yet implemented** — these
+slides use the naive extent and raw frame-grid layout as before. Deferred; the
+clean-room placement-reconstruction characterization lives in
+[#63](https://github.com/WSILabs/opentile-go/issues/63) and the padded-width
+issue in [#60](https://github.com/WSILabs/opentile-go/issues/60).
+
 ## [0.45.3] — 2026-06-17
 
 Fix: BIF tiles were placed serpentine, scrambling multi-tile levels.

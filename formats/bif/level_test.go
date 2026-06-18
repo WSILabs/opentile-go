@@ -251,3 +251,24 @@ func TestLevelTileReader(t *testing.T) {
 		t.Error("TileReader bytes != Tile bytes")
 	}
 }
+
+func TestLevelImplLayoutAccessors(t *testing.T) {
+	// Construct a minimal levelImpl with an injected layout to exercise the
+	// accessor wiring (the real layout is built in newLevelImpl).
+	l := &levelImpl{
+		index: 0, grid: opentile.Size{W: 2, H: 1},
+		tileSize: opentile.Size{W: 1024, H: 1024},
+		layout:   buildNaiveLayout(StitchInput{Cols: 2, Rows: 1, TileW: 1024, TileH: 1024}),
+	}
+	x, y, ok := l.TileOrigin(1, 0)
+	if !ok || x != 1024 || y != 0 {
+		t.Errorf("TileOrigin(1,0) = (%d,%d,%v), want (1024,0,true)", x, y, ok)
+	}
+	w, h, ok := l.StitchedSize()
+	if !ok || w != 2048 || h != 1024 {
+		t.Errorf("StitchedSize = (%d,%d,%v), want (2048,1024,true)", w, h, ok)
+	}
+	if got := l.TilesIntersecting(0, 0, 2048, 1024); len(got) != 2 {
+		t.Errorf("TilesIntersecting = %d, want 2", len(got))
+	}
+}

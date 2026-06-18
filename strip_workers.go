@@ -122,6 +122,28 @@ func (it *StripIterator) tilesForStrip(stripIdx int) []tileKey {
 		return nil
 	}
 
+	// Layout-aware tile selection (#60): for readers with a non-regular tile
+	// grid (e.g. BIF with overlapping tiles), use TilesIntersecting to get the
+	// correct set. The effective-domain coords must be scaled back up to level
+	// coords (multiply by idctScale) for the regionLayout query.
+	if rl := it.layout; rl != nil {
+		es := it.idctScale
+		if es < 1 {
+			es = 1
+		}
+		lvlX0, lvlY0 := levelX0*es, levelY0*es
+		lvlW, lvlH := (levelX1-levelX0)*es, (levelY1-levelY0)*es
+		if lvlW <= 0 || lvlH <= 0 {
+			return nil
+		}
+		tps := rl.TilesIntersecting(it.sourceLevel.Index, lvlX0, lvlY0, lvlW, lvlH)
+		keys := make([]tileKey, 0, len(tps))
+		for _, tp := range tps {
+			keys = append(keys, tileKey{tx: tp.Col, ty: tp.Row})
+		}
+		return keys
+	}
+
 	tileW := it.effTileW
 	tileH := it.effTileH
 	if tileW <= 0 || tileH <= 0 {

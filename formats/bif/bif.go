@@ -83,7 +83,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	var levelZeroDepth int
 	var l0Width int
 	for i, c := range levelIFDs {
-		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, encodeInfo, file.ReaderAt())
+		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, classifyGeneration(iscan), encodeInfo, file.ReaderAt())
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +102,11 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			MPP:          l.mpp,
 			TileOverlap:  l.tileOverlap,
 			FocalPlane:   0,
-			Downsample:   float64(l0Width) / float64(l.size.W),
+			// l0Width is the level-0 STITCHED width (the compacted hull, #60);
+			// lower levels report their own IFD extent (pre-stitched, no joints
+			// → naive layout → size = IFD ImageWidth×ImageLength). So the ratio
+			// is the true pyramid downsample.
+			Downsample: float64(l0Width) / float64(l.size.W),
 		})
 		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirLevel, level: i})
 	}
@@ -501,6 +505,37 @@ func (t *Tiler) TIFFDirectories() []opentile.TIFFDirectory {
 		})
 	}
 	return out
+}
+
+// TileOrigin reports the stitched-space top-left of image-grid tile (col,row)
+// at the given level. Implements opentile's regionLayout (#60).
+func (t *Tiler) TileOrigin(level, col, row int) (x, y int, ok bool) {
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, 0, false
+	}
+	return t.levelImpls[level].TileOrigin(col, row)
+}
+
+// TilesIntersecting reports image-grid tiles whose stitched extent touches
+// [x,y,x+w,y+h) at the given level, in row-major order. Implements regionLayout.
+func (t *Tiler) TilesIntersecting(level, x, y, w, h int) []struct{ Col, Row int } {
+	if level < 0 || level >= len(t.levelImpls) {
+		return nil
+	}
+	tps := t.levelImpls[level].TilesIntersecting(x, y, w, h)
+	out := make([]struct{ Col, Row int }, len(tps))
+	for i, p := range tps {
+		out[i] = struct{ Col, Row int }{p.Col, p.Row}
+	}
+	return out
+}
+
+// StitchedSize reports the level's stitched dimensions. Implements regionLayout.
+func (t *Tiler) StitchedSize(level int) (w, h int, ok bool) {
+	if level < 0 || level >= len(t.levelImpls) {
+		return 0, 0, false
+	}
+	return t.levelImpls[level].StitchedSize()
 }
 
 // Close releases any resources held by the Tiler. Currently a no-op:

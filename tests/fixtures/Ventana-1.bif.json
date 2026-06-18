@@ -5,7 +5,7 @@
     {
       "index": 0,
       "size": [
-        24576,
+        23432,
         21504
       ],
       "tile_size": [
@@ -181,6 +181,10 @@
     "0:23:0": {
       "sha256": "a75a49bd24d65c39f1c95982cd1c3fc1f9e2c75683a6b7a99b437b632caff5c7",
       "reason": "top-right corner; OOB fill in x"
+    },
+    "0:23:10": {
+      "sha256": "eb22615fd87c5a0d0a06536aff73b0f2db380bb7a30bba37af6a1aa552f57b50",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
     },
     "0:23:20": {
       "sha256": "4824955ae5eb5052af2a8433087af137e05f4cb7fa84ca47d4b5449518b3547f",
