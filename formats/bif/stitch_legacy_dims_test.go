@@ -49,6 +49,8 @@ func TestLegacyDimsVsOpenslide(t *testing.T) {
 			}
 			dW := lvl.Size.W - w.osW
 			dH := lvl.Size.H - w.osH
+			t.Logf("%s L0 = %dx%d, openslide = %dx%d (dW=%+d dH=%+d)",
+				name, lvl.Size.W, lvl.Size.H, w.osW, w.osH, dW, dH)
 			if dW < -tolW || dW > tolW || dH < -tolH || dH > tolH {
 				t.Errorf("%s L0 = %dx%d, openslide = %dx%d (dW=%+d dH=%+d, tol ±%d/±%d)",
 					name, lvl.Size.W, lvl.Size.H, w.osW, w.osH, dW, dH, tolW, tolH)
