@@ -667,6 +667,64 @@ L25 below — fixture-driven; cervix has no annotations.
   debugging when a divergence surfaces; per-incident fixture or
   policy adjustment.
 
+### L35 — BIF stitching: multi-AOI placement unvalidated (since v0.46) — [#67](https://github.com/WSILabs/opentile-go/issues/67)
+
+- **Source:** v0.46 BIF stitching milestone (#60 DP / #63 legacy).
+- **Severity:** Fixture-blocked — the stitch engine handles a single
+  AOI per slide; all 5 BIF fixtures (Ventana-1 DP; OS-1 / S12-18199-1A /
+  AC1.592 / 1_19 legacy) are single-AOI, so the multi-AOI `<AoiOrigin>`
+  placement path cannot be validated. DP applies the origin offset +
+  hull normalization (exercised only by a synthetic single-AOI unit
+  test); legacy's separable `(col,row)` keys could collide across AOIs
+  sharing local grid coords (last-AOI-wins) unless the origin is folded
+  into the key in tile units — unverified.
+- **Mitigation:** documented in the design specs and `docs/formats/bif.md`;
+  not silently assumed correct.
+- **Resolution path:** needs a real multi-AOI BIF fixture (none in the
+  corpus). When one surfaces: verify per-AOI placement against openslide/
+  bio-formats (black-box oracle), fix the legacy key collision if it
+  manifests, add a placement/dims gate.
+
+### L36 — BIF legacy stitching: ~0.05% height residual vs openslide (since v0.46) — [#68](https://github.com/WSILabs/opentile-go/issues/68)
+
+- **Source:** v0.46 BIF legacy stitching (#63).
+- **Severity:** Permanent-by-choice (revisitable) — legacy width is
+  clean-room-exact, but height carries a ~0.05% residual (OS-1: dH −27
+  on a ~94000px axis; within the ±35px test tolerance). Our separable
+  per-axis model uses one `Y[row]` shared across columns; openslide/
+  bio-formats add a per-column `columnYAdjust` baseline our model omits.
+  Replicating it bit-exactly approaches porting bio-formats' GPL
+  heuristic, which the clean-room constraint excludes. The chosen v0.46
+  bar was explicitly near-exact (validated by placement-fidelity gates,
+  not dims); per-tile placement is already faithful (per-join residual
+  p99 ≤ 2px — the residual is a per-column offset, not per-tile scatter).
+- **Mitigation:** documented as a non-goal in the legacy design spec and
+  `docs/formats/bif.md`; `TestLegacyDimsVsOpenslide` tolerance (±8/±35)
+  bounds it. bio-formats and openslide themselves disagree ~30px on OS-1
+  — no single canonical height target.
+- **Resolution path:** a clean-room per-column Y baseline derived from
+  the file's own `<TileJointInfo>` vertical-join overlaps (NOT a
+  translation of `columnYAdjust`), plus a per-column placement check.
+  Low priority; no consumer-reported problem.
+
+### L37 — `bfparity` oracle package fails to compile (v1.0-API drift in leicascn_bf_test.go) (since v0.46) — [#66](https://github.com/WSILabs/opentile-go/issues/66)
+
+- **Source:** v0.46 BIF stitching milestone (pre-existing; predates
+  #64/#65).
+- **Severity:** Test-infra tech-debt — `tests/oracle/leicascn_bf_test.go`
+  (build tag `bfparity`) still references pre-v1.0 API removed/changed in
+  v0.41.0: `Pyramid.SizeC()` (removed) and `lvl.Size()` (now a field, not
+  a method). This blocks the **entire** `bfparity` package from compiling,
+  including the new BIF stitch pixel oracle `tests/oracle/bif_stitch_oracle_test.go`
+  (added in #64) — which is correct and passes when the sibling is moved
+  aside. `bfparity` is local-only (needs `/opt/bftools` + sample fixtures);
+  it does not run in CI, so default `make test` is unaffected.
+- **Mitigation:** none needed for CI; the DP stitch oracle was validated
+  manually (byte-identical to bio-formats).
+- **Resolution path:** mechanical — `lvl.Size()` → `lvl.Size`; `Pyramid.SizeC()`
+  → derive from `leicascn.MetadataOf(tlr).Channels` (len, or 1 when empty).
+  No production code; small.
+
 ---
 
 ## 3. Reviewer suggestions accepted but not applied
