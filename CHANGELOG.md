@@ -9,7 +9,9 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
-## [Unreleased]
+## [0.48.0] — 2026-06-18
+
+`Level.Overlapping` — stitched-tile contract signal for re-tiling consumers.
 
 ### Added
 
