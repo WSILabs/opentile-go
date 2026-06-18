@@ -2,6 +2,7 @@ package bif_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -19,7 +20,12 @@ import (
 //
 // Skipped when Ventana-1.bif is not present locally.
 func TestBIFReadRegionStitchedSmoke(t *testing.T) {
+	// Resolve the fixture via OPENTILE_TESTDIR (CI/other machines), falling
+	// back to the local sample path. Skip cleanly when absent.
 	path := "/Volumes/Ext/GitHub/opentile-go/sample_files/bif/Ventana-1.bif"
+	if dir := os.Getenv("OPENTILE_TESTDIR"); dir != "" {
+		path = filepath.Join(dir, "bif", "Ventana-1.bif")
+	}
 	if _, err := os.Stat(path); err != nil {
 		t.Skip("Ventana-1.bif not present")
 	}

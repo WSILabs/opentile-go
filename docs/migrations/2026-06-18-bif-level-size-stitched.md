@@ -13,7 +13,7 @@ padding. This release ships overlap-aware stitching for DP-generation slides;
 | `Level.Size` at L0 (Ventana-1, DP 200) | `24576 × 21504` (raw 24×21 frame grid) | `23432 × 21504` (stitched content hull) |
 | `Level.Grid` at L0 | `{W:24, H:21}` | `{W:24, H:21}` — **unchanged** |
 | Per-tile raw / decoded bytes | unchanged | unchanged |
-| `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` output | seam-artifacted at raw frame grid; frame boundaries visible | correctly stitched; overlapping frame borders blended/clipped |
+| `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` output | seam-artifacted at raw frame grid; frame boundaries visible | correctly stitched; overlapping frame borders resolved by hard replacement (later frame over earlier; no blending) |
 
 The `Level.Grid` field and all per-tile APIs (`Tile`, `DecodedTile`, `TileReader`,
 `Tiles`, `TileAt`) are **unaffected** — they continue to address raw camera frames
