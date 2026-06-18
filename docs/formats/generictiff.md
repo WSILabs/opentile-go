@@ -17,7 +17,7 @@ Catch-all reader for tiled pyramidal TIFF files without vendor metadata. Activat
 - **Compression whitelist (sealed in v0.10 spec §4.6)**: JPEG (7), JP2K (33003), LZW (5), Deflate (8) / Adobe Deflate (32946), None (1). Other values yield `ErrPyramidCompression`.
 - **Photometric whitelist**: RGB (2), YCbCr (6), grayscale BlackIsZero (1) / WhiteIsZero (0). 8-bit per sample only (`BitsPerSample = 8`).
 - **JPEG splice**: pyramid IFDs that carry shared `JPEGTables` (tag 347) get the v0.9 in-place splice template applied per tile (`internal/jpeg.BuildSplicePrefix` + `InsertPrefixInPlace`); zero-alloc on `TileInto`. JPEG IFDs without shared tables and non-JPEG compressions pass through verbatim.
-- **Storage order**: TileOffsets is in standard image-space row-major order. No serpentine remap (BIF) or per-frame stripe reassembly (NDPI).
+- **Storage order**: TileOffsets is in standard image-space row-major order — no per-frame stripe reassembly (NDPI) or other vendor-specific tile reordering. (BIF is also row-major since v0.45.3; see #57.)
 
 ## Fixture inventory
 

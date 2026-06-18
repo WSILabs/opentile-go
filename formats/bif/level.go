@@ -360,8 +360,9 @@ func (l *levelImpl) readTileAtIdx(idx, col, row int) ([]byte, error) {
 // (IMAGE_DEPTH-driven multi-Z) but no fluorescence channels (C) or
 // time series (T) — those axes always 0, else ErrDimensionUnavailable.
 //
-// (col, row) is in image-space row-major; serpentine remapped
-// internally. Z is the storage-order index 0..imageDepth-1; Z=0 is
+// (col, row) is in image-space row-major; mapped to row-major
+// TILE_OFFSETS storage internally (see indexOf). Z is the storage-order
+// index 0..imageDepth-1; Z=0 is
 // always the nominal focus plane per BIF whitepaper §"Whole slide
 // imaging process".
 func (l *levelImpl) TileAt(coord opentile.TileCoord) ([]byte, error) {
@@ -408,7 +409,7 @@ func (l *levelImpl) TilePrefix() []byte {
 // contained tile that consumers can use as-is or splice with
 // TilePrefix() (wasteful but valid).
 //
-// Respects the serpentine index remap and AOI blank-fill handling
+// Respects the row-major index mapping and AOI blank-fill handling
 // of TileInto; only the JPEG-splice step is omitted.
 //
 // Specialized in v0.13.

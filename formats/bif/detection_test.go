@@ -46,7 +46,8 @@ func TestSupportsBIFWithIScanOnLaterIFD(t *testing.T) {
 // generation, but legacy iScan scanners (Coreo/HT, ~2010-2012, BuildVersion
 // 3.x) wrote classic little-endian TIFF — opentile-go's earlier "BigTIFF
 // required" gate wrongly rejected those, so they fell through to the generic-
-// TIFF reader, which renders BIF's serpentine tile order scrambled. Detection
+// TIFF reader, which lacks BIF's blank-tile/associated-image handling and
+// mis-rendered them. Detection
 // now mirrors openslide's `INITIAL_XML_ISCAN = "iScan"` rule: the `<iScan`
 // XMP marker alone is the discriminator (#37).
 func TestSupportsClassicTIFFWithIScan(t *testing.T) {
@@ -163,7 +164,7 @@ type iFDSpec struct {
 	tileFill              byte // arbitrary fill byte, default 0
 
 	// emptyTileIndices marks specific positions in the TileOffsets
-	// array (storage-order, i.e. serpentine for spec-compliant BIF)
+	// array (row-major storage order)
 	// as empty: their TileOffsets[k] = 0 and TileByteCounts[k] = 0.
 	// Used to exercise the BIF empty-tile path without needing real
 	// AOI gaps.

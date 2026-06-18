@@ -167,7 +167,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 // v0.7 batches: T10 establishes the skeleton (factory wiring + Open
 // gate); T11 adds generation classification; T12 builds the IFD
 // inventory + pyramid level slice; T13 wires per-Level reads with
-// serpentine remap; T14 wires the empty-tile blank-fill path; T15
+// row-major tile addressing; T14 wires the empty-tile blank-fill path; T15
 // composes JPEGTables into per-tile bytes when the IFD has a shared
 // header. T16+ surface associated images, metadata, and ICC profile.
 // v0.24: restructured to satisfy format.Reader with (image, level)

@@ -29,7 +29,7 @@ The two fixtures are deliberately complementary — one tests the spec-compliant
 |---|---|---|
 | iScan detection + classification (BigTIFF or classic TIFF) | ✅ | T1 / T2 / T3 gates pin the discriminator behaviour (see deferred.md §9 v0.7 gates); detection keys on the `<iScan` XMP marker alone, so legacy classic-TIFF iScan slides are read too (#37) |
 | Tiled pyramid levels | ✅ | Both raw-passthrough (Ventana-1: no JPEGTables) and `jpeg.InsertTables`-spliced output (OS-1: shared tables) |
-| Serpentine → image-space remap | ✅ | `imageToSerpentine` + inverse, round-trip-tested |
+| Row-major `(col,row)` → `TILE_OFFSETS`, `<Frame>`-honored | ✅ | `buildFrameIndex` + row-major fallback; bio-formats spatial oracle (#57) |
 | Empty tiles (TileOffsets[i]=0 AND TileByteCounts[i]=0) | ✅ | Filled with `ScanWhitePoint`-coloured JPEG via `formats/bif/blanktile.go` (T9). Both real fixtures have zero empty tiles — synthetic-only fixture coverage on this path |
 | Probability map exposure (spec-compliant only) | ✅ | New `AssociatedImage.Type() == "probability"` (LZW grayscale; multi-strip raw passthrough) |
 | Thumbnail exposure (legacy only) | ✅ | `AssociatedImage.Type() == "thumbnail"` (single-tile JPEG) |
