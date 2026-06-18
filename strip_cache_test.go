@@ -157,3 +157,43 @@ func TestTileCacheConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// TestTileCacheReserveOrAcquirePinsAgainstEviction is the regression for the
+// "tile missing from cache" flake: the consumer's reserve()+waitGet() left a
+// window in which an unpinned, produced entry could be evicted between the two
+// lock holds. reserveOrAcquire pins atomically, so a held tile survives churn.
+func TestTileCacheReserveOrAcquirePinsAgainstEviction(t *testing.T) {
+	c := newTileCache(2) // tiny → every new reservation forces an eviction
+	k0 := tileKey{0, 0}
+	if created := c.reserveOrAcquire(k0); !created {
+		t.Fatal("k0 should be newly created")
+	}
+	c.put(k0, decoder.NewImage(1, 1), nil)
+
+	// Churn many other tiles through the 2-slot cache. Each is pinned for its
+	// turn then released, so it becomes the eviction victim — never k0, which
+	// stays pinned.
+	for i := 1; i <= 32; i++ {
+		ki := tileKey{i, 0}
+		c.reserveOrAcquire(ki)
+		c.put(ki, decoder.NewImage(1, 1), nil)
+		c.release(ki)
+	}
+
+	// k0 was pinned the whole time → must still be retrievable.
+	img, err, ok := c.waitGet(k0, nil)
+	if !ok || img == nil || err != nil {
+		t.Fatalf("pinned k0 was evicted: ok=%v img=%v err=%v", ok, img, err)
+	}
+	c.release(k0)
+
+	// reserveOrAcquire reports created correctly: existing → false, fresh → true.
+	if created := c.reserveOrAcquire(k0); created {
+		t.Error("k0 still present, want created=false")
+	}
+	c.release(k0)
+	if created := c.reserveOrAcquire(tileKey{999, 999}); !created {
+		t.Error("fresh key, want created=true")
+	}
+	c.release(tileKey{999, 999})
+}

@@ -9,6 +9,21 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [Unreleased]
+
+### Fixed
+
+- **`ScaledStrips` / `ReadRegionScaled`: spurious "tile missing from cache"
+  race.** The strip iterator's per-tile read did `reserve()` then `waitGet()` in
+  two separate cache-lock holds; between them a concurrent reservation (lookahead
+  prefetch) or `put()` (decode worker) could `evictLocked` the just-produced,
+  unpinned entry, so `waitGet()` reported the tile missing and the read failed.
+  The consumer now reserves-and-pins atomically (`reserveOrAcquire`) and holds
+  the pin through `waitGet` + blit, so the entry can't be evicted out from under
+  it. Pre-existing intermittent CI flake; no API change. The cache's
+  `acquire`/`release` refcount pin (previously unused by the read path) now
+  guards the read.
+
 ## [0.47.0] — 2026-06-18
 
 Rendered slide-preview APIs — `RenderThumbnail` and `RenderMacro`.

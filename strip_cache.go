@@ -67,6 +67,31 @@ func (c *tileCache) reserve(k tileKey) bool {
 	return true
 }
 
+// reserveOrAcquire ensures k has an entry and pins it for the caller
+// (refCount++), atomically under the lock — so no concurrent eviction can drop
+// k between reserving it and the caller's subsequent waitGet/use. Returns
+// created=true when the entry was newly reserved (the caller must then send a
+// decode request); false when k already existed (in-flight or produced). The
+// caller MUST release(k) when done with the tile.
+//
+// This closes the window the plain reserve()+waitGet() sequence left open: an
+// unpinned, produced entry could be evicted between the two lock holds, making
+// waitGet() report the tile "missing from cache".
+func (c *tileCache) reserveOrAcquire(k tileKey) (created bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if e, exists := c.entries[k]; exists {
+		e.refCount++
+		c.lru.MoveToFront(e.lruElem)
+		return false
+	}
+	c.evictLocked()
+	e := &tileEntry{ready: make(chan struct{}), refCount: 1}
+	e.lruElem = c.lru.PushFront(k)
+	c.entries[k] = e
+	return true
+}
+
 // put stores a decoded tile (or error) at k. If k was reserved,
 // closes the ready channel so waiting waitGet() callers unblock.
 // If k was not reserved, the entry is born ready (no ready channel).
