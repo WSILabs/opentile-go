@@ -9,6 +9,19 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [Unreleased]
+
+### Added
+
+- **`RenderThumbnail`** — `Slide.RenderThumbnail(bounds Size, opts...)` and
+  `Pyramid.RenderThumbnail(...)` render a whole-slide thumbnail/overview from the
+  image pyramid (a thin, aspect-preserving convenience over `ReadRegionScaled`).
+  A zero axis in `bounds` is unconstrained, so one `Size` expresses fit-box
+  (`{256,256}`), fit-width (`{256,0}`), and fit-height (`{0,256}`). Never
+  upscales past L0; best-level-sourced + Lanczos-resampled; for BIF the render is
+  correctly stitched. It is a *rendered* image — distinct from the embedded
+  `AssociatedThumbnail`/`AssociatedOverview` on `AssociatedImages()`. Additive.
+
 ## [0.46.0] — 2026-06-18
 
 BIF overlap-aware tile stitching — DP-generation (#60) and legacy iScan (#63).
