@@ -423,6 +423,25 @@ func TestParseEncodeInfo_DirectionPassthrough(t *testing.T) {
 	}
 }
 
+// TestParseEncodeInfoTileJointConfidence verifies that the Confidence
+// attribute is parsed correctly from <TileJointInfo> elements.
+func TestParseEncodeInfoTileJointConfidence(t *testing.T) {
+	xmp := []byte(`<EncodeInfo Ver="2"><SlideStitchInfo>` +
+		`<ImageInfo AOIScanned="1" AOIIndex="0" NumRows="1" NumCols="2">` +
+		`<TileJointInfo FlagJoined="1" Direction="RIGHT" Tile1="0" Tile2="1" OverlapX="120" OverlapY="0" Confidence="100"/>` +
+		`</ImageInfo></SlideStitchInfo></EncodeInfo>`)
+	ei, err := bifxml.ParseEncodeInfo(xmp)
+	if err != nil {
+		t.Fatalf("ParseEncodeInfo: %v", err)
+	}
+	if len(ei.ImageInfos) != 1 || len(ei.ImageInfos[0].Joints) != 1 {
+		t.Fatalf("want 1 ImageInfo with 1 joint, got %+v", ei.ImageInfos)
+	}
+	if got := ei.ImageInfos[0].Joints[0].Confidence; got != 100 {
+		t.Errorf("Confidence = %d, want 100", got)
+	}
+}
+
 // TestParseEncodeInfo_VerTooLow verifies that Ver < 2 returns an error.
 func TestParseEncodeInfo_VerTooLow(t *testing.T) {
 	const xmp = `<?xml version="1.0"?><EncodeInfo Ver="1"><SlideStitchInfo/></EncodeInfo>`
