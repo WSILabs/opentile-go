@@ -1,7 +1,12 @@
-# `RenderThumbnail` — rendered full-slide thumbnail/overview API — design
+# `RenderThumbnail` + `RenderMacro` — rendered slide-preview APIs — design
 
-**Status:** design / approved-to-implement
+**Status:** design / implemented
 **Date:** 2026-06-18
+
+> This spec covers two sibling additive APIs shipped together: `RenderThumbnail`
+> (tissue-extent downscale) and `RenderMacro` (tissue composited at true
+> physical scale onto a synthesized slide canvas). `RenderMacro` is specified in
+> §7.
 
 ---
 
@@ -106,3 +111,43 @@ propagate from `Level(0)`.
   `BestThumbnail`-style helper if a consumer asks.
 - Exact / stretched (non-aspect) output — use `ReadRegionScaled`.
 - Caching the rendered thumbnail — caller's concern.
+
+---
+
+## 7. `RenderMacro` — synthesized pseudo-macro (sibling feature)
+
+A viewer needs a macro-style orientation image even for slides that embed no
+macro. `RenderMacro` synthesizes one: a slide-shaped canvas (the **non-label
+scan area** of a standard slide, ~50×25 mm) with the whole-slide tissue
+composited at its **true physical size** and centred.
+
+```go
+func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, error)
+```
+
+- **Canvas = the non-label scan area** (`macroScanWidthMM=50`,
+  `macroScanHeightMM=25`), white. The label end is intentionally **excluded**
+  (a future option could include/draw it). `bounds` sizes the canvas with the
+  same zero-axis fit convention (scan area is ~2:1).
+- **Physical scale via `effectiveMPP`:** `Metadata.MPP` if present (a single
+  populated axis fills the other); else `10/Magnification` (objective rule of
+  thumb — 40×→0.25, 20×→0.5); else **error** (cannot place to scale).
+- **Tissue:** physical mm = `L0.Size × mpp / 1000`; rendered to exactly that px
+  size via `ReadRegionScaled` (stretch honours anisotropic MPP), blitted
+  **centred** on the white canvas. If the tissue exceeds the scan area it is
+  scaled to fit, preserving aspect. For BIF the tissue render is stitched.
+- **Position:** centred only — true on-slide placement (NDPI offset-from-centre,
+  SCN/DICOM/BIF slide-coordinate origin) is a deferred enhancement requiring a
+  new cross-format slide-coordinate metadata layer (not built here).
+
+**Helpers (pure, unit-tested):** `effectiveMPP(md) (x,y,err)` and
+`fitAspect(aw,ah, bounds) (Size,err)` (like `thumbnailTargetSize` but with no
+upscale clamp — the canvas is synthetic).
+
+**Tests:** unit (`fitAspect` fit-box/width/height/upscale/errors; `effectiveMPP`
+MPP / objective-fallback / neither-errors) + fixture-gated integration
+(canvas 600×300 for `bounds {600}`, composite = white background + centred
+tissue at physical scale).
+
+**Out of scope (now):** true position; drawing the label/frosted end;
+configurable slide/scan dimensions and colors (sensible fixed defaults for v1).

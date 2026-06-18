@@ -21,6 +21,12 @@ upstream references, and retirement audit per milestone.
   upscales past L0; best-level-sourced + Lanczos-resampled; for BIF the render is
   correctly stitched. It is a *rendered* image — distinct from the embedded
   `AssociatedThumbnail`/`AssociatedOverview` on `AssociatedImages()`. Additive.
+- **`RenderMacro`** — `Slide.RenderMacro(bounds Size, opts...)` synthesizes a
+  macro-style orientation image: a slide-shaped canvas (the non-label scan area,
+  ~50×25 mm) with the whole-slide tissue composited at its **true physical size**
+  (from `Metadata.MPP`, falling back to `10/Magnification` — 40×→0.25, 20×→0.5;
+  error if neither) and centred. For slides that don't embed a macro/overview.
+  Centred only (true on-slide position is a future enhancement). Additive.
 
 ## [0.46.0] — 2026-06-18
 
