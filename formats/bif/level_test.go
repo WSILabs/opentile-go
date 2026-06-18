@@ -144,10 +144,10 @@ func TestLevelTileOverlapNonZero(t *testing.T) {
 	}
 }
 
-// TestLevelTileSerpentineOrdering: a 2x2 grid with distinct fills
-// per tile demonstrates that Tile(col, row) reads bytes in
-// serpentine storage order.
-func TestLevelTileSerpentineOrdering(t *testing.T) {
+// TestLevelTileRowMajorOrdering: every (col, row) of a 2x2 grid returns a
+// readable tile. TILE_OFFSETS is row-major (GH #57); this exercises all
+// positions of a multi-tile level.
+func TestLevelTileRowMajorOrdering(t *testing.T) {
 	const tw, th, gridW, gridH = 32, 32, 2, 2
 	data := buildBIFLikeBigTIFF(t, []iFDSpec{
 		{xmp: []byte(`<iScan ScannerModel="VENTANA DP 200" ScanRes="0.25"/>`), description: "Label_Image"},

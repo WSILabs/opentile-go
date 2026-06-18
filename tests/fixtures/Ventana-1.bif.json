@@ -155,15 +155,15 @@
   },
   "sampled_tiles": {
     "0:0:0": {
-      "sha256": "f2ff3119e5e04b18bee60c67f3b9e61fea59278631cf3d065249c07166c04d3a",
+      "sha256": "c6f3eafd1cf4fcc8c7fed950ae411cf1c9e080bac27e408598d968eaec93934a",
       "reason": "top-left corner"
     },
     "0:0:20": {
-      "sha256": "c6f3eafd1cf4fcc8c7fed950ae411cf1c9e080bac27e408598d968eaec93934a",
+      "sha256": "f2ff3119e5e04b18bee60c67f3b9e61fea59278631cf3d065249c07166c04d3a",
       "reason": "bottom-left corner; OOB fill in y"
     },
     "0:12:1": {
-      "sha256": "7dd7b2159164584180cfdd36b5a96e21440178c76a5498e75c2e7c6b820837f9",
+      "sha256": "5ca6c25293ccff3f8d7ba907c8456f39613d39ba337a92fd48f9943c2ccac702",
       "reason": "near-top mid-column"
     },
     "0:12:10": {
@@ -171,7 +171,7 @@
       "reason": "interior diagonal q2 (center)"
     },
     "0:18:15": {
-      "sha256": "9e9e498165fe44249dc5f765911c2e118e5e4794cff0e48171b0680675a02370",
+      "sha256": "b86f4e6e9fad99fe2707216cb4261bef92b5fcc64f331198ddc07699a99a7fa3",
       "reason": "interior diagonal q3"
     },
     "0:1:10": {
@@ -179,103 +179,103 @@
       "reason": "near-left mid-row"
     },
     "0:23:0": {
-      "sha256": "4824955ae5eb5052af2a8433087af137e05f4cb7fa84ca47d4b5449518b3547f",
+      "sha256": "a75a49bd24d65c39f1c95982cd1c3fc1f9e2c75683a6b7a99b437b632caff5c7",
       "reason": "top-right corner; OOB fill in x"
     },
     "0:23:20": {
-      "sha256": "a75a49bd24d65c39f1c95982cd1c3fc1f9e2c75683a6b7a99b437b632caff5c7",
+      "sha256": "4824955ae5eb5052af2a8433087af137e05f4cb7fa84ca47d4b5449518b3547f",
       "reason": "bottom-right corner; OOB fill in both axes"
     },
     "0:6:5": {
-      "sha256": "56e33885c1401548e0bffb20020eced103be59d3ebfe8599ecf3d5b841675bc2",
+      "sha256": "898cfc21ff6b383b0ee74479eb67f7e6676fca41b911d1dc428649890ce50ff5",
       "reason": "interior diagonal q1"
     },
     "1:0:0": {
-      "sha256": "855f872e4e07698c720f1275dbbebafb23c39ba40a4958f64b9cfc0de5ffaf62",
+      "sha256": "d2197761de6146b79feed6e91852e02ae13b139ebb7247538153c95ff8949b88",
       "reason": "top-left corner"
     },
     "1:0:10": {
-      "sha256": "d2197761de6146b79feed6e91852e02ae13b139ebb7247538153c95ff8949b88",
+      "sha256": "855f872e4e07698c720f1275dbbebafb23c39ba40a4958f64b9cfc0de5ffaf62",
       "reason": "bottom-left corner; OOB fill in y"
     },
     "1:11:0": {
-      "sha256": "43ec236da00003082f44e045de1a2a2fd5bc1cc53ffbf3596287c114f4bb932a",
+      "sha256": "595fa568751065fecafb8184fedd733215a87e1486dd9999bdd84b099b269543",
       "reason": "top-right corner; OOB fill in x"
     },
     "1:11:10": {
-      "sha256": "595fa568751065fecafb8184fedd733215a87e1486dd9999bdd84b099b269543",
+      "sha256": "43ec236da00003082f44e045de1a2a2fd5bc1cc53ffbf3596287c114f4bb932a",
       "reason": "bottom-right corner; OOB fill in both axes"
     },
     "1:1:5": {
-      "sha256": "52516cbc4007ddcb15e05141ef3cdcae987259ccc93fc2f81e959ca8b388dcd5",
+      "sha256": "075ea187dad3e8514333be988200b163049b09aa2a051086854bdfed2d0b7037",
       "reason": "near-left mid-row"
     },
     "1:3:2": {
-      "sha256": "0c039e99f8000f471796b78fad1cdba92c8d834735feb77641bca5c6e535c05d",
+      "sha256": "7af7577a17921b7400104c2a04d4beb65bb78445ecd7b3fc8a87077c3bb434f9",
       "reason": "interior diagonal q1"
     },
     "1:6:1": {
-      "sha256": "b366086fb95be02c95a36812bfbeb8cd7a39929ff379def9f01fb5cd9dcaad9b",
+      "sha256": "81e762a42a3763a9220e8a86a88d4a0cc5cbc6d18674b01a623ce57ff1096792",
       "reason": "near-top mid-column"
     },
     "1:6:10": {
-      "sha256": "f064acd1ef7d42076034e68a97b8592b1d2961ad8ca93a741db544e00f56c91c",
+      "sha256": "81c853b626e515f92ed6343dec66d7bcf456aa09d99a727156bcb04ec7749d1f",
       "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
     },
     "1:6:5": {
-      "sha256": "4dc2044062bb95d66f28009bcdea895fc88541e36d4333415dedd11120a5f09e",
+      "sha256": "1689465b8c66d7d388b49f616c95fda7cb5018746b003f2c128c7a8aafecc930",
       "reason": "interior diagonal q2 (center)"
     },
     "1:9:8": {
-      "sha256": "ca07a3b674b0f2dc97b095ff5a53266b213eeda0b81c7370a23100ead2a48460",
+      "sha256": "e2e2c6b34726d13d240bb94175af0b2214301f8d5cdd9edd603d1c0368474eff",
       "reason": "interior diagonal q3"
     },
     "2:0:0": {
-      "sha256": "70f5ec9f89b0b19d3ccd19489c08b08cfa275aa5b8cb51beed64427eda60f01a",
+      "sha256": "c1aa4a847ab8056c63a3b03753b6e8fad4ac8ba7f7a8e7480f67e256b85f4ff0",
       "reason": "top-left corner"
     },
     "2:0:5": {
-      "sha256": "c1aa4a847ab8056c63a3b03753b6e8fad4ac8ba7f7a8e7480f67e256b85f4ff0",
+      "sha256": "e53d5051c2a3215a6847f14b2c17fdbf5744a954f3d3fe021ead19f29c3d1f45",
       "reason": "bottom-left corner; OOB fill in y"
     },
     "2:1:1": {
-      "sha256": "5a84b535ede138d38664970f9eb5831ac985eb206041c10b7ea3e437c4a33d86",
+      "sha256": "59aebc8de8ac5afb4c31a492611af8ecfa02aaf352cd415629257dd6942c6449",
       "reason": "interior diagonal q1"
     },
     "2:1:3": {
-      "sha256": "55c712c64fee87f3cfaf9c93cb8e491cba64aae94da3f6efceaa85b9178b204f",
+      "sha256": "8fc9eae81195ccbcec78487ab11e6f53feab50ea9851a44e450861af0e9d33cd",
       "reason": "near-left mid-row"
     },
     "2:3:1": {
-      "sha256": "8b6660e239cf7a3473d48d751b6a159c88533b6c636fb75a4a534071a3c62f00",
+      "sha256": "79463884c4ae2ee76c2e3091a8b9ee6305c73db623954d81fb8b3da4e33ed944",
       "reason": "near-top mid-column"
     },
     "2:3:3": {
-      "sha256": "7d878b3bcb2a3dafc686e1a28b3b28416fe503564d2bb4cae6c02302867962ac",
+      "sha256": "9fce652b4a9201b0ccb145a73f11763306b2e08855020ce415a788f72415b10f",
       "reason": "interior diagonal q2 (center)"
     },
     "2:3:5": {
-      "sha256": "d04ecb1037744eff241329e543759b055f3427d13ed5d82d5287afb13bd3d94e",
+      "sha256": "c50cad57aab595c99512dc75f98d2ef1db12b0336ae5378203c895096e314307",
       "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
     },
     "2:4:4": {
-      "sha256": "59aebc8de8ac5afb4c31a492611af8ecfa02aaf352cd415629257dd6942c6449",
+      "sha256": "1782875cea74ae6bbea80c85c0c37f2f3d7b78280873397abcba407d8d5f0701",
       "reason": "interior diagonal q3"
     },
     "2:5:0": {
-      "sha256": "e53d5051c2a3215a6847f14b2c17fdbf5744a954f3d3fe021ead19f29c3d1f45",
+      "sha256": "3ef45188915873ca6bd21b75b43ea1bab26911ac9da1699459e9e3442183cc4a",
       "reason": "top-right corner; OOB fill in x"
     },
     "2:5:5": {
-      "sha256": "3ef45188915873ca6bd21b75b43ea1bab26911ac9da1699459e9e3442183cc4a",
+      "sha256": "70f5ec9f89b0b19d3ccd19489c08b08cfa275aa5b8cb51beed64427eda60f01a",
       "reason": "bottom-right corner; OOB fill in both axes"
     },
     "3:0:0": {
-      "sha256": "396139ab8688b6d7c74a2595de6e5c60863e741ec0c0fe4eea31dde7b353ddf0",
+      "sha256": "e4e5c3a1ae26b00a173451a667fa9e6ac5b5a5f650c27813229c1d01a0b2db45",
       "reason": "top-left corner"
     },
     "3:0:2": {
-      "sha256": "e4e5c3a1ae26b00a173451a667fa9e6ac5b5a5f650c27813229c1d01a0b2db45",
+      "sha256": "396139ab8688b6d7c74a2595de6e5c60863e741ec0c0fe4eea31dde7b353ddf0",
       "reason": "bottom-left corner; OOB fill in y"
     },
     "3:1:1": {
@@ -283,31 +283,31 @@
       "reason": "interior diagonal q2 (center)"
     },
     "3:1:2": {
-      "sha256": "c4ab903e68078897fd577d2c10fe3e1b6329db37e81c6504bbe8d6b0c8326698",
+      "sha256": "a47cf35972485a34d106b2e349fdd09247230318ee157475c6f92cc6088b01cb",
       "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
     },
     "3:2:0": {
-      "sha256": "2ff552f9063db17867d2d06e3e92032f7617e05bf04c60844e7aa8bfd253489b",
+      "sha256": "824d6450889c914173fe1247d90f29397efd509ad82fa4eb6fa3e88ec7346249",
       "reason": "top-right corner; OOB fill in x"
     },
     "3:2:2": {
-      "sha256": "824d6450889c914173fe1247d90f29397efd509ad82fa4eb6fa3e88ec7346249",
+      "sha256": "2ff552f9063db17867d2d06e3e92032f7617e05bf04c60844e7aa8bfd253489b",
       "reason": "bottom-right corner; OOB fill in both axes"
     },
     "4:0:0": {
-      "sha256": "0f4b7dabf629e119b6eb8bb6fa154027ef6c8f54115fd43c324ccaf4a1a93232",
+      "sha256": "05b453eed615c1e9192c9788ec1533d02e95aa7916f43d0cbc8197f714ca58ca",
       "reason": "top-left corner"
     },
     "4:0:1": {
-      "sha256": "05b453eed615c1e9192c9788ec1533d02e95aa7916f43d0cbc8197f714ca58ca",
+      "sha256": "4155eb74e176c06cd0442ff6f4420960afb4a7ad291b907b65134b3f5e8c7d10",
       "reason": "bottom-left corner; OOB fill in y"
     },
     "4:1:0": {
-      "sha256": "4155eb74e176c06cd0442ff6f4420960afb4a7ad291b907b65134b3f5e8c7d10",
+      "sha256": "c56c0b7afd341c8046e4912d8a02ecc7e4683d33bc049f94955b48f8066236c5",
       "reason": "top-right corner; OOB fill in x"
     },
     "4:1:1": {
-      "sha256": "c56c0b7afd341c8046e4912d8a02ecc7e4683d33bc049f94955b48f8066236c5",
+      "sha256": "0f4b7dabf629e119b6eb8bb6fa154027ef6c8f54115fd43c324ccaf4a1a93232",
       "reason": "bottom-right corner; OOB fill in both axes"
     },
     "5:0:0": {
