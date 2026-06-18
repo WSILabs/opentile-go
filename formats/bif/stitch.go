@@ -113,7 +113,16 @@ func buildDPLayout(in StitchInput) *Layout {
 	// index into the same per-AOI frame ordering.
 	l := newLayout(in.Cols, in.Rows, in.TileW, in.TileH)
 	type key = [2]int
-	// Single-AOI for this task; multi-AOI offsets added in Task 4.
+	// Whitepaper page 14, §"AoiOrigin": each AOI's upper-left corner in the
+	// merged high-resolution image is <AOI<N> OriginX/OriginY> (pixel
+	// coordinates, always multiples of the tile size). Page 16 + Figure 5: the
+	// BIF-image is the convex hull of all AOIs, each AOI's tiles offset by its
+	// origin. Build the index→origin map once; absent index → zero offset
+	// (whitepaper: single-AOI files have OriginX=OriginY=0).
+	aoiOrigin := map[int][2]int{}
+	for _, o := range ei.AoiOrigins {
+		aoiOrigin[o.Index] = [2]int{o.OriginX, o.OriginY}
+	}
 	for _, ii := range ei.ImageInfos {
 		framePos := make([]key, len(ii.Frames)) // storage idx → (col,row)
 		for i, f := range ii.Frames {
@@ -157,11 +166,15 @@ func buildDPLayout(in StitchInput) *Layout {
 				}
 			}
 		}
+		// Shift this AOI's compacted local placements by its origin
+		// (whitepaper page 14/16). The per-AOI frame (col,row) keys are local;
+		// the origin lands them in the merged image's shared coordinate space.
+		off := aoiOrigin[ii.AOIIndex] // zero value {0,0} if absent
 		for _, p := range framePos {
-			l.origin[p] = TilePlacement{Col: p[0], Row: p[1], X: pos[p][0], Y: pos[p][1]}
+			l.origin[p] = TilePlacement{Col: p[0], Row: p[1], X: pos[p][0] + off[0], Y: pos[p][1] + off[1]}
 		}
 	}
-	finalizeExtent(l, in) // hull + white-pad; completed in Task 4
+	finalizeExtent(l, in) // hull + normalize + white-pad
 	return l
 }
 
@@ -176,14 +189,42 @@ func hasConfidentJoint(ei *bifxml.EncodeInfo) bool {
 	return false
 }
 
-// finalizeExtent is completed in Task 4 (hull + normalize + white-pad). For now
-// it sets the extent to the bounding box of placements, padded up to a tile
-// multiple. Whitepaper page 5: "If the convex hull of all AOIs combined in the
+// finalizeExtent computes the stitched extent as the convex hull of all AOI
+// tile placements (whitepaper page 16 + Figure 5: "The BIF-image approximates
+// the convex hull of all AOIs"), normalized so the hull's top-left corner is
+// (0,0), then padded up to a tile multiple.
+//
+// Pad edge: whitepaper page 5 — "If the convex hull of all AOIs combined in the
 // BIF-image is not a multiple of the tile size, the image will be padded with
-// empty white pixels to the top and right."
+// empty white pixels to the top and right." The image coordinate system has its
+// origin at the top-left with Y increasing downward (page 4/15), and AoiOrigins
+// are always tile-multiples (page 14). Normalizing to the min corner then
+// rounding the max corner up to a tile multiple pads on the right (and bottom).
+// For VENTANA DP 200 spec-compliant slides OverlapY is always 0 (page 15: "do
+// not contain vertical tile overlap"), so every Y coordinate is already a tile
+// multiple and the vertical roundUp is a no-op — the bottom-vs-top pad-edge
+// distinction therefore cannot manifest. The horizontal (right) pad matches the
+// whitepaper exactly. (Tile5 of the level's golden test in Task 5 should confirm
+// vertical extent stays a clean tile multiple.)
 func finalizeExtent(l *Layout, in StitchInput) {
-	maxX, maxY := 0, 0
+	if len(l.origin) == 0 {
+		l.Width, l.Height = 0, 0
+		return
+	}
+	minX, minY := int(^uint(0)>>1), int(^uint(0)>>1)
 	for _, p := range l.origin {
+		if p.X < minX {
+			minX = p.X
+		}
+		if p.Y < minY {
+			minY = p.Y
+		}
+	}
+	maxX, maxY := 0, 0
+	for k, p := range l.origin {
+		p.X -= minX
+		p.Y -= minY
+		l.origin[k] = p
 		if p.X+l.tileW > maxX {
 			maxX = p.X + l.tileW
 		}
