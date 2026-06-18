@@ -251,10 +251,13 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 	// blitOneTile is the shared blit helper used by both the naive and
 	// layout-aware tile loop below.
 	blitOneTile := func(k tileKey, tileLevelX, tileLevelY int) error {
-		// Reserve in case lookahead hasn't gotten to it yet, then hand
-		// the request to a worker. tileReqs is never closed (workers
-		// exit via cancelCtx), so this send never races a close.
-		if it.cache.reserve(k) {
+		// Reserve-AND-pin atomically (reserveOrAcquire) so the entry can't be
+		// evicted between here and waitGet/blit; release once we're done with
+		// it. If newly reserved, hand the request to a worker. tileReqs is never
+		// closed (workers exit via cancelCtx), so this send never races a close.
+		created := it.cache.reserveOrAcquire(k)
+		defer it.cache.release(k)
+		if created {
 			select {
 			case it.tileReqs <- k:
 			case <-it.cancelCtx.Done():
