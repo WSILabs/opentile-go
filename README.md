@@ -16,7 +16,7 @@ It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture
 **What it does:**
 
 - **Raw tile extraction** — `level.Tile(x, y)` returns the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
-- **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), and `ReadRegionScaled` (downsampled output) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
+- **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), `ReadRegionScaled` (downsampled output), `RenderThumbnail` (whole-slide thumbnail/overview), and `RenderMacro` (synthesized macro at true physical scale) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
 - **Scaled strips / DZI** — `ScaledStrips`, a libvips-style whole-slide region iterator with **byte-bounded** peak memory, for Deep Zoom / tile-pyramid generation.
 - **11 formats, auto-detected** — Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, COG-WSI, [Iris IFE](https://github.com/IrisDigitalPathology/Iris-File-Extension), [SZI](https://github.com/smartinmedia/SZI-Format), and multi-file **DICOM WSI**.
 - **Associated images & metadata** — label / overview / thumbnail / macro, MPP, magnification, vendor properties, and raw per-level / per-image **TIFF-tag** access.
@@ -179,14 +179,33 @@ img, err := base.ReadRegion(opentile.Region{
     Size:   opentile.Size{W: w, H: h},
 })
 
-// An L0 region scaled to an explicit output size (e.g. a thumbnail
-// of the whole slide). IDCT-time downscale + resample under the hood.
+// An L0 region scaled to an explicit output size. IDCT-time downscale
+// + resample under the hood.
 l0 := t.Levels()[0]
 pyr := t.Pyramid(0)
-thumb, err := pyr.ReadRegionScaled(
+region, err := pyr.ReadRegionScaled(
     opentile.Region{Size: l0.Size}, // full L0 extent
     opentile.Size{W: 1024, H: 1024},
 )
+
+// A whole-slide thumbnail/overview, rendered from the pyramid (a thin,
+// aspect-preserving convenience over ReadRegionScaled). A zero axis is
+// unconstrained, so one Size expresses fit-box / fit-width / fit-height:
+thumb, err := t.RenderThumbnail(opentile.Size{W: 256, H: 256}) // fit inside 256×256
+_, _ = t.RenderThumbnail(opentile.Size{W: 512})                // fit-width:  width 512, height from aspect
+_, _ = t.RenderThumbnail(opentile.Size{H: 512})                // fit-height: height 512, width from aspect
+```
+
+`RenderThumbnail` always renders from the image pyramid (for BIF it is
+correctly stitched) and never upscales past L0. It is **not** the
+embedded thumbnail/overview — for the scanner's own associated images,
+use `s.AssociatedImages()`.
+
+```go
+// A synthesized macro: the tissue composited at its TRUE physical size
+// (via MPP, or 10/objective-mag) and centred on a slide-shaped canvas —
+// a macro-style orientation image for slides that don't embed one.
+macro, err := s.RenderMacro(opentile.Size{W: 600}) // 600×300 slide canvas
 ```
 
 For whole-slide scaled output that is too large to hold in memory at
