@@ -91,6 +91,11 @@ type levelImpl struct {
 	// when tiles are self-contained (Ventana-1 spec-compliant DP 200).
 	// BIF is YCbCr — no APP14 marker (unlike SVS).
 	splicePrefix []byte
+
+	// layout is the stitch layout for this level: per-tile stitched origin and
+	// the stitched extent. For pyramid levels ≥1 and non-DP/legacy slides it is
+	// the naive regular grid. Built once in newLevelImpl. See stitch.go and #60.
+	layout *Layout
 }
 
 // newLevelImpl constructs a levelImpl from a classified IFD. The
@@ -102,6 +107,7 @@ func newLevelImpl(
 	c classifiedIFD,
 	baseMPP float64,
 	scanWhitePoint uint8,
+	gen Generation,
 	encodeInfo *bifxml.EncodeInfo,
 	reader io.ReaderAt,
 ) (*levelImpl, error) {
@@ -193,10 +199,37 @@ func newLevelImpl(
 	// typically). It's bounded by the same per-tile envelope; no
 	// adjustment needed.
 
+	// Build the stitch layout for this level. The DP overlap-compaction path
+	// only applies to level 0 — per the Roche whitepaper §"Image Pyramid",
+	// pyramid levels ≥1 are pre-stitched (their tiles abut, no overlap), so
+	// EncodeInfo is passed only for c.Level == 0; lower levels get the naive
+	// regular grid. The layout is stored on every level for the compositor
+	// (Task 7).
+	var ei *bifxml.EncodeInfo
+	if c.Level == 0 {
+		ei = encodeInfo
+	}
+	layout := BuildLayout(StitchInput{
+		Cols: cols, Rows: rows, TileW: int(tw), TileH: int(tl),
+		EncodeInfo: ei, Generation: gen,
+	})
+
+	// Level.Size = stitched extent for level 0 ONLY (#60): the compacted hull
+	// (e.g. Ventana-1 = 23432×21504), not the padded IFD ImageWidth that
+	// included the phantom 24th tile column. For pyramid levels ≥1 we keep the
+	// IFD ImageWidth×ImageLength: those levels are pre-stitched and their IFD
+	// extent need not be an exact tile multiple, so the naive layout's
+	// cols*tileW (rounded up) would overstate their true width. The naive
+	// layout is still stored on every level for the compositor.
+	size := opentile.Size{W: int(iw), H: int(il)}
+	if c.Level == 0 {
+		size = opentile.Size{W: layout.Width, H: layout.Height}
+	}
+
 	return &levelImpl{
 		index:          index,
 		pyrIndex:       c.Level,
-		size:           opentile.Size{W: int(iw), H: int(il)},
+		size:           size,
 		tileSize:       opentile.Size{W: int(tw), H: int(tl)},
 		grid:           opentile.Size{W: cols, H: rows},
 		compression:    ocomp,
@@ -212,6 +245,7 @@ func newLevelImpl(
 		maxTileSize:    maxTileSize,
 		bodyMaxSize:    bodyMaxSize,
 		splicePrefix:   splicePrefix,
+		layout:         layout,
 	}, nil
 }
 
@@ -250,6 +284,31 @@ func (l *levelImpl) Compression() opentile.Compression { return l.compression }
 func (l *levelImpl) MPP() opentile.MPP                 { return l.mpp }
 func (l *levelImpl) FocalPlane() float64               { return 0 }
 func (l *levelImpl) TileOverlap() opentile.Point       { return l.tileOverlap }
+
+// TileOrigin returns the stitched-space top-left of image-grid tile (col,row).
+func (l *levelImpl) TileOrigin(col, row int) (x, y int, ok bool) {
+	if l.layout == nil {
+		return col * l.tileSize.W, row * l.tileSize.H, col >= 0 && col < l.grid.W && row >= 0 && row < l.grid.H
+	}
+	return l.layout.TileOrigin(col, row)
+}
+
+// StitchedSize returns this level's stitched dimensions (== Size()).
+func (l *levelImpl) StitchedSize() (w, h int, ok bool) {
+	if l.layout == nil {
+		return l.size.W, l.size.H, true
+	}
+	return l.layout.Width, l.layout.Height, true
+}
+
+// TilesIntersecting returns the image-grid tiles whose stitched extent touches
+// the output rectangle [x,y,x+w,y+h).
+func (l *levelImpl) TilesIntersecting(x, y, w, h int) []TilePlacement {
+	if l.layout == nil {
+		return nil
+	}
+	return l.layout.TilesIntersecting(x, y, w, h)
+}
 
 // indexOf validates (z, col, row) and returns the storage index
 // into offsets/counts. For non-volumetric IFDs (imageDepth == 1)

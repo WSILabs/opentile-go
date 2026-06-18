@@ -83,7 +83,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	var levelZeroDepth int
 	var l0Width int
 	for i, c := range levelIFDs {
-		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, encodeInfo, file.ReaderAt())
+		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, classifyGeneration(iscan), encodeInfo, file.ReaderAt())
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +102,11 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			MPP:          l.mpp,
 			TileOverlap:  l.tileOverlap,
 			FocalPlane:   0,
-			Downsample:   float64(l0Width) / float64(l.size.W),
+			// l0Width is the level-0 STITCHED width (the compacted hull, #60);
+			// lower levels report their own IFD extent (pre-stitched, no joints
+			// → naive layout → size = IFD ImageWidth×ImageLength). So the ratio
+			// is the true pyramid downsample.
+			Downsample: float64(l0Width) / float64(l.size.W),
 		})
 		dirSpecs = append(dirSpecs, bifDirSpec{page: c.Page, typ: opentile.DirLevel, level: i})
 	}
