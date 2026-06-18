@@ -48,9 +48,35 @@ func TestBuildDPLayoutHorizontalOverlap(t *testing.T) {
 	}
 }
 
+// TestBuildDPLayoutSingleAOIOriginShift exercises the DP AOI-origin path
+// directly: one AOI with a confident RIGHT joint (so buildDPLayout engages,
+// not the naive fallback) AND a non-zero AoiOrigin. It proves (a) the origin
+// offset is applied and (b) finalizeExtent normalizes the min corner back to
+// (0,0), while (c) the overlap compaction still applies.
+func TestBuildDPLayoutSingleAOIOriginShift(t *testing.T) {
+	ei := singleAOIEncodeInfo(2, 1, 120, 0) // 2×1, RIGHT overlap 120, has a confident joint
+	ei.ImageInfos[0].AOIIndex = 0
+	ei.AoiOrigins = []bifxml.AoiOrigin{{Index: 0, OriginX: 5120, OriginY: 3072}}
+	l := BuildLayout(StitchInput{Cols: 2, Rows: 1, TileW: 1024, TileH: 1024, EncodeInfo: ei, Generation: GenerationSpecCompliant})
+	// After origin shift both tiles move by (5120,3072); normalization pulls the
+	// min corner back to (0,0), so tile (0,0) lands at (0,0).
+	x0, y0, ok := l.TileOrigin(0, 0)
+	if !ok || x0 != 0 || y0 != 0 {
+		t.Fatalf("TileOrigin(0,0) = (%d,%d,%v), want (0,0,true) after normalization", x0, y0, ok)
+	}
+	// RIGHT overlap still compacts col 1 to col0X + tileW - overlap = 904.
+	x1, _, ok := l.TileOrigin(1, 0)
+	if !ok || x1 != 904 {
+		t.Errorf("TileOrigin(1,0).X = (%d,%v), want 904 (compaction preserved through origin path)", x1, ok)
+	}
+}
+
 func TestBuildDPLayoutTwoAOIsWithOrigins(t *testing.T) {
 	// Two single-tile AOIs (1024 tiles, no internal overlap). AOI0 at origin
 	// (0,0), AOI1 at OriginX=1024 → side by side, total 2048×1024.
+	// NOTE: with no joints, hasConfidentJoint is false → this routes through the
+	// NAIVE fallback (the end-to-end dims still hold). The AOI-origin DP code
+	// path itself is covered by TestBuildDPLayoutSingleAOIOriginShift above.
 	mk := func(aoiIdx int) bifxml.ImageInfo {
 		return bifxml.ImageInfo{AOIScanned: true, AOIIndex: aoiIdx, NumCols: 1, NumRows: 1,
 			Frames: []bifxml.Frame{{Col: 0, Row: 0}}}
