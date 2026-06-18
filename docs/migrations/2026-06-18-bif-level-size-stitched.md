@@ -36,7 +36,9 @@ boundaries produced visible lines at the 1024-pixel grid spacing.
 Legacy iScan BIF slides (Coreo / HT, e.g. OS-1.bif) are **not affected**. The DP
 stitch engine is gated to spec-compliant DP slides only. Legacy slides continue to
 report the naive frame-grid extent as `Level.Size`. Overlap compaction for legacy
-iScan slides is a known limitation tracked as **#60-legacy** (deferred).
+iScan slides is a known limitation, deferred: the clean-room placement-
+reconstruction characterization is tracked in [#63](https://github.com/WSILabs/opentile-go/issues/63)
+and the padded-width issue in [#60](https://github.com/WSILabs/opentile-go/issues/60).
 
 ## Validate `tile-grid-mismatch` relaxed
 

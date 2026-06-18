@@ -72,9 +72,9 @@ Level 0 is the only level with overlap (whitepaper page 16: "IFD 3 and Higher" l
 
 ### Legacy generation (Coreo / HT iScan) — NOT yet stitched
 
-Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **not stitched**. The Roche whitepaper (page 3) explicitly states that files produced by older scanners "cannot be reconstructed correctly", and the overlap metadata needed for the DP algorithm is absent. opentile-go uses the naive regular-grid layout for legacy slides: `Level.Size` reports the raw frame-grid extent (`Grid.W × TileSize.W`, `Grid.H × TileSize.H`), which over-states the real content area by the cumulative overlap.
+Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **not stitched**. The Roche whitepaper (page 3) explicitly states that files produced by older scanners "cannot be reconstructed correctly". Unlike DP slides, legacy files carry **no `<Frame>` nodes** — placement must be reconstructed from the `TileJointInfo` stitch graph alone. opentile-go currently uses the naive regular-grid layout for legacy slides: `Level.Size` reports the raw frame-grid extent (`Grid.W × TileSize.W`, `Grid.H × TileSize.H`), which over-states the real content area by the cumulative overlap.
 
-Implementing legacy overlap compaction is a known limitation tracked as **#60-legacy** (deferred; no authoritative non-GPL algorithm is currently available). `TestOS1LegacyNaiveDims` locks the current naive extent so any future change is deliberate.
+Implementing legacy overlap compaction is a known limitation, deferred. A clean-room reconstruction recipe — stitch-graph spanning-tree propagation through each edge's `(OverlapX, OverlapY)`, accumulating both axes (legacy Y overlap is too noisy to average), with dead-join and confidence-cutoff handling — is characterized in [#63](https://github.com/WSILabs/opentile-go/issues/63) (the padded-width issue is [#60](https://github.com/WSILabs/opentile-go/issues/60)). `TestOS1LegacyNaiveDims` locks the current naive extent so any future change is deliberate.
 
 ## Edge tile semantics
 

@@ -44,8 +44,10 @@ BIF overlap-aware stitching for DP-generation slides (#60).
   engine eliminates these artefacts; output is now pixel-exact vs bio-formats.
 
 Note: legacy iScan (Coreo / HT) BIF stitching is **not yet implemented** — these
-slides use the naive extent and raw frame-grid layout as before. Deferred as
-**#60-legacy**.
+slides use the naive extent and raw frame-grid layout as before. Deferred; the
+clean-room placement-reconstruction characterization lives in
+[#63](https://github.com/WSILabs/opentile-go/issues/63) and the padded-width
+issue in [#60](https://github.com/WSILabs/opentile-go/issues/60).
 
 ## [0.45.3] — 2026-06-17
 

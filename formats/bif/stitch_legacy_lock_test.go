@@ -18,8 +18,10 @@ import (
 //
 // bio-formats reaches a smaller compacted size via a GPL columnXAdjust
 // heuristic we will not port; the Roche whitepaper disclaims legacy
-// reconstruction ("cannot be reconstructed correctly"). Locking this so a
-// future legacy-stitching fix (#60-legacy) is a deliberate, reviewed change —
+// reconstruction ("cannot be reconstructed correctly"). A clean-room
+// reconstruction recipe (stitch-graph spanning-tree propagation, accumulate-Y,
+// dead-join/confidence handling) is characterized in #63. Locking this so a
+// future legacy-stitching fix (see #63) is a deliberate, reviewed change —
 // not silent drift. See design §E.
 //
 // Skipped when OPENTILE_TESTDIR/bif/OS-1.bif is not present (large local-only
@@ -51,12 +53,13 @@ func TestOS1LegacyNaiveDims(t *testing.T) {
 	}
 
 	// Pinned naive extent (no overlap compaction; DP stitch engine is gated to
-	// spec-compliant DP slides only). A future #60-legacy implementation that
-	// compacts legacy iScan frames should update these constants — deliberately,
-	// after verifying against bio-formats or another authoritative oracle.
+	// spec-compliant DP slides only). A future legacy-stitching implementation
+	// (see #63) that compacts legacy iScan frames should update these constants —
+	// deliberately, after verifying against bio-formats or another authoritative
+	// oracle.
 	const wantW, wantH = 118784, 102000
 	if lvl.Size.W != wantW || lvl.Size.H != wantH {
-		t.Errorf("OS-1 L0 = %dx%d, want %dx%d (legacy naive extent; stitching deferred #60-legacy)",
+		t.Errorf("OS-1 L0 = %dx%d, want %dx%d (legacy naive extent; stitching deferred — see #63)",
 			lvl.Size.W, lvl.Size.H, wantW, wantH)
 	}
 }
