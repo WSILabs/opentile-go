@@ -104,6 +104,103 @@ func TestScaledStripsCrossFormat(t *testing.T) {
 	}
 }
 
+// TestBIFScaledStripsStitchedGeometry asserts that ScaledStrips and
+// ReadRegionScaled for a Ventana DP 200 BIF slide use the stitched L0 extent
+// (23432×21504, the compacted hull), not the padded raw-frame IFD extent
+// (24576×21504). This exercises the layout-aware tile selection + blit path
+// added in #60 for the ScaledStrips iterator.
+//
+// The key assertion: when scaling the full stitched L0 to a small target, the
+// output width must be derived from 23432, not 24576. The test uses a 1/8
+// approximate scale: outW = ceil(23432/8) = 2929 ≠ ceil(24576/8) = 3072.
+//
+// Skipped when Ventana-1.bif is not present locally.
+func TestBIFScaledStripsStitchedGeometry(t *testing.T) {
+	const (
+		stitchedW = 23432
+		stitchedH = 21504
+		paddedW   = 24576 // raw IFD ImageWidth before #60 fix — wrong
+	)
+	path := func() string {
+		if dir := os.Getenv("OPENTILE_TESTDIR"); dir != "" {
+			p := filepath.Join(dir, "bif", "Ventana-1.bif")
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+		const fallback = "/Volumes/Ext/GitHub/opentile-go/sample_files/bif/Ventana-1.bif"
+		if _, err := os.Stat(fallback); err == nil {
+			return fallback
+		}
+		return ""
+	}()
+	if path == "" {
+		t.Skip("Ventana-1.bif not present")
+	}
+
+	slide, err := opentile.OpenFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer slide.Close()
+
+	lvl0, err := slide.Level(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lvl0.Size.W != stitchedW || lvl0.Size.H != stitchedH {
+		t.Fatalf("precondition: L0 size = %dx%d, want %dx%d (stitched hull)",
+			lvl0.Size.W, lvl0.Size.H, stitchedW, stitchedH)
+	}
+
+	// Target: ~1/8 scale. outW = ceil(23432/8) = 2929 (stitched).
+	// If geometry were derived from the padded 24576: ceil(24576/8) = 3072.
+	const scale = 8
+	outW := (stitchedW + scale - 1) / scale  // 2929
+	outH := (stitchedH + scale - 1) / scale  // 2688
+	wrongW := (paddedW + scale - 1) / scale  // 3072 — wrong, padded
+
+	t0src := opentile.Region{
+		Origin: opentile.Point{X: 0, Y: 0},
+		Size:   opentile.Size{W: stitchedW, H: stitchedH},
+	}
+	outSize := opentile.Size{W: outW, H: outH}
+
+	// --- ScaledStrips geometry ---
+	it := slide.Pyramid(0).ScaledStrips(t0src, outSize, 64)
+	defer it.Close()
+	stripCount := 0
+	for {
+		img, err := it.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ScaledStrips Next: %v", err)
+		}
+		if img.Width != outW {
+			t.Errorf("ScaledStrips strip %d: width = %d, want %d (stitched); got %d (padded) as bug indicator",
+				stripCount, img.Width, outW, wrongW)
+		}
+		stripCount++
+	}
+	if stripCount == 0 {
+		t.Fatal("ScaledStrips yielded 0 strips")
+	}
+	t.Logf("ScaledStrips: %d strips at %dx(up to %d)px — stitched geometry confirmed", stripCount, outW, 64)
+
+	// --- ReadRegionScaled geometry ---
+	img, err := slide.Pyramid(0).ReadRegionScaled(t0src, outSize)
+	if err != nil {
+		t.Fatalf("ReadRegionScaled: %v", err)
+	}
+	if img.Width != outW || img.Height != outH {
+		t.Errorf("ReadRegionScaled: dims = %dx%d, want %dx%d (stitched; padded would be %dx%d)",
+			img.Width, img.Height, outW, outH, wrongW, outH)
+	}
+	t.Logf("ReadRegionScaled: %dx%d — stitched geometry confirmed", img.Width, img.Height)
+}
+
 func TestScaledStripsCancellation(t *testing.T) {
 	slide := openStripSample(t, "svs/CMU-1.svs")
 	lvl := slide.Levels()[0]

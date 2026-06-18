@@ -60,6 +60,12 @@ type StripIterator struct {
 	// Lookahead goroutine wait group + signal channel.
 	lookaheadDone sync.WaitGroup
 	advance       chan struct{} // signaled when nextStrip advances
+
+	// layout is non-nil for readers whose tile grid is not a regular
+	// spatial partition of the level (BIF stitching, #60). When present,
+	// tile selection and blit placement use TilesIntersecting + TileOrigin
+	// instead of the naive tx*tileW formula.
+	layout regionLayout
 }
 
 func newStripIterator(s *Slide, imageIdx int, l0Rect image.Rectangle, outSize image.Point, stripHeight int, cfg stripConfig) *StripIterator {
@@ -100,6 +106,14 @@ func newStripIterator(s *Slide, imageIdx int, l0Rect image.Rectangle, outSize im
 	it.effLevelH = (level.Size.H + es - 1) / es
 	it.effTileW = (level.TileSize.W + es - 1) / es
 	it.effTileH = (level.TileSize.H + es - 1) / es
+
+	// Layout-aware compositing (#60): if the reader implements regionLayout
+	// (e.g. BIF, whose tile grid is not a regular spatial partition),
+	// cache it for use in tilesForStrip and Next. The non-BIF formats don't
+	// implement regionLayout, so they take the unchanged naive grid path.
+	if rl, ok := regionLayoutOf(s.r); ok {
+		it.layout = rl
+	}
 
 	// Cache size: byte-budget-derived, floored at max(workers,8) and
 	// capped at the original count formula. The count formula
@@ -233,47 +247,80 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 
 	tileW := it.effTileW
 	tileH := it.effTileH
-	txMin := cx0 / tileW
-	tyMin := cy0 / tileH
-	txMax := (cx1 - 1) / tileW
-	tyMax := (cy1 - 1) / tileH
 
-	for ty := tyMin; ty <= tyMax; ty++ {
-		for tx := txMin; tx <= txMax; tx++ {
-			k := tileKey{tx: tx, ty: ty}
-			// Reserve in case lookahead hasn't gotten to it yet, then hand
-			// the request to a worker. tileReqs is never closed (workers
-			// exit via cancelCtx), so this send never races a close.
-			if it.cache.reserve(k) {
-				select {
-				case it.tileReqs <- k:
-				case <-it.cancelCtx.Done():
-					return nil, it.cancelCtx.Err()
-				}
+	// blitOneTile is the shared blit helper used by both the naive and
+	// layout-aware tile loop below.
+	blitOneTile := func(k tileKey, tileLevelX, tileLevelY int) error {
+		// Reserve in case lookahead hasn't gotten to it yet, then hand
+		// the request to a worker. tileReqs is never closed (workers
+		// exit via cancelCtx), so this send never races a close.
+		if it.cache.reserve(k) {
+			select {
+			case it.tileReqs <- k:
+			case <-it.cancelCtx.Done():
+				return it.cancelCtx.Err()
 			}
-			tileImg, err, _ := it.cache.waitGet(k, it.cancelCtx)
-			if err != nil {
-				return nil, fmt.Errorf("opentile: ScaledStrips: decode tile (%d,%d) at level %d: %w", tx, ty, it.sourceLevel.Index, err)
+		}
+		tileImg, err, _ := it.cache.waitGet(k, it.cancelCtx)
+		if err != nil {
+			return fmt.Errorf("opentile: ScaledStrips: decode tile (%d,%d) at level %d: %w", k.tx, k.ty, it.sourceLevel.Index, err)
+		}
+		if tileImg == nil {
+			if err := it.cancelCtx.Err(); err != nil {
+				return err
 			}
-			if tileImg == nil {
-				if err := it.cancelCtx.Err(); err != nil {
-					return nil, err
-				}
-				return nil, fmt.Errorf("opentile: ScaledStrips: tile (%d,%d) missing from cache", tx, ty)
-			}
-			// Blit the intersection of tileImg with the clipped strip region
-			// into the intermediate image.
-			tileLevelX := tx * tileW
-			tileLevelY := ty * tileH
-			ax0 := maxInt(tileLevelX, cx0)
-			ay0 := maxInt(tileLevelY, cy0)
-			ax1 := minInt(tileLevelX+tileImg.Width, cx1)
-			ay1 := minInt(tileLevelY+tileImg.Height, cy1)
-			if ax0 >= ax1 || ay0 >= ay1 {
+			return fmt.Errorf("opentile: ScaledStrips: tile (%d,%d) missing from cache", k.tx, k.ty)
+		}
+		// Blit the intersection of tileImg with the clipped strip region
+		// into the intermediate image.
+		ax0 := maxInt(tileLevelX, cx0)
+		ay0 := maxInt(tileLevelY, cy0)
+		ax1 := minInt(tileLevelX+tileImg.Width, cx1)
+		ay1 := minInt(tileLevelY+tileImg.Height, cy1)
+		if ax0 >= ax1 || ay0 >= ay1 {
+			return nil
+		}
+		blitInto(tileImg, ax0-tileLevelX, ay0-tileLevelY, ax1-ax0, ay1-ay0,
+			intermediate, ax0-cx0, ay0-cy0)
+		return nil
+	}
+
+	// Layout-aware tile iteration (#60): for readers with a non-regular tile
+	// grid (BIF), use TilesIntersecting + TileOrigin rather than the naive
+	// txMin..txMax grid. The effective-domain strip region must be converted
+	// back to level coordinates (× idctScale) for the regionLayout query, and
+	// each tile's level-resolution origin is divided by idctScale to land in
+	// the effective domain for blitting.
+	if rl := it.layout; rl != nil {
+		es := it.idctScale
+		if es < 1 {
+			es = 1
+		}
+		lvlX0, lvlY0 := cx0*es, cy0*es
+		lvlW, lvlH := (cx1-cx0)*es, (cy1-cy0)*es
+		for _, tp := range rl.TilesIntersecting(it.sourceLevel.Index, lvlX0, lvlY0, lvlW, lvlH) {
+			lx, ly, ok := rl.TileOrigin(it.sourceLevel.Index, tp.Col, tp.Row)
+			if !ok {
 				continue
 			}
-			blitInto(tileImg, ax0-tileLevelX, ay0-tileLevelY, ax1-ax0, ay1-ay0,
-				intermediate, ax0-cx0, ay0-cy0)
+			// Scale down the level-resolution origin to the effective domain.
+			effX := lx / es
+			effY := ly / es
+			if err := blitOneTile(tileKey{tx: tp.Col, ty: tp.Row}, effX, effY); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		txMin := cx0 / tileW
+		tyMin := cy0 / tileH
+		txMax := (cx1 - 1) / tileW
+		tyMax := (cy1 - 1) / tileH
+		for ty := tyMin; ty <= tyMax; ty++ {
+			for tx := txMin; tx <= txMax; tx++ {
+				if err := blitOneTile(tileKey{tx: tx, ty: ty}, tx*tileW, ty*tileH); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 
