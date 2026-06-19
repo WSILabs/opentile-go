@@ -24,30 +24,34 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
+      - name: Cache Homebrew bottles (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew/downloads
+          key: brew-bottles-${{ runner.os }}-codecs-v1
+
       - name: Install cgo deps (macOS)
         if: runner.os == 'macOS'
         # v0.22+ decoder subpackages add jpeg2000 (openjp2), jpegxl (libjxl),
         # avif (libavif), webp (libwebp), htj2k (openjph).
+        # HOMEBREW_NO_AUTO_UPDATE skips the slow formula-index refresh; bottles
+        # are restored from the cache above.
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
         run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
 
-      - name: Install cgo deps (Linux)
+      - name: Install cgo deps (Linux, cached)
         if: runner.os == 'Linux'
-        # Ubuntu apt has all the codec libs EXCEPT openjph (HTJ2K).
-        # Use -tags nohtj2k on Linux test/build steps to skip it.
-        # Wrap apt in a 3-attempt retry loop for transient mirror failures.
-        run: |
-          for i in 1 2 3; do
-            if sudo apt-get update && sudo apt-get install -y \
-                libturbojpeg0-dev libopenjp2-7-dev libjxl-dev \
-                libavif-dev libwebp-dev pkg-config; then
-              echo "apt install succeeded on attempt $i"
-              exit 0
-            fi
-            echo "apt install attempt $i failed; sleeping 10s before retry..."
-            sleep 10
-          done
-          echo "apt install failed after 3 attempts" >&2
-          exit 1
+        # Ubuntu apt has all the codec libs EXCEPT openjph (HTJ2K); Linux
+        # test/build steps use -tags nohtj2k to skip it. cache-apt-pkgs-action
+        # caches the .debs and skips `apt-get update` on a hit — replacing the
+        # transient-mirror retry loop (cache hit = no network).
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          version: '1'
 
       - name: go vet
         if: runner.os == 'macOS'
@@ -87,17 +91,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      - name: Install cgo deps (Linux)
-        run: |
-          for i in 1 2 3; do
-            if sudo apt-get update && sudo apt-get install -y \
-                libturbojpeg0-dev libopenjp2-7-dev libjxl-dev \
-                libavif-dev libwebp-dev pkg-config; then
-              exit 0
-            fi
-            sleep 10
-          done
-          exit 1
+      - name: Install cgo deps (Linux, cached)
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          version: '1'
       # AddressSanitizer over the cgo codec decoders. The committed
       # decoder/jpeg2000/testdata fixtures (incl. the 4:2:2 subsampled tile
       # that triggered the #7 heap over-read) are decoded here, so a
@@ -135,17 +133,11 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Install cgo deps (Linux)
-        run: |
-          for i in 1 2 3; do
-            if sudo apt-get update && sudo apt-get install -y \
-                libturbojpeg0-dev libopenjp2-7-dev libjxl-dev \
-                libavif-dev libwebp-dev pkg-config; then
-              exit 0
-            fi
-            sleep 10
-          done
-          exit 1
+      - name: Install cgo deps (Linux, cached)
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          version: '1'
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
         env:
@@ -184,7 +176,16 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Cache Homebrew bottles (macOS)
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew/downloads
+          key: brew-bottles-${{ runner.os }}-codecs-v1
+
       - name: Install cgo deps (macOS)
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
         run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
