@@ -511,12 +511,13 @@ func readImageBytes(r io.ReaderAt, off uint64, fileSize int64) (string, []byte, 
 func compressionFromImageEncoding(e uint8) (opentile.Compression, error) {
 	switch e {
 	case 1:
-		// PNG associated images. opentile-go has no CompressionPNG yet
-		// because no other format we read uses PNG for associated
-		// images. Return CompressionUnknown so consumers know it's
-		// raw passthrough but unidentified-codec; downstream code can
-		// sniff the PNG signature on the bytes if needed.
-		return opentile.CompressionUnknown, nil
+		// PNG. Associated images use the spec's IMAGE_ENCODING enum
+		// (Iris-Headers/include/IrisCodecTypes.hpp): IMAGE_ENCODING_PNG=1,
+		// IMAGE_ENCODING_JPEG=2, IMAGE_ENCODING_AVIF=3 — distinct from the
+		// tile ENCODING enum where 1=IRIS (see compressionFromEncoding).
+		// Decoded via the standard library (internal/assocdecode); PNG is
+		// pure-Go, so PNG associated images decode even under nocgo.
+		return opentile.CompressionPNG, nil
 	case 2:
 		return opentile.CompressionJPEG, nil
 	case 3:
