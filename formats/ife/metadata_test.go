@@ -315,8 +315,8 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	if assoc[0].Compression() != opentile.CompressionJPEG {
 		t.Errorf("assoc[0] compression = %v", assoc[0].Compression())
 	}
-	if assoc[1].Compression() != opentile.CompressionUnknown {
-		t.Errorf("assoc[1] (PNG) compression = %v, want unknown (no CompressionPNG yet)", assoc[1].Compression())
+	if assoc[1].Compression() != opentile.CompressionPNG {
+		t.Errorf("assoc[1] (PNG) compression = %v, want PNG (#74)", assoc[1].Compression())
 	}
 	if assoc[2].Compression() != opentile.CompressionAVIF {
 		t.Errorf("assoc[2] (AVIF) compression = %v", assoc[2].Compression())
@@ -500,5 +500,35 @@ func TestMetadataErrorsAreDistinct(t *testing.T) {
 	_, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
 	if errors.Is(err, opentile.ErrUnsupportedFormat) {
 		t.Errorf("validation error wrongly aliased to ErrUnsupportedFormat")
+	}
+}
+
+// TestCompressionFromImageEncoding pins the IMAGE_ENCODING enum mapping
+// (Iris-Headers IrisCodecTypes.hpp): 1=PNG, 2=JPEG, 3=AVIF — distinct from the
+// tile ENCODING enum (1=IRIS). GH #74: encoding 1 must map to CompressionPNG
+// (was CompressionUnknown).
+func TestCompressionFromImageEncoding(t *testing.T) {
+	cases := []struct {
+		e    uint8
+		want opentile.Compression
+		err  bool
+	}{
+		{1, opentile.CompressionPNG, false},
+		{2, opentile.CompressionJPEG, false},
+		{3, opentile.CompressionAVIF, false},
+		{0, opentile.CompressionUnknown, true}, // ENCODING_UNDEFINED is invalid
+		{9, opentile.CompressionUnknown, true}, // unknown value
+	}
+	for _, c := range cases {
+		got, err := compressionFromImageEncoding(c.e)
+		if c.err {
+			if err == nil {
+				t.Errorf("encoding %d: want error, got %v", c.e, got)
+			}
+			continue
+		}
+		if err != nil || got != c.want {
+			t.Errorf("encoding %d = (%v, %v), want (%v, nil)", c.e, got, err, c.want)
+		}
 	}
 }

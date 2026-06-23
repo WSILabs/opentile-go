@@ -9,6 +9,25 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.49.0] — 2026-06-23
+
+IFE PNG associated-image decode.
+
+### Added
+
+- **IFE PNG associated images now decode** (#74) — IFE stores its label /
+  thumbnail associated images with their own `ImageEncoding` enum
+  (`PNG=1`, `JPEG=2`, `AVIF=3` per `IrisDigitalPathology/Iris-Headers`
+  `include/IrisCodecTypes.hpp`), distinct from the tile `Encoding` enum
+  where `1` means `IRIS`. `compressionFromImageEncoding` previously mapped
+  `PNG=1` to `CompressionUnknown`, so PNG associated images couldn't be
+  decoded. They now map to `opentile.CompressionPNG` and decode through
+  `internal/assocdecode`, which gained a pure-Go `image/png` branch
+  (PNG is not a TIFF codec — no compression tag — so it bypasses the cgo
+  decoder registry and works under `nocgo`). Honors `DecodeOptions.Format`
+  (RGB/RGBA) and `Scale` (1/2/4/8 via box downscale). Additive; JPEG/AVIF
+  IFE associated images are unchanged.
+
 ## [0.48.0] — 2026-06-18
 
 `Level.Overlapping` — stitched-tile contract signal for re-tiling consumers.
