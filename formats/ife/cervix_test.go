@@ -63,17 +63,19 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Errorf("level count = %d, want 9", len(levels))
 	}
 
-	// Native (L0) and coarsest (L8) dims per T3 gate.
+	// Native (L0) and coarsest (L8) dims per T3 gate; L2-L8 updated to
+	// true content extent (scale-derived from TILE_TABLE x_extent/y_extent,
+	// fixing the old overlap-padded values — every adjacent ratio is now ~2×).
 	wantSizes := []opentile.Size{
 		{W: 126976, H: 88576},
 		{W: 63488, H: 44288},
-		{W: 31744, H: 22272},
-		{W: 15872, H: 11264},
-		{W: 7936, H: 5632},
-		{W: 4096, H: 2816},
-		{W: 2048, H: 1536},
-		{W: 1024, H: 768},
-		{W: 512, H: 512},
+		{W: 31744, H: 22144},
+		{W: 15872, H: 11072},
+		{W: 7936, H: 5536},
+		{W: 3968, H: 2768},
+		{W: 1984, H: 1384},
+		{W: 992, H: 692},
+		{W: 496, H: 346},
 	}
 	for i, want := range wantSizes {
 		if got := levels[i].Size; got != want {

@@ -42,7 +42,7 @@
       "index": 2,
       "size": [
         31744,
-        22272
+        22144
       ],
       "tile_size": [
         256,
@@ -60,7 +60,7 @@
       "index": 3,
       "size": [
         15872,
-        11264
+        11072
       ],
       "tile_size": [
         256,
@@ -78,7 +78,7 @@
       "index": 4,
       "size": [
         7936,
-        5632
+        5536
       ],
       "tile_size": [
         256,
@@ -95,8 +95,8 @@
     {
       "index": 5,
       "size": [
-        4096,
-        2816
+        3968,
+        2768
       ],
       "tile_size": [
         256,
@@ -113,8 +113,8 @@
     {
       "index": 6,
       "size": [
-        2048,
-        1536
+        1984,
+        1384
       ],
       "tile_size": [
         256,
@@ -131,8 +131,8 @@
     {
       "index": 7,
       "size": [
-        1024,
-        768
+        992,
+        692
       ],
       "tile_size": [
         256,
@@ -149,8 +149,8 @@
     {
       "index": 8,
       "size": [
-        512,
-        512
+        496,
+        346
       ],
       "tile_size": [
         256,
@@ -273,6 +273,10 @@
       "sha256": "4b223996383742f7ab303a8d505e75e359113574d7ba17a4270cc3e83db88997",
       "reason": "interior diagonal q2 (center)"
     },
+    "2:62:86": {
+      "sha256": "a682a6088640a2c319b656921f042f5813557ad09e23cbc2d95eb5c0ef43bde0",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
     "2:93:65": {
       "sha256": "f709b3abb12874e56e439ea1ee91be4a50e716486d630de40b52c93d7e8f6fd6",
       "reason": "interior diagonal q3"
@@ -301,6 +305,10 @@
       "sha256": "16403511baa567b645a85f96a13ff63fddccd57402bbc26a61604afc6bffd5c7",
       "reason": "interior diagonal q2 (center)"
     },
+    "3:31:43": {
+      "sha256": "896e06ba2c0d12320f15ae33d8cbc8c9ae2601c6370b58ca343d7c9c2d306555",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
     "3:46:33": {
       "sha256": "d2a1f2ffb0609ffcd8860b26a2b55928bb444506e633f07581468568fa26970d",
       "reason": "interior diagonal q3"
@@ -328,6 +336,10 @@
     "4:15:11": {
       "sha256": "4e67756c6464018182818aea72bb7542a7b6dc8cb81756fa9b60b15ee2e69416",
       "reason": "interior diagonal q2 (center)"
+    },
+    "4:15:21": {
+      "sha256": "0bfb6ddf5523f725fb854d35226b4db26260f8281a59ef2e7430a5129bbda1e5",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
     },
     "4:1:11": {
       "sha256": "af6bea856fa13d013ed02e923c115aed9852a61d87846c855c241e5759f8e4f0",
@@ -365,6 +377,10 @@
       "sha256": "904c4e27bb32ddbca82b6e944c752bbe189ee04ca91f56d31eab38ba2329172a",
       "reason": "top-right corner; OOB fill in x"
     },
+    "5:15:5": {
+      "sha256": "a819c6292c1aff9a49b654fbffcf6e021cd00ebd044b3c1fa359dd29b9905370",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
+    },
     "5:15:10": {
       "sha256": "a432cba97da90b02b039eedc3f36b391054e217d73e3b3bc3c61c5aa04d458d7",
       "reason": "bottom-right corner; OOB fill in both axes"
@@ -384,6 +400,10 @@
     "5:8:5": {
       "sha256": "8c32a1d85f4fe6774c806c20a0cd8ad3a93e6128c5d60708fd9a312a9789d9e7",
       "reason": "interior diagonal q2 (center)"
+    },
+    "5:8:10": {
+      "sha256": "2239338891e37bb887be4d2ddc62c4a9daa07ec322bc6d6e11cf4cb8082fcc71",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
     },
     "6:0:0": {
       "sha256": "1559ac6d8210f964780c31746d5ebe1b21146f6824251dd439798cc79c1c0dde",
@@ -409,6 +429,10 @@
       "sha256": "75c254e04358ffda2edf8a1822fb313ec92912daba68d7cf98b601c98ed61b95",
       "reason": "interior diagonal q2 (center)"
     },
+    "6:4:5": {
+      "sha256": "4abf085a4cacc1fde3ed788fa8a59ea9050fe7b6e4f0068754601a30a2d81f4a",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
     "6:6:4": {
       "sha256": "544ceabd66867a80bb2ebadde46aa8ab7cb300acafd31d9e66d201d7abd7859c",
       "reason": "interior diagonal q3"
@@ -416,6 +440,10 @@
     "6:7:0": {
       "sha256": "b19d0a0448d78b46bccf4f080cdceb2ea1a3b5077d83f319a5f6a910276a67bb",
       "reason": "top-right corner; OOB fill in x"
+    },
+    "6:7:3": {
+      "sha256": "f337883cd58383b0fe8fc8f3631d9343f9f94189d5a5350646d1580912113392",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
     },
     "6:7:5": {
       "sha256": "72c1ad7d39158094510462788a8fbb18cab16206df4692a61fcd7a8962154df1",
@@ -441,9 +469,17 @@
       "sha256": "71c4b16e75223fa6ece24b2dd813dc5a0f2857a20157fb27d6db502de4822098",
       "reason": "interior diagonal q2 (center)"
     },
+    "7:2:2": {
+      "sha256": "cc0df17daa7c5ccf1b1145b7773179e8e2fc5f27381f27a589a0639d5a094ac7",
+      "reason": "bottom-edge mid-row; OOB fill in y via 'below image' callback"
+    },
     "7:3:0": {
       "sha256": "12f4a969cefa29b0110db4a53b6e3412819fb7d27940f98eace3dee3ce6e0e16",
       "reason": "top-right corner; OOB fill in x"
+    },
+    "7:3:1": {
+      "sha256": "0ae3fc7dd4cc61e14f77a23b81f1e418bade5d8d07b3324392fcf43270513841",
+      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
     },
     "7:3:2": {
       "sha256": "18e3839c0c3f72b4d321a0967cb5543e10bc4eda1d543197135a1fdeb9271eec",

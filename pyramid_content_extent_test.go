@@ -96,6 +96,24 @@ func TestBIFVentanaStitchedTileClipsOverscan(t *testing.T) {
 	}
 }
 
+func TestIFECervixRatiosConsistent(t *testing.T) {
+	s := openFixture(t, "ife", "cervix_2x_jpeg.iris")
+	defer s.Close()
+	levels := s.Levels()
+	for i := 1; i < len(levels); i++ {
+		rw := float64(levels[i-1].Size.W) / float64(levels[i].Size.W)
+		rh := float64(levels[i-1].Size.H) / float64(levels[i].Size.H)
+		// Drift is gone: every adjacent ratio is ~2 (the bug had 1.5–1.99 at
+		// coarse levels). Tolerate <=1px rounding => ratio within [1.95, 2.05].
+		if rw < 1.95 || rw > 2.05 || rh < 1.95 || rh > 2.05 {
+			t.Errorf("L%d->L%d ratio = %.4f/%.4f, want ~2.0", i-1, i, rw, rh)
+		}
+		if d := levels[i].Downsample / levels[i-1].Downsample; d < 1.95 || d > 2.05 {
+			t.Errorf("L%d/L%d Downsample ratio = %.4f, want ~2.0", i, i-1, d)
+		}
+	}
+}
+
 func TestBIFLegacySizeUnchanged(t *testing.T) {
 	s := openFixture(t, "bif", "OS-1.bif")
 	defer s.Close()

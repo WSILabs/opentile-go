@@ -33,15 +33,20 @@ var ifeFixtures = []ifeFixture{
 		filename: "cervix_2x_jpeg.iris",
 		format:   opentile.FormatIFE,
 		levels: []ifeLevelExpect{
+			// L0 and L1 are unchanged (derived from TILE_TABLE x_extent/y_extent).
+			// L2-L8 updated to true content extent (#78): scale-derived from the
+			// per-layer scale field, fixing the old overlap-padded values.
+			// Every adjacent ratio is now ~2×. Grid is the stored tile count
+			// (unchanged; Grid×TileSize gives the padded raster extent).
 			{W: 126976, H: 88576, TileW: 256, TileH: 256, GridW: 496, GridH: 346},
 			{W: 63488, H: 44288, TileW: 256, TileH: 256, GridW: 248, GridH: 173},
-			{W: 31744, H: 22272, TileW: 256, TileH: 256, GridW: 124, GridH: 87},
-			{W: 15872, H: 11264, TileW: 256, TileH: 256, GridW: 62, GridH: 44},
-			{W: 7936, H: 5632, TileW: 256, TileH: 256, GridW: 31, GridH: 22},
-			{W: 4096, H: 2816, TileW: 256, TileH: 256, GridW: 16, GridH: 11},
-			{W: 2048, H: 1536, TileW: 256, TileH: 256, GridW: 8, GridH: 6},
-			{W: 1024, H: 768, TileW: 256, TileH: 256, GridW: 4, GridH: 3},
-			{W: 512, H: 512, TileW: 256, TileH: 256, GridW: 2, GridH: 2},
+			{W: 31744, H: 22144, TileW: 256, TileH: 256, GridW: 124, GridH: 87},
+			{W: 15872, H: 11072, TileW: 256, TileH: 256, GridW: 62, GridH: 44},
+			{W: 7936, H: 5536, TileW: 256, TileH: 256, GridW: 31, GridH: 22},
+			{W: 3968, H: 2768, TileW: 256, TileH: 256, GridW: 16, GridH: 11},
+			{W: 1984, H: 1384, TileW: 256, TileH: 256, GridW: 8, GridH: 6},
+			{W: 992, H: 692, TileW: 256, TileH: 256, GridW: 4, GridH: 3},
+			{W: 496, H: 346, TileW: 256, TileH: 256, GridW: 2, GridH: 2},
 		},
 		tileMagic: []byte{0xFF, 0xD8}, // JPEG SOI
 	},
