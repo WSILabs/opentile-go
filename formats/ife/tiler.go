@@ -64,10 +64,7 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 
 	levelImpls := make([]*levelImpl, len(apiOrder))
 	valueLevels := make([]opentile.Level, len(apiOrder))
-	// L0 width comes from apiOrder[0] (finest resolution = first in API order),
-	// which maps to fileOrder[len-1] (last entry in coarsest-first storage).
-	l0FileIdx := len(apiOrder) - 1
-	l0Width := int(fileOrder[l0FileIdx].XTiles) * TileSidePixels
+	sizes, downs := ifeGeometry(apiOrder, tt)
 	for i := range apiOrder {
 		// Compute TileMaxSize for this level: walk the per-level
 		// slice of TILE_OFFSETS entries and find the maximum byte
@@ -83,17 +80,16 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 				maxSize = s
 			}
 		}
-		levelW := int(ext.XTiles) * TileSidePixels
 		impl := &levelImpl{apiIndex: i, maxTileSize: int(maxSize)}
 		levelImpls[i] = impl
 		valueLevels[i] = opentile.Level{
 			Index:        i,
 			PyramidIndex: i,
-			Size:         opentile.Size{W: levelW, H: int(ext.YTiles) * TileSidePixels},
+			Size:         sizes[i],
 			TileSize:     opentile.Size{W: TileSidePixels, H: TileSidePixels},
 			Grid:         opentile.Size{W: int(ext.XTiles), H: int(ext.YTiles)},
 			Compression:  compression,
-			Downsample:   float64(l0Width) / float64(levelW),
+			Downsample:   downs[i],
 		}
 	}
 	images := []opentile.Pyramid{{Name: "", Index: 0, Levels: valueLevels}}
