@@ -110,6 +110,16 @@ func (l *Level) StitchedTile(tx, ty int, opts ...DecodeOption) (*decoder.Image, 
 	return l.slide.imageStitchedTile(l.PyramidIndex, l.Index, tx, ty, opts...)
 }
 
+// StitchedTileInto is the allocation-free form of StitchedTile: it composites
+// the display tile (tx, ty) into the caller-provided dst, which must be exactly
+// the level's TileSize. The composite is done in dst's own pixel format, and
+// dst is white-filled before compositing. Reuse one dst across a display-grid
+// traversal to avoid a per-tile allocation. Returns an error if dst is nil or
+// not TileSize. Behaves exactly like DecodedTileInto for non-overlapping levels.
+func (l *Level) StitchedTileInto(tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
+	return l.slide.imageStitchedTileInto(l.PyramidIndex, l.Index, tx, ty, dst, opts...)
+}
+
 // StitchedGrid is the canonical display grid, ceil(Size/TileSize) per axis — a
 // clean partition of Size. Equals Grid for non-overlapping levels; for an
 // overlapping level it is the grid that tiles Size (whereas Grid stays the raw
