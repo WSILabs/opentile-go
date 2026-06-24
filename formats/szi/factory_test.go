@@ -4,9 +4,11 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"fmt"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/internal/dzi"
 )
 
 func TestFactory_Format(t *testing.T) {
@@ -159,5 +161,29 @@ func TestFactory_OpenRaw_InvalidZIP(t *testing.T) {
 	_, err := f.OpenRaw(r, int64(len(data)), nil)
 	if err == nil {
 		t.Errorf("OpenRaw with malformed ZIP: got nil error, want error")
+	}
+}
+
+func TestSZIOverlapGuard(t *testing.T) {
+	manifest := func(overlap int) string {
+		return fmt.Sprintf(`<Image xmlns="http://schemas.microsoft.com/deepzoom/2008" `+
+			`Format="jpeg" Overlap="%d" TileSize="256"><Size Width="256" Height="256"/></Image>`, overlap)
+	}
+	build := func(overlap int) []byte {
+		var buf bytes.Buffer
+		zw := zip.NewWriter(&buf)
+		w, _ := zw.CreateHeader(&zip.FileHeader{Name: "s/s.dzi", Method: zip.Store})
+		w.Write([]byte(manifest(overlap)))
+		zw.CreateHeader(&zip.FileHeader{Name: "s/s_files/", Method: zip.Store})
+		zw.Close()
+		return buf.Bytes()
+	}
+	bad := build(1)
+	if _, err := openSZI(bytes.NewReader(bad), int64(len(bad)), nil); !errors.Is(err, dzi.ErrOverlapNotSupported) {
+		t.Fatalf("Overlap=1 err = %v, want ErrOverlapNotSupported", err)
+	}
+	good := build(0)
+	if _, err := openSZI(bytes.NewReader(good), int64(len(good)), nil); errors.Is(err, dzi.ErrOverlapNotSupported) {
+		t.Fatalf("Overlap=0 wrongly rejected by overlap guard: %v", err)
 	}
 }

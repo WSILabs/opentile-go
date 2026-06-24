@@ -243,6 +243,9 @@ func (t *Tiler) loadManifest() error {
 	if err != nil {
 		return fmt.Errorf("szi: parse manifest %s: %w", manifestEntry.Name, err)
 	}
+	if m.Overlap > 0 {
+		return fmt.Errorf("szi: %s: Overlap=%d: %w", manifestEntry.Name, m.Overlap, dzi.ErrOverlapNotSupported)
+	}
 	t.manifest = m
 
 	// _files folder: same name as the .dzi without the extension,
