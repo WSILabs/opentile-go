@@ -95,3 +95,28 @@ func (l *Level) Warm() error {
 func (l *Level) TIFFTags() (TIFFTags, bool) {
 	return l.slide.imageLevelTIFFTags(l.PyramidIndex, l.Index)
 }
+
+// StitchedTile returns a clean, non-overlapping display tile from the canonical
+// grid StitchedGrid() (== ceil(Size/TileSize)). For overlapping levels
+// (Overlapping == true: stitched BIF) it composites the stitched image so the
+// returned tile is a true partition of Size; for every other format it is
+// exactly DecodedTile. Pixels match ReadRegion over the tile's rectangle.
+//
+// Use this (with StitchedGrid) for display/rendering. Use Tile / DecodedTile +
+// Grid only when you want the raw stored (possibly overlapping) tiles, e.g. for
+// faithful transcoding. Scale > 1 is unsupported on overlapping levels (use the
+// Pyramid's ReadRegionScaled / ScaledStrips); it returns ErrUnsupportedScale.
+func (l *Level) StitchedTile(tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
+	return l.slide.imageStitchedTile(l.PyramidIndex, l.Index, tx, ty, opts...)
+}
+
+// StitchedGrid is the canonical display grid, ceil(Size/TileSize) per axis — a
+// clean partition of Size. Equals Grid for non-overlapping levels; for an
+// overlapping level it is the grid that tiles Size (whereas Grid stays the raw
+// overlapping grid). Iterate StitchedGrid with StitchedTile to render.
+func (l *Level) StitchedGrid() Size {
+	return Size{
+		W: ceilDiv(l.Size.W, l.TileSize.W),
+		H: ceilDiv(l.Size.H, l.TileSize.H),
+	}
+}

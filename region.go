@@ -125,25 +125,14 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 		fillWhite(dst) // stitched output always white-initialized (overlaps/gaps)
 		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
 		defer returnTileScratch(scratch)
-		for _, tp := range rl.TilesIntersecting(level, x0, y0, x1-x0, y1-y0) {
-			tileX, tileY, ok := rl.TileOrigin(level, tp.Col, tp.Row)
-			if !ok {
-				continue
-			}
-			if err := s.imageDecodedTileInto(image, level, tp.Col, tp.Row, scratch, opts...); err != nil {
-				return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tp.Col, tp.Row, level, err)
-			}
-			tileW, tileH := lvl.TileSize.W, lvl.TileSize.H
-			ix0 := maxInt(tileX, x0)
-			iy0 := maxInt(tileY, y0)
-			ix1 := minInt(tileX+tileW, x1)
-			iy1 := minInt(tileY+tileH, y1)
-			if ix0 >= ix1 || iy0 >= iy1 {
-				continue
-			}
-			blitInto(scratch, ix0-tileX, iy0-tileY, ix1-ix0, iy1-iy0, dst, ix0-x, iy0-y)
-		}
-		return nil
+		return compositeStitchedLoop(rl, level, x, y, x0, y0, x1, y1,
+			lvl.TileSize.W, lvl.TileSize.H, dst,
+			func(col, row int) (*decoder.Image, error) {
+				if err := s.imageDecodedTileInto(image, level, col, row, scratch, opts...); err != nil {
+					return nil, fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", col, row, level, err)
+				}
+				return scratch, nil
+			})
 	}
 
 	// v0.29 Layer 1: skip fillWhite when the requested region is fully

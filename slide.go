@@ -67,6 +67,12 @@ type Slide struct {
 	// default. Read by newStripIterator to size the C1 tile cache.
 	readBudget int64
 
+	// Display-tile decoded-frame cache: lazily created on first StitchedTile
+	// call, byte-bounded by readBudget, drained by Close. Decode-once-blit-many
+	// so adjacent display tiles sharing an overlapping source frame don't
+	// re-decode it. Guarded by handlesMu (same lock as the decoder pools).
+	frameCache *decodedFrameCache
+
 	// v1.0: lazily-materialized navigation cache backing the
 	// receiver-method read API. Populated exactly once by
 	// ensurePyramids (sync.Once), then read-only — so navigation
@@ -197,6 +203,7 @@ func (s *Slide) Close() error {
 	s.handlesMu.Lock()
 	handles := s.handles
 	s.handles = nil
+	s.frameCache = nil
 	s.handlesMu.Unlock()
 
 	var firstErr error
