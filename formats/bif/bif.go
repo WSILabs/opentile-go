@@ -82,14 +82,27 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	valueLevels := make([]opentile.Level, 0, len(levelIFDs))
 	var levelZeroDepth int
 	var l0Width int
+	var l0Hull opentile.Size
+	gen := classifyGeneration(iscan)
 	for i, c := range levelIFDs {
-		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, classifyGeneration(iscan), encodeInfo, file.ReaderAt())
+		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, gen, encodeInfo, file.ReaderAt())
 		if err != nil {
 			return nil, err
 		}
 		if i == 0 {
 			levelZeroDepth = l.imageDepth
 			l0Width = l.size.W
+			l0Hull = l.size
+		} else if gen == GenerationSpecCompliant {
+			// #78: DP (spec-compliant / DP 200) reduced levels derive their
+			// content extent from the L0 stitched hull by floor-halving, not the
+			// padded IFD ImageWidth (which keeps the un-compacted frame-grid
+			// width). This drives Level.Size, Downsample, AND StitchedSize (all
+			// read l.size), so the pyramid's inter-level scale is exactly 2× and
+			// the compositor clips display tiles to true content. Legacy iScan is
+			// deliberately untouched — its reduced levels still carry frame
+			// overlap (GH #80) and need per-level stitching, not a Size change.
+			l.size = floorHalveSize(l0Hull, i)
 		}
 		levelImpls = append(levelImpls, l)
 		valueLevels = append(valueLevels, opentile.Level{
@@ -156,7 +169,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		file:          file,
 		cfg:           nil, // format.Config not stored; cfg param reserved for future knobs
 		iscan:         iscan,
-		gen:           classifyGeneration(iscan),
+		gen:           gen,
 		encodeInfo:    encodeInfo,
 		levelIFDs:     levelIFDs,
 		associatedIFD: associatedIFDs,
