@@ -64,6 +64,19 @@ For a stitched level `Level.Overlapping == true`. The **per-tile** accessors (`T
 
 **Consumer contract:** if `Level.Overlapping`, do **not** iterate `Grid` as if it tiled `Size`; route pixel reassembly through the region API (gate any verbatim per-tile-copy fast path on `!Overlapping`). `Overlapping` is `false` for every non-BIF format and for non-overlapping BIF levels (pyramid levels ≥1 are pre-stitched). `Level.TileOverlap` carries the overlap magnitude.
 
+### Display tiles (`StitchedTile`)
+
+For rendering, call `level.StitchedTile(x, y)` over `level.StitchedGrid()`
+(== `ceil(Size/TileSize)`) instead of `DecodedTile` over `Grid`. `StitchedTile`
+returns clean, non-overlapping tiles composited from the stitched image — the
+overlap, seam, and placement handling stays inside opentile-go, so a viewer
+treats BIF exactly like SVS/NDPI. `StitchedTile` is defined for every format
+(it equals `DecodedTile` when a level is not overlapping), so consumers can call
+it uniformly. `Tile` / `DecodedTile` / `Grid` continue to return the raw stored
+overlapping tiles for faithful transcoding. `StitchedTile` requires a decoder
+for the level's codec and does not support `Scale > 1` (use the pyramid's
+`ReadRegionScaled` / `ScaledStrips` for scaled traversal).
+
 ### DP generation (VENTANA DP 200 / DP 600) — pixel-exact stitching
 
 Spec-compliant DP slides carry per-tile-pair overlap values in the `<EncodeInfo>/<SlideStitchInfo>/<ImageInfo>/<TileJointInfo>` XMP elements. opentile-go computes the stitched layout from these joints using the algorithm described in the **Roche BIF whitepaper** (v1.0, 2020, MC--06058 1120, §"Image stitching process", page 15): each confident (FlagJoined, Confidence=100) joint shifts the right/lower tile inward by its OverlapX/OverlapY; the stitched extent is the convex hull of all resulting tile placements.

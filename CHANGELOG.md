@@ -9,6 +9,26 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [Unreleased]
+
+### Added
+
+- **`(*Level).StitchedTile` + `(*Level).StitchedGrid`** — a clean,
+  non-overlapping display-tile surface for overlapping-tile formats. For a
+  stitched BIF level, `StitchedTile(x, y)` composites the stitched image so the
+  returned tile is a true partition of `Size`, iterated over
+  `StitchedGrid()` (`ceil(Size/TileSize)`); for every other format it equals
+  `DecodedTile`, so viewers can call it uniformly without format-specific code.
+  Backed by a new per-`Slide` byte-bounded decoded-frame cache
+  (decode-once-blit-many; bounded by the read memory budget), so adjacent
+  display tiles sharing an overlapping source frame decode it once — throughput
+  matches the region API. Built generically over the existing `regionLayout`
+  capability, so future overlapping formats (MRXS, DZI/SZI `Overlap>0`) gain
+  display tiles by implementing a layout, contributing no compositing code.
+  Additive; `Tile` / `DecodedTile` / `Grid` / `Overlapping` and the raw-tile
+  surface are unchanged. (Design:
+  `docs/superpowers/specs/2026-06-23-stitched-display-tile-path-design.md`.)
+
 ## [0.49.0] — 2026-06-23
 
 IFE PNG associated-image decode.
