@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
 	_ "github.com/wsilabs/opentile-go/decoder/all"
 	_ "github.com/wsilabs/opentile-go/formats/all"
 	idzi "github.com/wsilabs/opentile-go/internal/dzi"
@@ -114,11 +115,16 @@ func TestOpenBareDZIFromFilePath(t *testing.T) {
 	if len(raw) < 2 || raw[0] != 0xFF || raw[1] != 0xD8 {
 		t.Fatalf("tile not a JPEG (SOI missing): % x", raw[:min(2, len(raw))])
 	}
+	// DecodedTile needs a JPEG codec; the nocgo CI build has only a stub, so
+	// tolerate ErrCodecUnavailable there (the raw-tile path above already
+	// validated the reader). Under cgo it decodes and we check the dims.
 	img, err := l0.DecodedTile(0, 0)
-	if err != nil {
+	switch {
+	case errors.Is(err, decoder.ErrCodecUnavailable):
+		// nocgo build: decode unavailable — skip the dims assertion.
+	case err != nil:
 		t.Fatalf("DecodedTile(0,0): %v", err)
-	}
-	if img.Width != 256 || img.Height != 256 {
+	case img.Width != 256 || img.Height != 256:
 		t.Fatalf("DecodedTile dims = %dx%d, want 256x256", img.Width, img.Height)
 	}
 	if _, err := l0.Tile(9, 9); err == nil {
