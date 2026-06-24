@@ -95,13 +95,38 @@ distinguishes DP from legacy. Extend the L0 derivation to the reduced levels —
   overlap → the padded IFD height already equalled `hull/2^i`).
 - `Downsample[i]` becomes exact `2^i` (it is computed from `Size`:
   `l0Hull.W / Size[i].W`).
+- **The same content extent drives the `regionLayout` capability**, not just the
+  `Level.Size` metadata (see the **Consistency invariant** below). The per-level
+  `StitchedSize(level)` returned to the region/`StitchedTile`/`ScaledStrips`
+  compositing path must equal the corrected `Level.Size`, computed from one
+  source. (Today both happen to equal the padded grid at L1+; correcting only
+  `Level.Size` would desync them.)
 - **Legacy** (`buildLegacyLayout` pyramids) and **non-overlapping** BIF: **no
-  change** — `Size[i]` keeps its current value. Legacy is gated behind #80.
+  change** — `Size[i]` and `StitchedSize(level)` keep their current values.
+  Legacy is gated behind #80.
 - `Grid` is unchanged (the raw stored grid). DP L1+ are non-overlapping, so
   `Grid == ceil(Size/TileSize)` (Ventana-1 L1: `ceil(11716/1024)=12=Grid`) →
   `Overlapping` stays **false** and the contract holds. Reads place tiles at
   `col·tile` and clip to `Size`; since DP L1+ don't overlap, the content is the
   top-left `Size` region and clipping is correct.
+
+#### Consistency invariant (BIF)
+
+For BIF, `Level.Size[i]`, `regionLayout.StitchedSize(i)`, and
+`StitchedGrid() = ceil(Size/TileSize)` are **derived from one per-level
+content-extent value** and must agree. This guarantees the four read surfaces are
+mutually consistent at every level:
+
+- `ReadRegion` clips to `min(Level.Size, StitchedSize)` — consistent once equal.
+- **`StitchedTile` clips to `StitchedSize(level)` only** (it does not consult
+  `Level.Size`), so `StitchedSize` *must* be the content extent — otherwise a
+  display tile composites overscan past where `Level.Size`/`StitchedGrid` say
+  content ends. For the partial last column this yields `content + white-fill`,
+  matching openslide/bio-formats (which never return the overscan).
+- `ReadRegionScaled` / `ScaledStrips` inherit `StitchedSize` for their bounds.
+
+This is the load-bearing detail the v0.46 stitch already honors at L0 (where
+`Level.Size == StitchedSize == hull`); the fix extends that equality to DP L1+.
 
 ### IFE (all levels)
 
@@ -146,7 +171,7 @@ registration-relevant magnitude.
 
 | File | Change |
 |---|---|
-| `formats/bif/` (level build — `bif.go` / `level.go`, TBD in plan) | For DP pyramids, derive L1+ `Size` (and thus `Downsample`) by iterative floor-halving from the L0 hull, instead of the padded IFD `ImageWidth/Length`. Legacy/non-overlapping untouched. |
+| `formats/bif/` (level build + `levelImpl.StitchedSize`, `bif.go`/`level.go`) | For DP pyramids, compute one per-level content extent (iterative floor-halving from the L0 hull) and use it for **both** `Level.Size`/`Downsample` **and** the `levelImpl`'s `StitchedSize(level)` (the `regionLayout` value). Legacy/non-overlapping untouched. |
 | `formats/ife/tiler.go:70-96` | Replace `Size = XTiles·256` / `Downsample = l0Width/levelW` with `scale`-derived `Downsample = max_scale/scale` + `Size = round(Size0/Downsample)`, anchoring `Size0` to `x_extent/y_extent` when those pass the pixel-validity test. |
 | `formats/ife/reader.go` | Already parses `Scale` + `XExtent/YExtent`; possibly expose `max_scale` / a small helper. No new parsing. |
 | Tests (BIF + IFE) | New per-level `Size`/`Downsample` assertions; regression guards (see below). |
@@ -184,6 +209,11 @@ registration-relevant magnitude.
   isn't a local fixture).
 - **Cross-format regression:** `TestSlideParity` byte-identical for the other 10
   formats (their `Size`/`Downsample` are untouched).
+- **BIF consistency invariant (fixture-gated, Ventana-1):** at every level
+  `Level.Size == regionLayout StitchedSize == ` the value `StitchedGrid` is
+  derived from; and `StitchedTile` over `StitchedGrid()` at DP L1 returns a last
+  partial column that is `content + white-fill` (clipped to the corrected
+  extent), not overscan. Guards the desync this review caught.
 - **Read correctness:** `ReadRegion`/`DecodedTile` at DP L1 and an IFE coarse
   level still return correct content after the `Size` clip.
 
