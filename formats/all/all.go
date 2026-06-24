@@ -23,6 +23,8 @@ import (
 	_ "github.com/wsilabs/opentile-go/formats/svs"
 	// SZI before generictiff so ZIP-magic detection runs first.
 	_ "github.com/wsilabs/opentile-go/formats/szi"
+	// DZI installs a path-aware OpenFile hook (like dicom); no content matcher.
+	_ "github.com/wsilabs/opentile-go/formats/dzi"
 	// generictiff must be last: it's the catch-all.
 	_ "github.com/wsilabs/opentile-go/formats/generictiff"
 )

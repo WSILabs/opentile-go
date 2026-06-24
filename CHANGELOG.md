@@ -9,6 +9,31 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.52.0] — 2026-06-24
+
+Bare DZI reader (12th format) + shared Overlap>0 guard.
+
+### Added
+
+- **Bare DZI reader (`FormatDZI`)** — reads filesystem Deep Zoom Image slides: a
+  `.dzi` XML manifest + sibling `<name>_files/<level>/<col>_<row>.<ext>` tile
+  tree (OpenSeadragon / Microsoft Deep Zoom). opentile-go's 12th format and the
+  filesystem sibling of SZI; reuses `internal/dzi` for pyramid math. Opened via
+  `OpenFile` — the `.dzi` file or a directory containing exactly one — through a
+  path-aware hook (the DICOM mechanism); `Open(io.ReaderAt)` is unsupported (no
+  path to locate tiles). Clean grid (`Overlapping=false`); no metadata or
+  associated images (a bare manifest carries neither). Closes the long-parked
+  R19. `Overlap=0` only.
+
+### Changed
+
+- **`Overlap>0` DZI/SZI manifests are now rejected at open** with
+  `internal/dzi.ErrOverlapNotSupported`, instead of being silently treated as
+  `Overlap=0` (which mis-placed every interior tile). Applies to both the new
+  bare-DZI reader and the existing SZI reader. `Overlap=0` files (all current
+  fixtures/consumers) are byte-for-byte unaffected. Full `Overlap>0` support
+  (per-tile border cropping) is deferred.
+
 ## [0.51.0] — 2026-06-24
 
 ### Added

@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/github/v/tag/WSILabs/opentile-go?label=release&sort=semver)](https://github.com/WSILabs/opentile-go/releases)
 [![Go 1.23+](https://img.shields.io/github/go-mod/go-version/WSILabs/opentile-go)](./go.mod)
 
-**opentile-go reads whole-slide pathology images in Go** — extracting raw compressed tiles *and* decoding pixel regions from **11 WSI formats**, with pure-Go raw-tile reads and a single cgo dependency for codec decode.
+**opentile-go reads whole-slide pathology images in Go** — extracting raw compressed tiles *and* decoding pixel regions from **12 WSI formats**, with pure-Go raw-tile reads and a single cgo dependency for codec decode.
 
 It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library — staying byte-identical on the four formats opentile covers (SVS, NDPI, Philips, OME-TIFF) — and is now a **superset**: it adds openslide-style decoded-region reading and seven more formats than upstream.
 
@@ -18,7 +18,7 @@ It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture
 - **Raw tile extraction** — `level.Tile(x, y)` returns the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
 - **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), `ReadRegionScaled` (downsampled output), `RenderThumbnail` (whole-slide thumbnail/overview), and `RenderMacro` (synthesized macro at true physical scale) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
 - **Scaled strips / DZI** — `ScaledStrips`, a libvips-style whole-slide region iterator with **byte-bounded** peak memory, for Deep Zoom / tile-pyramid generation.
-- **11 formats, auto-detected** — Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, COG-WSI, [Iris IFE](https://github.com/IrisDigitalPathology/Iris-File-Extension), [SZI](https://github.com/smartinmedia/SZI-Format), and multi-file **DICOM WSI**.
+- **12 formats, auto-detected** — Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, COG-WSI, [Iris IFE](https://github.com/IrisDigitalPathology/Iris-File-Extension), [SZI](https://github.com/smartinmedia/SZI-Format), multi-file **DICOM WSI**, and **bare DZI**.
 - **Associated images & metadata** — label / overview / thumbnail / macro, MPP, magnification, vendor properties, and raw per-level / per-image **TIFF-tag** access.
 - **Built for throughput** — mmap-backed reads, pool-friendly zero-alloc `TileInto`, concurrent-safe hot path; decoded-region throughput **3–14× openslide** on the in-repo benchmark ([Performance](#performance)).
 
@@ -63,6 +63,7 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 | **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥1 level, geometric scale chain) | classifier-assigned: label, overview, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None, WebP, JPEG XL, AVIF, HTJ2K (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generictiff.md](./docs/formats/generictiff.md) |
 | **Leica SCN\*** | `.scn` | tiled BigTIFF; multi-region "discontinuous scanning"; multi-channel fluorescence | classifier-assigned: overview per auxiliary `<image>` | JPEG | sampled-tile SHAs + per-fixture geometry pin + bio-formats CLI parity oracle | [docs/formats/leicascn.md](./docs/formats/leicascn.md) |
 | **Smart Zoom Image (SZI)\*** | `.szi` | ZIP-wrapped Microsoft Deep Zoom pyramid; per-level dim halving; sparse images not supported per spec | label, overview (from `macro.jpg`), thumbnail | JPEG / PNG (all passthrough) | sampled-tile SHAs + per-fixture geometry pin | [docs/formats/szi.md](./docs/formats/szi.md) |
+| **DZI (bare Deep Zoom Image)\*** | `.dzi` (or directory) | filesystem Deep Zoom pyramid; `Overlap=0` only; `OpenFile` only — the `.dzi` manifest or a directory containing exactly one | none | JPEG / PNG (all passthrough) | sampled-tile SHAs + per-fixture geometry pin | [docs/formats/dzi.md](./docs/formats/dzi.md) |
 | **COG-WSI\*** | `.tiff` | strict GDAL Cloud Optimized GeoTIFF + WSI private tags (65080-87) + COG_WSI_VERSION ghost-area marker | label, overview (from `macro` or `overview` WSIImageType), thumbnail | source-format preserving (JPEG, JP2K, LZW, …) | per-fixture geometry pin + cross-fixture parity vs source format + ErrNotConformantCOGWSI spec validation | [docs/formats/cogwsi.md](./docs/formats/cogwsi.md) |
 | **DICOM WSI\*** | `.dcm` (or directory) | multi-file directory series (TILED_FULL + TILED_SPARSE); first multi-file format; `OpenFile` only — accepts a directory or any one `.dcm` | label, overview, thumbnail (from `ImageType` LABEL/OVERVIEW/THUMBNAIL) | JPEG Baseline + uncompressed (pure-Go `WSILabs/dicom` parser; no new cgo) | sampled-tile SHAs + per-fixture geometry pin; verified on Leica GT450 / 3DHISTECH / Grundium | [docs/formats/dicom.md](./docs/formats/dicom.md) |
 
@@ -70,7 +71,7 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 
 **Detection** is automatic. `opentile.OpenFile` walks the registered factories — first asking each for `SupportsRaw(r, size)` against the raw byte stream, then falling through to TIFF-parsed `Supports(file)` — and dispatches the first match. The two-stage dispatch lets non-TIFF formats (IFE) short-circuit before `tiff.Open`. The generic-TIFF reader registers LAST so vendor format detectors get first crack at any TIFF; it activates as a catch-all only when no vendor factory claims the file. Format packages register at import time via `_ "github.com/wsilabs/opentile-go/formats/all"`.
 
-**Format coverage**: opentile-go ports the four TIFF formats Python opentile 0.20.0 supports for tile extraction. 3DHistech TIFF (the fifth upstream format) is parked at [#2](https://github.com/wsilabs/opentile-go/issues/2). Ventana BIF — the first beyond upstream's coverage — landed in v0.7. Iris IFE — the first non-TIFF format — landed in v0.8. Generic TIFF — a catch-all reader for tiled pyramidal TIFFs without vendor metadata — landed in v0.10. Leica SCN — the legacy SCN400/SCN400F format, including the first multi-channel fluorescence support — landed in v0.11. Smart Zoom Image (SZI) — a ZIP-wrapped Microsoft Deep Zoom pyramid backed by a shared `internal/dzi/` core — landed in v0.16. DICOM WSI — the first multi-file format, reading VL Whole Slide Microscopy Image series via `OpenFile` on a directory or any `.dcm` — landed in v0.32. Sakura SVSlide is parked at [#3](https://github.com/wsilabs/opentile-go/issues/3).
+**Format coverage**: opentile-go ports the four TIFF formats Python opentile 0.20.0 supports for tile extraction. 3DHistech TIFF (the fifth upstream format) is parked at [#2](https://github.com/wsilabs/opentile-go/issues/2). Ventana BIF — the first beyond upstream's coverage — landed in v0.7. Iris IFE — the first non-TIFF format — landed in v0.8. Generic TIFF — a catch-all reader for tiled pyramidal TIFFs without vendor metadata — landed in v0.10. Leica SCN — the legacy SCN400/SCN400F format, including the first multi-channel fluorescence support — landed in v0.11. Smart Zoom Image (SZI) — a ZIP-wrapped Microsoft Deep Zoom pyramid backed by a shared `internal/dzi/` core — landed in v0.16. DICOM WSI — the first multi-file format, reading VL Whole Slide Microscopy Image series via `OpenFile` on a directory or any `.dcm` — landed in v0.32. Bare DZI — the filesystem sibling of SZI, reading a `.dzi` manifest + `_files/` tile tree via `OpenFile`, reusing `internal/dzi` — landed in v0.52. Sakura SVSlide is parked at [#3](https://github.com/wsilabs/opentile-go/issues/3).
 
 ## Prerequisites
 
@@ -98,7 +99,7 @@ t, err := opentile.OpenFile("slide.tiff")
 if err != nil { /* ErrUnsupportedFormat or open error */ }
 defer t.Close()
 
-fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "leica-scn", "szi", "cog-wsi", "dicom"
+fmt.Println("format:", t.Format())                 // "svs", "ndpi", "philips-tiff", "ome-tiff", "bif", "ife", "generic-tiff", "leica-scn", "szi", "cog-wsi", "dicom", "dzi"
 fmt.Println("levels:", len(t.Levels()))
 ```
 
