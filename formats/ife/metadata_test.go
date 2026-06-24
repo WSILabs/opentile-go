@@ -263,13 +263,19 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 
 	// Cross-format Metadata.
 	cm := tiler.Metadata()
-	if cm.Magnification != 20 {
-		t.Errorf("Magnification = %v, want 20", cm.Magnification)
+	// GH #81: this block's header magnification is 20, but it carries an
+	// authoritative aperio.AppMag = 40 attribute → cross.Magnification is the L0
+	// 40, and the raw header 20 is preserved in MagnificationFromHeader.
+	if cm.Magnification != 40 {
+		t.Errorf("Magnification = %v, want 40 (overridden from aperio.AppMag; header was 20)", cm.Magnification)
 	}
-	// v0.17 additions: per-axis MPP populated from header f32 (0.5
-	// is exact in IEEE-754 binary so the f32→f64 widening is exact).
+	if md, ok := MetadataOf(tiler); !ok || md.MagnificationFromHeader != 20 {
+		t.Errorf("MagnificationFromHeader = %v (ok=%v), want raw header 20", md.MagnificationFromHeader, ok)
+	}
+	// MPP: no aperio.MPP and no banner MPP field here, so the header f32 (0.5,
+	// exact in IEEE-754) is kept unchanged (the #81 override is per-field).
 	if cm.MPP.X != 0.5 || cm.MPP.Y != 0.5 {
-		t.Errorf("MPP.X/Y = %v / %v, want 0.5 / 0.5", cm.MPP.X, cm.MPP.Y)
+		t.Errorf("MPP.X/Y = %v / %v, want 0.5 / 0.5 (no aperio.MPP → header kept)", cm.MPP.X, cm.MPP.Y)
 	}
 	if cm.MPP.Symmetric() != 0.5 {
 		t.Errorf("MPP.Symmetric() = %v, want 0.5 (IFE reports symmetric pixels)", cm.MPP.Symmetric())
@@ -531,4 +537,46 @@ func TestCompressionFromImageEncoding(t *testing.T) {
 			t.Errorf("encoding %d = (%v, %v), want (%v, nil)", c.e, got, err, c.want)
 		}
 	}
+}
+
+// GH #81: prefer the source scanner's authoritative L0 AppMag/MPP from
+// ATTRIBUTES over a downsampled-level value in the METADATA header.
+func TestAperioL0Resolution(t *testing.T) {
+	t.Run("discrete aperio keys", func(t *testing.T) {
+		kvs := map[string]string{"aperio.AppMag": "40", "aperio.MPP": "0.262968"}
+		mag, mpp, okMag, okMPP := aperioL0Resolution(kvs, "")
+		if !okMag || mag != 40 {
+			t.Errorf("AppMag = %v (ok=%v), want 40", mag, okMag)
+		}
+		if !okMPP || mpp != 0.262968 {
+			t.Errorf("MPP = %v (ok=%v), want 0.262968", mpp, okMPP)
+		}
+	})
+	t.Run("ImageDescription banner fallback", func(t *testing.T) {
+		desc := "Aperio Leica Biosystems GT450|AppMag = 40|MPP = 0.262968|ScannerType = GT450"
+		mag, mpp, okMag, okMPP := aperioL0Resolution(nil, desc)
+		if !okMag || mag != 40 || !okMPP || mpp != 0.262968 {
+			t.Errorf("banner parse = %v/%v (ok %v/%v), want 40 / 0.262968", mag, mpp, okMag, okMPP)
+		}
+	})
+	t.Run("discrete keys win over banner", func(t *testing.T) {
+		kvs := map[string]string{"aperio.AppMag": "20", "aperio.MPP": "0.5"}
+		mag, mpp, _, _ := aperioL0Resolution(kvs, "AppMag = 40|MPP = 0.25")
+		if mag != 20 || mpp != 0.5 {
+			t.Errorf("= %v/%v, want discrete 20/0.5", mag, mpp)
+		}
+	})
+	t.Run("no authoritative source", func(t *testing.T) {
+		_, _, okMag, okMPP := aperioL0Resolution(map[string]string{"foo": "bar"}, "no fields here")
+		if okMag || okMPP {
+			t.Errorf("want all-false when no AppMag/MPP present, got ok %v/%v", okMag, okMPP)
+		}
+	})
+	t.Run("rejects zero/garbage", func(t *testing.T) {
+		kvs := map[string]string{"aperio.AppMag": "0", "aperio.MPP": "abc"}
+		_, _, okMag, okMPP := aperioL0Resolution(kvs, "")
+		if okMag || okMPP {
+			t.Errorf("want all-false for 0/garbage, got ok %v/%v", okMag, okMPP)
+		}
+	})
 }

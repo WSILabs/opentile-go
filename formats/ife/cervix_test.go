@@ -151,8 +151,11 @@ func TestCervixEndToEnd(t *testing.T) {
 
 	// Metadata extraction (since v0.8 metadata closeout).
 	cm := tiler.Metadata()
-	if cm.Magnification == 0 {
-		t.Error("Metadata.Magnification = 0; cervix carries 0.625")
+	// GH #81: cervix's METADATA header stamped a reduced level's magnification
+	// (0.625 = 40/64); the true L0 value comes from aperio.AppMag = 40. The raw
+	// header value stays in MagnificationFromHeader.
+	if cm.Magnification != 40 {
+		t.Errorf("Metadata.Magnification = %v, want 40 (L0, corrected from aperio.AppMag; header was 0.625)", cm.Magnification)
 	}
 	if !strings.HasPrefix(cm.Writer, "iris/") {
 		t.Errorf("Writer (v0.20): got %q, want prefix 'iris/' (IFE writer is the Iris codec; source scanner attribution lives in ImageDescription)", cm.Writer)
@@ -188,7 +191,7 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Fatal("MetadataOf returned !ok on cervix")
 	}
 	if ifeMD.MPP.IsZero() {
-		t.Error("MPP = zero; cervix header carries 16.835")
+		t.Error("MPP = zero; cervix reports 0.262968 (L0, corrected from aperio.MPP per #81)")
 	}
 	if ifeMD.AttributesFormat != AttributesFormatFreeText {
 		t.Errorf("AttributesFormat = %v, want free-text", ifeMD.AttributesFormat)
@@ -212,18 +215,22 @@ func TestCervixEndToEnd(t *testing.T) {
 
 	// v0.17 cross-format assertions on cervix's real metadata.
 	cm = tiler.Metadata()
-	// MPP: cervix header reports 16.835 µm/px (a 2× downsample of
-	// a 0.263 µm/px GT450 scan). f32→f64 widening introduces a tiny
-	// epsilon (16.835 isn't exact in IEEE-754 binary); assert
-	// directionally rather than against a specific bit pattern.
-	if cm.MPP.X < 16.83 || cm.MPP.X > 16.84 {
-		t.Errorf("cross.MPP.X = %v, want ≈ 16.835", cm.MPP.X)
+	// GH #81: cervix's METADATA header reports 16.835 µm/px — a 2^6 downsample of
+	// the true 0.262968 µm/px GT450 L0 scan (16.835/0.262968 = 64). cross.MPP now
+	// reports the authoritative L0 value from aperio.MPP; the raw header value is
+	// preserved in ifeMD.MPPFromHeader.
+	if cm.MPP.X < 0.2629 || cm.MPP.X > 0.2630 {
+		t.Errorf("cross.MPP.X = %v, want ≈ 0.262968 (L0, corrected from aperio.MPP)", cm.MPP.X)
 	}
 	if cm.MPP.X != cm.MPP.Y {
 		t.Errorf("cross.MPP.X (%v) != Y (%v); IFE pixels are isotropic", cm.MPP.X, cm.MPP.Y)
 	}
 	if cm.MPP.Symmetric() == 0 {
 		t.Error("cross.MPP.Symmetric() = 0; IFE pixels are isotropic, should be non-zero")
+	}
+	// The raw (downsampled) header MPP stays available for transparency.
+	if ifeMD.MPPFromHeader.X < 16.83 || ifeMD.MPPFromHeader.X > 16.84 {
+		t.Errorf("MPPFromHeader.X = %v, want ≈ 16.835 (raw header value)", ifeMD.MPPFromHeader.X)
 	}
 	// Vendor passthrough: every IFE attribute available under "iris.".
 	if got := cm.Properties["iris.aperio.AppMag"]; got != "40" {

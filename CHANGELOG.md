@@ -9,8 +9,28 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
-## [0.53.0] — 2026-06-24
+## [0.54.0] — 2026-06-24
 
+IFE Magnification/MPP report the true L0 value, not a downsampled level (#81).
+
+### Fixed
+
+- **IFE `Metadata.Magnification` / `Metadata.MPP` now report the source scanner's
+  true level-0 value** (#81). Some encoders (observed on GT450-sourced `.iris`)
+  stamp a *reduced* level's resolution into the L0 `METADATA` header — e.g. header
+  MPP `16.835` = `2⁶ × 0.262968` (the true GT450 scan), magnification `0.625` =
+  `40/64`. When the passed-through `ATTRIBUTES` carry the authoritative L0 values
+  (`aperio.AppMag` / `aperio.MPP`, or the Aperio `ImageDescription` banner
+  `…|AppMag = 40|MPP = 0.262968|…`), opentile-go now prefers those for the
+  cross-format `Magnification` / `MPP`. Non-Aperio IFE (no such attributes) keeps
+  the header value unchanged. The per-field override is independent (MPP can be
+  corrected while magnification isn't, and vice-versa).
+
+### Added
+
+- **`ife.Metadata.MPPFromHeader`** — the raw `METADATA`-header MPP (before the #81
+  L0 correction), parallel to the existing `MagnificationFromHeader`. Callers that
+  want the header value rather than the Attributes-derived L0 value can read it.
 True-content-extent pyramid for DP-BIF + IFE (#78).
 
 ### Fixed
