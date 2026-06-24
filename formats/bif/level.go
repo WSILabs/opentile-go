@@ -268,6 +268,18 @@ func newLevelImpl(
 // Both local fixtures record OverlapX = OverlapY = 0, so this fold
 // returns {0, 0} on real data and the non-zero path is exercised
 // only by synthetic-XMP unit tests.
+// floorHalveSize halves sz by 2, n times, with integer (floor) division —
+// reproducing bio-formats' per-resolution sizeX/sizeY chain for DP pyramids
+// (e.g. 23432 → 11716 → 5858 → 2929 → 1464 → …). n == 0 returns sz.
+func floorHalveSize(sz opentile.Size, n int) opentile.Size {
+	w, h := sz.W, sz.H
+	for k := 0; k < n; k++ {
+		w /= 2
+		h /= 2
+	}
+	return opentile.Size{W: w, H: h}
+}
+
 func weightedAverageOverlap(ei *bifxml.EncodeInfo) opentile.Point {
 	var sumX, sumY, count int
 	for _, info := range ei.ImageInfos {
@@ -301,12 +313,12 @@ func (l *levelImpl) TileOrigin(col, row int) (x, y int, ok bool) {
 	return l.layout.TileOrigin(col, row)
 }
 
-// StitchedSize returns this level's stitched dimensions (== Size()).
+// StitchedSize returns this level's stitched content extent (== Size()). It is
+// the single source of truth for the compositor's clip bounds; for DP reduced
+// levels this is the hull-derived content extent (#78). The stored-grid extent
+// (cols*tileW from the naive layout) is recoverable as Grid*TileSize.
 func (l *levelImpl) StitchedSize() (w, h int, ok bool) {
-	if l.layout == nil {
-		return l.size.W, l.size.H, true
-	}
-	return l.layout.Width, l.layout.Height, true
+	return l.size.W, l.size.H, true
 }
 
 // TilesIntersecting returns the image-grid tiles whose stitched extent touches

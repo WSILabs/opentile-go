@@ -9,6 +9,30 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.53.0] — 2026-06-24
+
+True-content-extent pyramid for DP-BIF + IFE (#78).
+
+### Fixed
+
+- **Pyramid `Level.Size`/`Downsample` now report true content extent for DP-BIF
+  and IFE** (#78). Previously these two formats reported a tile-grid-padded (BIF
+  reduced levels) or overlap-compacted-only-at-L0 extent, so the inter-level
+  scale wasn't exactly ~2× and a consumer building a pyramid from `Level.Size`
+  (e.g. `downsample = Size[0]/Size[i]`) mis-registered content across the L0/L1
+  boundary (BIF) or at coarse levels (IFE). DP-BIF reduced levels now derive from
+  the L0 stitched hull (floor-halving, matching bio-formats); IFE derives from the
+  per-layer `scale` anchored to `TILE_TABLE.x_extent/y_extent`. `Grid` (the stored
+  tile grid) is unchanged; tile bytes are byte-identical; the padded raster extent
+  remains recoverable as `Grid × TileSize`. **Legacy iScan BIF is unchanged** (its
+  reduced levels carry frame overlap — tracked in #80); the IFE Magnification/MPP
+  issue is separate (#81).
+
+  ⚠️ **Consumer note:** DP-BIF reduced-level and IFE `Level.Size`/`Downsample`
+  values change to the corrected ones. Consumers that built pyramids from the old
+  padded values (e.g. wsitools DZI output dims) will see shifted — now correct —
+  output.
+
 ## [0.52.0] — 2026-06-24
 
 Bare DZI reader (12th format) + shared Overlap>0 guard.

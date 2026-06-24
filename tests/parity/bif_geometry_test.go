@@ -53,13 +53,16 @@ var bifFixtures = []bifFixture{
 			// extent (24576) — the 24th column is phantom padding. Grid stays 24×21
 			// (raw frame addressing unchanged). See GH #60 / stitch.go.
 			{W: 23432, H: 21504, TileW: 1024, TileH: 1024, GridW: 24, GridH: 21, OverlapX: 2, OverlapY: 0},
-			{W: 12288, H: 10752, TileW: 1024, TileH: 1024, GridW: 12, GridH: 11},
-			{W: 6144, H: 5376, TileW: 1024, TileH: 1024, GridW: 6, GridH: 6},
-			{W: 3072, H: 2688, TileW: 1024, TileH: 1024, GridW: 3, GridH: 3},
-			{W: 1536, H: 1344, TileW: 1024, TileH: 1024, GridW: 2, GridH: 2},
-			{W: 768, H: 672, TileW: 1024, TileH: 1024, GridW: 1, GridH: 1},
-			{W: 384, H: 336, TileW: 1024, TileH: 1024, GridW: 1, GridH: 1},
-			{W: 192, H: 168, TileW: 1024, TileH: 1024, GridW: 1, GridH: 1},
+			// L1-L7 derive from the L0 stitched hull via floor-halving (#78):
+			// Size = floor(L0_size / 2^i), matching bio-formats behaviour.
+			// Grid stays at the raw frame count (12, 6, 3, 2, 1, 1, 1).
+			{W: 11716, H: 10752, TileW: 1024, TileH: 1024, GridW: 12, GridH: 11},
+			{W: 5858, H: 5376, TileW: 1024, TileH: 1024, GridW: 6, GridH: 6},
+			{W: 2929, H: 2688, TileW: 1024, TileH: 1024, GridW: 3, GridH: 3},
+			{W: 1464, H: 1344, TileW: 1024, TileH: 1024, GridW: 2, GridH: 2},
+			{W: 732, H: 672, TileW: 1024, TileH: 1024, GridW: 1, GridH: 1},
+			{W: 366, H: 336, TileW: 1024, TileH: 1024, GridW: 1, GridH: 1},
+			{W: 183, H: 168, TileW: 1024, TileH: 1024, GridW: 1, GridH: 1},
 		},
 		scanRes:        0.25,
 		generation:     "spec-compliant",

@@ -255,9 +255,12 @@ func TestLevelTileReader(t *testing.T) {
 func TestLevelImplLayoutAccessors(t *testing.T) {
 	// Construct a minimal levelImpl with an injected layout to exercise the
 	// accessor wiring (the real layout is built in newLevelImpl).
+	// size must be set explicitly: StitchedSize() now returns l.size (the
+	// hull-derived content extent, #78) rather than layout.Width/Height.
 	l := &levelImpl{
 		index: 0, grid: opentile.Size{W: 2, H: 1},
 		tileSize: opentile.Size{W: 1024, H: 1024},
+		size:     opentile.Size{W: 2048, H: 1024},
 		layout:   buildNaiveLayout(StitchInput{Cols: 2, Rows: 1, TileW: 1024, TileH: 1024}),
 	}
 	x, y, ok := l.TileOrigin(1, 0)
