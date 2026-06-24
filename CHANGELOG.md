@@ -9,7 +9,9 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
-## [Unreleased]
+## [0.50.0] — 2026-06-24
+
+`StitchedTile` — clean display tiles for overlapping-tile formats.
 
 ### Added
 
