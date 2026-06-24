@@ -9,6 +9,18 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.51.0] — 2026-06-24
+
+### Added
+
+- **`(*Level).StitchedTileInto`** — the allocation-free form of `StitchedTile`:
+  composites the display tile into a caller-provided `dst` (must be `TileSize`),
+  in `dst`'s own pixel format, white-filling first. Reuse one `dst` across a
+  display-grid traversal to avoid a per-tile allocation (mirrors
+  `DecodedTileInto` / `ReadRegionInto`). Delegates to `DecodedTileInto` for
+  non-overlapping levels. `StitchedTile` now allocates and delegates to it, so
+  the two share one composite path. Additive.
+
 ## [0.50.0] — 2026-06-24
 
 `StitchedTile` — clean display tiles for overlapping-tile formats.
