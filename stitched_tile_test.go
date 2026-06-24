@@ -16,6 +16,13 @@ func fillTile(w, h int, r, g byte) *decoder.Image {
 	return img
 }
 
+func TestLevelStitchedGrid(t *testing.T) {
+	l := &Level{Size: Size{W: 260, H: 180}, TileSize: Size{W: 100, H: 100}}
+	if g := l.StitchedGrid(); g != (Size{W: 3, H: 2}) {
+		t.Fatalf("StitchedGrid = %v, want {3,2}", g)
+	}
+}
+
 func TestCompositeStitchedLoopBlitsIntersectingTiles(t *testing.T) {
 	// One tile at origin (0,0), 100x100; dst covers stitched rect [0,0,100,100).
 	rl := &fakeLayoutReader{originX: 0}
