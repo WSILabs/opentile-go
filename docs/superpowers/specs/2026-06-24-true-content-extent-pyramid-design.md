@@ -93,8 +93,15 @@ distinguishes DP from legacy. Extend the L0 derivation to the reduced levels —
   hull. This reproduces the bio-formats `sizeX` chain exactly
   (`23432,11716,5858,2929,1464,732,366,183`); DP heights are unchanged (no Y
   overlap → the padded IFD height already equalled `hull/2^i`).
-- `Downsample[i]` becomes exact `2^i` (it is computed from `Size`:
-  `l0Hull.W / Size[i].W`).
+- `Downsample[i]` is the literal `l0Hull.W / Size[i].W` ratio (self-consistent
+  with `Size`, the openslide convention — `level_downsamples` reports the literal
+  ratio, not a forced power of two). Because `Size` is floor-halved, L1–L3 are
+  exactly `2/4/8` (when the hull divides evenly) and L4+ drift `<0.05%`
+  (`23432/1464 = 16.005`). This is *within rounding* of `2^i` — the #78 goal (the
+  bug had L1 at `1.907`) — and keeping `Downsample == Size0/Size_i` is required
+  for `ReadRegionScaled`'s coordinate mapping to stay accurate. Do **not** force
+  exact `2^i`, which would desync `Downsample` from the actual content-raster
+  ratio.
 - **The same content extent drives the `regionLayout` capability**, not just the
   `Level.Size` metadata (see the **Consistency invariant** below). The per-level
   `StitchedSize(level)` returned to the region/`StitchedTile`/`ScaledStrips`
@@ -196,7 +203,8 @@ registration-relevant magnitude.
 
 - **BIF DP (fixture-gated, Ventana-1):** assert per-level `Size` equals the
   bio-formats `sizeX` chain (`23432,11716,5858,…`) and heights
-  (`21504,10752,…`); `Downsample[i] == 2^i` (exact); L0 unchanged.
+  (`21504,10752,…`); `Downsample[i] == Size0/Size_i` (self-consistent) and
+  within `0.1%` of `2^i` (the #78 ~2× invariant; not forced exact); L0 unchanged.
 - **BIF legacy regression (fixture-gated, OS-1):** assert per-level `Size` is
   **unchanged** from current (raw grid) — proves legacy is untouched (deferred to
   #80).
