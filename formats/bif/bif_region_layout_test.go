@@ -8,7 +8,8 @@ import (
 
 func TestTilerImplementsRegionLayout(t *testing.T) {
 	tl := &Tiler{levelImpls: []*levelImpl{{
-		index: 0, grid: opentile.Size{W: 2, H: 1}, tileSize: opentile.Size{W: 100, H: 100},
+		index: 0, size: opentile.Size{W: 200, H: 100},
+		grid: opentile.Size{W: 2, H: 1}, tileSize: opentile.Size{W: 100, H: 100},
 		layout: buildNaiveLayout(StitchInput{Cols: 2, Rows: 1, TileW: 100, TileH: 100}),
 	}}}
 	x, y, ok := tl.TileOrigin(0, 1, 0)
