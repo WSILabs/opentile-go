@@ -45,6 +45,12 @@ const (
 	// series (one directory of .dcm instances per series). The first multi-file
 	// format in opentile-go; opened via OpenFile(directoryPath). Added in v0.32.
 	FormatDICOM Format = "dicom"
+	// FormatDZI identifies a bare Deep Zoom Image — a filesystem .dzi XML
+	// manifest plus a sibling <name>_files/<level>/<col>_<row>.<ext> tile tree
+	// (the OpenSeadragon / Microsoft Deep Zoom layout). Unlike SZI (a ZIP
+	// wrapper), bare DZI is opened from a path via OpenFile (the .dzi file or a
+	// directory containing exactly one), like DICOM. Overlap=0 only. Added in v0.52.
+	FormatDZI Format = "dzi"
 	// FormatUnknown is the zero value of Format, used when a file did not
 	// open as any known format (e.g. Report.Format on an Unopenable file).
 	FormatUnknown Format = ""

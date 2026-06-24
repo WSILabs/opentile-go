@@ -45,6 +45,18 @@ func SetDICOMPathOpenHook(fn func(path string) (any, error)) {
 	dicomPathOpenHook = fn
 }
 
+// dziPathOpenHook is set by formats/dzi's init() via SetDZIPathOpenHook. It is
+// consulted by OpenFile after the DICOM hook and before single-file dispatch,
+// because bare DZI is path-based (a .dzi manifest + a sibling _files/ tile tree
+// that an io.ReaderAt alone cannot locate). nil when formats/dzi is not imported.
+var dziPathOpenHook func(path string) (any, error)
+
+// SetDZIPathOpenHook registers the bare-DZI path-open function. Called once from
+// formats/dzi's init().
+func SetDZIPathOpenHook(fn func(path string) (any, error)) {
+	dziPathOpenHook = fn
+}
+
 // SetOpenAnyHook registers the format dispatch function. Called once from
 // internal/format's init() via a bridge file. Must be called before any
 // Open/OpenFile call. Not safe for concurrent use during setup.
@@ -154,6 +166,24 @@ func OpenFile(path string, opts ...Option) (*Slide, error) {
 			return nil, err
 		}
 		// ErrUnsupportedFormat: not DICOM — fall through to normal dispatch.
+	}
+
+	// Bare-DZI path-aware branch — same rationale as DICOM: bare DZI is a .dzi
+	// manifest + sibling _files/ tile tree, so it needs the path, not just an
+	// io.ReaderAt. ErrUnsupportedFormat means "not a bare DZI — fall through."
+	if dziPathOpenHook != nil {
+		result, err := dziPathOpenHook(path)
+		if err == nil {
+			sr, ok := result.(slideReader)
+			if !ok {
+				return nil, fmt.Errorf("opentile: dzi hook returned unexpected type %T", result)
+			}
+			return &Slide{r: sr, size: 0, readBudget: cfg.resolveMemoryBudget()}, nil
+		}
+		if !errors.Is(err, ErrUnsupportedFormat) {
+			return nil, err
+		}
+		// ErrUnsupportedFormat: not a bare DZI — fall through to normal dispatch.
 	}
 
 	switch cfg.backing {
