@@ -76,6 +76,40 @@ func BuildLayout(in StitchInput) *Layout {
 	return buildNaiveLayout(in)
 }
 
+// downsampleLayout derives a reduced-pyramid-level layout from the level-0
+// compacted layout (#83 / #80). Reduced tile (col,row) inherits L0 frame
+// (col<<shift, row<<shift)'s compacted stitched origin, scaled by 1/2^shift
+// (the reduced tile spatially covers that 2^shift × 2^shift block of L0 frames,
+// so it lands at the block's compacted top-left). Reduced tiles with no backing
+// L0 frame (the #60 phantom column / sparse cells) fall back to their naive grid
+// position; they are blank and clipped by the level's Size.
+//
+// The result removes the residual frame overlap from reduced levels (which the
+// scanner stored un-compacted, as the raw frame grid downsampled), so a region /
+// StitchedTile read composites them stitch-aligned with L0 — DP carries a small
+// ~overlap/2^i residual (#83), legacy a dense one (#80).
+func downsampleLayout(l0 *Layout, shift uint, cols, rows, tw, th int) *Layout {
+	l := newLayout(cols, rows, tw, th)
+	maxX, maxY := 0, 0
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			px, py := col*tw, row*th
+			if x, y, ok := l0.TileOrigin(col<<shift, row<<shift); ok {
+				px, py = x>>shift, y>>shift
+			}
+			l.origin[[2]int{col, row}] = TilePlacement{Col: col, Row: row, X: px, Y: py}
+			if px+tw > maxX {
+				maxX = px + tw
+			}
+			if py+th > maxY {
+				maxY = py + th
+			}
+		}
+	}
+	l.Width, l.Height = maxX, maxY
+	return l
+}
+
 func buildNaiveLayout(in StitchInput) *Layout {
 	l := newLayout(in.Cols, in.Rows, in.TileW, in.TileH)
 	for row := 0; row < in.Rows; row++ {
