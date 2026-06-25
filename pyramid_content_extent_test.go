@@ -117,16 +117,17 @@ func TestIFECervixRatiosConsistent(t *testing.T) {
 func TestBIFLegacyReducedStitched(t *testing.T) {
 	s := openFixture(t, "bif", "OS-1.bif")
 	defer s.Close()
-	// Legacy iScan reduced levels are now stitched via the subtile model (#80,
-	// v0.56.0): Size = L0 hull floor-halved (the openslide content extent), and
-	// the reduced levels report Overlapping=true. (105818 hull at L0; 52909 =
-	// 105818>>1 at L1.) This supersedes the v0.53-era "legacy untouched" pin.
+	// Legacy iScan reduced levels are stitched via the subtile model (#80,
+	// v0.56.0): Size = L0 hull floor-halved, reduced levels report
+	// Overlapping=true. Since v0.59 (#68) the L0 hull also includes the
+	// cross-axis per-column/per-row drift, so the hull is 105936 (was 105818);
+	// L1 = 105936>>1 = 52968.
 	levels := s.Levels()
-	if levels[0].Size.W != 105818 {
-		t.Errorf("OS-1 L0 Size.W = %d, want 105818 (stitched hull)", levels[0].Size.W)
+	if levels[0].Size.W != 105936 {
+		t.Errorf("OS-1 L0 Size.W = %d, want 105936 (stitched hull w/ cross-axis drift)", levels[0].Size.W)
 	}
-	if levels[1].Size.W != 52909 {
-		t.Errorf("OS-1 L1 Size.W = %d, want 52909 (L0 hull >>1 — subtile-stitched)", levels[1].Size.W)
+	if levels[1].Size.W != 52968 {
+		t.Errorf("OS-1 L1 Size.W = %d, want 52968 (L0 hull >>1 — subtile-stitched)", levels[1].Size.W)
 	}
 	if !levels[1].Overlapping {
 		t.Error("OS-1 L1 Overlapping = false, want true (#80 subtile stitching)")

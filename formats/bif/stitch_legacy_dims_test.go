@@ -12,10 +12,17 @@ import (
 // Secondary coarse gate: legacy L0 stitched dims vs openslide (the all-4 oracle;
 // bio-formats crashes on 3 of 4 — see design §0). Targets are Phase-0-measured
 // constants from `openslide-show-properties` (hardcoded with provenance, like
-// the bio-formats spatial oracle). Tolerance covers the model residual + the
-// ~30px openslide-vs-bio-formats reader disagreement + the un-modeled per-column
-// Y baseline. The PRIMARY correctness gates are placement-fidelity
-// (TestLegacyPlacementResidual, TestLegacySeamContinuity), not these dims.
+// the bio-formats spatial oracle).
+//
+// Since v0.59 (#68) opentile-go honors the per-column/per-row cross-axis drift
+// the scanner records in its joint graph (a faint stage skew), so the stitched
+// hull is a slight parallelogram whose bounding box is LARGER than openslide's
+// nominal (de-sheared) extent by the integrated drift span. openslide is
+// therefore a LOWER bound: ours must be ≥ openslide (less a few px of
+// reader-disagreement slack) and ≤ openslide + the drift cap (≈ a few px per
+// grid row/column). The PRIMARY correctness gates are placement-fidelity
+// (TestLegacyPlacementResidual, TestLegacySeamContinuity, TestLegacyCrossAxisYDrift),
+// not these dims.
 func TestLegacyDimsVsOpenslide(t *testing.T) {
 	dir := os.Getenv("OPENTILE_TESTDIR")
 	if dir == "" {
@@ -31,7 +38,8 @@ func TestLegacyDimsVsOpenslide(t *testing.T) {
 		"S12-18199-1A": {17194, 10349, 18432, 10880},
 		"OS-1":         {105813, 93951, 118784, 102000},
 	}
-	const tolW, tolH = 8, 35
+	const lowerSlack = 8  // openslide-vs-bio-formats reader disagreement (px)
+	const driftPerGap = 8 // cross-axis drift cap per grid row/column (px; older iScan stages skew up to ~6/gap)
 	for name, w := range targets {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(dir, "bif", name+".bif")
@@ -49,11 +57,15 @@ func TestLegacyDimsVsOpenslide(t *testing.T) {
 			}
 			dW := lvl.Size.W - w.osW
 			dH := lvl.Size.H - w.osH
-			t.Logf("%s L0 = %dx%d, openslide = %dx%d (dW=%+d dH=%+d)",
-				name, lvl.Size.W, lvl.Size.H, w.osW, w.osH, dW, dH)
-			if dW < -tolW || dW > tolW || dH < -tolH || dH > tolH {
-				t.Errorf("%s L0 = %dx%d, openslide = %dx%d (dW=%+d dH=%+d, tol ±%d/±%d)",
-					name, lvl.Size.W, lvl.Size.H, w.osW, w.osH, dW, dH, tolW, tolH)
+			// Width drift accumulates over the vertical joins (one per grid row);
+			// height drift over the horizontal joins (one per grid column).
+			capW := lvl.Grid.H * driftPerGap
+			capH := lvl.Grid.W * driftPerGap
+			t.Logf("%s L0 = %dx%d, openslide = %dx%d (dW=%+d dH=%+d, drift cap +%d/+%d)",
+				name, lvl.Size.W, lvl.Size.H, w.osW, w.osH, dW, dH, capW, capH)
+			if dW < -lowerSlack || dW > capW || dH < -lowerSlack || dH > capH {
+				t.Errorf("%s L0 = %dx%d, openslide = %dx%d (dW=%+d dH=%+d; want dW∈[-%d,%d] dH∈[-%d,%d])",
+					name, lvl.Size.W, lvl.Size.H, w.osW, w.osH, dW, dH, lowerSlack, capW, lowerSlack, capH)
 			}
 			naiveErrW := w.naiveW - w.osW
 			if naiveErrW > 0 && absInt(dW)*10 > naiveErrW {

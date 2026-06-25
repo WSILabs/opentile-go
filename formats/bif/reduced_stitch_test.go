@@ -103,8 +103,8 @@ func TestReducedLegacyLevelsStitched(t *testing.T) {
 	if !tl.levelImpls[0].overlapping {
 		t.Fatal("L0 should be overlapping (legacy joints reconstructed the hull)")
 	}
-	assertSubtileLevel(t, tl, 1, 52909, 46962, 512, 680)
-	assertSubtileLevel(t, tl, 2, 26454, 23481, 256, 340)
+	assertSubtileLevel(t, tl, 1, 52968, 47062, 512, 680)
+	assertSubtileLevel(t, tl, 2, 26484, 23531, 256, 340)
 }
 
 // assertSubtileLevel checks a reduced level is a subtile level with the expected

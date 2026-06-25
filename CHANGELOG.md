@@ -9,6 +9,43 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.59.0] — 2026-06-25
+
+Cross-axis drift in legacy iScan BIF stitching — model the per-column vertical
+(and per-row horizontal) scanner-stage skew the joints record (closes #68).
+
+### Fixed
+
+- **Legacy iScan BIF per-column/per-row drift (#68).** Adjacent camera frames
+  are captured at a small *cross-axis* offset — horizontally-adjacent frames at
+  a slight vertical shift, vertically-adjacent frames at a slight horizontal
+  shift — a faint scanner-stage skew the scanner records as the `<TileJointInfo>`
+  join's cross-axis overlap. The previous *separable* layout placed every tile
+  in a grid row at the same Y (and every tile in a column at the same X),
+  discarding that component; it accumulated into a visible per-column vertical
+  shear on zoom (the "slightly wonky tile placement" symptom) and a ~0.05%
+  height residual. `buildLegacyLayout` now integrates the full 2-D join
+  displacement vectors — `(tw−OverlapX, −OverlapY)` horizontally,
+  `(−OverlapX, th−OverlapY)` vertically — which separates into in-axis
+  `X[col]`/`Y[row]` plus cross-axis `yCol[col]`/`xRow[row]` baselines, placing
+  tile `(c,r)` at `(X[c]+xRow[r], Y[r]+yCol[c])`. The cross-axis sign and
+  magnitude are pixel-validated against OS-2 cross-correlation and locked by a
+  new seam-MAD gate (the modeled offset lowers the overlap-band MAD on all four
+  legacy fixtures — AC1.592 21.2→6.6, 1_19 15.8→6.8). Clean-room: derived from
+  the file's own joint overlaps, not a translation of openslide/bio-formats.
+
+### Notes
+
+- Honoring the skew makes the stitched grid a faint parallelogram, so a legacy
+  L0's reported `Level.Size` (and the floor-halved reduced levels) is slightly
+  **larger** than openslide's nominal de-sheared extent by the integrated drift
+  span (OS-1 +123×+174 px on a 105936×94125 hull; OS-2 115060×76560). openslide
+  is the lower bound. Per-tile raw/decoded bytes and `Grid` are unchanged.
+- DP-generation BIF (which uses the `<Frame>`-node layout, not
+  `buildLegacyLayout`) and the other 10 formats are untouched.
+- All legacy fixtures (OS-1/OS-2/AC1.592/1_19/S12-18199-1A) are PHI/local-only;
+  the cross-axis pixel gate and dims/geometry pins skip cleanly in CI.
+
 ## [0.58.0] — 2026-06-25
 
 Multi-AOI legacy iScan BIF stitching — place every scanned Area of Interest at

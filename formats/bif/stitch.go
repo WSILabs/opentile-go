@@ -1,6 +1,10 @@
 package bif
 
-import "github.com/wsilabs/opentile-go/internal/bifxml"
+import (
+	"math"
+
+	"github.com/wsilabs/opentile-go/internal/bifxml"
+)
 
 // StitchInput is the pure, file-free description the stitch engine needs to
 // compute a layout. EncodeInfo may be nil (legacy slides without it) → naive.
@@ -290,8 +294,9 @@ func buildLegacyLayout(in StitchInput) *Layout {
 		startCol, startRow int   // global-grid offset = Origin / tileSize
 		posX, posY         int   // Pos anchor (Pos-Y measured from the AOI bottom)
 		cols, rows         int   // local grid = NumCols × NumRows
-		x, y               []int // per-gap local offsets (X[0]=Y[0]=0)
-		h                  int   // local pixel height = Y[rows-1] + tileH
+		x, y               []int // in-axis per-gap offsets (x[0]=y[0]=0)
+		xRow, yCol         []int // cross-axis per-row/per-column baselines (#68), min 0
+		h                  int   // local pixel height (includes cross-axis Y span)
 	}
 	var areas []*area
 	for i := range ei.ImageInfos {
@@ -304,8 +309,10 @@ func buildLegacyLayout(in StitchInput) *Layout {
 			startCol: o.OriginX / tw, startRow: o.OriginY / th,
 			posX: ii.PosX, posY: ii.PosY, cols: ii.NumCols, rows: ii.NumRows,
 		}
-		a.x, a.y = localOffsets(ii, tw, th)
-		a.h = a.y[a.rows-1] + th
+		a.x, a.y, a.xRow, a.yCol = localOffsets(ii, tw, th)
+		// Bottom extent: the last row's in-axis Y plus the largest per-column
+		// drift (yCol is normalized so its min is 0).
+		a.h = a.y[a.rows-1] + maxInt(a.yCol) + th
 		areas = append(areas, a)
 	}
 	if len(areas) == 0 {
@@ -332,7 +339,8 @@ func buildLegacyLayout(in StitchInput) *Layout {
 				if gc < 0 || gc >= in.Cols || gr < 0 || gr >= in.Rows {
 					continue
 				}
-				x, y := a.posX+a.x[c], ayTop+a.y[r]
+				x := a.posX + a.x[c] + a.xRow[r]
+				y := ayTop + a.y[r] + a.yCol[c]
 				l.origin[[2]int{gc, gr}] = TilePlacement{Col: gc, Row: gr, X: x, Y: y}
 				if x < minX {
 					minX = x
@@ -365,12 +373,31 @@ func buildLegacyLayout(in StitchInput) *Layout {
 }
 
 // localOffsets computes the per-axis cumulative pixel offsets for one AOI's
-// local grid (NumCols×NumRows) via the separable per-gap-average overlap model
-// (#63): X[0]=Y[0]=0; X[c] accumulates (tileW - perColGapAvgOverlap) across this
-// AOI's joints (serpentine over its LOCAL grid), empty gaps taking the AOI's
-// global-mean overlap. A single-AOI slide reduces to the original whole-grid
-// model (local grid == global grid), so OS-1 is unchanged.
-func localOffsets(ii *bifxml.ImageInfo, tw, th int) (X, Y []int) {
+// local grid (NumCols×NumRows) from its TileJointInfo graph (#63 in-axis, #68
+// cross-axis). It returns four arrays; tile (c,r) is placed at
+// (X[c] + xRow[r], Y[r] + yCol[c]):
+//
+//   - X[c]    in-axis column advance: Σ (tileW − avg horizontal-join OverlapX).
+//   - Y[r]    in-axis row advance:    Σ (tileH − avg vertical-join OverlapY).
+//   - yCol[c] CROSS-axis per-column Y baseline: Σ (− avg horizontal-join
+//     OverlapY). Horizontally-adjacent camera frames are captured at a small
+//     vertical offset that the scanner records as the join's OverlapY; ignoring
+//     it (the pre-v0.59 separable model placed every tile in a row at the same
+//     Y) accumulates into a visible per-column vertical shear (#68).
+//   - xRow[r] CROSS-axis per-row X baseline: Σ (− avg vertical-join OverlapX).
+//
+// This is the full 2-D integration of the join displacement vectors —
+// horizontal join → (tw−OverlapX, −OverlapY), vertical join → (−OverlapX,
+// th−OverlapY) — under the (measured-good) assumption that overlaps depend only
+// on a gap's axis position, so the field separates into per-column and per-row
+// baselines. Both cross-axis sign conventions are confirmed against OS-2 pixel
+// cross-correlation (per-column Y drift ≈ −2 px/col, per-row X drift ≈ +2
+// px/row). Empty gaps take the AOI global-mean for that axis/component. The
+// cross arrays are normalized so their minimum is 0 (the AOI top-left stays
+// anchored at its Pos origin). A single-AOI slide (OS-1) reduces to the same
+// whole-grid model; the cross terms are new there too (they correct OS-1's
+// per-column drift, so it is no longer byte-identical to the pre-#68 layout).
+func localOffsets(ii *bifxml.ImageInfo, tw, th int) (X, Y, xRow, yCol []int) {
 	cols, rows := ii.NumCols, ii.NumRows
 	resolve := func(idx int) (c, r int, ok bool) {
 		c, r = serpentineToImage(idx-1, cols, rows) // 1-based serpentine over the LOCAL grid
@@ -379,11 +406,13 @@ func localOffsets(ii *bifxml.ImageInfo, tw, th int) (X, Y []int) {
 		}
 		return c, r, true
 	}
-	colSum := make([]float64, cols)
+	colSumX := make([]float64, cols) // horizontal joins, in-axis OverlapX, per col-gap
+	colSumY := make([]float64, cols) // horizontal joins, CROSS OverlapY, per col-gap
 	colN := make([]int, cols)
-	rowSum := make([]float64, rows)
+	rowSumY := make([]float64, rows) // vertical joins, in-axis OverlapY, per row-gap
+	rowSumX := make([]float64, rows) // vertical joins, CROSS OverlapX, per row-gap
 	rowN := make([]int, rows)
-	var gXs, gYs float64
+	var gXs, gYs, gCYs, gCXs float64
 	var gXn, gYn int
 	for _, j := range ii.Joints {
 		if !j.FlagJoined || j.Confidence < legacyConfidenceCutoff {
@@ -396,48 +425,82 @@ func localOffsets(ii *bifxml.ImageInfo, tw, th int) (X, Y []int) {
 		}
 		if ar == br && absDelta(ac, bc) == 1 {
 			g := min(ac, bc)
-			colSum[g] += float64(j.OverlapX)
+			colSumX[g] += float64(j.OverlapX)
+			colSumY[g] += float64(j.OverlapY)
 			colN[g]++
 			gXs += float64(j.OverlapX)
+			gCYs += float64(j.OverlapY)
 			gXn++
 		}
 		if ac == bc && absDelta(ar, br) == 1 {
 			g := min(ar, br)
-			rowSum[g] += float64(j.OverlapY)
+			rowSumY[g] += float64(j.OverlapY)
+			rowSumX[g] += float64(j.OverlapX)
 			rowN[g]++
 			gYs += float64(j.OverlapY)
+			gCXs += float64(j.OverlapX)
 			gYn++
 		}
 	}
-	gX := 0.0
-	if gXn > 0 {
-		gX = gXs / float64(gXn)
-	}
-	gY := 0.0
-	if gYn > 0 {
-		gY = gYs / float64(gYn)
-	}
-	X = make([]int, cols)
-	acc := 0.0
-	for col := 1; col < cols; col++ {
-		ov := gX
-		if colN[col-1] > 0 {
-			ov = colSum[col-1] / float64(colN[col-1])
+	mean := func(s float64, n int) float64 {
+		if n > 0 {
+			return s / float64(n)
 		}
-		acc += float64(tw) - ov
-		X[col] = int(acc + 0.5)
+		return 0
+	}
+	gX, gCY := mean(gXs, gXn), mean(gCYs, gXn) // col-gap averages share the horizontal-join count
+	gY, gCX := mean(gYs, gYn), mean(gCXs, gYn) // row-gap averages share the vertical-join count
+
+	X = make([]int, cols)
+	yCol = make([]int, cols)
+	var accX, accCY float64
+	for col := 1; col < cols; col++ {
+		ovX, ovCY := gX, gCY
+		if colN[col-1] > 0 {
+			ovX = colSumX[col-1] / float64(colN[col-1])
+			ovCY = colSumY[col-1] / float64(colN[col-1])
+		}
+		accX += float64(tw) - ovX
+		accCY += -ovCY
+		X[col] = int(accX + 0.5)
+		yCol[col] = int(math.Round(accCY)) // accCY is negative pre-normalization
 	}
 	Y = make([]int, rows)
-	acc = 0.0
+	xRow = make([]int, rows)
+	var accY, accCX float64
 	for row := 1; row < rows; row++ {
-		ov := gY
+		ovY, ovCX := gY, gCX
 		if rowN[row-1] > 0 {
-			ov = rowSum[row-1] / float64(rowN[row-1])
+			ovY = rowSumY[row-1] / float64(rowN[row-1])
+			ovCX = rowSumX[row-1] / float64(rowN[row-1])
 		}
-		acc += float64(th) - ov
-		Y[row] = int(acc + 0.5)
+		accY += float64(th) - ovY
+		accCX += -ovCX
+		Y[row] = int(accY + 0.5)
+		xRow[row] = int(math.Round(accCX)) // accCX is negative pre-normalization
 	}
-	return X, Y
+	shiftToZero(yCol)
+	shiftToZero(xRow)
+	return X, Y, xRow, yCol
+}
+
+// shiftToZero subtracts the minimum element so the slice's min becomes 0,
+// keeping an AOI's cross-axis baselines anchored to its Pos origin.
+func shiftToZero(a []int) {
+	if len(a) == 0 {
+		return
+	}
+	mn := a[0]
+	for _, v := range a {
+		if v < mn {
+			mn = v
+		}
+	}
+	if mn != 0 {
+		for i := range a {
+			a[i] -= mn
+		}
+	}
 }
 
 // hasLiveJoint reports whether any joint is FlagJoined with confidence at or
@@ -459,6 +522,17 @@ func absDelta(a, b int) int {
 		return a - b
 	}
 	return b - a
+}
+
+// maxInt returns the largest element of a (0 for an empty slice).
+func maxInt(a []int) int {
+	mx := 0
+	for _, v := range a {
+		if v > mx {
+			mx = v
+		}
+	}
+	return mx
 }
 
 func hasConfidentJoint(ei *bifxml.EncodeInfo) bool {

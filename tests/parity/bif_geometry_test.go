@@ -74,23 +74,25 @@ var bifFixtures = []bifFixture{
 	{
 		filename: "OS-1.bif",
 		levels: []bifLevelExpect{
-			// L0 Size is the STITCHED content hull (105818×93924) — per-column/row-gap-
-			// average overlap reconstruction from the TileJointInfo graph (#63). Grid
-			// stays 116×75 (raw frame addressing unchanged). ~0.05% height residual vs
-			// openslide (un-modeled per-column Y baseline); width clean-room-exact.
+			// L0 Size is the STITCHED content hull (105936×94125) — per-gap-average
+			// in-axis overlap PLUS the #68 cross-axis per-column/per-row drift
+			// baselines, reconstructed from the TileJointInfo graph (#63 + #68). The
+			// hull is slightly LARGER than openslide's nominal extent (105813×93951):
+			// honoring the scanner-stage skew places tiles in a faint parallelogram,
+			// so the bounding box grows by the integrated drift span (~120 px wide,
+			// ~190 px tall). Grid stays 116×75 (raw frame addressing unchanged).
 			// Reduced levels (#80 subtile model, v0.56.0): Size = L0 hull
-			// floor-halved (the openslide content extent — each L0 frame composited
-			// at its compacted position via the subtile path). Grid stays the raw
-			// frame grid; tile bytes unchanged.
-			{W: 105818, H: 93924, TileW: 1024, TileH: 1360, GridW: 116, GridH: 75, OverlapX: 18, OverlapY: 26},
-			{W: 52909, H: 46962, TileW: 1024, TileH: 1360, GridW: 58, GridH: 38},
-			{W: 26454, H: 23481, TileW: 1024, TileH: 1360, GridW: 29, GridH: 19},
-			{W: 13227, H: 11740, TileW: 1024, TileH: 1360, GridW: 15, GridH: 10},
-			{W: 6613, H: 5870, TileW: 1024, TileH: 1360, GridW: 8, GridH: 5},
-			{W: 3306, H: 2935, TileW: 1024, TileH: 1360, GridW: 4, GridH: 3},
-			{W: 1653, H: 1467, TileW: 1024, TileH: 1360, GridW: 2, GridH: 2},
-			{W: 826, H: 733, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
-			{W: 413, H: 366, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			// floor-halved; each L0 frame composited at its compacted position via
+			// the subtile path. Grid stays the raw frame grid; tile bytes unchanged.
+			{W: 105936, H: 94125, TileW: 1024, TileH: 1360, GridW: 116, GridH: 75, OverlapX: 18, OverlapY: 26},
+			{W: 52968, H: 47062, TileW: 1024, TileH: 1360, GridW: 58, GridH: 38},
+			{W: 26484, H: 23531, TileW: 1024, TileH: 1360, GridW: 29, GridH: 19},
+			{W: 13242, H: 11765, TileW: 1024, TileH: 1360, GridW: 15, GridH: 10},
+			{W: 6621, H: 5882, TileW: 1024, TileH: 1360, GridW: 8, GridH: 5},
+			{W: 3310, H: 2941, TileW: 1024, TileH: 1360, GridW: 4, GridH: 3},
+			{W: 1655, H: 1470, TileW: 1024, TileH: 1360, GridW: 2, GridH: 2},
+			{W: 827, H: 735, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 413, H: 367, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
 			{W: 206, H: 183, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
 		},
 		scanRes:       0.2325,
@@ -109,15 +111,15 @@ var bifFixtures = []bifFixture{
 		// CI. See buildLegacyLayout multi-AOI path + docs/formats/bif.md.
 		filename: "OS-2.bif",
 		levels: []bifLevelExpect{
-			{W: 114951, H: 76389, TileW: 1024, TileH: 1360, GridW: 125, GridH: 61, OverlapX: 31, OverlapY: 31},
-			{W: 57475, H: 38194, TileW: 1024, TileH: 1360, GridW: 63, GridH: 31},
-			{W: 28737, H: 19097, TileW: 1024, TileH: 1360, GridW: 32, GridH: 16},
-			{W: 14368, H: 9548, TileW: 1024, TileH: 1360, GridW: 16, GridH: 8},
-			{W: 7184, H: 4774, TileW: 1024, TileH: 1360, GridW: 8, GridH: 4},
-			{W: 3592, H: 2387, TileW: 1024, TileH: 1360, GridW: 4, GridH: 2},
-			{W: 1796, H: 1193, TileW: 1024, TileH: 1360, GridW: 2, GridH: 1},
-			{W: 898, H: 596, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
-			{W: 449, H: 298, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 115060, H: 76560, TileW: 1024, TileH: 1360, GridW: 125, GridH: 61, OverlapX: 31, OverlapY: 31},
+			{W: 57530, H: 38280, TileW: 1024, TileH: 1360, GridW: 63, GridH: 31},
+			{W: 28765, H: 19140, TileW: 1024, TileH: 1360, GridW: 32, GridH: 16},
+			{W: 14382, H: 9570, TileW: 1024, TileH: 1360, GridW: 16, GridH: 8},
+			{W: 7191, H: 4785, TileW: 1024, TileH: 1360, GridW: 8, GridH: 4},
+			{W: 3595, H: 2392, TileW: 1024, TileH: 1360, GridW: 4, GridH: 2},
+			{W: 1797, H: 1196, TileW: 1024, TileH: 1360, GridW: 2, GridH: 1},
+			{W: 898, H: 598, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 449, H: 299, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
 			{W: 224, H: 149, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
 		},
 		scanRes:       0.2325,
