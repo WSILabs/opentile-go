@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
+	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/decoder"
@@ -88,6 +90,13 @@ type Metadata struct {
 	// override can reach it directly.
 	MagnificationFromHeader float32
 
+	// MPPFromHeader is the microns-per-pixel from the METADATA block's f32
+	// field (widened to f64), before any Attributes-derived L0 correction.
+	// Zero when unset. Parallels MagnificationFromHeader: when an encoder
+	// stamped a reduced level's MPP into the header (GH #81), opentile.Metadata.MPP
+	// carries the corrected L0 value and this field carries the raw header value.
+	MPPFromHeader opentile.MPP
+
 	// CodecMajor / CodecMinor / CodecBuild identify the version of
 	// the Iris encoder that wrote this file. Distinct from the
 	// scanner software (which lives in Attributes when the encoder
@@ -158,6 +167,8 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	if mppF32 > 0 {
 		md.MPP = opentile.MPP{X: float64(mppF32), Y: float64(mppF32)}
 	}
+	// Raw header MPP, before any GH #81 Attributes-derived L0 correction below.
+	md.MPPFromHeader = md.MPP
 
 	if attrsOff != NullOffset && attrsOff != 0 {
 		fmtType, ver, kvs, err := readAttributes(r, attrsOff, fileSize)
@@ -182,6 +193,23 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 		//     consumers can reach format-specific fields without
 		//     reaching back into md.Attributes.
 		populateIFECrossFields(&md.Metadata, kvs)
+
+		// GH #81: some encoders (observed on GT450-sourced .iris) stamp a
+		// REDUCED level's magnification/MPP into the L0 METADATA header (e.g.
+		// header MPP 16.835 = 2^6 × the true 0.262968 GT450 scan; magnification
+		// 0.625 = 40/64). When the passed-through ATTRIBUTES carry the source
+		// scanner's authoritative L0 values — aperio.AppMag / aperio.MPP, or the
+		// Aperio ImageDescription banner — prefer those for the cross-format
+		// Magnification/MPP. The raw header values stay in MagnificationFromHeader
+		// / MPPFromHeader. Non-Aperio IFE (no such attributes) keeps the header.
+		if appMag, mpp, okMag, okMPP := aperioL0Resolution(kvs, md.ImageDescription); okMag || okMPP {
+			if okMag {
+				md.Magnification = appMag
+			}
+			if okMPP {
+				md.MPP = opentile.MPP{X: mpp, Y: mpp}
+			}
+		}
 	} else {
 		md.AttributesFormat = AttributesFormatUndefined
 	}
@@ -205,6 +233,59 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	}
 
 	return md, assoc, icc, nil
+}
+
+// aperioL0Resolution extracts the source scanner's true level-0 AppMag and MPP
+// from the passed-through ATTRIBUTES, used to correct the IFE METADATA header
+// when an encoder stamped a reduced level's magnification/MPP there (GH #81;
+// observed on GT450-sourced .iris). Prefers the discrete aperio.AppMag /
+// aperio.MPP keys; falls back to the Aperio ImageDescription banner
+// ("…|AppMag = 40|MPP = 0.262968|…"). okMag/okMPP report which were found;
+// returns all-false when no authoritative source is present (non-Aperio IFE).
+func aperioL0Resolution(kvs map[string]string, imageDesc string) (appMag, mpp float64, okMag, okMPP bool) {
+	if f, ok := parsePositiveFloat(kvs["aperio.AppMag"]); ok {
+		appMag, okMag = f, true
+	}
+	if f, ok := parsePositiveFloat(kvs["aperio.MPP"]); ok {
+		mpp, okMPP = f, true
+	}
+	if !okMag {
+		if f, ok := aperioBannerField(imageDesc, "AppMag"); ok {
+			appMag, okMag = f, true
+		}
+	}
+	if !okMPP {
+		if f, ok := aperioBannerField(imageDesc, "MPP"); ok {
+			mpp, okMPP = f, true
+		}
+	}
+	return appMag, mpp, okMag, okMPP
+}
+
+// aperioBannerField extracts "<name> = <float>" from an Aperio ImageDescription
+// banner whose fields are '|'-separated, e.g.
+// aperioBannerField("…|AppMag = 40|MPP = 0.262968", "MPP") → (0.262968, true).
+func aperioBannerField(desc, name string) (float64, bool) {
+	for _, part := range strings.Split(desc, "|") {
+		k, v, found := strings.Cut(part, "=")
+		if !found || strings.TrimSpace(k) != name {
+			continue
+		}
+		if f, ok := parsePositiveFloat(v); ok {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+// parsePositiveFloat trims and parses s as a float64, returning ok only for a
+// successfully-parsed value > 0.
+func parsePositiveFloat(s string) (float64, bool) {
+	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || f <= 0 {
+		return 0, false
+	}
+	return f, true
 }
 
 // populateIFECrossFields copies the parsed IFE ATTRIBUTES map onto

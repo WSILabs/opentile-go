@@ -140,7 +140,7 @@ var cfmExpect = []crossFormatMetadataExpect{
 	},
 	{
 		// IFE cervix: isotropic MPP from IFE-spec MPP attribute.
-		// Magnification (0.625); IFE encoder doesn't write
+		// Magnification: 40 (L0, corrected from aperio.AppMag per #81; header had 0.625). IFE encoder doesn't write
 		// ScannerManufacturer/Model. iris.<key> passthrough (24).
 		fixture:            "cervix_2x_jpeg.iris",
 		subdir:             "ife",
