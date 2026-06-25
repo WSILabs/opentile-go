@@ -38,11 +38,17 @@ func TestLevelOverlappingContract(t *testing.T) {
 			t.Errorf("L0 Grid.W×TileSize.W (%d) should exceed Size.W (%d) for an overlapping level",
 				l0.Grid.W*l0.TileSize.W, l0.Size.W)
 		}
-		// A lower (pre-stitched) level must NOT be overlapping.
+		// Reduced levels are now subtile-stitched too (#80/#83, v0.56.0): they
+		// report Overlapping=true and Grid does not tile Size (each L0 frame is
+		// composited at its compacted position via the subtile model).
 		if len(levels) > 1 {
-			last := levels[len(levels)-1]
-			if last.Overlapping {
-				t.Errorf("BIF lower level %d: Overlapping=true, want false (pre-stitched)", last.Index)
+			l1 := levels[1]
+			if !l1.Overlapping {
+				t.Errorf("BIF reduced level %d: Overlapping=false, want true (subtile-stitched)", l1.Index)
+			}
+			if l1.Grid.W*l1.TileSize.W <= l1.Size.W {
+				t.Errorf("L1 Grid.W×TileSize.W (%d) should exceed Size.W (%d) for an overlapping reduced level",
+					l1.Grid.W*l1.TileSize.W, l1.Size.W)
 			}
 		}
 	})

@@ -17,6 +17,27 @@ type regionLayout interface {
 	StitchedSize(level int) (w, h int, ok bool)
 }
 
+// subtileLayout is the optional extension a regionLayout implements when its
+// compositing UNITS are subtiles of stored tiles — the openslide Ventana model
+// for BIF reduced pyramid levels. A stored reduced tile is a downsample of a
+// 2ⁱ×2ⁱ block of L0 camera frames, so it is decomposed into per-frame subtiles,
+// each placed at that frame's own compacted position (`L0 origin >> i`). This
+// removes the frame overlap that lives *inside* a reduced tile (which whole-tile
+// placement cannot), giving an exact 2× pyramid.
+//
+// When a regionLayout also satisfies subtileLayout, the units returned by
+// TilesIntersecting / addressed by TileOrigin are subtile units (indexed by L0
+// frame col,row): TileOrigin is the unit's dest, UnitSize is the subtile size,
+// and SubtileSource maps the unit to the stored tile to decode + the crop origin
+// within it. For levels that are not subtile-decomposed (L0, non-overlapping),
+// the implementation returns UnitSize == TileSize and SubtileSource == (col,row,
+// 0,0), i.e. whole-tile behavior.
+type subtileLayout interface {
+	regionLayout
+	UnitSize(level int) (w, h int)
+	SubtileSource(level, col, row int) (srcCol, srcRow, cropX, cropY int)
+}
+
 const regionLayoutMaxHops = 16
 
 // regionLayoutOf walks the UnwrapReader chain looking for a regionLayout.
@@ -125,12 +146,20 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 		fillWhite(dst) // stitched output always white-initialized (overlaps/gaps)
 		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
 		defer returnTileScratch(scratch)
+		// Subtile layouts (BIF reduced levels) fetch the same source tile for
+		// every subtile of it (2ⁱ×2ⁱ subtiles share one source). Cache the
+		// last-decoded source so a run of subtiles from one tile decodes it once.
+		haveCol, haveRow, have := 0, 0, false
 		return compositeStitchedLoop(rl, level, x, y, x0, y0, x1, y1,
 			lvl.TileSize.W, lvl.TileSize.H, dst,
 			func(col, row int) (*decoder.Image, error) {
+				if have && col == haveCol && row == haveRow {
+					return scratch, nil
+				}
 				if err := s.imageDecodedTileInto(image, level, col, row, scratch, opts...); err != nil {
 					return nil, fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", col, row, level, err)
 				}
+				haveCol, haveRow, have = col, row, true
 				return scratch, nil
 			})
 	}

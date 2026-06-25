@@ -97,6 +97,17 @@ type levelImpl struct {
 	// the stitched extent. For pyramid levels ≥1 and non-DP/legacy slides it is
 	// the naive regular grid. Built once in newLevelImpl. See stitch.go and #60.
 	layout *Layout
+
+	// subtileL0 / subtileShift drive the openslide subtile model for a reduced
+	// overlapping pyramid level (#80/#83). When subtileL0 != nil this level is
+	// composited as subtiles of the L0 frame grid: the compositing units are L0
+	// frames (col,row), each placed at subtileL0.TileOrigin(col,row) >> shift,
+	// sized tileSize>>shift, sourced from this level's stored tile
+	// (col>>shift, row>>shift) cropped to its (col,row)-quadrant. This removes
+	// the frame overlap baked inside a reduced tile that whole-tile placement
+	// cannot. nil for L0 and non-overlapping levels (whole-tile via layout).
+	subtileL0    *Layout
+	subtileShift uint
 }
 
 // newLevelImpl constructs a levelImpl from a classified IFD. The
@@ -305,12 +316,44 @@ func (l *levelImpl) MPP() opentile.MPP                 { return l.mpp }
 func (l *levelImpl) FocalPlane() float64               { return 0 }
 func (l *levelImpl) TileOverlap() opentile.Point       { return l.tileOverlap }
 
-// TileOrigin returns the stitched-space top-left of image-grid tile (col,row).
+// TileOrigin returns the stitched-space top-left of the compositing unit
+// (col,row). For a subtile level (col,row) is an L0 frame and the origin is its
+// compacted L0 position scaled down to this level; otherwise it's a stored tile.
 func (l *levelImpl) TileOrigin(col, row int) (x, y int, ok bool) {
+	if l.subtileL0 != nil {
+		fx, fy, fok := l.subtileL0.TileOrigin(col, row)
+		if !fok {
+			return 0, 0, false
+		}
+		return fx >> l.subtileShift, fy >> l.subtileShift, true
+	}
 	if l.layout == nil {
 		return col * l.tileSize.W, row * l.tileSize.H, col >= 0 && col < l.grid.W && row >= 0 && row < l.grid.H
 	}
 	return l.layout.TileOrigin(col, row)
+}
+
+// unitSize is the compositing-unit size: the subtile size (tileSize>>shift) for
+// a subtile level, else the full stored tile size.
+func (l *levelImpl) unitSize() (w, h int) {
+	if l.subtileL0 != nil {
+		return l.tileSize.W >> l.subtileShift, l.tileSize.H >> l.subtileShift
+	}
+	return l.tileSize.W, l.tileSize.H
+}
+
+// subtileSource maps a compositing unit (col,row) to the stored tile to decode
+// and the crop origin within it. For a subtile level, L0 frame (col,row) sources
+// stored tile (col>>shift, row>>shift) at quadrant (col%2^shift, row%2^shift);
+// otherwise the unit is the whole tile (itself, no crop).
+func (l *levelImpl) subtileSource(col, row int) (srcCol, srcRow, cropX, cropY int) {
+	if l.subtileL0 == nil {
+		return col, row, 0, 0
+	}
+	sh := l.subtileShift
+	uw, uh := l.tileSize.W>>sh, l.tileSize.H>>sh
+	mask := (1 << sh) - 1
+	return col >> sh, row >> sh, (col & mask) * uw, (row & mask) * uh
 }
 
 // StitchedSize returns this level's stitched content extent (== Size()). It is
@@ -321,9 +364,13 @@ func (l *levelImpl) StitchedSize() (w, h int, ok bool) {
 	return l.size.W, l.size.H, true
 }
 
-// TilesIntersecting returns the image-grid tiles whose stitched extent touches
-// the output rectangle [x,y,x+w,y+h).
+// TilesIntersecting returns the compositing units whose stitched extent touches
+// the output rectangle [x,y,x+w,y+h). For a subtile level these are L0 frames
+// (placed at scaled compacted positions); otherwise stored tiles.
 func (l *levelImpl) TilesIntersecting(x, y, w, h int) []TilePlacement {
+	if l.subtileL0 != nil {
+		return l.subtileL0.SubtilesIntersecting(l.subtileShift, x, y, w, h)
+	}
 	if l.layout == nil {
 		return nil
 	}

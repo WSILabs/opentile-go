@@ -16,23 +16,37 @@ import (
 // Shared by imageReadRegionImpl and imageStitchedTile so the two compositing
 // paths cannot drift.
 func compositeStitchedLoop(rl regionLayout, level, regionX, regionY, x0, y0, x1, y1, tileW, tileH int, dst *decoder.Image, fetch func(col, row int) (*decoder.Image, error)) error {
+	// Subtile layouts (BIF reduced levels) decompose each stored tile into
+	// per-L0-frame subtiles. The compositing unit is then the subtile (smaller
+	// than the stored tile), the source is a different (lower-res) tile, and the
+	// blit reads from the source-tile's crop quadrant. Whole-tile layouts use
+	// the stored tile directly (unit == tile, crop == 0).
+	uw, uh := tileW, tileH
+	sub, isSub := rl.(subtileLayout)
+	if isSub {
+		uw, uh = sub.UnitSize(level)
+	}
 	for _, tp := range rl.TilesIntersecting(level, x0, y0, x1-x0, y1-y0) {
 		tileX, tileY, ok := rl.TileOrigin(level, tp.Col, tp.Row)
 		if !ok {
 			continue
 		}
-		src, err := fetch(tp.Col, tp.Row)
-		if err != nil {
-			return err
-		}
 		ix0 := maxInt(tileX, x0)
 		iy0 := maxInt(tileY, y0)
-		ix1 := minInt(tileX+tileW, x1)
-		iy1 := minInt(tileY+tileH, y1)
+		ix1 := minInt(tileX+uw, x1)
+		iy1 := minInt(tileY+uh, y1)
 		if ix0 >= ix1 || iy0 >= iy1 {
 			continue
 		}
-		blitInto(src, ix0-tileX, iy0-tileY, ix1-ix0, iy1-iy0, dst, ix0-regionX, iy0-regionY)
+		srcCol, srcRow, cropX, cropY := tp.Col, tp.Row, 0, 0
+		if isSub {
+			srcCol, srcRow, cropX, cropY = sub.SubtileSource(level, tp.Col, tp.Row)
+		}
+		src, err := fetch(srcCol, srcRow)
+		if err != nil {
+			return err
+		}
+		blitInto(src, cropX+(ix0-tileX), cropY+(iy0-tileY), ix1-ix0, iy1-iy0, dst, ix0-regionX, iy0-regionY)
 	}
 	return nil
 }

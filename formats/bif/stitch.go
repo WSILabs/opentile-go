@@ -62,6 +62,25 @@ func (l *Layout) TilesIntersecting(x, y, w, h int) []TilePlacement {
 	return out
 }
 
+// SubtilesIntersecting returns the placements (L0 frame col,row) whose SUBTILE
+// extent — the frame's compacted origin scaled by 1/2^shift, sized
+// (tileW>>shift × tileH>>shift) — overlaps the output rectangle [x,y,x+w,y+h)
+// at a reduced level. Used by the subtile compositing model (#80/#83): each L0
+// frame is placed independently at its scaled compacted position, so the frame
+// overlap baked inside a reduced tile is removed.
+func (l *Layout) SubtilesIntersecting(shift uint, x, y, w, h int) []TilePlacement {
+	uw, uh := l.tileW>>shift, l.tileH>>shift
+	x1, y1 := x+w, y+h
+	var out []TilePlacement
+	for _, p := range l.Placements() {
+		px, py := p.X>>shift, p.Y>>shift
+		if px < x1 && px+uw > x && py < y1 && py+uh > y {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // BuildLayout computes the tile layout for a level. Dispatches to the
 // whitepaper-exact DP path when the inputs support it (Task 4); otherwise
 // returns the naive regular-grid layout used by legacy fallback and pyramid
@@ -74,40 +93,6 @@ func BuildLayout(in StitchInput) *Layout {
 		return lg
 	}
 	return buildNaiveLayout(in)
-}
-
-// downsampleLayout derives a reduced-pyramid-level layout from the level-0
-// compacted layout (#83 / #80). Reduced tile (col,row) inherits L0 frame
-// (col<<shift, row<<shift)'s compacted stitched origin, scaled by 1/2^shift
-// (the reduced tile spatially covers that 2^shift × 2^shift block of L0 frames,
-// so it lands at the block's compacted top-left). Reduced tiles with no backing
-// L0 frame (the #60 phantom column / sparse cells) fall back to their naive grid
-// position; they are blank and clipped by the level's Size.
-//
-// The result removes the residual frame overlap from reduced levels (which the
-// scanner stored un-compacted, as the raw frame grid downsampled), so a region /
-// StitchedTile read composites them stitch-aligned with L0 — DP carries a small
-// ~overlap/2^i residual (#83), legacy a dense one (#80).
-func downsampleLayout(l0 *Layout, shift uint, cols, rows, tw, th int) *Layout {
-	l := newLayout(cols, rows, tw, th)
-	maxX, maxY := 0, 0
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
-			px, py := col*tw, row*th
-			if x, y, ok := l0.TileOrigin(col<<shift, row<<shift); ok {
-				px, py = x>>shift, y>>shift
-			}
-			l.origin[[2]int{col, row}] = TilePlacement{Col: col, Row: row, X: px, Y: py}
-			if px+tw > maxX {
-				maxX = px + tw
-			}
-			if py+th > maxY {
-				maxY = py + th
-			}
-		}
-	}
-	l.Width, l.Height = maxX, maxY
-	return l
 }
 
 func buildNaiveLayout(in StitchInput) *Layout {
