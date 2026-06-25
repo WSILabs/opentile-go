@@ -258,14 +258,24 @@ const legacyConfidenceCutoff = 98
 
 // buildLegacyLayout reconstructs tile placement for legacy iScan BIF (Coreo/HT),
 // which carry no <Frame> nodes — the only position signal is the TileJointInfo
-// overlap graph. The graph is too fragmented to traverse per-tile (Phase 0:
-// ~5% reachable from a root), so we use a SEPARABLE per-axis model derived from
-// the aggregate per-gap overlap statistics (this is #63's recommended
-// "accumulate per-gap", NOT a single global average): tile (col,row) lands at
-// (X[col], Y[row]) where X[]/Y[] accumulate (tile - perGapAvgOverlap) across
-// gaps, in float, with empty gaps taking the global mean overlap. Clean-room —
-// derived from the file's own joints; bio-formats/openslide are test oracles
-// only. Declines (nil → naive) unless this is a legacy slide with live joints.
+// overlap graph plus the per-AOI geometry (origin / Pos / NumCols×NumRows).
+//
+// MULTI-AOI (#67): a legacy slide may carry several Areas of Interest, each a
+// sub-grid of the global tile grid placed at its own origin (OS-2 has 3 AOIs,
+// one unscanned). Following openslide's ventana reader: pair ImageInfo[i] with
+// AoiOrigin[i] by document order, skip AOIScanned=false AOIs, and place each
+// scanned AOI's local NumCols×NumRows grid at (Pos-X, flipped Pos-Y) with
+// start col/row = Origin / tileSize. Pos-Y is measured from the AOI bottom, so
+// it is flipped to image space (top - Pos-Y - height). Single-AOI slides (OS-1)
+// are the degenerate case (one AOI at OriginX=0, Pos-X=0 → lands at origin,
+// byte-identical to before).
+//
+// WITHIN each AOI, placement uses the SEPARABLE per-axis per-gap-average overlap
+// model (#63, localOffsets): tile (c,r) at (Pos-X + X[c], top'+Y[r]) where X/Y
+// accumulate (tile - perGapAvgOverlap) over that AOI's joints (serpentine over
+// its LOCAL grid). Clean-room — derived from the file's own joints; openslide /
+// bio-formats are test oracles only. Declines (nil → naive) unless legacy with
+// live joints.
 func buildLegacyLayout(in StitchInput) *Layout {
 	ei := in.EncodeInfo
 	if in.Generation != GenerationLegacyIScan || ei == nil || len(ei.ImageInfos) == 0 {
@@ -274,9 +284,96 @@ func buildLegacyLayout(in StitchInput) *Layout {
 	if !hasLiveJoint(ei) {
 		return nil
 	}
-	cols, rows, tw, th := in.Cols, in.Rows, in.TileW, in.TileH
+	tw, th := in.TileW, in.TileH
+
+	type area struct {
+		startCol, startRow int   // global-grid offset = Origin / tileSize
+		posX, posY         int   // Pos anchor (Pos-Y measured from the AOI bottom)
+		cols, rows         int   // local grid = NumCols × NumRows
+		x, y               []int // per-gap local offsets (X[0]=Y[0]=0)
+		h                  int   // local pixel height = Y[rows-1] + tileH
+	}
+	var areas []*area
+	for i := range ei.ImageInfos {
+		ii := &ei.ImageInfos[i]
+		if !ii.AOIScanned || ii.NumCols < 1 || ii.NumRows < 1 || i >= len(ei.AoiOrigins) {
+			continue
+		}
+		o := ei.AoiOrigins[i]
+		a := &area{
+			startCol: o.OriginX / tw, startRow: o.OriginY / th,
+			posX: ii.PosX, posY: ii.PosY, cols: ii.NumCols, rows: ii.NumRows,
+		}
+		a.x, a.y = localOffsets(ii, tw, th)
+		a.h = a.y[a.rows-1] + th
+		areas = append(areas, a)
+	}
+	if len(areas) == 0 {
+		return nil
+	}
+
+	// Y-flip (openslide): Pos-Y is the distance from the AOI bottom to a point
+	// below all AOIs, so the per-AOI top in image space is top - Pos-Y - height.
+	top := 0
+	for _, a := range areas {
+		if a.posY+a.h > top {
+			top = a.posY + a.h
+		}
+	}
+
+	l := newLayout(in.Cols, in.Rows, tw, th)
+	minX, minY := 1<<62, 1<<62
+	maxX, maxY := 0, 0
+	for _, a := range areas {
+		ayTop := top - a.posY - a.h
+		for r := 0; r < a.rows; r++ {
+			for c := 0; c < a.cols; c++ {
+				gc, gr := a.startCol+c, a.startRow+r
+				if gc < 0 || gc >= in.Cols || gr < 0 || gr >= in.Rows {
+					continue
+				}
+				x, y := a.posX+a.x[c], ayTop+a.y[r]
+				l.origin[[2]int{gc, gr}] = TilePlacement{Col: gc, Row: gr, X: x, Y: y}
+				if x < minX {
+					minX = x
+				}
+				if y < minY {
+					minY = y
+				}
+				if x+tw > maxX {
+					maxX = x + tw
+				}
+				if y+th > maxY {
+					maxY = y + th
+				}
+			}
+		}
+	}
+	// Normalize the hull's top-left to (0,0). Pos-X and the Y-flip already land
+	// near origin for the slides we have; normalize defensively.
+	if minX != 0 || minY != 0 {
+		for k, p := range l.origin {
+			p.X -= minX
+			p.Y -= minY
+			l.origin[k] = p
+		}
+		maxX -= minX
+		maxY -= minY
+	}
+	l.Width, l.Height = maxX, maxY
+	return l
+}
+
+// localOffsets computes the per-axis cumulative pixel offsets for one AOI's
+// local grid (NumCols×NumRows) via the separable per-gap-average overlap model
+// (#63): X[0]=Y[0]=0; X[c] accumulates (tileW - perColGapAvgOverlap) across this
+// AOI's joints (serpentine over its LOCAL grid), empty gaps taking the AOI's
+// global-mean overlap. A single-AOI slide reduces to the original whole-grid
+// model (local grid == global grid), so OS-1 is unchanged.
+func localOffsets(ii *bifxml.ImageInfo, tw, th int) (X, Y []int) {
+	cols, rows := ii.NumCols, ii.NumRows
 	resolve := func(idx int) (c, r int, ok bool) {
-		c, r = serpentineToImage(idx-1, cols, rows) // legacy: 1-based serpentine
+		c, r = serpentineToImage(idx-1, cols, rows) // 1-based serpentine over the LOCAL grid
 		if c < 0 {
 			return 0, 0, false
 		}
@@ -288,30 +385,28 @@ func buildLegacyLayout(in StitchInput) *Layout {
 	rowN := make([]int, rows)
 	var gXs, gYs float64
 	var gXn, gYn int
-	for _, ii := range ei.ImageInfos {
-		for _, j := range ii.Joints {
-			if !j.FlagJoined || j.Confidence < legacyConfidenceCutoff {
-				continue
-			}
-			ac, ar, aok := resolve(j.Tile1)
-			bc, br, bok := resolve(j.Tile2)
-			if !aok || !bok {
-				continue
-			}
-			if ar == br && absDelta(ac, bc) == 1 {
-				g := min(ac, bc)
-				colSum[g] += float64(j.OverlapX)
-				colN[g]++
-				gXs += float64(j.OverlapX)
-				gXn++
-			}
-			if ac == bc && absDelta(ar, br) == 1 {
-				g := min(ar, br)
-				rowSum[g] += float64(j.OverlapY)
-				rowN[g]++
-				gYs += float64(j.OverlapY)
-				gYn++
-			}
+	for _, j := range ii.Joints {
+		if !j.FlagJoined || j.Confidence < legacyConfidenceCutoff {
+			continue
+		}
+		ac, ar, aok := resolve(j.Tile1)
+		bc, br, bok := resolve(j.Tile2)
+		if !aok || !bok {
+			continue
+		}
+		if ar == br && absDelta(ac, bc) == 1 {
+			g := min(ac, bc)
+			colSum[g] += float64(j.OverlapX)
+			colN[g]++
+			gXs += float64(j.OverlapX)
+			gXn++
+		}
+		if ac == bc && absDelta(ar, br) == 1 {
+			g := min(ar, br)
+			rowSum[g] += float64(j.OverlapY)
+			rowN[g]++
+			gYs += float64(j.OverlapY)
+			gYn++
 		}
 	}
 	gX := 0.0
@@ -322,7 +417,7 @@ func buildLegacyLayout(in StitchInput) *Layout {
 	if gYn > 0 {
 		gY = gYs / float64(gYn)
 	}
-	X := make([]int, cols)
+	X = make([]int, cols)
 	acc := 0.0
 	for col := 1; col < cols; col++ {
 		ov := gX
@@ -332,7 +427,7 @@ func buildLegacyLayout(in StitchInput) *Layout {
 		acc += float64(tw) - ov
 		X[col] = int(acc + 0.5)
 	}
-	Y := make([]int, rows)
+	Y = make([]int, rows)
 	acc = 0.0
 	for row := 1; row < rows; row++ {
 		ov := gY
@@ -342,26 +437,7 @@ func buildLegacyLayout(in StitchInput) *Layout {
 		acc += float64(th) - ov
 		Y[row] = int(acc + 0.5)
 	}
-	l := newLayout(cols, rows, tw, th)
-	maxX, maxY := 0, 0
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
-			l.origin[[2]int{col, row}] = TilePlacement{Col: col, Row: row, X: X[col], Y: Y[row]}
-		}
-	}
-	for col := 0; col < cols; col++ {
-		if X[col]+tw > maxX {
-			maxX = X[col] + tw
-		}
-	}
-	for row := 0; row < rows; row++ {
-		if Y[row]+th > maxY {
-			maxY = Y[row] + th
-		}
-	}
-	l.Width = maxX
-	l.Height = maxY
-	return l
+	return X, Y
 }
 
 // hasLiveJoint reports whether any joint is FlagJoined with confidence at or

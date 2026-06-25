@@ -112,6 +112,8 @@ Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **
 
 **Algorithm:** For each axis independently, per-gap overlaps are averaged across all live joins (Confidence ≥ 98) touching that column-gap or row-gap, with the global-mean used for gaps that have no qualifying joins. X\[col\] and Y\[row\] are then accumulated left-to-right and top-to-bottom from those average overlaps, giving each tile a placed origin; the stitched extent is the convex hull of all placed frames.
 
+**Multi-AOI (#67).** A legacy slide may carry several **Areas of Interest** — separate scanned tissue regions, each a sub-grid of the global tile grid placed at its own slide origin. OS-2 has three `<AoiOrigin>` nodes (one unscanned); single-AOI slides like OS-1 are the degenerate one-area case. Following openslide's `openslide-vendor-ventana.c` area model, the layout pairs `ImageInfo[i]` with `AoiOrigin[i]` by document order, **skips `AOIScanned=false` AOIs**, and places each scanned AOI's local `NumCols×NumRows` grid at its own anchor: the global-grid start cell is `Origin / TileSize`, the pixel anchor is `(Pos-X, Pos-Y)`, and — because **Pos-Y is measured from the AOI bottom** — the per-AOI top in image space is Y-flipped to `top − Pos-Y − height` (`top` = max over AOIs of `Pos-Y + height`). Within each AOI the per-gap-average overlap model above runs over that AOI's **local** grid (serpentine numbering local to the AOI). The full layout is the union hull across all scanned AOIs, normalized so its top-left corner is `(0,0)`. A single-AOI slide (one area at `Origin=0`, `Pos-X=0`) reduces exactly to the original whole-grid model, so OS-1 is byte-identical.
+
 **Result:** Near-exact vs openslide (the all-4 oracle — bio-formats crashes opening 3 of the 4 legacy fixtures):
 
 | Fixture | opentile-go | openslide |
@@ -128,7 +130,7 @@ Width is clean-room-exact for tested fixtures. Height carries a ~0.05% residual:
 - `TestLegacySeamContinuity`: stitch-band pixel MAD is 2.3–4.5× tighter than naive placement.
 - `TestLegacyDimsVsOpenslide`: dimensions within 0.1% of openslide across all 4 fixtures.
 
-**Multi-AOI untested.** All 4 legacy fixtures are single-AOI; multi-AOI legacy stitching behaviour is unverified.
+**Multi-AOI (#67) — validated on OS-2.** OS-2.bif carries three AOIs (two scanned, one unscanned); the two scanned tissue areas now land at their own `(Pos-X, Pos-Y)` anchors instead of being overlaid as one grid, removing the seam that previously cut through the large AOI on zoom. L0 reports the union hull `114951 × 76389`; reduced levels floor-halve. OS-2 is a PHI/local-only fixture, so its `TestBIFGeometry`/`TestSlideParity` pins are SHA/geometry-only and skip in CI. The remaining `columnYAdjust` height residual (#68) is orthogonal and still applies per-AOI.
 
 ## Edge tile semantics
 

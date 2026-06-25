@@ -31,7 +31,8 @@ func singleAOIEncodeInfo(cols, rows, ox, oy int) *bifxml.EncodeInfo {
 			}
 		}
 	}
-	return &bifxml.EncodeInfo{Ver: 2, ImageInfos: []bifxml.ImageInfo{ii}}
+	return &bifxml.EncodeInfo{Ver: 2, ImageInfos: []bifxml.ImageInfo{ii},
+		AoiOrigins: []bifxml.AoiOrigin{{Index: 0, OriginX: 0, OriginY: 0}}}
 }
 
 func TestBuildDPLayoutHorizontalOverlap(t *testing.T) {

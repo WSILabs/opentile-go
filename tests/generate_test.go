@@ -34,7 +34,7 @@ func sampledByDefault(slide string) bool {
 		return true
 	// BIF fixtures: Ventana-1 is 227 MB and OS-1 is 3.6 GB —
 	// both qualify under the >100 MB sampled-by-default policy.
-	case "Ventana-1.bif", "OS-1.bif":
+	case "Ventana-1.bif", "OS-1.bif", "OS-2.bif":
 		return true
 	// IFE: cervix_2x_jpeg is 2.1 GB; sample-only.
 	case "cervix_2x_jpeg.iris":

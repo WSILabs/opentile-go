@@ -100,6 +100,33 @@ var bifFixtures = []bifFixture{
 		overviewWxH:   [2]int{1008, 3008},
 		hasThumbnail:  true,
 	},
+	{
+		// OS-2 is a MULTI-AOI legacy iScan slide (#67): three AoiOrigins, two
+		// scanned tissue areas placed at their own Pos-X/Pos-Y anchors (Y measured
+		// from each AOI's bottom → Y-flipped during layout). L0 Size is the union
+		// hull across all scanned AOIs (114951×76389); reduced levels floor-halve.
+		// Grid stays the raw frame grid (125×61). PHI/local-only fixture — skips in
+		// CI. See buildLegacyLayout multi-AOI path + docs/formats/bif.md.
+		filename: "OS-2.bif",
+		levels: []bifLevelExpect{
+			{W: 114951, H: 76389, TileW: 1024, TileH: 1360, GridW: 125, GridH: 61, OverlapX: 31, OverlapY: 31},
+			{W: 57475, H: 38194, TileW: 1024, TileH: 1360, GridW: 63, GridH: 31},
+			{W: 28737, H: 19097, TileW: 1024, TileH: 1360, GridW: 32, GridH: 16},
+			{W: 14368, H: 9548, TileW: 1024, TileH: 1360, GridW: 16, GridH: 8},
+			{W: 7184, H: 4774, TileW: 1024, TileH: 1360, GridW: 8, GridH: 4},
+			{W: 3592, H: 2387, TileW: 1024, TileH: 1360, GridW: 4, GridH: 2},
+			{W: 1796, H: 1193, TileW: 1024, TileH: 1360, GridW: 2, GridH: 1},
+			{W: 898, H: 596, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 449, H: 298, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 224, H: 149, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+		},
+		scanRes:       0.2325,
+		generation:    "legacy-iscan",
+		hasICC:        false,
+		encodeInfoVer: 2,
+		overviewWxH:   [2]int{1008, 3008},
+		hasThumbnail:  true,
+	},
 }
 
 func TestBIFGeometry(t *testing.T) {
