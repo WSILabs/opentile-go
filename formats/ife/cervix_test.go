@@ -151,11 +151,12 @@ func TestCervixEndToEnd(t *testing.T) {
 
 	// Metadata extraction (since v0.8 metadata closeout).
 	cm := tiler.Metadata()
-	// GH #81: cervix's METADATA header stamped a reduced level's magnification
-	// (0.625 = 40/64); the true L0 value comes from aperio.AppMag = 40. The raw
-	// header value stays in MagnificationFromHeader.
+	// GH #81: cervix's header is conformant after the ifefixheader patch — the
+	// magnification coefficient (40/256 = 0.15625) × max_scale 256 = 40 via the
+	// Iris convention, no override. The raw coefficient stays in
+	// MagnificationFromHeader.
 	if cm.Magnification != 40 {
-		t.Errorf("Metadata.Magnification = %v, want 40 (L0, corrected from aperio.AppMag; header was 0.625)", cm.Magnification)
+		t.Errorf("Metadata.Magnification = %v, want 40 (coefficient × max_scale 256)", cm.Magnification)
 	}
 	if !strings.HasPrefix(cm.Writer, "iris/") {
 		t.Errorf("Writer (v0.20): got %q, want prefix 'iris/' (IFE writer is the Iris codec; source scanner attribution lives in ImageDescription)", cm.Writer)
@@ -191,7 +192,7 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Fatal("MetadataOf returned !ok on cervix")
 	}
 	if ifeMD.MPP.IsZero() {
-		t.Error("MPP = zero; cervix reports 0.262968 (L0, corrected from aperio.MPP per #81)")
+		t.Error("MPP = zero; cervix reports 0.262968 (L0, convention from conformant header)")
 	}
 	if ifeMD.AttributesFormat != AttributesFormatFreeText {
 		t.Errorf("AttributesFormat = %v, want free-text", ifeMD.AttributesFormat)
@@ -215,12 +216,11 @@ func TestCervixEndToEnd(t *testing.T) {
 
 	// v0.17 cross-format assertions on cervix's real metadata.
 	cm = tiler.Metadata()
-	// GH #81: cervix's METADATA header reports 16.835 µm/px — a 2^6 downsample of
-	// the true 0.262968 µm/px GT450 L0 scan (16.835/0.262968 = 64). cross.MPP now
-	// reports the authoritative L0 value from aperio.MPP; the raw header value is
-	// preserved in ifeMD.MPPFromHeader.
+	// cervix's conformant header carries micronsPerPixel = 0.262968 × max_scale
+	// 256 = 67.32 (MPP at the lowest-resolution layer); the convention divides it
+	// back down to the true L0 0.262968. Raw header value in ifeMD.MPPFromHeader.
 	if cm.MPP.X < 0.2629 || cm.MPP.X > 0.2630 {
-		t.Errorf("cross.MPP.X = %v, want ≈ 0.262968 (L0, corrected from aperio.MPP)", cm.MPP.X)
+		t.Errorf("cross.MPP.X = %v, want ≈ 0.262968 (L0 = micronsPerPixel / max_scale)", cm.MPP.X)
 	}
 	if cm.MPP.X != cm.MPP.Y {
 		t.Errorf("cross.MPP.X (%v) != Y (%v); IFE pixels are isotropic", cm.MPP.X, cm.MPP.Y)
@@ -228,9 +228,9 @@ func TestCervixEndToEnd(t *testing.T) {
 	if cm.MPP.Symmetric() == 0 {
 		t.Error("cross.MPP.Symmetric() = 0; IFE pixels are isotropic, should be non-zero")
 	}
-	// The raw (downsampled) header MPP stays available for transparency.
-	if ifeMD.MPPFromHeader.X < 16.83 || ifeMD.MPPFromHeader.X > 16.84 {
-		t.Errorf("MPPFromHeader.X = %v, want ≈ 16.835 (raw header value)", ifeMD.MPPFromHeader.X)
+	// The raw lowest-res-layer header MPP stays available for transparency.
+	if ifeMD.MPPFromHeader.X < 67.31 || ifeMD.MPPFromHeader.X > 67.33 {
+		t.Errorf("MPPFromHeader.X = %v, want ≈ 67.32 (raw header, = 0.262968 × 256)", ifeMD.MPPFromHeader.X)
 	}
 	// Vendor passthrough: every IFE attribute available under "iris.".
 	if got := cm.Properties["iris.aperio.AppMag"]; got != "40" {
