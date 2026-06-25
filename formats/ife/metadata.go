@@ -258,12 +258,17 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64, maxScale float64) (
 //   - magnification is a COEFFICIENT: physical_mag(layer) = layer.scale ×
 //     magnification, so the full-resolution magnification is
 //     magnification × max_scale.
-//   - micronsPerPixel is the MPP at scale 1 (the coarsest layer). MPP scales as
-//     1/scale, so the full-resolution MPP is micronsPerPixel / max_scale.
+//   - micronsPerPixel is anchored at the lowest-resolution layer, so the
+//     full-resolution MPP is micronsPerPixel / max_scale.
 //
-// (Iris-Headers/include/IrisTypes.hpp; Iris-File-Extension's
-// examples/slide_info_abstraction.cpp.) No-op when maxScale ≤ 0 or the header
-// field is unset (the value stays zero).
+// These are the exact inverse of the Iris-Codec encoder, which writes
+//
+//	micronsPerPixel = openslide_MPP_X         * front().downsample  // MPP_finest × max_scale
+//	magnification   = openslide_objective_power / front().downsample // objective / max_scale
+//
+// (front().downsample == max_scale). See Iris-Codec/src/IrisCodecEncoder.cpp
+// READ_OPENSLIDE_METADATA + Iris-Headers/include/IrisCodecTypes.hpp field docs.
+// No-op when maxScale ≤ 0 or the header field is unset (the value stays zero).
 func applyResolutionConvention(md *Metadata, maxScale float64) {
 	if maxScale <= 0 {
 		return
