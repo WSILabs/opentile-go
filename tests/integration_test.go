@@ -54,6 +54,11 @@ var slideCandidates = []string{
 	"CMU-1-Small-Region.ome.tiff",
 	"Ventana-1.bif",
 	"OS-1.bif",
+	// OS-2.bif (v0.58): multi-AOI legacy iScan (#67) — three AoiOrigins, two
+	// scanned tissue areas at separate Pos-X/Pos-Y anchors. PHI/local-only
+	// fixture (gitignored); the committed OS-2.bif.json snapshot is SHA-only, so
+	// CI skips it cleanly when the slide is absent.
+	"OS-2.bif",
 	"cervix_2x_jpeg.iris",
 	// Generic TIFF (v0.10): catch-all reader for tiled pyramidal
 	// TIFFs without vendor metadata. CMU-1.tiff is the

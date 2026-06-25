@@ -9,6 +9,38 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.58.0] — 2026-06-25
+
+Multi-AOI legacy iScan BIF stitching — place every scanned Area of Interest at
+its own slide anchor (closes #67).
+
+### Fixed
+
+- **Legacy iScan BIF multi-AOI placement (#67).** A legacy iScan slide may carry
+  several Areas of Interest (AOIs) — separate scanned tissue regions, each a
+  sub-grid of the global tile grid placed at its own origin (OS-2 has three
+  `AoiOrigin` nodes, one unscanned). `buildLegacyLayout` previously stitched the
+  whole frame grid as a single AOI, which overlaid the disjoint regions and left
+  a visible seam through the large AOI on zoom. Following openslide's Ventana
+  reader, the layout now pairs `ImageInfo[i]` with `AoiOrigin[i]` by document
+  order, skips `AOIScanned=false` AOIs, and places each scanned AOI's local
+  `NumCols×NumRows` grid at its own `(Pos-X, Pos-Y)` anchor (Pos-Y is measured
+  from the AOI bottom, so it is Y-flipped into image space). Within each AOI the
+  existing separable per-gap-average overlap model (#63) is reused. Single-AOI
+  slides (OS-1: one AOI at origin 0) are the degenerate case and remain
+  **byte-identical**. OS-2 L0 now reports the union hull across scanned AOIs
+  (114951×76389) with the inter-AOI seam removed; reduced levels floor-halve.
+
+### Notes
+
+- Per-tile raw/decoded bytes and `Grid` are unchanged (raw frame addressing).
+  Only the stitched placement (`Level.Size`, `ReadRegion`/`ReadRegionScaled`/
+  `ScaledStrips`/`StitchedTile` output) changes, and only for multi-AOI legacy
+  slides. The other 10 formats and DP-generation BIF are untouched.
+- OS-2.bif is a PHI/local-only fixture (gitignored); its committed
+  `OS-2.bif.json` snapshot and the `TestBIFGeometry`/`TestSlideParity` pins are
+  SHA/geometry-only and skip cleanly in CI when the slide is absent.
+
 ## [0.57.0] — 2026-06-25
 
 Caller-chosen display tile size — render uniform/square display tiles from
