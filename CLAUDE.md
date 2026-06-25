@@ -509,7 +509,7 @@ Local slides live in `/sample_files/` (gitignored). v0.6 fixture set:
 - `sample_files/ome-tiff/Leica-2.ome.tiff` (1.2 GB, 6 levels × 4 main pyramids, BigTIFF) — multi-image OME; exercises the v0.6 multi-image deviation
 - `sample_files/bif/Ventana-1.bif` (227 MB) — DP 200 spec-compliant; tifffile parity oracle target
 - `sample_files/bif/OS-1.bif` (3.6 GB) — legacy iScan Coreo; sampled fixture
-- `sample_files/ife/cervix_2x_jpeg.iris` (2.16 GB, 9 levels, JPEG) — first non-TIFF fixture; downloaded from Iris's public S3 bucket; SHA256 `b080859913d2…`. Sampled fixture (cervix is too large for full-walk under the 5 MB per-fixture cap)
+- `sample_files/ife/cervix_2x_jpeg.iris` (2.16 GB, 9 levels, JPEG) — first non-TIFF fixture; downloaded from Iris's public S3 bucket; original-download SHA256 `b080859913d2…`. Sampled fixture (cervix is too large for full-walk under the 5 MB per-fixture cap). **NOTE:** the S3 file ships a stale resolution header (#81 — computed for a 4-layer max_scale=64 pyramid but the file is 9-layer max_scale=256); after downloading, make it conformant with `go run ./cmd/ifefixheader -appmag 40 -mpp 0.262968 sample_files/ife/cervix_2x_jpeg.iris` (this changes the SHA). The IFE resolution tests expect the patched header.
 - `sample_files/szi/CMU-1.szi` (1.5 MB, 16 levels, JPEG) — canonical CMU-1 re-encoded as SZI by smartinmedia spec authors; first ZIP-backed fixture
 - `sample_files/szi/scan_618_grundium_SZI.szi` (709 MB, 19 levels, JPEG) — Grundium-scanner-produced SZI; sampled fixture
 

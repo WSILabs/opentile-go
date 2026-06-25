@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strconv"
-	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/decoder"
@@ -94,10 +92,10 @@ type Metadata struct {
 
 	// MPPFromHeader is the RAW microns-per-pixel from the METADATA block's f32
 	// field (widened to f64). Zero when unset. Per the Iris spec this is the
-	// MPP at scale 1 (the coarsest layer), so the full-resolution MPP is
+	// MPP at the lowest-resolution layer, so the full-resolution MPP is
 	// micronsPerPixel / max_scale (carried by opentile.Metadata.MPP). Parallels
 	// MagnificationFromHeader: this field is the verbatim header value before
-	// the resolution-convention derivation and any aperio override (GH #81).
+	// the resolution-convention derivation (GH #81).
 	MPPFromHeader opentile.MPP
 
 	// CodecMajor / CodecMinor / CodecBuild identify the version of
@@ -204,25 +202,6 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64, maxScale float64) (
 		//     consumers can reach format-specific fields without
 		//     reaching back into md.Attributes.
 		populateIFECrossFields(&md.Metadata, kvs)
-
-		// GH #81: the spec-correct convention above resolves conformant files
-		// (full_mag = coefficient × max_scale; full_MPP = mpp_at_scale1 /
-		// max_scale). Some NON-conformant encoders mis-ladder the pyramid (our
-		// cervix_2x fixture re-laddered ×64→×256 while keeping header values
-		// computed for the original max_scale), so the convention alone yields a
-		// wrong L0. When the passed-through ATTRIBUTES carry the source scanner's
-		// authoritative L0 values — aperio.AppMag / aperio.MPP, or the Aperio
-		// ImageDescription banner — they OVERRIDE the convention. The raw header
-		// values stay in MagnificationFromHeader / MPPFromHeader. Conformant
-		// non-Aperio IFE (no such attributes) keeps the convention-derived value.
-		if appMag, mpp, okMag, okMPP := aperioL0Resolution(kvs, md.ImageDescription); okMag || okMPP {
-			if okMag {
-				md.Magnification = appMag
-			}
-			if okMPP {
-				md.MPP = opentile.MPP{X: mpp, Y: mpp}
-			}
-		}
 	} else {
 		md.AttributesFormat = AttributesFormatUndefined
 	}
@@ -282,60 +261,6 @@ func applyResolutionConvention(md *Metadata, maxScale float64) {
 			Y: md.MPPFromHeader.Y / maxScale,
 		}
 	}
-}
-
-// aperioL0Resolution extracts the source scanner's true level-0 AppMag and MPP
-// from the passed-through ATTRIBUTES. It OVERRIDES the scale-relative convention
-// (applyResolutionConvention) for NON-conformant files whose header values don't
-// match the pyramid's max_scale — e.g. the re-laddered cervix_2x fixture (GH #81;
-// GT450-sourced .iris). Prefers the discrete aperio.AppMag /
-// aperio.MPP keys; falls back to the Aperio ImageDescription banner
-// ("…|AppMag = 40|MPP = 0.262968|…"). okMag/okMPP report which were found;
-// returns all-false when no authoritative source is present (non-Aperio IFE).
-func aperioL0Resolution(kvs map[string]string, imageDesc string) (appMag, mpp float64, okMag, okMPP bool) {
-	if f, ok := parsePositiveFloat(kvs["aperio.AppMag"]); ok {
-		appMag, okMag = f, true
-	}
-	if f, ok := parsePositiveFloat(kvs["aperio.MPP"]); ok {
-		mpp, okMPP = f, true
-	}
-	if !okMag {
-		if f, ok := aperioBannerField(imageDesc, "AppMag"); ok {
-			appMag, okMag = f, true
-		}
-	}
-	if !okMPP {
-		if f, ok := aperioBannerField(imageDesc, "MPP"); ok {
-			mpp, okMPP = f, true
-		}
-	}
-	return appMag, mpp, okMag, okMPP
-}
-
-// aperioBannerField extracts "<name> = <float>" from an Aperio ImageDescription
-// banner whose fields are '|'-separated, e.g.
-// aperioBannerField("…|AppMag = 40|MPP = 0.262968", "MPP") → (0.262968, true).
-func aperioBannerField(desc, name string) (float64, bool) {
-	for _, part := range strings.Split(desc, "|") {
-		k, v, found := strings.Cut(part, "=")
-		if !found || strings.TrimSpace(k) != name {
-			continue
-		}
-		if f, ok := parsePositiveFloat(v); ok {
-			return f, true
-		}
-	}
-	return 0, false
-}
-
-// parsePositiveFloat trims and parses s as a float64, returning ok only for a
-// successfully-parsed value > 0.
-func parsePositiveFloat(s string) (float64, bool) {
-	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
-	if err != nil || f <= 0 {
-		return 0, false
-	}
-	return f, true
 }
 
 // populateIFECrossFields copies the parsed IFE ATTRIBUTES map onto

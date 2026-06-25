@@ -11,42 +11,56 @@ upstream references, and retirement audit per milestone.
 
 ## [0.54.1] — 2026-06-24
 
-IFE Magnification/MPP read the Iris scale-relative convention, not a special-cased
-aperio preference (#81 follow-up).
+IFE Magnification/MPP read the Iris scale-relative convention — verified against the
+Iris-Codec encoder source, with no per-vendor override (#81 follow-up).
 
 ### Fixed
 
-- **IFE `Metadata.Magnification` / `Metadata.MPP` now read the Iris resolution
-  convention as the primary path.** v0.54.0 mis-framed the root cause as "an encoder
-  stamped a downsampled level's value into the header" and preferred `aperio.*` as a
-  special case — which would have surfaced a *wrong* value for any future conformant
-  `.iris` file that lacks aperio attributes. The actual Iris convention (confirmed
-  against the Iris-Codec **encoder source**, `Iris-Codec/src/IrisCodecEncoder.cpp`,
-  which writes `micronsPerPixel = MPP_finest × max_scale` and
-  `magnification = objective / max_scale`) is that the `METADATA` header stores
-  **scale-relative** quantities: `magnification` is a coefficient
-  (`objective = magnification × max_scale`) and `micronsPerPixel` is anchored at the
-  lowest-resolution layer (`MPP_finest = micronsPerPixel / max_scale`). opentile-go now
-  derives the full-resolution L0 values by inverting that:
-  `Magnification = magnification × max_scale` and `MPP = micronsPerPixel / max_scale`.
-  The `aperio.AppMag` / `aperio.MPP` (or `ImageDescription` banner) lookup is retained
-  as an **override** for *non-conformant* files — specifically the local
-  `cervix_2x_jpeg.iris` fixture, a miscomputed re-encode whose header (`magnification =
-  0.625`, `micronsPerPixel = 16.835`) was computed for a 4-layer `max_scale = 64` pyramid
-  but re-laddered to 9 layers `max_scale = 256` without recomputing — so the convention
-  at its real `max_scale = 256` gives an impossible `160×`. (The public reference
-  `425248_JPEG.iris` carries *no* resolution metadata — both header fields are `0.0` — so
-  the numbers are verified against the encoder source, not that file.) Conformant
-  non-Aperio IFE now resolves correctly with no attributes needed. The raw header values
-  remain in `MagnificationFromHeader` / `MPPFromHeader`.
+- **IFE `Metadata.Magnification` / `Metadata.MPP` read the Iris resolution convention.**
+  v0.54.0 mis-framed the root cause as "an encoder stamped a downsampled level's value
+  into the header" and special-cased `aperio.AppMag` / `aperio.MPP`. The actual Iris
+  convention — confirmed against the Iris-Codec **encoder source**
+  (`Iris-Codec/src/IrisCodecEncoder.cpp`, `READ_OPENSLIDE_METADATA`, which writes
+  `micronsPerPixel = MPP_finest × max_scale` and `magnification = objective / max_scale`,
+  `front().downsample == max_scale`) — is that the `METADATA` header stores
+  **scale-relative** quantities: `magnification` is a coefficient and `micronsPerPixel`
+  is anchored at the lowest-resolution layer. opentile-go inverts that:
+  `Magnification = magnification × max_scale` and `MPP = micronsPerPixel / max_scale`
+  (`max_scale` = the finest layer's scale). The raw header values stay in
+  `MagnificationFromHeader` / `MPPFromHeader`.
+
+### Removed
+
+- **The `aperio.*` override is gone.** v0.54.0/first-cut-v0.54.1 special-cased the
+  source scanner's `aperio.AppMag` / `aperio.MPP` (or `ImageDescription` banner) to
+  "correct" a header that disagreed with the convention. That existed solely to prop up
+  one fixture (`cervix_2x_jpeg.iris`) whose header is stale — computed for a 4-layer
+  `max_scale = 64` pyramid but the file ships a 9-layer `max_scale = 256` ladder, so the
+  convention at its real `max_scale = 256` would give an impossible `160×`. The
+  convention is the spec; a disagreeing header is a bug in the **file**, so the override
+  (`aperioL0Resolution` + helpers) was removed and the fixture's header is corrected at
+  the source instead (see Added). `aperio.*` values remain available via
+  `Properties["iris.aperio.*"]`.
+
+### Added
+
+- **`cmd/ifefixheader`** — a small utility that rewrites an `.iris` METADATA header's
+  scale-relative resolution fields to be conformant with the file's own pyramid. It
+  reads `max_scale` from `LAYER_EXTENTS` and writes
+  `magnification = appmag / max_scale`, `micronsPerPixel = mpp × max_scale` from the
+  supplied true L0 objective / MPP. Used to fix the public `cervix_2x_jpeg.iris`
+  fixture's stale header: `go run ./cmd/ifefixheader -appmag 40 -mpp 0.262968 …`.
 
 ### Documentation
 
-- **`docs/formats/ife.md`** — documents the reversed Iris layer numbering (layer 0 =
-  lowest resolution), the scale-relative header semantics (coefficient + scale-1 MPP),
-  the `× / ÷ max_scale` derivation, and the non-conformant-fixture override. The local
-  `sample_files/ife/ife-format-spec-for-opentile-go.md` byte-layout reference gains a
-  matching METADATA-resolution note.
+- **`docs/formats/ife.md`** — documents the reversed Iris layer numbering, the
+  scale-relative header semantics, the `× / ÷ max_scale` derivation (cited to the
+  encoder source), the no-override stance + `cmd/ifefixheader` workflow, and corrects an
+  earlier "cervix is a 2× downsample of a 253,952 × 177,152 original" note (the embedded
+  Aperio metadata reports native `126940×88416` @ `0.262968` = the finest layer). The
+  public `425248_JPEG/AVIF.iris` references carry no resolution metadata at all. The
+  local `sample_files/ife/ife-format-spec-for-opentile-go.md` reference gains a matching
+  note.
 
 ## [0.54.0] — 2026-06-24
 
