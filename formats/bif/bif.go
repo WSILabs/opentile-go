@@ -83,6 +83,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	var levelZeroDepth int
 	var l0Width int
 	var l0Hull opentile.Size
+	var l0Layout *Layout
 	gen := classifyGeneration(iscan)
 	for i, c := range levelIFDs {
 		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, gen, encodeInfo, file.ReaderAt())
@@ -93,16 +94,26 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			levelZeroDepth = l.imageDepth
 			l0Width = l.size.W
 			l0Hull = l.size
+			l0Layout = l.layout
 		} else if gen == GenerationSpecCompliant {
 			// #78: DP (spec-compliant / DP 200) reduced levels derive their
 			// content extent from the L0 stitched hull by floor-halving, not the
 			// padded IFD ImageWidth (which keeps the un-compacted frame-grid
 			// width). This drives Level.Size, Downsample, AND StitchedSize (all
-			// read l.size), so the pyramid's inter-level scale is exactly 2× and
-			// the compositor clips display tiles to true content. Legacy iScan is
-			// deliberately untouched — its reduced levels still carry frame
-			// overlap (GH #80) and need per-level stitching, not a Size change.
+			// read l.size), so the pyramid's inter-level scale is exactly 2×.
 			l.size = floorHalveSize(l0Hull, i)
+			// #83: the scanner stores reduced levels as the raw (un-compacted)
+			// frame grid downsampled, so their pixels still carry the frame
+			// overlap (~overlap/2^i, residual at the frame-join seams). Rebuild
+			// the layout by downsampling the L0 compacted layout and flag the
+			// level Overlapping, so ReadRegion / StitchedTile composite the
+			// reduced level stitch-aligned with L0 (the existing regionLayout +
+			// compositeStitchedLoop path — zero compositor change). Grid + tile
+			// bytes are unchanged; only placement + the Overlapping signal.
+			if l0Layout != nil {
+				l.layout = downsampleLayout(l0Layout, uint(i), l.grid.W, l.grid.H, l.tileSize.W, l.tileSize.H)
+				l.overlapping = l.layout.Width < l.grid.W*l.tileSize.W || l.layout.Height < l.grid.H*l.tileSize.H
+			}
 		}
 		levelImpls = append(levelImpls, l)
 		valueLevels = append(valueLevels, opentile.Level{

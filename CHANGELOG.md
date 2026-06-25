@@ -9,6 +9,34 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.55.0] — 2026-06-24
+
+BIF DP reduced pyramid levels are stitch-aligned with L0 (#83).
+
+### Fixed
+
+- **DP-BIF reduced levels (L1+) now composite stitch-aligned with L0** (#83). The
+  scanner stores reduced levels as the raw (un-compacted) frame grid downsampled,
+  so their pixels carried a residual frame overlap (`~overlap/2ⁱ`, concentrated at
+  the frame-join seams — ~60px total at L1 on Ventana-1, halving each deeper level).
+  v0.53.0 corrected only the reported `Level.Size`; the layout stayed naive, so a
+  region / `StitchedTile` read crossing the L0↔L1 boundary still showed a small
+  content shift (~0.5% at L1, at the seams). Reduced DP levels now build their
+  stitch layout by **downsampling the L0 compacted layout** (reduced tile
+  `(col,row)` inherits L0 frame `(col<<i, row<<i)`'s compacted origin, scaled by
+  `1/2ⁱ`) and report `Level.Overlapping = true`, so the existing `regionLayout` /
+  `compositeStitchedLoop` path composites them with no compositor change. `Grid`,
+  `Size`, `Downsample`, and tile bytes are unchanged.
+
+### Changed
+
+- **DP-BIF reduced levels now report `Level.Overlapping = true`** (was `false`).
+  Consumers that gate per-tile fast paths on `Overlapping` (the documented #71
+  contract) automatically route reduced-level pixel reassembly through the region
+  API and get the stitch-aligned output. Consumers that ignored `Overlapping` and
+  iterated `Grid` on reduced levels were already mis-stitching; they should adopt
+  the contract. Legacy iScan reduced levels are unchanged (still `#80`, deferred).
+
 ## [0.54.1] — 2026-06-24
 
 IFE Magnification/MPP read the Iris scale-relative convention — verified against the
