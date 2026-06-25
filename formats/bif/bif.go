@@ -109,14 +109,17 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			//      via the existing regionLayout path (zero compositor change).
 			//
 			// LEGACY iScan is deliberately EXCLUDED (#80 reverted in v0.55.1).
-			// Legacy overlap is DENSE (~11% every gap), so a reduced tile spans
-			// multiple overlapping frames and the inter-frame overlap is baked
-			// INTO the downsampled tile's pixels (a ~57px duplicate band inside
-			// each 1024px L1 tile). Placement removes only boundary overlap, not
-			// the intra-tile overlap, so compositing legacy reduced levels this way
-			// mis-registers ("very broken on zoom" in openscope). Correct legacy
-			// reduced rendering needs per-tile pixel cropping — see #80. Legacy
-			// reduced levels stay naive (Size = raw IFD grid, Overlapping=false).
+			// Legacy overlap is DENSE (every gap). Legacy reduced tiles are clean
+			// and overlap at their BOUNDARIES (~49px at L1, ~25px at L2), so they
+			// ARE stitchable by placement — but downsampleLayout derives placement
+			// from the L0 FRAME positions, so a reduced tile (spanning 2^i L0
+			// frames) removes both the internal and boundary L0 overlaps and
+			// over-compacts (L1: (121+121)/2 = 121px/gap vs the real ~49px → ~8%
+			// squish → "very broken on zoom"). DP escapes it because its overlap is
+			// sparse (internal term 0). The correct fix is this same placement
+			// mechanism with the reduced level's ACTUAL per-level overlap — see #80.
+			// Until then legacy reduced levels stay naive (Size = raw IFD grid,
+			// Overlapping=false).
 			l.size = floorHalveSize(l0Hull, i)
 			l.layout = downsampleLayout(l0Layout, uint(i), l.grid.W, l.grid.H, l.tileSize.W, l.tileSize.H)
 			l.overlapping = l.layout.Width < l.grid.W*l.tileSize.W || l.layout.Height < l.grid.H*l.tileSize.H
