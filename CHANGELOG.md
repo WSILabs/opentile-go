@@ -20,19 +20,25 @@ aperio preference (#81 follow-up).
   convention as the primary path.** v0.54.0 mis-framed the root cause as "an encoder
   stamped a downsampled level's value into the header" and preferred `aperio.*` as a
   special case — which would have surfaced a *wrong* value for any future conformant
-  `.iris` file that lacks aperio attributes. The actual Iris convention (verified by
-  range-probing the canonical 4-layer ×1/×4/×16/×64 `425248_JPEG.iris` reference) is
-  that the `METADATA` header stores **scale-relative** quantities: `magnification` is
-  a coefficient (`physical_mag(layer) = layer.scale × magnification`) and
-  `micronsPerPixel` is the MPP at scale 1 (the coarsest layer). opentile-go now derives
-  the full-resolution values from the finest layer's scale (`max_scale`):
+  `.iris` file that lacks aperio attributes. The actual Iris convention (confirmed
+  against the Iris-Codec **encoder source**, `Iris-Codec/src/IrisCodecEncoder.cpp`,
+  which writes `micronsPerPixel = MPP_finest × max_scale` and
+  `magnification = objective / max_scale`) is that the `METADATA` header stores
+  **scale-relative** quantities: `magnification` is a coefficient
+  (`objective = magnification × max_scale`) and `micronsPerPixel` is anchored at the
+  lowest-resolution layer (`MPP_finest = micronsPerPixel / max_scale`). opentile-go now
+  derives the full-resolution L0 values by inverting that:
   `Magnification = magnification × max_scale` and `MPP = micronsPerPixel / max_scale`.
   The `aperio.AppMag` / `aperio.MPP` (or `ImageDescription` banner) lookup is retained
   as an **override** for *non-conformant* files — specifically the local
-  `cervix_2x_jpeg.iris` fixture, a re-laddered export (×1…×256) whose header still holds
-  values computed for the original `max_scale = 64` (off by 4× under the convention).
-  Conformant non-Aperio IFE now resolves correctly with no attributes needed. The raw
-  header values remain in `MagnificationFromHeader` / `MPPFromHeader`.
+  `cervix_2x_jpeg.iris` fixture, a miscomputed re-encode whose header (`magnification =
+  0.625`, `micronsPerPixel = 16.835`) was computed for a 4-layer `max_scale = 64` pyramid
+  but re-laddered to 9 layers `max_scale = 256` without recomputing — so the convention
+  at its real `max_scale = 256` gives an impossible `160×`. (The public reference
+  `425248_JPEG.iris` carries *no* resolution metadata — both header fields are `0.0` — so
+  the numbers are verified against the encoder source, not that file.) Conformant
+  non-Aperio IFE now resolves correctly with no attributes needed. The raw header values
+  remain in `MagnificationFromHeader` / `MPPFromHeader`.
 
 ### Documentation
 
