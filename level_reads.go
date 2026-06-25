@@ -111,11 +111,19 @@ func (l *Level) StitchedTile(tx, ty int, opts ...DecodeOption) (*decoder.Image, 
 }
 
 // StitchedTileInto is the allocation-free form of StitchedTile: it composites
-// the display tile (tx, ty) into the caller-provided dst, which must be exactly
-// the level's TileSize. The composite is done in dst's own pixel format, and
-// dst is white-filled before compositing. Reuse one dst across a display-grid
-// traversal to avoid a per-tile allocation. Returns an error if dst is nil or
-// not TileSize. Behaves exactly like DecodedTileInto for non-overlapping levels.
+// the display tile (tx, ty) into the caller-provided dst. The composite is done
+// in dst's own pixel format, and dst is white-filled before compositing. Reuse
+// one dst across a display-grid traversal to avoid a per-tile allocation.
+//
+// The DISPLAY TILE SIZE is dst's own dimensions: for an OVERLAPPING level
+// (stitched BIF) the composite is region-based, so dst may be any size — a
+// viewer can render uniform/square display tiles (e.g. 512×512) even though the
+// level stores non-square tiles (legacy BIF is 1024×1360). Pair it with
+// StitchedGridFor(dstSize) for the matching iteration grid; the result is
+// pixel-identical to ReadRegion over [tx*dst.W, ty*dst.H, dst.W, dst.H]. For a
+// NON-overlapping level it behaves like DecodedTileInto, so dst must be the
+// level's TileSize (retiling other formats to a custom size is not in scope —
+// they store square tiles; use ReadRegion for an arbitrary rectangle).
 func (l *Level) StitchedTileInto(tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
 	return l.slide.imageStitchedTileInto(l.PyramidIndex, l.Index, tx, ty, dst, opts...)
 }
@@ -128,5 +136,22 @@ func (l *Level) StitchedGrid() Size {
 	return Size{
 		W: ceilDiv(l.Size.W, l.TileSize.W),
 		H: ceilDiv(l.Size.H, l.TileSize.H),
+	}
+}
+
+// StitchedGridFor is StitchedGrid for a caller-chosen display tile size:
+// ceil(Size/tile) per axis. Iterate it with StitchedTileInto using a tile-sized
+// dst to render display tiles at a uniform/square size independent of the stored
+// (possibly non-square) TileSize — e.g. legacy BIF stores 1024×1360 but a viewer
+// can render 512×512. The caller-chosen size is honored on overlapping levels;
+// on non-overlapping levels StitchedTileInto still requires dst == TileSize, so
+// use StitchedGrid there. Returns the zero Size for a non-positive tile.
+func (l *Level) StitchedGridFor(tile Size) Size {
+	if tile.W <= 0 || tile.H <= 0 {
+		return Size{}
+	}
+	return Size{
+		W: ceilDiv(l.Size.W, tile.W),
+		H: ceilDiv(l.Size.H, tile.H),
 	}
 }
