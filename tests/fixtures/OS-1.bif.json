@@ -23,8 +23,8 @@
     {
       "index": 1,
       "size": [
-        52909,
-        46962
+        59392,
+        51000
       ],
       "tile_size": [
         1024,
@@ -41,8 +41,8 @@
     {
       "index": 2,
       "size": [
-        26454,
-        23481
+        29696,
+        25504
       ],
       "tile_size": [
         1024,
@@ -59,8 +59,8 @@
     {
       "index": 3,
       "size": [
-        13227,
-        11740
+        14848,
+        12752
       ],
       "tile_size": [
         1024,
@@ -77,8 +77,8 @@
     {
       "index": 4,
       "size": [
-        6613,
-        5870
+        7424,
+        6376
       ],
       "tile_size": [
         1024,
@@ -95,8 +95,8 @@
     {
       "index": 5,
       "size": [
-        3306,
-        2935
+        3712,
+        3192
       ],
       "tile_size": [
         1024,
@@ -113,8 +113,8 @@
     {
       "index": 6,
       "size": [
-        1653,
-        1467
+        1856,
+        1600
       ],
       "tile_size": [
         1024,
@@ -131,8 +131,8 @@
     {
       "index": 7,
       "size": [
-        826,
-        733
+        928,
+        800
       ],
       "tile_size": [
         1024,
@@ -149,8 +149,8 @@
     {
       "index": 8,
       "size": [
-        413,
-        366
+        464,
+        400
       ],
       "tile_size": [
         1024,
@@ -167,8 +167,8 @@
     {
       "index": 9,
       "size": [
-        206,
-        183
+        232,
+        200
       ],
       "tile_size": [
         1024,
@@ -269,10 +269,6 @@
       "sha256": "4a750383c2eb5c96718030f0cfef398428d714708a97faa3532c07de63464f77",
       "reason": "top-right corner; OOB fill in x"
     },
-    "1:57:19": {
-      "sha256": "832714b8a493256f9da874660343f4f404fbce958db957b8c6b89b80a8e806d4",
-      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
-    },
     "1:57:37": {
       "sha256": "eb37e51cc2686abe3512e638ea5c6e4e4c728cc4fb38523f5a0e78f72615af1d",
       "reason": "bottom-right corner; OOB fill in both axes"
@@ -312,10 +308,6 @@
     "2:28:18": {
       "sha256": "4aa8ad09664628da1186ffcc8576903a0413912783d605f8297ae20f73ff03a0",
       "reason": "bottom-right corner; OOB fill in both axes"
-    },
-    "2:28:9": {
-      "sha256": "244aa3b40d215a1188a1fb08ca6cbd5d39206cdd2ddaca5b01232203a0882f3d",
-      "reason": "right-edge mid-column; OOB fill in x via 'right of image' callback"
     },
     "2:7:4": {
       "sha256": "a653b11a515c1f05a6f4804a07e9d0bbf724009815cd2ec6346ce981ab62a949",
