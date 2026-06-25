@@ -9,6 +9,47 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.56.0] — 2026-06-25
+
+BIF reduced pyramid levels are stitched via the openslide subtile model — DP
+**and** legacy iScan, correctly this time (#83, #80).
+
+### Fixed
+
+- **BIF reduced levels (L1+) now composite via the openslide Ventana *subtile*
+  model** (#83 DP + #80 legacy). A stored reduced tile is the downsample of a
+  2ⁱ×2ⁱ block of L0 camera frames, with the inter-frame overlap baked *inside*
+  its pixels. The earlier whole-tile placement (v0.55.0) could only remove
+  overlap at tile *boundaries*, so it over-compacted the dense legacy case
+  ("very broken on zoom", reverted in v0.55.1). Reading openslide's
+  `openslide-vendor-ventana.c` showed the correct approach: decompose each
+  reduced tile into per-L0-frame **subtiles** and place each subtile at that
+  frame's own compacted position (`L0 origin >> i`), sourced from stored tile
+  `(col>>i, row>>i)` cropped to its `(col%2ⁱ, row%2ⁱ)` quadrant. Every frame
+  lands at its stitched spot, removing *all* overlap (internal + boundary) →
+  an exact 2× pyramid that matches L0 downsampled (validated: Ventana-1 L1
+  content MAD 3.8 vs L0÷2; OS-1 legacy L1 MAD **2.7**, vs the broken whole-tile
+  layout's 33). DP and legacy now share one path. `Size` = L0 hull
+  floor-halved; `Grid` + tile bytes unchanged.
+- **Legacy iScan reduced-level `Size` / `Downsample` are stitched again** (the
+  v0.55.1 revert to the raw frame grid is superseded): OS-1 L1 `52909×46962`
+  (= L0 hull ÷ 2, the openslide content extent), inter-level ratio ~2.0.
+
+### Added
+
+- **`subtileLayout`** — an internal optional extension of the `regionLayout`
+  capability: `UnitSize(level)` + `SubtileSource(level, col, row)`. The shared
+  compositors (`ReadRegion` / `StitchedTile` and the `ScaledStrips` iterator)
+  decode the mapped source tile and blit its cropped quadrant, so all three
+  pixel-reassembly paths handle subtiles uniformly.
+
+### Changed
+
+- **BIF reduced levels report `Level.Overlapping = true`** for both DP and
+  legacy iScan (whenever L0 was overlap-compacted). Consumers on the #71
+  `Overlapping` contract route reduced-level reads through the region API and
+  get the stitch-aligned output. Tile bytes and `Grid` are unchanged.
+
 ## [0.55.1] — 2026-06-25
 
 Revert legacy iScan reduced-level stitching (#80) — it mis-registered on zoom.

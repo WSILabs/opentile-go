@@ -137,9 +137,22 @@ func (it *StripIterator) tilesForStrip(stripIdx int) []tileKey {
 			return nil
 		}
 		tps := rl.TilesIntersecting(it.sourceLevel.Index, lvlX0, lvlY0, lvlW, lvlH)
+		sub, isSub := rl.(subtileLayout)
 		keys := make([]tileKey, 0, len(tps))
+		seen := make(map[tileKey]struct{}, len(tps))
 		for _, tp := range tps {
-			keys = append(keys, tileKey{tx: tp.Col, ty: tp.Row})
+			col, row := tp.Col, tp.Row
+			if isSub {
+				// Subtile units (BIF reduced levels) share a stored source tile;
+				// decode the SOURCE, deduplicated, not the per-frame unit index.
+				col, row, _, _ = sub.SubtileSource(it.sourceLevel.Index, tp.Col, tp.Row)
+			}
+			k := tileKey{tx: col, ty: row}
+			if _, ok := seen[k]; ok {
+				continue
+			}
+			seen[k] = struct{}{}
+			keys = append(keys, k)
 		}
 		return keys
 	}

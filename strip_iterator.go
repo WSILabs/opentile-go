@@ -249,8 +249,11 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 	tileH := it.effTileH
 
 	// blitOneTile is the shared blit helper used by both the naive and
-	// layout-aware tile loop below.
-	blitOneTile := func(k tileKey, tileLevelX, tileLevelY int) error {
+	// layout-aware tile loop below. (cropX,cropY,unitW,unitH) select a sub-region
+	// of the decoded tile to blit — for the openslide subtile model (BIF reduced
+	// levels), where one stored tile is decomposed into per-frame subtiles. A
+	// unitW < 0 means "whole tile" (crop ignored): the legacy/naive behavior.
+	blitOneTile := func(k tileKey, tileLevelX, tileLevelY, cropX, cropY, unitW, unitH int) error {
 		// Reserve-AND-pin atomically (reserveOrAcquire) so the entry can't be
 		// evicted between here and waitGet/blit; release once we're done with
 		// it. If newly reserved, hand the request to a worker. tileReqs is never
@@ -274,16 +277,22 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 			}
 			return fmt.Errorf("opentile: ScaledStrips: tile (%d,%d) missing from cache", k.tx, k.ty)
 		}
-		// Blit the intersection of tileImg with the clipped strip region
-		// into the intermediate image.
+		// The compositing unit occupies [tileLevelX, tileLevelX+unitW) in the
+		// effective domain. For whole tiles (unitW < 0) that's the decoded tile;
+		// for subtiles it's the subtile's footprint and the source pixels start at
+		// the (cropX,cropY) quadrant within the decoded tile.
+		uw, uh := unitW, unitH
+		if uw < 0 {
+			uw, uh, cropX, cropY = tileImg.Width, tileImg.Height, 0, 0
+		}
 		ax0 := maxInt(tileLevelX, cx0)
 		ay0 := maxInt(tileLevelY, cy0)
-		ax1 := minInt(tileLevelX+tileImg.Width, cx1)
-		ay1 := minInt(tileLevelY+tileImg.Height, cy1)
+		ax1 := minInt(tileLevelX+uw, cx1)
+		ay1 := minInt(tileLevelY+uh, cy1)
 		if ax0 >= ax1 || ay0 >= ay1 {
 			return nil
 		}
-		blitInto(tileImg, ax0-tileLevelX, ay0-tileLevelY, ax1-ax0, ay1-ay0,
+		blitInto(tileImg, cropX+(ax0-tileLevelX), cropY+(ay0-tileLevelY), ax1-ax0, ay1-ay0,
 			intermediate, ax0-cx0, ay0-cy0)
 		return nil
 	}
@@ -299,6 +308,7 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 		if es < 1 {
 			es = 1
 		}
+		sub, isSub := rl.(subtileLayout)
 		lvlX0, lvlY0 := cx0*es, cy0*es
 		lvlW, lvlH := (cx1-cx0)*es, (cy1-cy0)*es
 		for _, tp := range rl.TilesIntersecting(it.sourceLevel.Index, lvlX0, lvlY0, lvlW, lvlH) {
@@ -309,7 +319,18 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 			// Scale down the level-resolution origin to the effective domain.
 			effX := lx / es
 			effY := ly / es
-			if err := blitOneTile(tileKey{tx: tp.Col, ty: tp.Row}, effX, effY); err != nil {
+			if isSub {
+				// Subtile model (BIF reduced levels): decode the SOURCE stored
+				// tile and blit only this frame's quadrant, sized to the subtile
+				// (all in the effective/idct-scaled domain).
+				sc, sr, cropX, cropY := sub.SubtileSource(it.sourceLevel.Index, tp.Col, tp.Row)
+				uw, uh := sub.UnitSize(it.sourceLevel.Index)
+				if err := blitOneTile(tileKey{tx: sc, ty: sr}, effX, effY, cropX/es, cropY/es, uw/es, uh/es); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			if err := blitOneTile(tileKey{tx: tp.Col, ty: tp.Row}, effX, effY, 0, 0, -1, -1); err != nil {
 				return nil, err
 			}
 		}
@@ -320,7 +341,7 @@ func (it *StripIterator) Next() (*decoder.Image, error) {
 		tyMax := (cy1 - 1) / tileH
 		for ty := tyMin; ty <= tyMax; ty++ {
 			for tx := txMin; tx <= txMax; tx++ {
-				if err := blitOneTile(tileKey{tx: tx, ty: ty}, tx*tileW, ty*tileH); err != nil {
+				if err := blitOneTile(tileKey{tx: tx, ty: ty}, tx*tileW, ty*tileH, 0, 0, -1, -1); err != nil {
 					return nil, err
 				}
 			}
