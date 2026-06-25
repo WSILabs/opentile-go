@@ -22,6 +22,13 @@ type metadataBuilder struct {
 	attrs                              []kv         // ATTRIBUTES (FREE_TEXT) — empty means omit the block
 	images                             []synthImage // IMAGE_ARRAY
 	icc                                []byte       // ICC_PROFILE bytes
+	// layers is the LAYER_EXTENTS ladder, COARSEST-FIRST (ascending scale,
+	// as the file stores it). Empty defaults to a single 1×1 scale-1 layer
+	// (so the metadata-only tests that don't care about the pyramid are
+	// unaffected). The finest layer's scale is the convention's max_scale.
+	// Reuses synthLayer from synthetic_test.go; its tiles field is unused
+	// here (every tile points at one shared blob).
+	layers []synthLayer
 }
 
 type kv struct {
@@ -46,11 +53,20 @@ type synthImage struct {
 // raw bytes when something goes wrong. Tile bytes are arbitrary
 // recognizable patterns; no real codec is invoked.
 func (mb *metadataBuilder) build() []byte {
+	layers := mb.layers
+	if len(layers) == 0 {
+		layers = []synthLayer{{xTiles: 1, yTiles: 1, scale: 1}}
+	}
+	var totalTiles uint64
+	for _, ly := range layers {
+		totalTiles += uint64(ly.xTiles) * uint64(ly.yTiles)
+	}
+
 	const ttOff = uint64(fileHeaderSize)
 	leOff := ttOff + uint64(tileTableSize)
-	leSize := uint64(blockHeaderValidation) + uint64(layerExtentEntrySize)
+	leSize := uint64(blockHeaderValidation) + uint64(len(layers))*uint64(layerExtentEntrySize)
 	toOff := leOff + leSize
-	toSize := uint64(blockHeaderValidation) + uint64(tileEntrySize) // 1 tile
+	toSize := uint64(blockHeaderValidation) + totalTiles*uint64(tileEntrySize)
 	tileBytesOff := toOff + toSize
 	tileBytes := []byte("TILE")
 	mdOff := tileBytesOff + uint64(len(tileBytes))
@@ -116,30 +132,36 @@ func (mb *metadataBuilder) build() []byte {
 	binary.LittleEndian.PutUint64(tt[20:28], toOff)
 	binary.LittleEndian.PutUint64(tt[28:36], leOff)
 
-	// LAYER_EXTENTS — one 1×1 layer, scale 1.
+	// LAYER_EXTENTS — coarsest-first (ascending Scale).
 	le := out[leOff : leOff+leSize]
 	binary.LittleEndian.PutUint64(le[0:8], leOff)
 	binary.LittleEndian.PutUint16(le[10:12], layerExtentEntrySize)
-	binary.LittleEndian.PutUint32(le[12:16], 1)
-	base := blockHeaderValidation
-	binary.LittleEndian.PutUint32(le[base:base+4], 1)
-	binary.LittleEndian.PutUint32(le[base+4:base+8], 1)
-	binary.LittleEndian.PutUint32(le[base+8:base+12], math.Float32bits(1))
+	binary.LittleEndian.PutUint32(le[12:16], uint32(len(layers)))
+	for i, ly := range layers {
+		b := blockHeaderValidation + i*int(layerExtentEntrySize)
+		binary.LittleEndian.PutUint32(le[b:b+4], ly.xTiles)
+		binary.LittleEndian.PutUint32(le[b+4:b+8], ly.yTiles)
+		binary.LittleEndian.PutUint32(le[b+8:b+12], math.Float32bits(ly.scale))
+	}
 
-	// TILE_OFFSETS.
+	// TILE_OFFSETS — one entry per tile across all layers; every entry
+	// points at the same shared tile blob (the metadata tests never decode).
 	to := out[toOff : toOff+toSize]
 	binary.LittleEndian.PutUint64(to[0:8], toOff)
 	binary.LittleEndian.PutUint16(to[10:12], tileEntrySize)
-	binary.LittleEndian.PutUint32(to[12:16], 1)
+	binary.LittleEndian.PutUint32(to[12:16], uint32(totalTiles))
 	body := to[blockHeaderValidation:]
-	body[0] = byte(tileBytesOff)
-	body[1] = byte(tileBytesOff >> 8)
-	body[2] = byte(tileBytesOff >> 16)
-	body[3] = byte(tileBytesOff >> 24)
-	body[4] = byte(tileBytesOff >> 32)
-	body[5] = byte(len(tileBytes))
-	body[6] = byte(len(tileBytes) >> 8)
-	body[7] = byte(len(tileBytes) >> 16)
+	for k := uint64(0); k < totalTiles; k++ {
+		o := k * uint64(tileEntrySize)
+		body[o+0] = byte(tileBytesOff)
+		body[o+1] = byte(tileBytesOff >> 8)
+		body[o+2] = byte(tileBytesOff >> 16)
+		body[o+3] = byte(tileBytesOff >> 24)
+		body[o+4] = byte(tileBytesOff >> 32)
+		body[o+5] = byte(len(tileBytes))
+		body[o+6] = byte(len(tileBytes) >> 8)
+		body[o+7] = byte(len(tileBytes) >> 16)
+	}
 
 	copy(out[tileBytesOff:], tileBytes)
 
@@ -363,6 +385,64 @@ func TestMetadataBuilderRoundtrip(t *testing.T) {
 	}
 	if v, ok := ifeMD.Attributes["empty.value"]; !ok || v != "" {
 		t.Errorf("empty.value: ok=%v val=%q", ok, v)
+	}
+}
+
+// TestResolutionConventionConformant verifies the Iris resolution convention on
+// a spec-CONFORMANT synthetic file (no aperio override). Iris numbers layers in
+// REVERSE (layer 0 = lowest resolution) and the METADATA header stores
+// scale-relative quantities, NOT absolute L0 values:
+//
+//   - magnification is a COEFFICIENT: physical_mag(layer) = layer.scale × coefficient.
+//   - micronsPerPixel is the MPP at scale 1 (the coarsest layer).
+//
+// The full-resolution (finest layer) values therefore derive from the largest
+// LAYER_EXTENTS scale (max_scale = api[0].Scale):
+//
+//	full_mag = coefficient × max_scale
+//	full_MPP = mpp_at_scale1 / max_scale
+//
+// Here: 4 layers ×1/×4/×16/×64 (max_scale 64), header coefficient 0.625 and
+// scale-1 MPP 16.0 → full-res 40× and 0.25 µm/px. All values are exact in
+// IEEE-754 binary32 so the assertions can use ==.
+func TestResolutionConventionConformant(t *testing.T) {
+	mb := &metadataBuilder{
+		codecMajor: 2025, codecMinor: 1, codecBuild: 0,
+		mpp:           16.0,  // MPP at scale 1; full-res = 16.0 / 64 = 0.25
+		magnification: 0.625, // coefficient; full-res = 0.625 × 64 = 40
+		layers: []synthLayer{
+			{xTiles: 1, yTiles: 1, scale: 1},  // coarsest (api L3)
+			{xTiles: 1, yTiles: 1, scale: 4},  // api L2
+			{xTiles: 1, yTiles: 1, scale: 16}, // api L1
+			{xTiles: 1, yTiles: 1, scale: 64}, // finest (api L0) → max_scale
+		},
+		// No aperio.* attributes → the convention is authoritative.
+	}
+	data := mb.build()
+	tiler, err := openIFE(bytes.NewReader(data), int64(len(data)), &format.Config{})
+	if err != nil {
+		t.Fatalf("openIFE: %v", err)
+	}
+	defer tiler.Close()
+
+	cm := tiler.Metadata()
+	if cm.Magnification != 40 {
+		t.Errorf("Magnification = %v, want 40 (coefficient 0.625 × max_scale 64)", cm.Magnification)
+	}
+	if cm.MPP.X != 0.25 || cm.MPP.Y != 0.25 {
+		t.Errorf("MPP = %v/%v, want 0.25/0.25 (header 16.0 / max_scale 64)", cm.MPP.X, cm.MPP.Y)
+	}
+
+	ifeMD, ok := MetadataOf(tiler)
+	if !ok {
+		t.Fatal("MetadataOf !ok")
+	}
+	// The raw header values (coefficient + scale-1 MPP) stay available verbatim.
+	if ifeMD.MagnificationFromHeader != 0.625 {
+		t.Errorf("MagnificationFromHeader = %v, want raw header coefficient 0.625", ifeMD.MagnificationFromHeader)
+	}
+	if ifeMD.MPPFromHeader.X != 16.0 || ifeMD.MPPFromHeader.Y != 16.0 {
+		t.Errorf("MPPFromHeader = %v/%v, want raw header 16.0/16.0", ifeMD.MPPFromHeader.X, ifeMD.MPPFromHeader.Y)
 	}
 }
 

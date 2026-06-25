@@ -9,6 +9,39 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.54.1] — 2026-06-24
+
+IFE Magnification/MPP read the Iris scale-relative convention, not a special-cased
+aperio preference (#81 follow-up).
+
+### Fixed
+
+- **IFE `Metadata.Magnification` / `Metadata.MPP` now read the Iris resolution
+  convention as the primary path.** v0.54.0 mis-framed the root cause as "an encoder
+  stamped a downsampled level's value into the header" and preferred `aperio.*` as a
+  special case — which would have surfaced a *wrong* value for any future conformant
+  `.iris` file that lacks aperio attributes. The actual Iris convention (verified by
+  range-probing the canonical 4-layer ×1/×4/×16/×64 `425248_JPEG.iris` reference) is
+  that the `METADATA` header stores **scale-relative** quantities: `magnification` is
+  a coefficient (`physical_mag(layer) = layer.scale × magnification`) and
+  `micronsPerPixel` is the MPP at scale 1 (the coarsest layer). opentile-go now derives
+  the full-resolution values from the finest layer's scale (`max_scale`):
+  `Magnification = magnification × max_scale` and `MPP = micronsPerPixel / max_scale`.
+  The `aperio.AppMag` / `aperio.MPP` (or `ImageDescription` banner) lookup is retained
+  as an **override** for *non-conformant* files — specifically the local
+  `cervix_2x_jpeg.iris` fixture, a re-laddered export (×1…×256) whose header still holds
+  values computed for the original `max_scale = 64` (off by 4× under the convention).
+  Conformant non-Aperio IFE now resolves correctly with no attributes needed. The raw
+  header values remain in `MagnificationFromHeader` / `MPPFromHeader`.
+
+### Documentation
+
+- **`docs/formats/ife.md`** — documents the reversed Iris layer numbering (layer 0 =
+  lowest resolution), the scale-relative header semantics (coefficient + scale-1 MPP),
+  the `× / ÷ max_scale` derivation, and the non-conformant-fixture override. The local
+  `sample_files/ife/ife-format-spec-for-opentile-go.md` byte-layout reference gains a
+  matching METADATA-resolution note.
+
 ## [0.54.0] — 2026-06-24
 
 IFE Magnification/MPP report the true L0 value, not a downsampled level (#81).

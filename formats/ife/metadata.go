@@ -83,18 +83,21 @@ func (a AttributesFormat) String() string {
 type Metadata struct {
 	opentile.Metadata
 
-	// MagnificationFromHeader is the level-0 magnification from the
-	// METADATA block's f32 magnification field. 0 when unset.
-	// Available separately from opentile.Metadata.Magnification so
-	// callers that prefer the header value over an Attributes-derived
-	// override can reach it directly.
+	// MagnificationFromHeader is the RAW value of the METADATA block's f32
+	// magnification field. 0 when unset. Per the Iris spec this is a
+	// COEFFICIENT, not an absolute magnification: physical_mag(layer) =
+	// layer.scale × magnification, so the full-resolution magnification is
+	// magnification × max_scale (see opentile.Metadata.Magnification, which
+	// carries that derived value). Available separately so callers can reach
+	// the verbatim header coefficient.
 	MagnificationFromHeader float32
 
-	// MPPFromHeader is the microns-per-pixel from the METADATA block's f32
-	// field (widened to f64), before any Attributes-derived L0 correction.
-	// Zero when unset. Parallels MagnificationFromHeader: when an encoder
-	// stamped a reduced level's MPP into the header (GH #81), opentile.Metadata.MPP
-	// carries the corrected L0 value and this field carries the raw header value.
+	// MPPFromHeader is the RAW microns-per-pixel from the METADATA block's f32
+	// field (widened to f64). Zero when unset. Per the Iris spec this is the
+	// MPP at scale 1 (the coarsest layer), so the full-resolution MPP is
+	// micronsPerPixel / max_scale (carried by opentile.Metadata.MPP). Parallels
+	// MagnificationFromHeader: this field is the verbatim header value before
+	// the resolution-convention derivation and any aperio override (GH #81).
 	MPPFromHeader opentile.MPP
 
 	// CodecMajor / CodecMinor / CodecBuild identify the version of
@@ -126,7 +129,11 @@ type Metadata struct {
 //
 // Returns the IFE Metadata + the associated images slice + the ICC
 // profile bytes (or nil).
-func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []opentile.AssociatedImage, []byte, error) {
+//
+// maxScale is the finest layer's scale (the largest LAYER_EXTENTS scale =
+// api[0].Scale), needed to resolve the header's scale-relative magnification /
+// MPP into full-resolution values — see applyResolutionConvention.
+func readMetadata(r io.ReaderAt, off uint64, fileSize int64, maxScale float64) (Metadata, []opentile.AssociatedImage, []byte, error) {
 	var md Metadata
 	if int64(off)+metadataBlockSize > fileSize {
 		return md, nil, nil, fmt.Errorf("ife: METADATA off 0x%x past EOF", off)
@@ -159,16 +166,20 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	// annotations_offset at 40:48 — read for forward-compat but not parsed in v0.8.
 	mppF32 := math.Float32frombits(binary.LittleEndian.Uint32(buf[48:52]))
 	md.MagnificationFromHeader = math.Float32frombits(binary.LittleEndian.Uint32(buf[52:56]))
-	md.Magnification = float64(md.MagnificationFromHeader)
 
 	// v0.17 cross-format MPP: the IFE METADATA block carries a single
 	// f32 microns_per_pixel value applied to both axes — the spec
-	// doesn't allow anisotropic pixels. Widen f32→f64 (lossless).
+	// doesn't allow anisotropic pixels. Widen f32→f64 (lossless). This is
+	// the RAW header value (MPP at scale 1); the convention below derives
+	// the full-resolution MPP from it.
 	if mppF32 > 0 {
-		md.MPP = opentile.MPP{X: float64(mppF32), Y: float64(mppF32)}
+		md.MPPFromHeader = opentile.MPP{X: float64(mppF32), Y: float64(mppF32)}
 	}
-	// Raw header MPP, before any GH #81 Attributes-derived L0 correction below.
-	md.MPPFromHeader = md.MPP
+
+	// Iris convention: the METADATA header stores scale-relative quantities,
+	// not absolute L0 values — magnification is a coefficient and MPP is at
+	// scale 1. Derive the full-resolution Magnification/MPP from max_scale.
+	applyResolutionConvention(&md, maxScale)
 
 	if attrsOff != NullOffset && attrsOff != 0 {
 		fmtType, ver, kvs, err := readAttributes(r, attrsOff, fileSize)
@@ -194,14 +205,16 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 		//     reaching back into md.Attributes.
 		populateIFECrossFields(&md.Metadata, kvs)
 
-		// GH #81: some encoders (observed on GT450-sourced .iris) stamp a
-		// REDUCED level's magnification/MPP into the L0 METADATA header (e.g.
-		// header MPP 16.835 = 2^6 × the true 0.262968 GT450 scan; magnification
-		// 0.625 = 40/64). When the passed-through ATTRIBUTES carry the source
-		// scanner's authoritative L0 values — aperio.AppMag / aperio.MPP, or the
-		// Aperio ImageDescription banner — prefer those for the cross-format
-		// Magnification/MPP. The raw header values stay in MagnificationFromHeader
-		// / MPPFromHeader. Non-Aperio IFE (no such attributes) keeps the header.
+		// GH #81: the spec-correct convention above resolves conformant files
+		// (full_mag = coefficient × max_scale; full_MPP = mpp_at_scale1 /
+		// max_scale). Some NON-conformant encoders mis-ladder the pyramid (our
+		// cervix_2x fixture re-laddered ×64→×256 while keeping header values
+		// computed for the original max_scale), so the convention alone yields a
+		// wrong L0. When the passed-through ATTRIBUTES carry the source scanner's
+		// authoritative L0 values — aperio.AppMag / aperio.MPP, or the Aperio
+		// ImageDescription banner — they OVERRIDE the convention. The raw header
+		// values stay in MagnificationFromHeader / MPPFromHeader. Conformant
+		// non-Aperio IFE (no such attributes) keeps the convention-derived value.
 		if appMag, mpp, okMag, okMPP := aperioL0Resolution(kvs, md.ImageDescription); okMag || okMPP {
 			if okMag {
 				md.Magnification = appMag
@@ -235,10 +248,42 @@ func readMetadata(r io.ReaderAt, off uint64, fileSize int64) (Metadata, []openti
 	return md, assoc, icc, nil
 }
 
+// applyResolutionConvention sets the cross-format L0 Magnification/MPP from the
+// raw IFE METADATA header values per the Iris convention, given maxScale (the
+// finest layer's scale = the largest LAYER_EXTENTS scale = api[0].Scale).
+//
+// Iris numbers layers in REVERSE (layer 0 = lowest resolution) and the METADATA
+// header stores SCALE-RELATIVE quantities, not absolute full-resolution values:
+//
+//   - magnification is a COEFFICIENT: physical_mag(layer) = layer.scale ×
+//     magnification, so the full-resolution magnification is
+//     magnification × max_scale.
+//   - micronsPerPixel is the MPP at scale 1 (the coarsest layer). MPP scales as
+//     1/scale, so the full-resolution MPP is micronsPerPixel / max_scale.
+//
+// (Iris-Headers/include/IrisTypes.hpp; Iris-File-Extension's
+// examples/slide_info_abstraction.cpp.) No-op when maxScale ≤ 0 or the header
+// field is unset (the value stays zero).
+func applyResolutionConvention(md *Metadata, maxScale float64) {
+	if maxScale <= 0 {
+		return
+	}
+	if md.MagnificationFromHeader > 0 {
+		md.Magnification = float64(md.MagnificationFromHeader) * maxScale
+	}
+	if !md.MPPFromHeader.IsZero() {
+		md.MPP = opentile.MPP{
+			X: md.MPPFromHeader.X / maxScale,
+			Y: md.MPPFromHeader.Y / maxScale,
+		}
+	}
+}
+
 // aperioL0Resolution extracts the source scanner's true level-0 AppMag and MPP
-// from the passed-through ATTRIBUTES, used to correct the IFE METADATA header
-// when an encoder stamped a reduced level's magnification/MPP there (GH #81;
-// observed on GT450-sourced .iris). Prefers the discrete aperio.AppMag /
+// from the passed-through ATTRIBUTES. It OVERRIDES the scale-relative convention
+// (applyResolutionConvention) for NON-conformant files whose header values don't
+// match the pyramid's max_scale — e.g. the re-laddered cervix_2x fixture (GH #81;
+// GT450-sourced .iris). Prefers the discrete aperio.AppMag /
 // aperio.MPP keys; falls back to the Aperio ImageDescription banner
 // ("…|AppMag = 40|MPP = 0.262968|…"). okMag/okMPP report which were found;
 // returns all-false when no authoritative source is present (non-Aperio IFE).

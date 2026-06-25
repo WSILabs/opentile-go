@@ -9,7 +9,7 @@ The IrisDigitalPathology project's bleeding-edge non-TIFF WSI container, designe
 - **Container**: not TIFF. Custom binary layout — fixed-size FILE_HEADER (38 B) at offset 0, chained TILE_TABLE (44 B) → LAYER_EXTENTS (16-B header + 12-B entries) → TILE_OFFSETS (16-B header + 8-B entries). Tile bytes laid out contiguously between the structures and EOF.
 - **Endianness**: little-endian on disk regardless of host.
 - **Detection**: first 4 bytes equal `0x49726973` ("Iris" as LE-uint32). On disk: `0x73 0x69 0x72 0x49`. Implemented via `Factory.SupportsRaw(io.ReaderAt, int64) bool` — runs *before* `tiff.Open` in `opentile.Open`'s dispatch loop, so IFE files never get parsed as TIFF.
-- **Layer ordering**: file stores layers **coarsest-first** (`scales` strictly increasing; first entry is the smallest, last entry is native). opentile-go's API exposes them **native-first** (`Levels()[0]` = highest resolution); the reader inverts the slice at parse time and never re-exposes the file's storage order.
+- **Layer ordering**: file stores layers **coarsest-first** (`scales` strictly increasing; first entry is the smallest, last entry is native). opentile-go's API exposes them **native-first** (`Levels()[0]` = highest resolution); the reader inverts the slice at parse time and never re-exposes the file's storage order. This reversed numbering (Iris "layer 0" = lowest resolution) is why the METADATA header's `magnification` / `micronsPerPixel` are scale-relative rather than absolute — see [Resolution convention](#resolution-convention--header-values-are-scale-relative-v0541-81).
 - **Tile size**: hard-coded at 256×256 pixels per spec (not configurable per-file in v1.0). Image pixel dimensions at layer L: `(x_tiles[L] * 256, y_tiles[L] * 256)`. Right/bottom edge tiles may carry partial content but always full 256×256 framing.
 - **Compression**: per-file (not per-tile). TILE_TABLE.encoding byte selects from JPEG (2), AVIF (3), or the Iris-proprietary codec (1); UNDEFINED (0) and unknown values are rejected at Open time. Tile bytes are **self-contained** — each is a complete JPEG / AVIF / IRIS bytestream. No JPEGTables splice (unlike SVS / BIF).
 - **Sparse tiles**: a TILE_OFFSETS entry whose 40-bit offset field equals `NULL_TILE` (`0xFFFFFFFFFF`) indicates an absent tile — no compressed bytes on disk at that grid cell. opentile-go returns `(nil, ErrSparseTile)` wrapped in `TileError` so consumers can distinguish "no data here" from "I/O error" or "out of bounds." The cervix fixture has zero sparse tiles; synthetic tests cover the path.
@@ -36,7 +36,7 @@ Cervix is a **2× downsampled** export from the Iris reference encoder (full-res
 | `TileReader` streaming | ✅ via `io.NewSectionReader` |
 | `Tiles` iterator (row-major, serial) | ✅ |
 | Three encoding values exposed via `Compression()` | ✅ | JPEG → `CompressionJPEG`; AVIF → `CompressionAVIF` (new); IRIS → `CompressionIRIS` (new) |
-| METADATA block parsing | ✅ since v0.8 metadata closeout | `Tiler.Metadata().Magnification` from the header f32. `ife.MetadataOf(tiler)` exposes `MicronsPerPixel`, `MagnificationFromHeader`, `CodecMajor/Minor/Build`, `AttributesFormat`, `AttributesVersion`, and the free-form `Attributes map[string]string` |
+| METADATA block parsing | ✅ since v0.8 metadata closeout | `Tiler.Metadata().Magnification` / `.MPP` are the **full-resolution L0** values derived from the scale-relative header per the [resolution convention](#resolution-convention--header-values-are-scale-relative-v0541-81). `ife.MetadataOf(tiler)` exposes `MagnificationFromHeader` (raw coefficient), `MPPFromHeader` (raw scale-1 MPP), `CodecMajor/Minor/Build`, `AttributesFormat`, `AttributesVersion`, and the free-form `Attributes map[string]string` |
 | ATTRIBUTES (free-form key/value map) | ✅ FREE_TEXT (format=1) only | DICOM attributes (format=2) explicitly rejected — no fixture exercises that path. Cervix carries 24 entries (`aperio.*` / `tiff.*` from a re-encoded GT450 SVS); IFE doesn't reserve attribute keys, so vendors set freely |
 | ICC profile passthrough | ✅ | `Tiler.ICCProfile()` returns the raw bytes. Cervix carries 6064 bytes |
 | Associated images (IMAGE_ARRAY) | ✅ | `s.AssociatedImages()` returns label / overview / thumbnail / macro / map / probability with normalised type names (v0.15+). Unknown titles surface lowercased. Per-image `Compression()` follows the spec's **`IMAGE_ENCODING` enum** (distinct from the tile `ENCODING` enum where 1=IRIS): PNG (encoding=1) → `CompressionPNG`, JPEG (2) → `CompressionJPEG`, AVIF (3) → `CompressionAVIF`. PNG associated images decode via the standard library (`internal/assocdecode`, pure-Go — so they decode even under `nocgo`), so `Decode()` works for all three encodings (#74). Cervix has one 1920×1337 JPEG thumbnail |
@@ -97,11 +97,22 @@ IFE's METADATA segment carries IFE-spec-canonical attributes. v0.17 surfaces the
 
 | IFE METADATA source | cross-format Metadata position |
 |---|---|
-| `MPP` attribute (per axis) | `MPP.X`/`MPP.Y`; `MPP.Symmetric()` non-zero when X == Y (cervix fixture is isotropic at 16.835) |
-| objective magnification (when present) | `Magnification` |
+| `micronsPerPixel` (MPP **at scale 1**) ÷ max_scale | `MPP.X`/`MPP.Y` (full-resolution L0); `MPP.Symmetric()` non-zero when X == Y (IFE is always isotropic). Raw header value in `ife.Metadata.MPPFromHeader` |
+| `magnification` (a **coefficient**) × max_scale | `Magnification` (full-resolution L0). Raw header coefficient in `ife.Metadata.MagnificationFromHeader` |
 | `description` block | `ImageDescription` |
 | every spec-defined attribute | `Properties["iris.<key>"]` (24 attributes on the cervix fixture: e.g., `iris.aperio.AppMag`, `iris.tiff.ImageDescription`, etc.) |
 | `CodecMajor.CodecMinor.CodecBuild` from FILE_HEADER → `"iris/<ver>"` | `Metadata.Writer` (v0.20). ImageDescription (when present) preserves source-scanner attribution, NOT the IFE writer. |
+
+### Resolution convention — header values are scale-relative (v0.54.1, #81)
+
+Iris numbers layers in **reverse** (layer 0 = lowest resolution; see *Layer ordering* above) and the METADATA header stores **scale-relative** quantities, not absolute full-resolution values:
+
+- **`magnification` is a coefficient**, not the objective magnification: `physical_mag(layer) = layer.scale × magnification`. The full-resolution magnification is therefore `magnification × max_scale`.
+- **`micronsPerPixel` is the MPP at scale 1** (the coarsest layer). MPP scales as `1/scale`, so the full-resolution MPP is `micronsPerPixel / max_scale`.
+
+`max_scale` is the **finest** layer's `scale` (the largest value in `LAYER_EXTENTS`, = `api[0].Scale` in opentile-go's native-first order). The reader derives `Metadata.Magnification` and `Metadata.MPP` from these formulas at Open time; the verbatim header values stay available in `ife.Metadata.MagnificationFromHeader` (the coefficient) and `ife.Metadata.MPPFromHeader` (the scale-1 MPP). For the canonical 4-layer ×1/×4/×16/×64 export the header carries coefficient `0.625` and scale-1 MPP `16.835` → `0.625 × 64 = 40×` and `16.835 / 64 = 0.263 µm/px`.
+
+**Non-conformant override.** The local `cervix_2x_jpeg.iris` fixture is a re-laddered export (×1…×256, `max_scale = 256`) whose header still carries the values computed for the *original* `max_scale = 64`, so the convention alone yields a value off by `256/64 = 4×`. When the passed-through `ATTRIBUTES` carry the source scanner's authoritative L0 resolution — discrete `aperio.AppMag` / `aperio.MPP`, or the Aperio `ImageDescription` banner (`…|AppMag = 40|MPP = 0.262968|…`) — those **override** the convention (per-field, independently). Conformant non-Aperio files keep the convention-derived value. This is why the cervix fixture reports `Magnification = 40` / `MPP = 0.262968` (from `aperio.*`) while `MagnificationFromHeader = 0.625` / `MPPFromHeader = 16.835` preserve the raw header.
 
 The cervix fixture's encoder doesn't write `ScannerManufacturer/Model/Serial` METADATA fields, so those cross-format positions remain empty for it. Per Q4 Option B, the format-specific `ife.Metadata.MicronsPerPixel` was retired (the cross-format `MPP.X`/`MPP.Y` fields cover it); `ife.MetadataOf(t)` continues to expose IFE-specific structural fields.
 
@@ -118,6 +129,7 @@ The cervix fixture's encoder doesn't write `ScannerManufacturer/Model/Serial` ME
 ## Known issues + history
 
 - **TILE_TABLE x_extent / y_extent** (T3 gate, v0.8): values match tile counts, not pixels. Reader ignores; `LAYER_EXTENTS` is canonical.
+- **Header magnification/MPP are scale-relative** (#81, v0.54.0 → corrected v0.54.1): the v0.54.0 fix mis-framed the GT450 cervix header as "an encoder stamped a downsampled level's value" and preferred `aperio.*` as a special case. The actual Iris convention is that `magnification` is a coefficient and `micronsPerPixel` is the MPP at scale 1 (verified by range-probing the canonical 4-layer `425248_JPEG.iris` reference file, whose header carries `magnification = 0.625 = 40/64` and `micronsPerPixel = 16.835 = 0.262968 × 64`). v0.54.1 reads the convention (`× / ÷ max_scale`) as the primary path; the `aperio.*` override now handles only the *non-conformant* re-laddered local cervix fixture. See [Resolution convention](#resolution-convention--header-values-are-scale-relative-v0541-81).
 - **Self-contained tile bytes** (T8 implementation, v0.8): each tile is a complete JPEG / AVIF / IRIS bytestream. No JPEGTables splice — distinct from SVS / BIF abbreviated-scan pattern. Surfaced during smoke testing when the cervix tile bytes started with full `ff d8 ff e0 ... JFIF` prefixes rather than the SVS-style truncated SOS.
 
 See [`docs/deferred.md`](../deferred.md) §8b (v0.8 retirement audit) for the full mid-task discovery log + per-task gate outcomes.

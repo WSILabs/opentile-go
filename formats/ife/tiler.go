@@ -51,12 +51,19 @@ func openIFE(r io.ReaderAt, size int64, _ *format.Config) (format.Reader, error)
 		apiOrder[len(fileOrder)-1-i] = le
 	}
 
-	// Optional metadata block; absent on minimal synthetic files.
+	// Optional metadata block; absent on minimal synthetic files. The
+	// finest layer's scale (max_scale = api[0].Scale, the largest scale)
+	// lets readMetadata resolve the header's scale-relative magnification /
+	// MPP into full-resolution values.
+	var maxScale float64
+	if len(apiOrder) > 0 {
+		maxScale = float64(apiOrder[0].Scale)
+	}
 	var md Metadata
 	var assoc []opentile.AssociatedImage
 	var icc []byte
 	if hdr.MetadataOffset != NullOffset && hdr.MetadataOffset != 0 {
-		md, assoc, icc, err = readMetadata(r, hdr.MetadataOffset, size)
+		md, assoc, icc, err = readMetadata(r, hdr.MetadataOffset, size, maxScale)
 		if err != nil {
 			return nil, err
 		}
