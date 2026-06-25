@@ -78,19 +78,20 @@ var bifFixtures = []bifFixture{
 			// average overlap reconstruction from the TileJointInfo graph (#63). Grid
 			// stays 116×75 (raw frame addressing unchanged). ~0.05% height residual vs
 			// openslide (un-modeled per-column Y baseline); width clean-room-exact.
-			// Reduced levels (#80): Size = L0 hull floor-halved (the openslide content
-			// extent — L1 52909 vs openslide ~52907, within ~0.1%), layout downsampled
-			// from L0 so they composite stitch-aligned. Grid stays the raw frame grid.
+			// Reduced levels stay the raw frame grid (Overlapping=false): #80 (legacy
+			// reduced-level stitching) was reverted in v0.55.1 — the dense legacy
+			// overlap is baked INTO each downsampled reduced tile (intra-tile), so
+			// placement-only compaction mis-registers. Only L0 is stitched for legacy.
 			{W: 105818, H: 93924, TileW: 1024, TileH: 1360, GridW: 116, GridH: 75, OverlapX: 18, OverlapY: 26},
-			{W: 52909, H: 46962, TileW: 1024, TileH: 1360, GridW: 58, GridH: 38},
-			{W: 26454, H: 23481, TileW: 1024, TileH: 1360, GridW: 29, GridH: 19},
-			{W: 13227, H: 11740, TileW: 1024, TileH: 1360, GridW: 15, GridH: 10},
-			{W: 6613, H: 5870, TileW: 1024, TileH: 1360, GridW: 8, GridH: 5},
-			{W: 3306, H: 2935, TileW: 1024, TileH: 1360, GridW: 4, GridH: 3},
-			{W: 1653, H: 1467, TileW: 1024, TileH: 1360, GridW: 2, GridH: 2},
-			{W: 826, H: 733, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
-			{W: 413, H: 366, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
-			{W: 206, H: 183, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 59392, H: 51000, TileW: 1024, TileH: 1360, GridW: 58, GridH: 38},
+			{W: 29696, H: 25504, TileW: 1024, TileH: 1360, GridW: 29, GridH: 19},
+			{W: 14848, H: 12752, TileW: 1024, TileH: 1360, GridW: 15, GridH: 10},
+			{W: 7424, H: 6376, TileW: 1024, TileH: 1360, GridW: 8, GridH: 5},
+			{W: 3712, H: 3192, TileW: 1024, TileH: 1360, GridW: 4, GridH: 3},
+			{W: 1856, H: 1600, TileW: 1024, TileH: 1360, GridW: 2, GridH: 2},
+			{W: 928, H: 800, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 464, H: 400, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
+			{W: 232, H: 200, TileW: 1024, TileH: 1360, GridW: 1, GridH: 1},
 		},
 		scanRes:       0.2325,
 		generation:    "legacy-iscan",

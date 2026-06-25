@@ -84,7 +84,6 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	var l0Width int
 	var l0Hull opentile.Size
 	var l0Layout *Layout
-	var l0Overlapping bool
 	gen := classifyGeneration(iscan)
 	for i, c := range levelIFDs {
 		l, err := newLevelImpl(i, c, iscan.ScanRes, scanWhite, gen, encodeInfo, file.ReaderAt())
@@ -96,27 +95,28 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			l0Width = l.size.W
 			l0Hull = l.size
 			l0Layout = l.layout
-			l0Overlapping = l.overlapping
-		} else if l0Overlapping && l0Layout != nil {
-			// Reduced-pyramid-level stitching (#78/#83 DP, #80 legacy). When L0
-			// was overlap-compacted (the scanner overlapped camera frames and we
-			// reconstructed the stitched hull from the joint graph), the reduced
-			// levels were stored as the raw (un-compacted) frame grid downsampled
-			// — so their pixels still carry the frame overlap (DP: ~overlap/2^i
-			// residual at the frame-join seams; legacy: dense ~11%). Two coupled
-			// corrections:
-			//   1. Size = the L0 stitched hull floor-halved (the true content
-			//      extent, == bio-formats for DP / openslide for legacy within
-			//      rounding), so the pyramid's inter-level scale is exactly 2×
-			//      (this is the #78 fix — DP since v0.53, legacy since #80).
+		} else if gen == GenerationSpecCompliant && l0Layout != nil {
+			// #78/#83: DP (spec-compliant / DP 200) reduced levels are stored as
+			// the raw (un-compacted) frame grid downsampled, so their pixels carry
+			// a *residual* frame overlap (~overlap/2^i, concentrated at the sparse
+			// frame-join seams). Two coupled corrections:
+			//   1. Size = the L0 stitched hull floor-halved (true content extent,
+			//      == bio-formats), so the pyramid's inter-level scale is exactly 2×.
 			//   2. Layout = the L0 compacted layout downsampled (reduced tile
 			//      (col,row) inherits L0 frame (col<<i,row<<i)'s compacted origin
 			//      scaled by 1/2^i), with Overlapping flagged — so ReadRegion /
-			//      StitchedTile composite the reduced level stitch-aligned with
-			//      L0 via the existing regionLayout + compositeStitchedLoop path
-			//      (zero compositor change). Grid + tile bytes are unchanged.
-			// Gated on l0Overlapping so legacy slides without a usable joint graph
-			// (naive L0, not overlapping) keep their raw reduced levels untouched.
+			//      StitchedTile composite the reduced level stitch-aligned with L0
+			//      via the existing regionLayout path (zero compositor change).
+			//
+			// LEGACY iScan is deliberately EXCLUDED (#80 reverted in v0.55.1).
+			// Legacy overlap is DENSE (~11% every gap), so a reduced tile spans
+			// multiple overlapping frames and the inter-frame overlap is baked
+			// INTO the downsampled tile's pixels (a ~57px duplicate band inside
+			// each 1024px L1 tile). Placement removes only boundary overlap, not
+			// the intra-tile overlap, so compositing legacy reduced levels this way
+			// mis-registers ("very broken on zoom" in openscope). Correct legacy
+			// reduced rendering needs per-tile pixel cropping — see #80. Legacy
+			// reduced levels stay naive (Size = raw IFD grid, Overlapping=false).
 			l.size = floorHalveSize(l0Hull, i)
 			l.layout = downsampleLayout(l0Layout, uint(i), l.grid.W, l.grid.H, l.tileSize.W, l.tileSize.H)
 			l.overlapping = l.layout.Width < l.grid.W*l.tileSize.W || l.layout.Height < l.grid.H*l.tileSize.H

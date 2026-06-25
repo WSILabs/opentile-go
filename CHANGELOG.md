@@ -9,6 +9,30 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.55.1] — 2026-06-25
+
+Revert legacy iScan reduced-level stitching (#80) — it mis-registered on zoom.
+
+### Fixed
+
+- **Reverted the legacy-iScan half of #80** (v0.55.0). Compositing legacy reduced
+  pyramid levels via the downsample-L0 layout **mis-registers them** ("very broken
+  on zoom", reported on OS-1/OS-2 in openscope). Root cause: legacy frame overlap is
+  *dense* (~11% at every gap), so a reduced tile spans multiple overlapping frames
+  and the inter-frame overlap is baked **into** the downsampled tile's pixels (a
+  ~57px duplicate band inside each 1024px L1 tile). Placement-only stitching removes
+  overlap at tile *boundaries* but cannot remove the overlap baked *inside* a tile,
+  so the composited reduced level is intrinsically stretched. Correct legacy reduced
+  rendering needs per-tile pixel cropping — out of scope for a placement layout, so
+  **#80 is reopened**. Legacy reduced levels revert to naive (`Size` = raw frame
+  grid, `Overlapping=false`); only **L0** is stitched for legacy (unchanged since
+  v0.46). `Size`/`Downsample`/`Overlapping` for legacy reduced levels return to their
+  v0.54.x values.
+- **DP-BIF reduced-level stitching (#83) is unaffected.** DP overlap is sparse, so
+  reduced DP tiles rarely contain an internal frame boundary; their downsample-L0
+  composite stays correct (Ventana-1 renders acceptably). Reduced DP levels keep
+  `Overlapping=true` and the floor-halved `Size`.
+
 ## [0.55.0] — 2026-06-24
 
 BIF reduced pyramid levels (DP **and** legacy iScan) are stitch-aligned with L0
