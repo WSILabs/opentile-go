@@ -108,6 +108,122 @@ func bandMAD(a, b *decoder.Image, aCol0, bCol0, bandWidth int) float64 {
 	return float64(sum) / float64(n)
 }
 
+// bandMADYShift is bandMAD with a vertical offset: it compares A's row y to B's
+// row y+dy over the common overlapping height. Used to test whether the layout's
+// per-column Y baseline (#68) — which places tile B at a small Y offset relative
+// to A — genuinely improves the seam match vs the old dy=0 separable placement.
+func bandMADYShift(a, b *decoder.Image, aCol0, bCol0, bandWidth, dy int) float64 {
+	var sum, n int64
+	for ay := 0; ay < a.Height; ay++ {
+		by := ay + dy
+		if by < 0 || by >= b.Height {
+			continue
+		}
+		aRow := a.Pix[ay*a.Stride:]
+		bRow := b.Pix[by*b.Stride:]
+		for x := 0; x < bandWidth; x++ {
+			ai := (aCol0 + x) * 3
+			bi := (bCol0 + x) * 3
+			for ch := 0; ch < 3; ch++ {
+				d := int(aRow[ai+ch]) - int(bRow[bi+ch])
+				if d < 0 {
+					d = -d
+				}
+				sum += int64(d)
+			}
+			n += 3
+		}
+	}
+	if n == 0 {
+		return 0
+	}
+	return float64(sum) / float64(n)
+}
+
+// TestLegacyCrossAxisYDrift is the decisive pixel gate for the #68 per-column
+// vertical drift. For each sampled horizontal pair, it compares the overlap-band
+// MAD at the layout's MODELED Y offset (Δy = B.Y − A.Y, the cross-axis baseline)
+// against the band MAD at Δy=0 (the pre-#68 separable placement, which put every
+// tile in a row at the same Y). If the cross-axis sign and magnitude are right,
+// the modeled offset lowers the MAD; a flipped sign would raise it. Local-only
+// (PHI fixtures), so it skips in CI.
+func TestLegacyCrossAxisYDrift(t *testing.T) {
+	for _, name := range []string{"OS-1", "OS-2", "AC1.592", "1_19"} {
+		t.Run(name, func(t *testing.T) {
+			tl := openLegacyTiler(t, name)
+			l0 := tl.levelImpls[0]
+			if l0.layout == nil {
+				t.Fatalf("%s: nil layout", name)
+			}
+			cols, rows := l0.grid.W, l0.grid.H
+			tileW := l0.tileSize.W
+			overlaps := liveHorizontalOverlap(tl, cols, rows)
+			pairs := sampleHorizPairs(overlaps, cols, rows, tileW, seamSampleCap)
+			if len(pairs) == 0 {
+				t.Skipf("%s: no live interior horizontal pairs", name)
+			}
+			fac, ok := decoder.Get("jpeg")
+			if !ok {
+				t.Fatal("jpeg decoder not registered")
+			}
+			dec := fac.New()
+			defer dec.Close()
+			decodeTile := func(col, row int) (*decoder.Image, bool) {
+				b, err := l0.Tile(col, row)
+				if err != nil {
+					return nil, false
+				}
+				img, err := dec.Decode(b, decoder.DecodeOptions{Format: decoder.PixelFormatRGB})
+				if err != nil {
+					return nil, false
+				}
+				return img, true
+			}
+			var sumModeled, sumZero float64
+			var n, sawDrift int
+			for _, p := range pairs {
+				a, aok := decodeTile(p.col, p.row)
+				if !aok {
+					continue
+				}
+				b, bok := decodeTile(p.col+1, p.row)
+				if !bok {
+					continue
+				}
+				ax, ay, _ := l0.layout.TileOrigin(p.col, p.row)
+				_, by, _ := l0.layout.TileOrigin(p.col+1, p.row)
+				bx, _, _ := l0.layout.TileOrigin(p.col+1, p.row)
+				ov := tileW - (bx - ax)
+				if ov <= 4 || ov >= a.Width || ov >= b.Width {
+					continue
+				}
+				dy := by - ay // modeled per-column Y origin offset (B relative to A)
+				if dy != 0 {
+					sawDrift++
+				}
+				// To compare the SAME world content across the seam, A's row ay maps
+				// to B's row ay−dy (origin offset inverts when mapping pixel rows).
+				sumModeled += bandMADYShift(a, b, a.Width-ov, 0, ov, -dy)
+				sumZero += bandMADYShift(a, b, a.Width-ov, 0, ov, 0)
+				n++
+			}
+			if n == 0 {
+				t.Skipf("%s: no decodable overlapping pairs", name)
+			}
+			meanModeled := sumModeled / float64(n)
+			meanZero := sumZero / float64(n)
+			t.Logf("%s: n=%d (drift on %d) modeledMAD=%.2f zeroMAD=%.2f (Δ=%.2f)",
+				name, n, sawDrift, meanModeled, meanZero, meanZero-meanModeled)
+			// The modeled Y offset must never make the seam WORSE (a flipped sign
+			// would). Allow a hair of slack for tiles whose true drift rounds to 0.
+			if meanModeled > meanZero+0.25 {
+				t.Errorf("%s: cross-axis Y placement WORSENS the seam (modeled %.2f > zero %.2f) — sign wrong?",
+					name, meanModeled, meanZero)
+			}
+		})
+	}
+}
+
 // TestLegacySeamContinuity is the strongest intrinsic placement gate for legacy
 // BIF stitching (#63). The legacy layout removes each gap's measured OverlapX,
 // so a horizontally-adjacent pair's overlap band should hold the SAME image

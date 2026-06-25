@@ -110,27 +110,30 @@ Level 0 is the only level with overlap (whitepaper page 16: "IFD 3 and Higher" l
 
 Legacy iScan slides (ScannerModel missing or not prefixed `"VENTANA DP"`) are **now stitched** via a per-column/row-gap-average overlap reconstruction from the `TileJointInfo` stitch graph (#63). Unlike DP slides, legacy files carry **no `<Frame>` nodes** — the only position signal is the join overlaps. The Roche whitepaper (page 3) notes that files produced by older scanners "cannot be reconstructed correctly" exactly because there is no `<Frame>` ground truth; opentile-go's reconstruction is clean-room: derived from the whitepaper geometry and the file's own `TileJointInfo` graph, using bio-formats and openslide as **black-box dimension oracles** only (neither GPL/LGPL source was read or translated).
 
-**Algorithm:** For each axis independently, per-gap overlaps are averaged across all live joins (Confidence ≥ 98) touching that column-gap or row-gap, with the global-mean used for gaps that have no qualifying joins. X\[col\] and Y\[row\] are then accumulated left-to-right and top-to-bottom from those average overlaps, giving each tile a placed origin; the stitched extent is the convex hull of all placed frames.
+**Algorithm:** Each `<TileJointInfo>` records the full 2-D overlap vector `(OverlapX, OverlapY)` between two adjacent frames, so a join's displacement is `(tw − OverlapX, −OverlapY)` for a horizontal pair and `(−OverlapX, th − OverlapY)` for a vertical pair (the cross-axis term is just `0 − overlap`). Integrating these vectors over the grid — under the measured-good assumption that overlaps depend only on a gap's axis position — separates into four per-gap-averaged cumulative arrays: in-axis `X[col]`/`Y[row]` **plus** cross-axis `yCol[col]` (per-column vertical baseline) and `xRow[row]` (per-row horizontal baseline). Tile `(c,r)` is placed at `(X[c] + xRow[r], Y[r] + yCol[c])`; empty gaps take the AOI global-mean for that component; the stitched extent is the convex hull of all placed frames.
+
+**Cross-axis drift (#68).** Horizontally-adjacent camera frames are captured at a small *vertical* offset (and vertically-adjacent frames at a small *horizontal* offset) — a faint scanner-stage skew the scanner records as the join's cross-axis overlap. The pre-v0.59 model was *separable* (it placed every tile in a row at the same Y, discarding the cross component), which accumulated into a visible per-column vertical shear on zoom — the "slightly wonky tile placement" symptom. v0.59 integrates the cross-axis components, confirmed against OS-2 pixel cross-correlation (per-column drift ≈ −2 px/col, per-row ≈ +2 px/row) and by the seam-MAD gate (the modeled offset lowers the overlap-band MAD on all four legacy fixtures — dramatically for the high-skew ones: AC1.592 21.2→6.6, 1_19 15.8→6.8). Because the grid is now a faint parallelogram, the bounding hull is slightly **larger** than openslide's nominal (de-sheared) extent by the integrated drift span (~120 px wide, ~190 px tall on OS-1) — a necessary consequence of placing tiles where the joints say they are, so they are not clipped.
 
 **Multi-AOI (#67).** A legacy slide may carry several **Areas of Interest** — separate scanned tissue regions, each a sub-grid of the global tile grid placed at its own slide origin. OS-2 has three `<AoiOrigin>` nodes (one unscanned); single-AOI slides like OS-1 are the degenerate one-area case. Following openslide's `openslide-vendor-ventana.c` area model, the layout pairs `ImageInfo[i]` with `AoiOrigin[i]` by document order, **skips `AOIScanned=false` AOIs**, and places each scanned AOI's local `NumCols×NumRows` grid at its own anchor: the global-grid start cell is `Origin / TileSize`, the pixel anchor is `(Pos-X, Pos-Y)`, and — because **Pos-Y is measured from the AOI bottom** — the per-AOI top in image space is Y-flipped to `top − Pos-Y − height` (`top` = max over AOIs of `Pos-Y + height`). Within each AOI the per-gap-average overlap model above runs over that AOI's **local** grid (serpentine numbering local to the AOI). The full layout is the union hull across all scanned AOIs, normalized so its top-left corner is `(0,0)`. A single-AOI slide (one area at `Origin=0`, `Pos-X=0`) reduces exactly to the original whole-grid model, so OS-1 is byte-identical.
 
-**Result:** Near-exact vs openslide (the all-4 oracle — bio-formats crashes opening 3 of the 4 legacy fixtures):
+**Result:** opentile-go's stitched hull vs openslide's nominal extent (the all-4 oracle — bio-formats crashes opening 3 of the 4 legacy fixtures). Since v0.59 opentile-go honors the cross-axis drift, so its hull is slightly larger than openslide's de-sheared extent by the integrated drift span:
 
-| Fixture | opentile-go | openslide |
-|---|---|---|
-| `OS-1.bif` | 105818 × 93924 | 105813 × 93951 |
-| `1_19` | 9582 × 11644 | 9583 × 11645 |
-| `AC1.592` | 25754 × 21960 | 25754 × 21966 |
-| `S12-18199-1A` | 17195 × 10360 | 17194 × 10349 |
+| Fixture | opentile-go (v0.59) | openslide (nominal) | Δ (drift span) |
+|---|---|---|---|
+| `OS-1.bif` | 105936 × 94125 | 105813 × 93951 | +123 × +174 |
+| `1_19` | 9616 × 11673 | 9583 × 11645 | +33 × +28 |
+| `AC1.592` | 25846 × 22091 | 25754 × 21966 | +92 × +125 |
+| `S12-18199-1A` | 17233 × 10444 | 17194 × 10349 | +39 × +95 |
 
-Width is clean-room-exact for tested fixtures. Height carries a ~0.05% residual: openslide models a per-column `columnYAdjust` Y-baseline offset that shifts each column's Y origin independently; this is not replicated (it is GPL-shaped and has no whitepaper description). The residual is a documented limitation, not a correctness regression.
+openslide is a **lower bound** (the de-sheared nominal grid); opentile-go's hull exceeds it by the integrated per-column/per-row drift. The previous "~0.05% height residual / un-modeled `columnYAdjust`" limitation is **resolved** (#68): the drift is now modeled clean-room from the file's own joint vectors, no GPL/LGPL source involved.
 
 **Validated by placement-fidelity gates** — dimension match vs openslide is a secondary coarse check; the primary gates are:
-- `TestLegacyPlacementResidual`: per-join residual (p99 ≤ 2 px, max ≤ 56 px).
+- `TestLegacyPlacementResidual`: per-join in-axis residual (p99 ≤ 2 px, max ≤ 56 px).
 - `TestLegacySeamContinuity`: stitch-band pixel MAD is 2.3–4.5× tighter than naive placement.
-- `TestLegacyDimsVsOpenslide`: dimensions within 0.1% of openslide across all 4 fixtures.
+- `TestLegacyCrossAxisYDrift`: the modeled per-column Y offset lowers the seam-band MAD vs the old separable (dy=0) placement — the decisive pixel-grounded check that the #68 cross-axis sign and magnitude are right.
+- `TestLegacyDimsVsOpenslide`: dims in `[openslide − slack, openslide + drift cap]`.
 
-**Multi-AOI (#67) — validated on OS-2.** OS-2.bif carries three AOIs (two scanned, one unscanned); the two scanned tissue areas now land at their own `(Pos-X, Pos-Y)` anchors instead of being overlaid as one grid, removing the seam that previously cut through the large AOI on zoom. L0 reports the union hull `114951 × 76389`; reduced levels floor-halve. OS-2 is a PHI/local-only fixture, so its `TestBIFGeometry`/`TestSlideParity` pins are SHA/geometry-only and skip in CI. The remaining `columnYAdjust` height residual (#68) is orthogonal and still applies per-AOI.
+**Multi-AOI (#67) — validated on OS-2.** OS-2.bif carries three AOIs (two scanned, one unscanned); the two scanned tissue areas land at their own `(Pos-X, Pos-Y)` anchors instead of being overlaid as one grid, removing the seam that previously cut through the large AOI on zoom. L0 reports the union hull `115060 × 76560`; reduced levels floor-halve. OS-2 is a PHI/local-only fixture, so its `TestBIFGeometry`/`TestSlideParity` pins are SHA/geometry-only and skip in CI.
 
 ## Edge tile semantics
 

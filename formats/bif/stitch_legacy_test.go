@@ -11,20 +11,62 @@ import (
 // Tile1/Tile2 are 1-based serpentine indices (legacy convention). All joins
 // FlagJoined, Confidence=100 unless overridden by the caller afterwards.
 func legacyEI(cols, rows, ox, oy int) *bifxml.EncodeInfo {
+	return legacyEICross(cols, rows, ox, oy, 0, 0)
+}
+
+// legacyEICross is legacyEI plus CROSS-axis overlap components (#68): every
+// horizontal (RIGHT) join also carries OverlapY=crossY (the per-column vertical
+// drift), and every vertical (UP) join also carries OverlapX=crossX (the per-row
+// horizontal drift). crossX=crossY=0 reduces to the original separable layout.
+func legacyEICross(cols, rows, ox, oy, crossX, crossY int) *bifxml.EncodeInfo {
 	ii := bifxml.ImageInfo{AOIScanned: true, AOIIndex: 0, NumCols: cols, NumRows: rows}
 	serp := func(c, r int) int { return imageToSerpentine(c, r, cols, rows) + 1 } // 1-based
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
 			if c+1 < cols {
-				ii.Joints = append(ii.Joints, bifxml.TileJoint{FlagJoined: true, Direction: "RIGHT", Tile1: serp(c, r), Tile2: serp(c+1, r), OverlapX: ox, Confidence: 100})
+				ii.Joints = append(ii.Joints, bifxml.TileJoint{FlagJoined: true, Direction: "RIGHT", Tile1: serp(c, r), Tile2: serp(c+1, r), OverlapX: ox, OverlapY: crossY, Confidence: 100})
 			}
 			if r+1 < rows {
-				ii.Joints = append(ii.Joints, bifxml.TileJoint{FlagJoined: true, Direction: "UP", Tile1: serp(c, r), Tile2: serp(c, r+1), OverlapY: oy, Confidence: 100})
+				ii.Joints = append(ii.Joints, bifxml.TileJoint{FlagJoined: true, Direction: "UP", Tile1: serp(c, r), Tile2: serp(c, r+1), OverlapX: crossX, OverlapY: oy, Confidence: 100})
 			}
 		}
 	}
 	return &bifxml.EncodeInfo{Ver: 2, ImageInfos: []bifxml.ImageInfo{ii},
 		AoiOrigins: []bifxml.AoiOrigin{{Index: 0, OriginX: 0, OriginY: 0}}}
+}
+
+// TestBuildLegacyLayoutCrossAxisDrift pins the #68 cross-axis model: horizontal
+// joins carry a vertical OverlapY that drifts each column up, vertical joins
+// carry a horizontal OverlapX that drifts each row left. A join's displacement
+// vector is (tw−OverlapX, −OverlapY) horizontally and (−OverlapX, th−OverlapY)
+// vertically, so tile (c,r) lands at (X[c]+xRow[r], Y[r]+yCol[c]). Cross
+// baselines are normalized so their min is 0.
+func TestBuildLegacyLayoutCrossAxisDrift(t *testing.T) {
+	// 3×2, tile 1000, in-axis overlap 100 both axes, crossX=6 (per row-gap),
+	// crossY=4 (per col-gap).
+	ei := legacyEICross(3, 2, 100, 100, 6, 4)
+	l := BuildLayout(StitchInput{Cols: 3, Rows: 2, TileW: 1000, TileH: 1000, EncodeInfo: ei, Generation: GenerationLegacyIScan})
+	// In-axis: x=[0,900,1800], y=[0,900].
+	// yCol raw = [0,-4,-8] → min-normalized [8,4,0]; xRow raw=[0,-6] → [6,0].
+	// position(c,r) = (x[c]+xRow[r], y[r]+yCol[c]); min corner already (0,0).
+	for _, c := range []struct {
+		col, row, wantX, wantY int
+	}{
+		{0, 0, 6, 8},     // x 0+6, y 0+8
+		{1, 0, 906, 4},   // x 900+6, y 0+4
+		{2, 0, 1806, 0},  // x 1800+6, y 0+0  (the (0,0)-normalization anchor in Y)
+		{0, 1, 0, 908},   // x 0+0  (anchor in X), y 900+8
+		{2, 1, 1800, 900}, // x 1800+0, y 900+0
+	} {
+		x, y, ok := l.TileOrigin(c.col, c.row)
+		if !ok || x != c.wantX || y != c.wantY {
+			t.Errorf("TileOrigin(%d,%d) = (%d,%d,%v), want (%d,%d,true)", c.col, c.row, x, y, ok, c.wantX, c.wantY)
+		}
+	}
+	// Hull: width = 1806+1000 = 2806; height = y[1] + max(yCol) + th = 900+8+1000.
+	if l.Width != 2806 || l.Height != 1908 {
+		t.Errorf("dims = %dx%d, want 2806x1908", l.Width, l.Height)
+	}
 }
 
 func TestBuildLegacyLayoutUniformOverlap(t *testing.T) {

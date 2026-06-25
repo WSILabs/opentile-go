@@ -685,27 +685,31 @@ L25 below — fixture-driven; cervix has no annotations.
   bio-formats (black-box oracle), fix the legacy key collision if it
   manifests, add a placement/dims gate.
 
-### L36 — BIF legacy stitching: ~0.05% height residual vs openslide (since v0.46) — [#68](https://github.com/WSILabs/opentile-go/issues/68)
+### L36 — BIF legacy stitching: per-column Y / per-row X drift — **RESOLVED v0.59 (#68)**
 
-- **Source:** v0.46 BIF legacy stitching (#63).
-- **Severity:** Permanent-by-choice (revisitable) — legacy width is
-  clean-room-exact, but height carries a ~0.05% residual (OS-1: dH −27
-  on a ~94000px axis; within the ±35px test tolerance). Our separable
-  per-axis model uses one `Y[row]` shared across columns; openslide/
-  bio-formats add a per-column `columnYAdjust` baseline our model omits.
-  Replicating it bit-exactly approaches porting bio-formats' GPL
-  heuristic, which the clean-room constraint excludes. The chosen v0.46
-  bar was explicitly near-exact (validated by placement-fidelity gates,
-  not dims); per-tile placement is already faithful (per-join residual
-  p99 ≤ 2px — the residual is a per-column offset, not per-tile scatter).
-- **Mitigation:** documented as a non-goal in the legacy design spec and
-  `docs/formats/bif.md`; `TestLegacyDimsVsOpenslide` tolerance (±8/±35)
-  bounds it. bio-formats and openslide themselves disagree ~30px on OS-1
-  — no single canonical height target.
-- **Resolution path:** a clean-room per-column Y baseline derived from
-  the file's own `<TileJointInfo>` vertical-join overlaps (NOT a
-  translation of `columnYAdjust`), plus a per-column placement check.
-  Low priority; no consumer-reported problem.
+- **Source:** v0.46 BIF legacy stitching (#63); surfaced as a visible
+  "slightly wonky tile placement" on zoom (consumer-reported, openscope).
+- **Was:** the separable per-axis model used one `Y[row]` shared across
+  columns (and one `X[col]` shared across rows), discarding the
+  *cross-axis* component of each join's overlap vector. That component is
+  a real, systematic scanner-stage skew (~2 px/gap, same sign on ~99% of
+  joins) that accumulates into a per-column vertical (and per-row
+  horizontal) shear — a ~0.05% height residual at the hull level and a
+  visible per-column drift on zoom.
+- **Resolution (v0.59, clean-room):** integrate the full 2-D join
+  displacement vectors. A join contributes `(tw−OverlapX, −OverlapY)`
+  (horizontal) or `(−OverlapX, th−OverlapY)` (vertical); the field
+  separates into in-axis `X[col]`/`Y[row]` plus cross-axis `yCol[col]`
+  /`xRow[r]` baselines, placing tile `(c,r)` at `(X[c]+xRow[r],
+  Y[r]+yCol[c])`. Derived purely from the file's own `<TileJointInfo>`
+  overlaps — NOT a translation of bio-formats' `columnYAdjust`. The
+  cross-axis **sign + magnitude are pixel-validated** against OS-2
+  cross-correlation and locked by `TestLegacyCrossAxisYDrift` (the
+  modeled offset lowers seam-band MAD vs the old dy=0 placement;
+  AC1.592 21.2→6.6, 1_19 15.8→6.8). Honoring the skew makes the hull a
+  faint parallelogram, so dims now slightly **exceed** openslide's
+  nominal (de-sheared) extent by the drift span — openslide is the lower
+  bound, and `TestLegacyDimsVsOpenslide` brackets it accordingly.
 
 ### L37 — `bfparity` oracle package fails to compile (v1.0-API drift in leicascn_bf_test.go) (since v0.46) — RESOLVED v0.46 follow-up, [#66](https://github.com/WSILabs/opentile-go/issues/66)
 
