@@ -16,7 +16,7 @@ It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture
 **What it does:**
 
 - **Raw tile extraction** — `level.Tile(x, y)` returns the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
-- **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), `ReadRegionScaled` (downsampled output), `RenderThumbnail` (whole-slide thumbnail/overview), and `RenderMacro` (synthesized macro at true physical scale) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
+- **Decoded pixels** — `ReadRegion` (arbitrary regions), `DecodedTile` (single tiles), `StitchedTile` (clean display tiles for rendering, with caller-chosen size), `ReadRegionScaled` (downsampled output), `RenderThumbnail` (whole-slide thumbnail/overview), and `RenderMacro` (synthesized macro at true physical scale) return `*decoder.Image`, via cgo codec decoders (JPEG, JPEG 2000, HTJ2K, WebP, AVIF, JPEG XL).
 - **Scaled strips / DZI** — `ScaledStrips`, a libvips-style whole-slide region iterator with **byte-bounded** peak memory, for Deep Zoom / tile-pyramid generation.
 - **12 formats, auto-detected** — Aperio SVS, Hamamatsu NDPI, Philips TIFF, OME-TIFF, Ventana BIF, Leica SCN, generic tiled TIFF, COG-WSI, [Iris IFE](https://github.com/IrisDigitalPathology/Iris-File-Extension), [SZI](https://github.com/smartinmedia/SZI-Format), multi-file **DICOM WSI**, and **bare DZI**.
 - **Associated images & metadata** — label / overview / thumbnail / macro, MPP, magnification, vendor properties, and raw per-level / per-image **TIFF-tag** access.
@@ -240,6 +240,45 @@ for {
 Peak memory for the strip path is **bounded and independent of slide
 width** — see [Performance → Memory](#performance) below for the budget
 knob and tuning.
+
+### Display tiles for rendering (`StitchedTile`)
+
+For a tile-server / GPU viewer, render display tiles with `StitchedTile` over
+`StitchedGrid()` instead of `DecodedTile` over `Grid`. `StitchedTile` returns
+clean, **non-overlapping** display tiles — a true partition of the level's
+`Size` — composited from the stitched image with a per-source-tile
+decode-once cache. For the non-overlapping formats it is exactly `DecodedTile`,
+so a viewer treats every format uniformly.
+
+```go
+l, _ := t.Level(0)
+grid := l.StitchedGrid() // == ceil(Size/TileSize)
+dst := decoder.NewImage(l.TileSize.W, l.TileSize.H)
+for ty := 0; ty < grid.H; ty++ {
+    for tx := 0; tx < grid.W; tx++ {
+        _ = l.StitchedTileInto(tx, ty, dst) // dst reused; white-filled per call
+        upload(dst)
+    }
+}
+```
+
+**Overlapping levels (the `#71` contract).** For stitched BIF the raw tiles
+overlap, so `Level.Grid` does **not** tile `Size` and `Level.Overlapping ==
+true`. Gate any verbatim per-tile copy (faithful transcode) on `!Overlapping`,
+and route pixel reassembly through `StitchedTile` / `ReadRegion`. `Overlapping`
+is `false` for every non-BIF format.
+
+**Caller-chosen display tile size (non-square tiles).** On overlapping levels
+the display tile size is `dst`'s own dimensions, so a viewer can render
+uniform/square tiles even though legacy BIF stores **non-square 1024×1360**
+tiles. Pair a square `dst` with `StitchedGridFor(tile)`:
+
+```go
+disp := opentile.Size{W: 512, H: 512}   // square, independent of stored TileSize
+grid := l.StitchedGridFor(disp)         // == ceil(Size/512)
+dst := decoder.NewImage(disp.W, disp.H)
+_ = l.StitchedTileInto(tx, ty, dst)     // 512×512 display tile == ReadRegion of that rect
+```
 
 ### Associated images
 
