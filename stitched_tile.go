@@ -115,13 +115,17 @@ func (s *Slide) imageStitchedTileInto(image, level, tx, ty int, dst *decoder.Ima
 	if newDecodeConfig(opts).scale > 1 {
 		return decoder.ErrUnsupportedScale
 	}
-	tileW, tileH := lvl.TileSize.W, lvl.TileSize.H
-	if dst.Width != tileW || dst.Height != tileH {
-		return fmt.Errorf("opentile: StitchedTileInto: dst is %dx%d, want TileSize %dx%d",
-			dst.Width, dst.Height, tileW, tileH)
+	// The display tile size is dst's own dimensions — the composite is
+	// region-based, so a viewer can render uniform/square display tiles even
+	// when the level stores non-square tiles (legacy BIF is 1024×1360). The
+	// SOURCE compositing unit stays the level's TileSize (the frame cache is
+	// keyed on stored-tile coords); only the output rectangle follows dst.
+	dispW, dispH := dst.Width, dst.Height
+	if dispW <= 0 || dispH <= 0 {
+		return fmt.Errorf("opentile: StitchedTileInto: dst is %dx%d", dispW, dispH)
 	}
-	x0, y0 := tx*tileW, ty*tileH
-	x1, y1 := x0+tileW, y0+tileH
+	x0, y0 := tx*dispW, ty*dispH
+	x1, y1 := x0+dispW, y0+dispH
 	if sw, sh, ok := rl.StitchedSize(level); ok {
 		if x1 > sw {
 			x1 = sw
@@ -140,7 +144,7 @@ func (s *Slide) imageStitchedTileInto(image, level, tx, ty int, dst *decoder.Ima
 	// the format pinned to dst.Format (full-slice cap so the caller's backing
 	// array is never mutated).
 	loadOpts := append(opts[:len(opts):len(opts)], WithFormat(dst.Format))
-	return compositeStitchedLoop(rl, level, x0, y0, x0, y0, x1, y1, tileW, tileH, dst,
+	return compositeStitchedLoop(rl, level, x0, y0, x0, y0, x1, y1, lvl.TileSize.W, lvl.TileSize.H, dst,
 		func(col, row int) (*decoder.Image, error) {
 			key := frameCacheKey{image: image, level: level, col: col, row: row, format: dst.Format}
 			return fc.getOrLoad(key, func() (*decoder.Image, error) {

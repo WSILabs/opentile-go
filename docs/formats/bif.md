@@ -79,6 +79,16 @@ overlapping tiles for faithful transcoding. `StitchedTile` requires a decoder
 for the level's codec and does not support `Scale > 1` (use the pyramid's
 `ReadRegionScaled` / `ScaledStrips` for scaled traversal).
 
+**Non-square tiles + caller-chosen display size (v0.57.0).** Legacy iScan stores
+**non-square 1024×1360** tiles (DP 200 is square 1024×1024), which choke viewers
+that assume square display tiles. Since `StitchedTile` composites region-by-region,
+the display tile size need not match storage: `StitchedTileInto(tx, ty, dst)` uses
+**dst's own dimensions** as the display tile size on overlapping levels, so a
+viewer can render uniform/square tiles (e.g. 512×512) regardless of the stored
+`TileSize`. Iterate `level.StitchedGridFor(tile)` (`== ceil(Size/tile)`) instead of
+`StitchedGrid()`. The output is pixel-identical to `ReadRegion` over the tile's
+rectangle, with the decode-once frame cache still in effect.
+
 ### DP generation (VENTANA DP 200 / DP 600) — pixel-exact stitching
 
 Spec-compliant DP slides carry per-tile-pair overlap values in the `<EncodeInfo>/<SlideStitchInfo>/<ImageInfo>/<TileJointInfo>` XMP elements. opentile-go computes the stitched layout from these joints using the algorithm described in the **Roche BIF whitepaper** (v1.0, 2020, MC--06058 1120, §"Image stitching process", page 15): each confident (FlagJoined, Confidence=100) joint shifts the right/lower tile inward by its OverlapX/OverlapY; the stitched extent is the convex hull of all resulting tile placements.

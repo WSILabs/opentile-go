@@ -9,6 +9,33 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.57.0] — 2026-06-25
+
+Caller-chosen display tile size — render uniform/square display tiles from
+formats that store non-square tiles (legacy BIF).
+
+### Added
+
+- **`Level.StitchedGridFor(tile Size) Size`** — `StitchedGrid` for a caller-chosen
+  display tile size (`ceil(Size/tile)`), so a viewer can render uniform/square
+  display tiles independent of the stored `TileSize`.
+- **`Level.StitchedTileInto` now uses the dst's dimensions as the display tile
+  size** on **overlapping** levels (stitched BIF). The composite is region-based,
+  so dst may be any size — a viewer can render e.g. 512×512 display tiles even
+  though legacy BIF stores **non-square 1024×1360** tiles (which choke renderers
+  that assume square). The result is pixel-identical to `ReadRegion` over
+  `[tx*dst.W, ty*dst.H, dst.W, dst.H]`, and the per-source-tile decode-once frame
+  cache still applies. Pair it with `StitchedGridFor(dstSize)`. Existing callers
+  passing a `TileSize`-sized dst are unchanged.
+
+### Notes
+
+- Scoped to **overlapping** levels (BIF). Non-overlapping formats store square
+  tiles and keep the existing fast path: `StitchedTileInto` there still behaves
+  like `DecodedTileInto` (dst must equal `TileSize`); use `ReadRegion` for an
+  arbitrary rectangle. `StitchedTile` / `StitchedGrid` (the `TileSize`-default
+  convenience forms) are unchanged.
+
 ## [0.56.0] — 2026-06-25
 
 BIF reduced pyramid levels are stitched via the openslide subtile model — DP

@@ -55,11 +55,24 @@ func TestStitchedTileIntoReuseBuffer(t *testing.T) {
 	}
 }
 
-func TestStitchedTileIntoWrongDims(t *testing.T) {
+// On an overlapping level the dst size IS the display tile size (region-based
+// composite), so a non-TileSize dst is valid — a viewer can render at any
+// uniform/square size. It must match ReadRegion over the same rectangle.
+func TestStitchedTileIntoCustomDisplaySize(t *testing.T) {
 	s := &Slide{r: newFakeStitchReader(), readBudget: 64 << 20}
-	dst := decoder.NewImageFormat(50, 50, decoder.PixelFormatRGB) // not TileSize (100x100)
-	if err := s.imageStitchedTileInto(0, 0, 0, 0, dst); err == nil {
-		t.Fatal("want error for dst that is not TileSize")
+	const disp = 50 // != the fake's TileSize (100×100)
+	dst := decoder.NewImageFormat(disp, disp, decoder.PixelFormatRGB)
+	if err := s.imageStitchedTileInto(0, 0, 1, 1, dst); err != nil {
+		t.Fatalf("custom display size: %v", err)
+	}
+	region := decoder.NewImageFormat(disp, disp, decoder.PixelFormatRGB)
+	if err := s.imageReadRegionInto(0, 0, Point{X: 1 * disp, Y: 1 * disp}, region); err != nil {
+		t.Fatal(err)
+	}
+	for i := range dst.Pix {
+		if dst.Pix[i] != region.Pix[i] {
+			t.Fatalf("display tile pixel %d: StitchedTileInto %d != ReadRegion %d", i, dst.Pix[i], region.Pix[i])
+		}
 	}
 }
 
