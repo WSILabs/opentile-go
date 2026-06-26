@@ -667,23 +667,24 @@ L25 below — fixture-driven; cervix has no annotations.
   debugging when a divergence surfaces; per-incident fixture or
   policy adjustment.
 
-### L35 — BIF stitching: multi-AOI placement unvalidated (since v0.46) — [#67](https://github.com/WSILabs/opentile-go/issues/67)
+### L35 — BIF stitching: multi-AOI placement — **RESOLVED v0.58 (#67)**
 
 - **Source:** v0.46 BIF stitching milestone (#60 DP / #63 legacy).
-- **Severity:** Fixture-blocked — the stitch engine handles a single
-  AOI per slide; all 5 BIF fixtures (Ventana-1 DP; OS-1 / S12-18199-1A /
-  AC1.592 / 1_19 legacy) are single-AOI, so the multi-AOI `<AoiOrigin>`
-  placement path cannot be validated. DP applies the origin offset +
-  hull normalization (exercised only by a synthetic single-AOI unit
-  test); legacy's separable `(col,row)` keys could collide across AOIs
-  sharing local grid coords (last-AOI-wins) unless the origin is folded
-  into the key in tile units — unverified.
-- **Mitigation:** documented in the design specs and `docs/formats/bif.md`;
-  not silently assumed correct.
-- **Resolution path:** needs a real multi-AOI BIF fixture (none in the
-  corpus). When one surfaces: verify per-AOI placement against openslide/
-  bio-formats (black-box oracle), fix the legacy key collision if it
-  manifests, add a placement/dims gate.
+- **Was:** the stitch engine handled a single AOI per slide; the
+  multi-AOI `<AoiOrigin>` path was unvalidated (all 5 then-fixtures were
+  single-AOI), and legacy's separable `(col,row)` keys risked colliding
+  across AOIs sharing local grid coords.
+- **Resolution (v0.58):** a real multi-AOI fixture surfaced — **OS-2.bif**
+  (three `<AoiOrigin>` nodes, two scanned). `buildLegacyLayout` now follows
+  openslide's `openslide-vendor-ventana.c` area model: pair `ImageInfo[i]`
+  with `AoiOrigin[i]` by document order, skip `AOIScanned=false`, place each
+  scanned AOI's local grid at its own `(Pos-X, Pos-Y)` anchor (Pos-Y from
+  the AOI bottom → Y-flipped), union hull. The collision risk is gone —
+  each AOI's local placement is offset into the global grid by its
+  start cell (`Origin/TileSize`). Single-AOI (OS-1) reduces to the prior
+  byte-identical case. Gated by `TestBuildLegacyLayoutMultiAOI` (CI-safe
+  synthetic) + OS-2 geometry/parity pins (PHI/local-only). OS-2's
+  previously-seamed large AOI now renders coherent in openscope.
 
 ### L36 — BIF legacy stitching: per-column Y / per-row X drift — **RESOLVED v0.59 (#68)**
 
