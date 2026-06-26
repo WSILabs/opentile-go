@@ -22,10 +22,14 @@ beyond upstream's coverage starting with **Ventana BIF** in v0.7 — a
 clinically-common Roche / Ventana iScan format that openslide reads but
 upstream opentile doesn't. **Leica SCN** and **Generic Tiled TIFF** are
 tentative v0.8+ candidates, gated on real-slide demand. **3DHistech
-TIFF** (R6) and **Sakura SVSlide** (R15) are parked behind GH issues —
-3DHistech is a niche MRXS conversion target we've never encountered in
-the wild; Sakura is rare enough to follow the same trigger-driven
-deferral as R4/R9.
+TIFF** (R6, [#2](https://github.com/WSILabs/opentile-go/issues/2)) and
+**Sakura SVSlide** (R15, [#3](https://github.com/WSILabs/opentile-go/issues/3))
+are parked behind GH issues — 3DHistech TIFF is a niche single-file
+conversion target we've never encountered in the wild; Sakura is rare
+enough to follow the same trigger-driven deferral as R4/R9. The
+multi-file **native MRXS** (MIRAX) source format — the main unbuilt
+WSI format and a larger clean-room effort — is tracked separately at
+[#100](https://github.com/WSILabs/opentile-go/issues/100).
 
 The methodology shift starting in v0.7: opentile-go leaves the
 "port-from-upstream-opentile-byte-for-byte" pattern. Openslide is the
@@ -45,7 +49,7 @@ real slide motivates the work.
 | R3 | SVS associated images — label, overview, thumbnail | v0.2 (promoted from v0.3) | ✅ landed (Task 21, `9cd27cb`) |
 | R4 | Aperio SVS corrupt-edge reconstruct fix (currently returns `ErrCorruptTile`) | v0.5+ | deferred — see [#1](https://github.com/wsilabs/opentile-go/issues/1). Originally promoted to v0.4; demoted on 2026-04-26 because none of our local SVS slides exhibit corrupt edges and 12 tasks of cgo + Pillow-port work to deliver a synthetic-fixture-only feature isn't completeness, it's speculation. Issue captures the full upstream algorithm + Go-side dependency tree; trigger to take it on is a real slide that fails on us with `ErrCorruptTile`. |
 | R5 | Philips TIFF (sparse-tile filler) | v0.5 | ✅ landed (commits `1ad463c..7e7bde0`, parity verified across 4 fixtures) |
-| R6 | 3DHistech TIFF | parked | parked behind GH issue (TBD). MRXS conversion target produced by 3DHistech software; rare in practice. Trigger to take it on is a real slide. Upstream opentile has a ~200 LOC reader; cheap to revive if motivated. |
+| R6 | 3DHistech TIFF | parked | parked behind [#2](https://github.com/WSILabs/opentile-go/issues/2). Single-file conversion target produced by 3DHistech software; rare in practice. Trigger to take it on is a real slide. Upstream opentile has a ~200 LOC reader; cheap to revive if motivated. (The multi-file *native* MRXS source format is a separate, larger effort — tracked at [#100](https://github.com/WSILabs/opentile-go/issues/100).) |
 | R7 | OME TIFF | v0.6 | ✅ landed. Closes the upstream-opentile format set; SubIFD-based pyramid + multi-image deviation + dual-reference parity (opentile-py + tifffile). |
 | R8 | BigTIFF support | v0.2 | ✅ landed (Batch 1) |
 | R9 | JPEG 2000 decode/encode (currently passes through native tiles; decode matters for associated-image re-encoding and corrupt-tile reconstruct) | v0.5+ | deferred — see [#1](https://github.com/wsilabs/opentile-go/issues/1). Only consumer is R4; deferred together. Native JP2K tile passthrough (the v0.1+ behaviour) continues to work — decode is only needed for the reconstruct chain. |
@@ -460,6 +464,8 @@ completeness milestone). Items closed during v0.3 are listed in §5.
   DP 600 (or later) fixture surfaces a behavioural difference (Z-stack
   default, varying overlap distribution, new XMP attributes), it'll
   be a deviation to fold into §1a above.
+- **Tracked at:** [#99](https://github.com/WSILabs/opentile-go/issues/99)
+  (fixture-blocked; attach a real DP 600 `.bif` to revive).
 
 ~~### L21 — BIF: volumetric Z-stacks deferred to v0.8+ (since v0.7)~~
 **Closed in v0.7 multi-dim closeout (2026-04-29).** Volumetric BIF
@@ -2526,12 +2532,13 @@ decisions, not deferred work.
 | Item | Surface | Severity | Original milestone | Trigger to revisit |
 |---|---|---|---|---|
 | **L19** — openslide BIF pixel-equivalence | BIF | Research-driven | v0.7 | Investigation: is openslide-pixel-equivalence even the right correctness oracle for BIF? |
-| **L20** — DP 600 unverified | BIF | Fixture-driven | v0.7 | First DP 600 fixture surfaces |
+| **L20** — DP 600 unverified | BIF | Fixture-driven | v0.7 | First DP 600 fixture surfaces — tracked at [#99](https://github.com/WSILabs/opentile-go/issues/99) |
 | **L23** — IFE cross-tool parity vs `tile_server_iris` | IFE | Trigger-driven | v0.8 | First downstream divergence story |
 | **L25** — IFE ANNOTATIONS block parsing | IFE | Fixture-driven | v0.8 | First annotated IFE fixture surfaces |
 | **R4** — SVS corrupt-edge reconstruct | SVS | Trigger-driven | parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) | First corrupt-edge SVS in our slate |
-| **R9** — JPEG 2000 decode/encode | SVS | Trigger-driven | parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) | Same as R4 |
-| **R6** — 3DHistech TIFF support | (new) | Trigger-driven | parked at [#2](https://github.com/wsilabs/opentile-go/issues/2) | First 3DHistech TIFF in the wild |
+| **R9** — JPEG 2000 ~~decode~~/encode | SVS | Mostly resolved | parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) | JP2K **decode shipped** (OpenJPEG; RGB/YCbCr fix v0.45.1 [#53](https://github.com/WSILabs/opentile-go/issues/53)). JP2K *encode* is out of opentile's reader scope (writer-side / wsitools). |
+| **R6** — 3DHistech TIFF support | (new) | Trigger-driven | parked at [#2](https://github.com/WSILabs/opentile-go/issues/2) | First 3DHistech TIFF in the wild |
+| **MRXS (MIRAX) native reader** | (new) | Trigger-driven; main unbuilt format | tracked at [#100](https://github.com/WSILabs/opentile-go/issues/100) | Owner sign-off + a real `.mrxs` slide. Multi-file INI/binary-index container; clean-room from `openslide-vendor-mirax.c`; the BIF `regionLayout` compositing infra may apply if tiles overlap. |
 | **R15** — Sakura SVSlide support | (new) | Trigger-driven | parked at [#3](https://github.com/wsilabs/opentile-go/issues/3) | First SVSlide in the wild |
 | **R16** — Leica SCN support | (new) | **Fixtures available**; v0.11 candidate | mentioned as v0.8 candidate, fixtures landed 2026-05-01 | Owner sign-off to schedule v0.11 |
 | **Zero-copy `Level.TileBorrow(x, y) ([]byte, func(), error)`** | A.5 follow-on | YAGNI | v0.9 | Concrete consumer with measured zero-copy benefit. Its half-sibling `TilePrefix` shipped in v0.13; `TileBorrow` is on a different axis (allocation vs bandwidth) and remains parked. |
