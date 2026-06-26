@@ -4,8 +4,38 @@ import (
 	"os"
 	"testing"
 
+	opentile "github.com/wsilabs/opentile-go"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
+
+// TestSubtileSourcePreciseCrop pins the precise fractional crop origin
+// (cross-level registration): the stored tile packs n=2^shift subtiles per axis
+// across its full TileW/TileH, so the quadrant origin is round(q·Dim/n), NOT
+// q·(Dim>>shift). Flooring drifts up to (n−1)·frac px when the dimension is not a
+// multiple of n — legacy iScan TileH=1360 is exact through L4 (1360=16·85) but
+// 1360/32=42.5 drifts ~15 px at L5+, a deep-zoom vertical misregistration.
+// TileW=1024 is a power of two so X is exact at every level. CI-safe (synthetic).
+func TestSubtileSourcePreciseCrop(t *testing.T) {
+	l := &levelImpl{tileSize: opentile.Size{W: 1024, H: 1360}, subtileShift: 5, subtileL0: &Layout{}} // n=32
+	for _, c := range []struct {
+		col, row, wantSC, wantSR, wantCX, wantCY int
+	}{
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 0, 0, 32, 43},        // qx=1→1024/32=32 exact; qy=1→round(42.5)=43 (floor gave 42)
+		{31, 31, 0, 0, 992, 1318},   // qy=31→round(1317.5)=1318 (floor gave 1302 — the ~15 px drift)
+		{32, 32, 1, 1, 0, 0},        // wraps to the next stored tile, quadrant 0
+	} {
+		sc, sr, cx, cy := l.subtileSource(c.col, c.row)
+		if sc != c.wantSC || sr != c.wantSR || cx != c.wantCX || cy != c.wantCY {
+			t.Errorf("subtileSource(%d,%d) = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
+				c.col, c.row, sc, sr, cx, cy, c.wantSC, c.wantSR, c.wantCX, c.wantCY)
+		}
+	}
+	// The bottom subtile must not read past the stored tile.
+	if _, _, _, cy := l.subtileSource(0, 31); cy+(1360>>5) > 1360 {
+		t.Errorf("bottom subtile cropY %d + unitH %d exceeds TileH 1360", cy, 1360>>5)
+	}
+}
 
 // openVentana1 opens the local Ventana-1.bif DP fixture for internal tests,
 // skipping cleanly when absent.

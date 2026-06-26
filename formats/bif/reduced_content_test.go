@@ -77,6 +77,115 @@ func TestReducedContentMatchesDownsampledL0(t *testing.T) {
 	}
 }
 
+// TestReducedDeepLevelRegistration is the cross-level registration gate at a
+// FRACTIONAL reduced level (L5: legacy TileH=1360, 1360/32=42.5 non-integer).
+// The pre-fix subtile crop floored the per-subtile height (42), drifting the
+// stored-tile crop origin up to ~15 px vertically at the bottom of each stored
+// tile — a deep-zoom "drift" that L1–L4 (exact: 1360=16·85) never exposed.
+// For several anchors it downsamples an L0 patch by 2⁵ and cross-correlates it
+// against the L5 patch at the mapped position; the residual must be ≤ a few px.
+// Local-only (PHI fixtures) → skips in CI.
+func TestReducedDeepLevelRegistration(t *testing.T) {
+	const level = 5
+	const f = 1 << level
+	const S, pad = 140, 22
+	for _, name := range []string{"OS-1.bif", "OS-2.bif"} {
+		t.Run(name, func(t *testing.T) {
+			path := "/Volumes/Ext/GitHub/opentile-go/sample_files/bif/" + name
+			if dir := os.Getenv("OPENTILE_TESTDIR"); dir != "" {
+				path = filepath.Join(dir, "bif", name)
+			}
+			if _, err := os.Stat(path); err != nil {
+				t.Skip(name + " absent")
+			}
+			s, err := opentile.OpenFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			l0, _ := s.Level(0)
+			li, err := s.Level(level)
+			if err != nil {
+				t.Fatal(err)
+			}
+			checked := 0
+			for _, fr := range [][2]float64{{0.50, 0.45}, {0.70, 0.42}, {0.46, 0.55}, {0.60, 0.60}} {
+				ax := int(float64(l0.Size.W) * fr[0])
+				ay := int(float64(l0.Size.H) * fr[1])
+				a0, err := l0.ReadRegion(opentile.Region{Origin: opentile.Point{X: ax, Y: ay}, Size: opentile.Size{W: S * f, H: S * f}})
+				if err != nil {
+					continue
+				}
+				a := a0
+				for k := 0; k < level; k++ {
+					a = box2(a)
+				}
+				if regionVar(a) < 40 {
+					continue // blank/low-texture anchor
+				}
+				bx, by := int(float64(ax)/li.Downsample)-pad, int(float64(ay)/li.Downsample)-pad
+				b, err := li.ReadRegion(opentile.Region{Origin: opentile.Point{X: bx, Y: by}, Size: opentile.Size{W: S + 2*pad, H: S + 2*pad}})
+				if err != nil {
+					continue
+				}
+				dx, dy := alignOffset(a, b, pad)
+				t.Logf("%s L%d anchor(%.2f,%.2f): residual=(%+d,%+d)", name, level, fr[0], fr[1], dx, dy)
+				if dx < -3 || dx > 3 || dy < -3 || dy > 3 {
+					t.Errorf("%s L%d residual (%+d,%+d) exceeds ±3 px (deep-level subtile crop drift)", name, level, dx, dy)
+				}
+				checked++
+			}
+			if checked == 0 {
+				t.Skip("no textured anchors")
+			}
+		})
+	}
+}
+
+// alignOffset finds the integer (dx,dy) in [-rad,rad]² that best aligns the
+// smaller patch a centred inside b (min mean-abs-diff over RGB).
+func alignOffset(a, b *decoder.Image, rad int) (int, int) {
+	ba, bb := 3, 3
+	if a.Format == decoder.PixelFormatRGBA {
+		ba = 4
+	}
+	if b.Format == decoder.PixelFormatRGBA {
+		bb = 4
+	}
+	cx, cy := (b.Width-a.Width)/2, (b.Height-a.Height)/2
+	best := 1 << 60
+	bdx, bdy := 0, 0
+	for dy := -rad; dy <= rad; dy++ {
+		for dx := -rad; dx <= rad; dx++ {
+			sum, n := 0, 0
+			for y := 0; y < a.Height; y += 2 {
+				by := cy + dy + y
+				if by < 0 || by >= b.Height {
+					continue
+				}
+				for x := 0; x < a.Width; x += 2 {
+					bx := cx + dx + x
+					if bx < 0 || bx >= b.Width {
+						continue
+					}
+					for c := 0; c < 3; c++ {
+						d := int(a.Pix[y*a.Stride+x*ba+c]) - int(b.Pix[by*b.Stride+bx*bb+c])
+						if d < 0 {
+							d = -d
+						}
+						sum += d
+						n++
+					}
+				}
+			}
+			if n > 0 && sum/n < best {
+				best, bdx, bdy = sum/n, dx, dy
+			}
+		}
+	}
+	return bdx, bdy
+}
+
 func pickTextured(t *testing.T, l *opentile.Level, w, h int) (int, int) {
 	t.Helper()
 	best := 0.0

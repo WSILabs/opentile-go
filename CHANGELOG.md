@@ -9,6 +9,34 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.59.1] — 2026-06-26
+
+Precise subtile crop origin — fixes deep-zoom cross-level drift on legacy
+iScan BIF's non-square tiles (#68 follow-up).
+
+### Fixed
+
+- **Deep-level cross-level registration on legacy BIF (non-square tiles).** The
+  reduced-level subtile model (v0.56.0) computed a subtile's crop origin within
+  its stored tile as `q·(Dim>>i)`, which floors the per-subtile size. A stored
+  tile packs `2ⁱ` subtiles per axis across its full `TileW`/`TileH`, so flooring
+  accumulates a crop-origin error of up to `(2ⁱ−1)·frac` px when the dimension
+  is not a multiple of `2ⁱ`. Legacy iScan tiles are **non-square** `1024×1360`:
+  `1024` is a power of two (exact), but `1360/32 = 42.5` first loses precision
+  at **L5**, drifting the vertical crop up to ~15 px at the bottom of each
+  stored tile — a content shift that appeared as level-to-level "drift" when
+  zooming out past L4. The crop origin now uses the precise `round(q·Dim/2ⁱ)`.
+  Cross-level registration measures **≤ 1 px at every level** (was +6…+15 px at
+  L5–L6); X was always clean (power-of-two width). DP-generation BIF (square
+  `1024×1024` tiles) and the other 10 formats are byte-identical.
+
+### Notes
+
+- No API, `Level.Size`, placement, `Grid`, or tile-byte changes — only the
+  pixel content sampled at deep reduced levels of non-square-tile legacy BIF.
+  No fixture/geometry-pin changes. New `TestReducedDeepLevelRegistration`
+  (local-only) + `TestSubtileSourcePreciseCrop` (CI-safe synthetic) gate it.
+
 ## [0.59.0] — 2026-06-25
 
 Cross-axis drift in legacy iScan BIF stitching — model the per-column vertical
