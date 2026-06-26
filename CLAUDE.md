@@ -1,50 +1,73 @@
 # opentile-go
 
-Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 11 WSI formats with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo core; optional OpenJPEG/JPEG2000, JPEG-XL, WebP, AVIF, HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths. Note: the DICOM reader uses `github.com/WSILabs/dicom` (a maintained pure-Go fork of `suyashkumar/dicom`, no new cgo) for cold-path attribute parsing.
+Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 12 WSI formats (SVS, NDPI, Philips-TIFF, OME-TIFF, BIF, Leica-SCN, generic-TIFF, COG-WSI, IFE, SZI, DICOM-WSI, bare-DZI) with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo core; optional OpenJPEG/JPEG2000, JPEG-XL, WebP, AVIF, HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths. Note: the DICOM reader uses `github.com/WSILabs/dicom` (a maintained pure-Go fork of `suyashkumar/dicom`, no new cgo) for cold-path attribute parsing.
 
-## Current milestone — BIF overlap-aware tile stitching (shipped 2026-06-18, v0.46.0)
+## Current milestone — BIF stitching completed (shipped 2026-06-26, v0.59.1)
 
-- **Scope:** BIF tiles are overlapping camera frames; the displayed
-  slide is the *stitched* result. This milestone makes BIF
-  stitched-pixel output correct (PRs #64 DP + #65 legacy), closing
-  #60 and #63. Per-tile raw/decoded bytes and the 10 non-BIF formats
-  are unchanged.
-- **DP generation** (ScannerModel `"VENTANA DP*"`): pixel-exact,
-  byte-identical to bio-formats. `buildDPLayout` reads the
-  `<Frame XY="C,R">` nodes + applies `<TileJointInfo>` overlap
-  compaction. L0 `Level.Size` → stitched content hull (Ventana-1
-  24576×21504 → 23432×21504); `Grid` keeps the raw frame grid.
-- **Legacy iScan** (Coreo/HT — no `<Frame>` nodes): near-exact,
-  clean-room. `buildLegacyLayout` reconstructs placement from the
-  `<TileJointInfo>` graph via a separable per-column/row-gap-AVERAGE
-  overlap model (float, global-mean fill, Confidence≥98). Validated
-  vs openslide (the all-4 oracle — bio-formats crashes on 3/4 legacy
-  files): width clean-room-exact, height ~0.05% residual.
-- **Compositing:** new internal `regionLayout` capability (discovered
-  via the `UnwrapReader` chain) → `ReadRegion`/`ReadRegionScaled`/
-  `ScaledStrips` all composite stitched output; non-BIF formats
-  bit-identical. Validate `tile-grid-mismatch` relaxed to
-  cover-not-equal.
+The BIF overlap-aware stitching arc (begun v0.46.0) is **complete** — the
+whole backlog (#60/#63/#67/#68/#80/#83) is closed and OS-1/OS-2 render
+clean across zoom in openscope. BIF tiles are overlapping camera frames;
+the displayed slide is the *stitched* result. Per-tile raw/decoded bytes
+and the 11 non-BIF formats are unchanged throughout.
+
+The four layers, each found by **measuring pixels, not guessing** (render /
+cross-correlate before theorizing — the recurring lesson; sign errors hid
+in every reasoned-only hypothesis):
+
+- **L0 stitching (v0.46.0, #60/#63).** DP generation (`"VENTANA DP*"`):
+  pixel-exact, byte-identical to bio-formats — `buildDPLayout` reads the
+  `<Frame XY="C,R">` nodes + `<TileJointInfo>` overlap compaction. Legacy
+  iScan (Coreo/HT, no `<Frame>` nodes): clean-room `buildLegacyLayout`
+  reconstructs placement from the `<TileJointInfo>` graph. `Level.Size` →
+  stitched content hull; `Grid` keeps the raw frame grid.
+- **Reduced levels — subtile model (v0.56.0, #80/#83).** A stored reduced
+  tile is the downsample of a 2ⁱ×2ⁱ L0-frame block with overlap baked
+  *inside*; decompose into per-frame **subtiles** placed at `L0pos>>i`.
+  Internal `subtileLayout` (`UnitSize`+`SubtileSource`) honored by all
+  three pixel paths (`ReadRegion`, `StitchedTile`, `ScaledStrips`).
+- **Multi-AOI (v0.58.0, #67).** A legacy slide may carry several scanned
+  Areas of Interest; each is placed at its own `(Pos-X, Pos-Y)` anchor
+  (Pos-Y measured from the AOI bottom → Y-flip), union hull. Single-AOI
+  (OS-1) is the degenerate, byte-identical case.
+- **Cross-axis drift (v0.59.0, #68) + precise subtile crop (v0.59.1).**
+  Joints encode a per-column vertical (and per-row horizontal) scanner
+  skew; integrate the full 2-D join vector so tile `(c,r)` lands at
+  `(X[c]+xRow[r], Y[r]+yCol[c])`. Then the subtile crop origin uses the
+  precise `round(q·Dim/2ⁱ)` — legacy tiles are **non-square 1024×1360**, so
+  `1360/32=42.5` drifted the L5+ vertical crop ~15px (TileW=1024 is a power
+  of two → clean X). Cross-level registration is now ≤1px at every level.
+
+- **Compositing:** the internal `regionLayout`/`subtileLayout` capability
+  (discovered via the `UnwrapReader` chain) makes `ReadRegion`/
+  `ReadRegionScaled`/`ScaledStrips`/`StitchedTile` composite stitched
+  output; non-BIF formats bit-identical. `Level.Overlapping` (#71) signals
+  that `Grid` no longer tiles `Size` (consumers route per-tile reassembly
+  through the region API).
 - **Validation philosophy:** placement-fidelity is the headline gate
-  (per-join residual + seam-continuity pixel MAD), dims secondary —
-  dims-convergence alone can hide per-tile drift (measured: it
-  doesn't, p99 ≤ 2px).
+  (per-join residual, seam-continuity pixel MAD, **whole-region & cross-level
+  registration** vs downsampled L0), dims secondary. Deep/fractional levels
+  need their OWN gate — the L5 non-square-tile bug survived because the
+  whole-region gate only checked the (exact) L1/L2.
 - **Clean-room:** algorithm from the Roche whitepaper
-  (`sample_files/bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf`) +
-  the file's own joints; bio-formats (GPL) / openslide (LGPL) are
-  black-box oracle constants only, never translated.
-- **Deferred (filed):** #67 multi-AOI (no fixture), #68 legacy height
-  residual (per-column `columnYAdjust` is GPL-shaped). #66 (bfparity
-  compile drift) fixed post-release.
-- **Specs/plans:** docs/superpowers/specs|plans/2026-06-18-bif-*
-- **Work branches:** fix/bif-l0-grid-width-60 (DP), feat/bif-legacy-stitching
+  (`sample_files/bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf`) + the
+  file's own joints; bio-formats (GPL) / openslide (LGPL) are black-box
+  oracle constants only, never translated. The #68 cross-axis drift and the
+  legacy height residual it resolved are derived from the file's joints —
+  NOT a translation of openslide's `columnYAdjust`.
+- **Consumer note:** legacy BIF `Level.Size`/`Downsample` now slightly
+  exceed openslide's nominal de-sheared extent (honoring the skew makes the
+  hull a faint parallelogram; openslide is the lower bound). Fixtures
+  (OS-1/OS-2/AC1.592/1_19/S12-18199-1A) are PHI/local-only → all legacy
+  pixel/dims/geometry gates skip in CI.
+- **Docs:** `docs/formats/bif.md` (current); deferred L36 retired.
 
 > **Version history note:** the CHANGELOG (`CHANGELOG.md`) is the
-> canonical per-release record. The milestone sections below are a
-> curated subset and skip v0.32–v0.45 (DICOM 11th-format reader,
-> codec-domain scaled decode, `Validate()` API, decoder
-> codestream-inspect, and assorted format fixes) — see the CHANGELOG
-> for those.
+> canonical per-release record. The milestone sections here are a
+> curated subset and skip v0.32–v0.45 and v0.47–v0.57 (DICOM 11th-format
+> reader, codec-domain scaled decode, `Validate()` API, decoder
+> codestream-inspect, render-thumbnail APIs, bare-DZI 12th-format reader,
+> StitchedTile display tiles, caller-chosen tile size, and assorted format
+> fixes) — see the CHANGELOG for those.
 
 ## Previous milestone — v1.0 API breaking pass (shipped 2026-06-13, v0.41.0)
 
