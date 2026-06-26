@@ -64,7 +64,7 @@ namespace ensures parsing doesn't break for unrecognized writers.
 | Capability | Status | Why |
 |---|---|---|
 | Corrupt-edge tile reconstruct | ❌ deferred → [#1](https://github.com/wsilabs/opentile-go/issues/1) | None of our local SVS fixtures exhibits the bug. Upstream's reconstruct chain is ~12 tasks of new cgo + a Pillow BILINEAR port; speculation without a real triggering slide. Tile() returns `ErrCorruptTile` for `TileByteCounts[idx] == 0`. |
-| JPEG 2000 decode/encode | ❌ deferred → [#1](https://github.com/wsilabs/opentile-go/issues/1) | Only consumer is the corrupt-edge reconstruct chain. Native JP2K passthrough (the v0.1+ behaviour) is unaffected. |
+| JPEG 2000 decode | ✅ supported | OpenJPEG via `decoder/jpeg2000`; `JP2K-33003-1.svs` reads in CI (RGB/YCbCr codestream fix v0.45.1, [#53](https://github.com/WSILabs/opentile-go/issues/53)). Native JP2K tile passthrough (the v0.1+ behaviour) is also unaffected. JP2K *encode* is out of scope — opentile-go is a reader; tile encoding is writer-side (wsitools). |
 
 ## Parity
 
