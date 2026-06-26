@@ -346,14 +346,26 @@ func (l *levelImpl) unitSize() (w, h int) {
 // and the crop origin within it. For a subtile level, L0 frame (col,row) sources
 // stored tile (col>>shift, row>>shift) at quadrant (col%2^shift, row%2^shift);
 // otherwise the unit is the whole tile (itself, no crop).
+//
+// The quadrant origin uses the PRECISE fractional subtile size, round(q·Dim/n)
+// with n=2^shift, not q·(Dim>>shift). The stored tile packs n subtiles per axis
+// across its full TileW/TileH, so flooring the per-subtile size leaves a residual
+// of up to (n−1)·frac px that the crop origin accumulates — a vertical
+// cross-level drift when TileH is not a multiple of n (legacy iScan TileH=1360:
+// exact through L4 since 1360=16·85, but 1360/32=42.5 drifts ~15 px at L5+).
+// TileW=1024 is a power of two, so its term is exact at every level (matching the
+// observed clean-X / drifting-Y signature).
 func (l *levelImpl) subtileSource(col, row int) (srcCol, srcRow, cropX, cropY int) {
 	if l.subtileL0 == nil {
 		return col, row, 0, 0
 	}
 	sh := l.subtileShift
-	uw, uh := l.tileSize.W>>sh, l.tileSize.H>>sh
 	mask := (1 << sh) - 1
-	return col >> sh, row >> sh, (col & mask) * uw, (row & mask) * uh
+	n := int64(1) << sh
+	qx, qy := int64(col&mask), int64(row&mask)
+	cropX = int((qx*int64(l.tileSize.W) + n/2) / n)
+	cropY = int((qy*int64(l.tileSize.H) + n/2) / n)
+	return col >> sh, row >> sh, cropX, cropY
 }
 
 // StitchedSize returns this level's stitched content extent (== Size()). It is
