@@ -24,14 +24,19 @@ func TestOverlapNoneIsZeroValue(t *testing.T) {
 }
 
 func TestLevelOverlapModeField(t *testing.T) {
-	l := Level{OverlapMode: OverlapBordered, TileOverlap: Point{X: 1, Y: 1}}
+	// The OverlapMode field exists and round-trips. Overlapping is set by
+	// readers to (OverlapMode != OverlapNone); that the two stay in sync is a
+	// reader invariant verified in the format-package tests (Task 5/7), not
+	// here — this struct does not derive Overlapping.
+	l := Level{OverlapMode: OverlapBordered, Overlapping: true, TileOverlap: Point{X: 1, Y: 1}}
 	if l.OverlapMode != OverlapBordered {
-		t.Fatalf("OverlapMode = %v, want OverlapBordered", l.OverlapMode)
+		t.Errorf("OverlapMode = %v, want OverlapBordered", l.OverlapMode)
 	}
-	// Overlapping is the derived convenience: true iff OverlapMode != None.
 	if !l.Overlapping {
-		// NOTE: readers set Overlapping explicitly; this test documents the
-		// intended invariant that callers can rely on (see Task 5/7 population).
-		t.Skip("Overlapping is reader-populated; invariant checked in format tests")
+		t.Error("Overlapping = false, want true")
+	}
+	var zero Level
+	if zero.OverlapMode != OverlapNone {
+		t.Errorf("zero Level OverlapMode = %v, want OverlapNone", zero.OverlapMode)
 	}
 }

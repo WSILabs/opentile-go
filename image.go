@@ -79,18 +79,18 @@ type Level struct {
 	// Overlapping == (OverlapMode != OverlapNone).
 	OverlapMode OverlapMode
 
-	// Overlapping is a convenience equal to (OverlapMode != OverlapNone): the
-	// level's stored/decoded tiles overlap (bordered or stitched) and are not a
-	// clean verbatim partition, so gate any verbatim per-tile copy on
-	// !Overlapping. For the precise flavour — and specifically whether Grid
-	// tiles Size — read OverlapMode (only OverlapStitched has Grid != Size).
-	// False for every clean-grid level. The per-tile accessors still return the
-	// raw (padded/overlapping) tiles; use the region API or, for bordered
-	// levels, TileContentRect, to obtain correctly-placed pixels.
+	// Overlapping is a convenience equal to (OverlapMode != OverlapNone):
+	// stored/decoded tiles carry an overlap region — a padded border for
+	// OverlapBordered, raw overlapping frames for OverlapStitched — so a
+	// per-tile read is NOT a verbatim TileSize content cell. Treat per-tile
+	// reads as a clean partition of Size only when !Overlapping; otherwise use
+	// the region API, or (OverlapBordered) crop each decoded tile to
+	// TileContentRect. For the precise flavour — and specifically whether Grid
+	// tiles Size (only OverlapStitched does not) — read OverlapMode.
 	Overlapping bool
 
 	// TileOverlap is the per-tile overlap magnitude. For OverlapBordered it is
-	// {ov, ov} (the DZI Overlap attribute), always non-zero. For OverlapStitched
+	// {ov, ov} (the DZI Overlap attribute; non-zero for a conformant overlapped source). For OverlapStitched
 	// it is the BIF L0 magnitude where one is meaningful, but {0,0} on BIF
 	// reduced levels (per-frame placement is authoritative there). Zero for
 	// OverlapNone. NOT a reliable overlap test — gate on Overlapping/OverlapMode.
