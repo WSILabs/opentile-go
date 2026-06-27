@@ -2,7 +2,7 @@ package opentile
 
 import "testing"
 
-func lvl(mode OverlapMode, w, h, t, ov int) Level {
+func makeLevel(mode OverlapMode, w, h, t, ov int) Level {
 	cols := (w + t - 1) / t
 	rows := (h + t - 1) / t
 	tov := Point{}
@@ -17,7 +17,7 @@ func lvl(mode OverlapMode, w, h, t, ov int) Level {
 
 func TestTileContentRectBordered(t *testing.T) {
 	// CMU-1 level-16 geometry: 46000x32914, T=256, ov=1, grid 180x129.
-	l := lvl(OverlapBordered, 46000, 32914, 256, 1)
+	l := makeLevel(OverlapBordered, 46000, 32914, 256, 1)
 	cases := []struct {
 		c, r, ox, oy, w, h int
 	}{
@@ -41,7 +41,7 @@ func TestTileContentRectBordered(t *testing.T) {
 }
 
 func TestTileContentRectNoneIsFullCell(t *testing.T) {
-	l := lvl(OverlapNone, 46000, 32914, 256, 0)
+	l := makeLevel(OverlapNone, 46000, 32914, 256, 0)
 	got, ok := l.TileContentRect(1, 1)
 	if !ok || got != (Region{Origin: Point{}, Size: Size{W: 256, H: 256}}) {
 		t.Errorf("None interior = %+v ok=%v, want full cell at origin", got, ok)
@@ -54,12 +54,15 @@ func TestTileContentRectNoneIsFullCell(t *testing.T) {
 }
 
 func TestTileContentRectStitchedAndOOB(t *testing.T) {
-	st := lvl(OverlapStitched, 1000, 1000, 256, 0)
+	st := makeLevel(OverlapStitched, 1000, 1000, 256, 0)
 	if _, ok := st.TileContentRect(0, 0); ok {
 		t.Error("stitched: ok=true, want false (use region API)")
 	}
-	bd := lvl(OverlapBordered, 1000, 1000, 256, 1)
+	bd := makeLevel(OverlapBordered, 1000, 1000, 256, 1)
 	if _, ok := bd.TileContentRect(99, 0); ok {
 		t.Error("out-of-grid: ok=true, want false")
+	}
+	if _, ok := bd.TileContentRect(-1, 0); ok {
+		t.Error("negative col: ok=true, want false")
 	}
 }
