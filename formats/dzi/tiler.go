@@ -207,19 +207,19 @@ func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 	return eng.TileReader(tx, ty)
 }
 
-// ImageDecodedTile implements the decodedTiler fast-path for DZI tiles.
-// JPEG tiles go through the codec registry (libjpeg-turbo cgo, with IDCT
-// scale support). PNG tiles are decoded via the standard library (pure Go,
-// works under nocgo). For other compression values it returns
-// fastpath.ErrUnsupported, causing the caller to fall back to the generic
-// codec-registry path (which will return ErrCodecNotRegistered for
-// unrecognised tile formats).
+// ImageDecodedTile implements the decodedTiler fast-path ONLY for PNG tiles.
+// PNG (opentile.CompressionPNG) maps to TIFF tag 0, which has no codec-registry
+// entry, so the generic pooled decode path cannot handle it; route PNG through
+// internal/assocdecode.ViaCodec (stdlib image/png, pure Go, nocgo-safe). For
+// every other compression (notably JPEG) it returns fastpath.ErrUnsupported so
+// the caller falls through to the generic POOLED decoder path (v0.28 handle
+// pool) — keeping JPEG decode byte-identical and pooled.
 func (t *Tiler) ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
 	lvl, err := t.Level(image, level)
 	if err != nil {
 		return nil, err
 	}
-	if lvl.Compression != opentile.CompressionPNG && lvl.Compression != opentile.CompressionJPEG {
+	if lvl.Compression != opentile.CompressionPNG {
 		return nil, fmt.Errorf("dzi: ImageDecodedTile: %w", fastpath.ErrUnsupported)
 	}
 	raw, err := t.ImageRawTile(image, level, tx, ty)
