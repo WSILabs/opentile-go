@@ -138,6 +138,44 @@ func resolveSlide(dir, name string) (string, bool) {
 	return "", false
 }
 
+// TestOverlapModeInvariant asserts the public-API invariant
+// Overlapping == (OverlapMode != OverlapNone) holds for every level of every
+// present fixture, across all formats. Guards the v0.60.0 OverlapMode addition
+// against a reader setting one field but not the other — the v0.60.0 BIF gap
+// (fixed in v0.60.1) where stitched levels reported Overlapping=true but
+// OverlapMode=OverlapNone. Runs on whatever fixtures are present (BIF Ventana-1
+// is in CI, so the BIF case is covered there).
+func TestOverlapModeInvariant(t *testing.T) {
+	dir := tests.TestdataDir()
+	if dir == "" {
+		t.Skip("OPENTILE_TESTDIR not set")
+	}
+	any := false
+	for _, name := range slideCandidates {
+		slide, ok := resolveSlide(dir, name)
+		if !ok {
+			continue
+		}
+		any = true
+		t.Run(name, func(t *testing.T) {
+			s, err := opentile.OpenFile(slide)
+			if err != nil {
+				t.Fatalf("OpenFile: %v", err)
+			}
+			defer s.Close()
+			for _, l := range s.Levels() {
+				if l.Overlapping != (l.OverlapMode != opentile.OverlapNone) {
+					t.Errorf("level %d: Overlapping=%v but OverlapMode=%v — invariant Overlapping==(OverlapMode!=OverlapNone) violated",
+						l.Index, l.Overlapping, l.OverlapMode)
+				}
+			}
+		})
+	}
+	if !any {
+		t.Skip("no fixtures present")
+	}
+}
+
 // TestSlideParity reads each candidate slide, walks every (level, x, y), and
 // compares against the committed fixture. Slides without a fixture or without
 // an on-disk file are skipped — this lets developers iterate on a subset of

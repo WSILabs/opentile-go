@@ -167,6 +167,16 @@ func TestBIFGeometry(t *testing.T) {
 				if got := lvl.TileOverlap; got.X != want.OverlapX || got.Y != want.OverlapY {
 					t.Errorf("L%d TileOverlap: got %v, want (%d,%d)", i, got, want.OverlapX, want.OverlapY)
 				}
+				// OverlapMode must agree with Overlapping (the v0.60.1 fix): a
+				// stitched/overlapping BIF level reports OverlapStitched, a
+				// non-overlapping one reports OverlapNone.
+				wantMode := opentile.OverlapNone
+				if lvl.Overlapping {
+					wantMode = opentile.OverlapStitched
+				}
+				if lvl.OverlapMode != wantMode {
+					t.Errorf("L%d OverlapMode: got %v, want %v (Overlapping=%v)", i, lvl.OverlapMode, wantMode, lvl.Overlapping)
+				}
 				// Per-level dimensions in the table above are the
 				// strict pin. We don't re-check the multiplicative
 				// downscale factor here: legacy iScan slides

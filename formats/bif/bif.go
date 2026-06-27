@@ -123,6 +123,13 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			l.overlapping = true
 		}
 		levelImpls = append(levelImpls, l)
+		// BIF overlapping levels are stitched (compacted hull; Grid does not tile
+		// Size). Derive both the enum and the bool from one source so the
+		// invariant Overlapping == (OverlapMode != OverlapNone) holds.
+		overlapMode := opentile.OverlapNone
+		if l.overlapping {
+			overlapMode = opentile.OverlapStitched
+		}
 		valueLevels = append(valueLevels, opentile.Level{
 			Index:        l.index,
 			PyramidIndex: l.pyrIndex,
@@ -132,7 +139,8 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 			Compression:  l.compression,
 			MPP:          l.mpp,
 			TileOverlap:  l.tileOverlap,
-			Overlapping:  l.overlapping,
+			OverlapMode:  overlapMode,
+			Overlapping:  overlapMode != opentile.OverlapNone,
 			FocalPlane:   0,
 			// l0Width is the level-0 STITCHED width (the compacted hull, #60);
 			// lower levels report their own IFD extent (pre-stitched, no joints

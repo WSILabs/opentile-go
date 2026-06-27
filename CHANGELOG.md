@@ -9,6 +9,23 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.60.1] — 2026-06-27
+
+### Fixed
+
+- **BIF `Level.OverlapMode` was `OverlapNone` on stitched levels.** v0.60.0 added
+  the `OverlapMode` field and wired DZI/SZI to set it, but the BIF reader was not
+  updated — it set only the (correct) `Overlapping` bool, leaving `OverlapMode` at
+  its zero value. So a stitched BIF level reported `Overlapping=true` but
+  `OverlapMode=OverlapNone`, violating the documented invariant
+  `Overlapping == (OverlapMode != OverlapNone)` and mis-reporting BIF as
+  non-overlapping via the new enum. BIF now derives both fields from one source:
+  overlapping levels report `OverlapStitched`, non-overlapping report
+  `OverlapNone`. The `Overlapping` bool value is unchanged (it was already
+  correct), so consumers gating on `!Overlapping` are unaffected; only the
+  `OverlapMode` enum value is corrected. New `TestOverlapModeInvariant`
+  (cross-format) and a BIF-specific `OverlapStitched` assertion guard it.
+
 ## [0.60.0] — 2026-06-26
 
 DZI/SZI `Overlap > 0` support — clean composited output, new `OverlapMode` /
