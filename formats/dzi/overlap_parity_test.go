@@ -40,15 +40,15 @@ func TestDZIOverlapParityVsZero(t *testing.T) {
 	}
 	defer s1.Close()
 
-	// NOTE: regions are chosen to stay clear of the right/bottom edge tile columns
-	// that would hit a pre-existing DZI Overlap=0 edge-tile bug (the regular-grid
-	// imageDecodedTileInto path passes a full-TileSize scratch as Dst to the JPEG
-	// decoder, but DZI edge tiles are smaller than TileSize — unlike padded TIFF).
-	// The overlap correctness gate (MAD ≤ 4) is unaffected; that bug is independent.
 	regions := []opentile.Region{
 		{Origin: opentile.Point{X: 5120, Y: 5120}, Size: opentile.Size{W: 600, H: 600}},
 		{Origin: opentile.Point{X: 5133, Y: 5251}, Size: opentile.Size{W: 517, H: 503}},
 		{Origin: opentile.Point{X: 44000, Y: 28000}, Size: opentile.Size{W: 600, H: 500}},
+		// Bottom-right edge: exercises unpadded right/bottom edge tiles on the
+		// overlap=0 fixture (slide 46000×32914, TileSize=256 — last col width
+		// 176, last row height 146). Pre-fix this region errored with
+		// "dst 256x256 != decoded 176x146"; now it must also match overlap=1.
+		{Origin: opentile.Point{X: 45600, Y: 32500}, Size: opentile.Size{W: 400, H: 414}},
 	}
 	for li := 0; li < 3; li++ {
 		l0, e0 := s0.Level(li)
