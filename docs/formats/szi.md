@@ -86,6 +86,43 @@ contentH := min(ts.H, sz.H - y*ts.H)
 
 This is one of the few places SZI's behavior differs from the TIFF-based formats opentile-go reads. Other format readers (SVS, NDPI, Philips, OME-TIFF, BIF, IFE, Leica SCN, generic TIFF) return full-tile-padded edge tiles per the underlying file format.
 
+## Overlap
+
+SZI inherits the DZI `Overlap` attribute from the embedded `.dzi` manifest. The
+SZI spec mandates `Overlap=0`, and all known real-world SZI fixtures (CMU-1,
+scan_618) comply. However, `Overlap > 0` SZI files are now read correctly rather
+than rejected.
+
+### The DZI/OpenSeadragon overlap model (applies to SZI)
+
+Each stored tile carries `Overlap` extra pixels on every edge that has a neighbour:
+left border when `col > 0`, top border when `row > 0`, right/bottom borders when
+not the last column/row. The content cell is unchanged; it sits at offset
+`(col>0 ? Overlap : 0, row>0 ? Overlap : 0)` inside the stored tile. Edge tiles
+at the right/bottom boundary are stored UNPADDED at their actual content size.
+
+### Read-path contract for `Overlap > 0`
+
+| API | What you get |
+|-----|-------------|
+| `Tile(col, row)` | On-disk padded bytes (the stored JPEG/PNG including overlap border) |
+| `DecodedTile(col, row, ...)` | Padded pixels; use `TileContentRect(col, row)` to obtain the crop |
+| `StitchedTile(col, row, ...)` | Clean overlap-removed display tile (composited) |
+| `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` | Clean composited pixels — overlap border is cropped out |
+
+### Relevant `Level` fields for `Overlap > 0`
+
+- `Level.OverlapMode == OverlapBordered` — tiles are padded with a croppable border.
+- `Level.TileOverlap == {Overlap, Overlap}` — the magnitude in both axes.
+- `Level.Overlapping == true` — the derived convenience (`OverlapMode != OverlapNone`).
+- `Level.TileContentRect(col, row) (Region, bool)` — returns the content
+  sub-rectangle within a decoded tile (the crop to drop the overlap border).
+- `Level.Grid` still tiles `Level.Size` exactly (unlike BIF's `OverlapStitched`
+  where the grid does not tile Size).
+
+`Overlap = 0` reads are byte-identical to prior behaviour; `Level.OverlapMode ==
+OverlapNone` and `Level.Overlapping == false`.
+
 ## What's not supported
 
 | Capability | Status | Why |
@@ -95,7 +132,7 @@ This is one of the few places SZI's behavior differs from the TIFF-based formats
 | Bare DZI (filesystem-backed, no ZIP wrapper) | ❌ deferred to v0.17+ | The `internal/dzi/` extraction pre-pares it; trigger is consumer demand or owner sign-off (R19) |
 | `vendor/` folder content surfacing | ❌ deferred | The folder is per-spec opaque per-vendor data. v0.16 ignores it; deferred until consumer signal |
 | DZI JSON manifest variant | ❌ — XML-only | OpenSeadragon supports both XML and JSON manifests; SZI's spec mandates XML, so v0.16 is XML-only. JSON is a follow-on if a fixture demands |
-| Non-zero DZI `Overlap` attribute | ⚠️ — passthrough | opentile-go's contract is no-overlap; SZI's spec mandates `Overlap=0`. CMU-1 and scan_618 both honor this. A non-zero-overlap file would pass through with whatever the on-disk geometry says (consumer beware) |
+| Non-zero DZI `Overlap` attribute | ✅ — now read correctly | See "Overlap" section below. SZI's spec mandates `Overlap=0`; CMU-1 and scan_618 both honor this, but files with `Overlap>0` (e.g., produced by non-conforming encoders or DZI-to-SZI converters) are now composited correctly. |
 | Compressed-stored ZIP entries | ❌ rejected at `Open` | SZI spec mandates uncompressed-stored (method 0). A deflate-stored entry breaks the mmap-aliased fast path; reader rejects on the spec mandate |
 
 ## Metadata
