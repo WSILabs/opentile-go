@@ -155,3 +155,38 @@ func (l *Level) StitchedGridFor(tile Size) Size {
 		H: ceilDiv(l.Size.H, tile.H),
 	}
 }
+
+// TileContentRect returns the content sub-rectangle within the decoded tile
+// (col,row) — its in-tile origin and size. For OverlapBordered levels the
+// origin is the overlap border to skip ((col>0?ov:0, row>0?ov:0)) and the size
+// is the content cell clipped at the level's right/bottom edge; a consumer
+// crops a decoded tile to this rect to drop the redundant overlap. For
+// OverlapNone it is the full clipped cell at origin (0,0) — a universal "where
+// is the real content" answer. ok is false for OverlapStitched (Grid does not
+// tile Size — use the region API) and for an out-of-grid (col,row).
+func (l Level) TileContentRect(col, row int) (Region, bool) {
+	if l.OverlapMode == OverlapStitched {
+		return Region{}, false
+	}
+	if col < 0 || row < 0 || col >= l.Grid.W || row >= l.Grid.H {
+		return Region{}, false
+	}
+	var ox, oy int
+	if l.OverlapMode == OverlapBordered {
+		if col > 0 {
+			ox = l.TileOverlap.X
+		}
+		if row > 0 {
+			oy = l.TileOverlap.Y
+		}
+	}
+	w := l.TileSize.W
+	if rem := l.Size.W - col*l.TileSize.W; rem < w {
+		w = rem
+	}
+	h := l.TileSize.H
+	if rem := l.Size.H - row*l.TileSize.H; rem < h {
+		h = rem
+	}
+	return Region{Origin: Point{X: ox, Y: oy}, Size: Size{W: w, H: h}}, true
+}
