@@ -63,29 +63,37 @@ type Level struct {
 	// Grid is the tile grid dimensions: ceil(Size / TileSize) per axis
 	// for ordinary (non-overlapping) levels. Pre-computed for convenience.
 	//
-	// IMPORTANT: when Overlapping is true (a stitched BIF level), Grid is the
-	// RAW stored tile grid of OVERLAPPING tiles and does NOT tile Size —
-	// Grid.W × TileSize.W > Size.W. Per-tile reads (Tile / TileInto /
-	// DecodedTile / Tiles) address those raw overlapping tiles at their stored
-	// positions, NOT a clean partition of the stitched image. Consumers that
-	// re-tile or reassemble pixels must use the region API (ReadRegion /
-	// ReadRegionScaled / ScaledStrips), which composites the stitched image;
-	// do not iterate Grid as if it tiled Size. See Overlapping.
+	// IMPORTANT: when OverlapMode == OverlapStitched (a stitched BIF level),
+	// Grid is the RAW stored tile grid of OVERLAPPING tiles and does NOT tile
+	// Size — Grid.W × TileSize.W > Size.W. Per-tile reads address those raw
+	// overlapping tiles at their stored positions, NOT a clean partition of the
+	// stitched image; use the region API to reassemble pixels. For
+	// OverlapBordered (DZI/SZI overlap>0) and OverlapNone, Grid DOES tile Size.
+	// See Overlapping / OverlapMode.
 	Grid Size
 
-	// Overlapping reports whether this level's stored tiles overlap, so that
-	// Grid does NOT tile Size (Grid.W × TileSize.W > Size.W). True only for
-	// stitched BIF levels (GH #60/#71); false for every other format and for
-	// non-overlapping BIF levels. When true, use the region API (ReadRegion /
-	// ReadRegionScaled / ScaledStrips) rather than per-tile Grid iteration to
-	// obtain correctly-placed pixels; the per-tile accessors still return the
-	// raw overlapping tiles for callers that want them. TileOverlap carries the
-	// overlap magnitude.
+	// OverlapMode classifies this level's tile/grid relationship:
+	// OverlapNone (clean partition), OverlapBordered (DZI/SZI overlap>0 —
+	// tiles padded with a croppable border; Grid still tiles Size), or
+	// OverlapStitched (BIF — compacted hull; Grid does NOT tile Size).
+	// Overlapping == (OverlapMode != OverlapNone).
+	OverlapMode OverlapMode
+
+	// Overlapping is a convenience equal to (OverlapMode != OverlapNone): the
+	// level's stored/decoded tiles overlap (bordered or stitched) and are not a
+	// clean verbatim partition, so gate any verbatim per-tile copy on
+	// !Overlapping. For the precise flavour — and specifically whether Grid
+	// tiles Size — read OverlapMode (only OverlapStitched has Grid != Size).
+	// False for every clean-grid level. The per-tile accessors still return the
+	// raw (padded/overlapping) tiles; use the region API or, for bordered
+	// levels, TileContentRect, to obtain correctly-placed pixels.
 	Overlapping bool
 
-	// TileOverlap is the per-tile overlap (BIF / NDPI in overlapping
-	// modes). Zero for non-overlapping tile formats. See Overlapping for the
-	// boolean "Grid does not tile Size" contract signal.
+	// TileOverlap is the per-tile overlap magnitude. For OverlapBordered it is
+	// {ov, ov} (the DZI Overlap attribute), always non-zero. For OverlapStitched
+	// it is the BIF L0 magnitude where one is meaningful, but {0,0} on BIF
+	// reduced levels (per-frame placement is authoritative there). Zero for
+	// OverlapNone. NOT a reliable overlap test — gate on Overlapping/OverlapMode.
 	TileOverlap Point
 
 	// Compression identifies the codec for tile bytes at this level.
