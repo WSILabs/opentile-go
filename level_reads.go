@@ -164,7 +164,7 @@ func (l *Level) StitchedGridFor(tile Size) Size {
 // OverlapNone it is the full clipped cell at origin (0,0) — a universal "where
 // is the real content" answer. ok is false for OverlapStitched (Grid does not
 // tile Size — use the region API) and for an out-of-grid (col,row).
-func (l Level) TileContentRect(col, row int) (Region, bool) {
+func (l *Level) TileContentRect(col, row int) (Region, bool) {
 	if l.OverlapMode == OverlapStitched {
 		return Region{}, false
 	}

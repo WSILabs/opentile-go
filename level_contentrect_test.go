@@ -54,10 +54,12 @@ func TestTileContentRectNoneIsFullCell(t *testing.T) {
 }
 
 func TestTileContentRectStitchedAndOOB(t *testing.T) {
-	if _, ok := lvl(OverlapStitched, 1000, 1000, 256, 0).TileContentRect(0, 0); ok {
+	st := lvl(OverlapStitched, 1000, 1000, 256, 0)
+	if _, ok := st.TileContentRect(0, 0); ok {
 		t.Error("stitched: ok=true, want false (use region API)")
 	}
-	if _, ok := lvl(OverlapBordered, 1000, 1000, 256, 1).TileContentRect(99, 0); ok {
+	bd := lvl(OverlapBordered, 1000, 1000, 256, 1)
+	if _, ok := bd.TileContentRect(99, 0); ok {
 		t.Error("out-of-grid: ok=true, want false")
 	}
 }
