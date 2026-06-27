@@ -28,15 +28,14 @@ type Tiler struct {
 	levelEngines []*level
 }
 
-// openBareDZI parses the manifest at dziPath, rejects Overlap>0, and builds the
-// pyramid. filesDir is <dir(dziPath)>/<base(dziPath) without .ext>_files.
+// openBareDZI parses the manifest at dziPath and builds the pyramid.
+// filesDir is <dir(dziPath)>/<base(dziPath) without .ext>_files.
+// Overlap>0 is now accepted; the regionLayout/subtileLayout methods
+// composite the border-cropped content cells at read time.
 func openBareDZI(dziPath string, manifestBytes []byte, filesDir string) (*Tiler, error) {
 	m, err := idzi.ParseManifest(manifestBytes)
 	if err != nil {
 		return nil, fmt.Errorf("dzi: parse manifest %s: %w", dziPath, err)
-	}
-	if m.Overlap > 0 {
-		return nil, fmt.Errorf("dzi: %s: Overlap=%d: %w", dziPath, m.Overlap, idzi.ErrOverlapNotSupported)
 	}
 	t := &Tiler{filesDir: filesDir, manifest: m}
 	t.buildLevels()
@@ -61,6 +60,12 @@ func (t *Tiler) buildLevels() {
 	valueLevels := make([]opentile.Level, maxLevel+1)
 	engines := make([]*level, maxLevel+1)
 	l0W, _ := idzi.LevelDims(t.manifest.Width, t.manifest.Height, maxLevel)
+	mode := opentile.OverlapNone
+	tov := opentile.Point{}
+	if t.manifest.Overlap > 0 {
+		mode = opentile.OverlapBordered
+		tov = opentile.Point{X: t.manifest.Overlap, Y: t.manifest.Overlap}
+	}
 	for i := 0; i <= maxLevel; i++ {
 		dziL := maxLevel - i
 		w, h := idzi.LevelDims(t.manifest.Width, t.manifest.Height, dziL)
@@ -75,6 +80,7 @@ func (t *Tiler) buildLevels() {
 			cols:        cols,
 			rows:        rows,
 			tileSize:    t.manifest.TileSize,
+			overlap:     t.manifest.Overlap,
 		}
 		valueLevels[i] = opentile.Level{
 			Index:        i,
@@ -84,6 +90,9 @@ func (t *Tiler) buildLevels() {
 			Grid:         opentile.Size{W: cols, H: rows},
 			Compression:  comp,
 			Downsample:   float64(l0W) / float64(w),
+			OverlapMode:  mode,
+			Overlapping:  t.manifest.Overlap > 0,
+			TileOverlap:  tov,
 		}
 	}
 	t.dziImage = opentile.Pyramid{Name: "", Index: 0, Levels: valueLevels}
@@ -193,6 +202,57 @@ func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 		return nil, err
 	}
 	return eng.TileReader(tx, ty)
+}
+
+// TileOrigin returns the content cell's top-left in level pixels for (level, col, row).
+// This implements the regionLayout interface for Overlap>0 composite reads.
+func (t *Tiler) TileOrigin(level, col, row int) (x, y int, ok bool) {
+	eng, err := t.engine(0, level)
+	if err != nil {
+		return 0, 0, false
+	}
+	return eng.tileOrigin(col, row)
+}
+
+// TilesIntersecting returns the content cells overlapping [x,y,x+w,y+h) at the given level.
+// This implements the regionLayout interface for Overlap>0 composite reads.
+func (t *Tiler) TilesIntersecting(level, x, y, w, h int) []struct{ Col, Row int } {
+	eng, err := t.engine(0, level)
+	if err != nil {
+		return nil
+	}
+	return eng.tilesIntersecting(x, y, w, h)
+}
+
+// StitchedSize returns the level's content dimensions and ok=true only when
+// Overlap>0. ok=false keeps Overlap=0 levels on the clean-grid fast path.
+// This implements the regionLayout interface.
+func (t *Tiler) StitchedSize(level int) (w, h int, ok bool) {
+	eng, err := t.engine(0, level)
+	if err != nil {
+		return 0, 0, false
+	}
+	return eng.stitchedSize()
+}
+
+// UnitSize returns the content cell size (TileSize × TileSize) for the given level.
+// This implements the subtileLayout interface.
+func (t *Tiler) UnitSize(level int) (w, h int) {
+	eng, err := t.engine(0, level)
+	if err != nil {
+		return 0, 0
+	}
+	return eng.unitSize()
+}
+
+// SubtileSource maps a content cell (col, row) to the same stored tile plus
+// its crop origin. This implements the subtileLayout interface.
+func (t *Tiler) SubtileSource(level, col, row int) (srcCol, srcRow, cropX, cropY int) {
+	eng, err := t.engine(0, level)
+	if err != nil {
+		return col, row, 0, 0
+	}
+	return eng.subtileSource(col, row)
 }
 
 // ImageRangeTiles returns a row-major iterator over all tiles at (image, level).
