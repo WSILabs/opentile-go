@@ -1,8 +1,44 @@
 package opentile
 
 import (
+	"strconv"
+
 	"github.com/wsilabs/opentile-go/decoder"
 )
+
+// OverlapMode classifies how a level's stored/decoded tiles relate to its
+// content grid.
+type OverlapMode int
+
+const (
+	// OverlapNone: tiles are a clean partition of Size. Grid tiles Size;
+	// per-tile reads are verbatim content cells; verbatim tile-copy is safe.
+	OverlapNone OverlapMode = iota
+
+	// OverlapBordered: stored/decoded tiles carry a redundant overlap border
+	// (DZI/SZI Overlap>0). Grid STILL tiles Size (content cells partition it);
+	// crop each decoded tile to TileContentRect, or use the region API.
+	OverlapBordered
+
+	// OverlapStitched: the stitch layout compacted the grid (BIF). Grid does
+	// NOT tile Size (Grid.W×TileSize.W > Size.W); per-tile reads are raw
+	// overlapping frames at stored positions; use the region API.
+	OverlapStitched
+)
+
+// String returns a lowercase label ("none" / "bordered" / "stitched").
+func (m OverlapMode) String() string {
+	switch m {
+	case OverlapNone:
+		return "none"
+	case OverlapBordered:
+		return "bordered"
+	case OverlapStitched:
+		return "stitched"
+	default:
+		return "OverlapMode(" + strconv.Itoa(int(m)) + ")"
+	}
+}
 
 // Level is one resolution tier of a Pyramid. Its exported fields are
 // inspection-only metadata (read at Open time); tile and region reads are
