@@ -11,16 +11,16 @@ import (
 type OverlapMode int
 
 const (
-	// OverlapNone: tiles are a clean partition of Size. Grid tiles Size;
+	// OverlapNone is the clean-partition mode: tiles are a clean partition of Size. Grid tiles Size;
 	// per-tile reads are verbatim content cells; verbatim tile-copy is safe.
 	OverlapNone OverlapMode = iota
 
-	// OverlapBordered: stored/decoded tiles carry a redundant overlap border
+	// OverlapBordered is the padded-tile mode: stored/decoded tiles carry a redundant overlap border
 	// (DZI/SZI Overlap>0). Grid STILL tiles Size (content cells partition it);
 	// crop each decoded tile to TileContentRect, or use the region API.
 	OverlapBordered
 
-	// OverlapStitched: the stitch layout compacted the grid (BIF). Grid does
+	// OverlapStitched is the compacted-grid mode: the stitch layout compacted the grid (BIF). Grid does
 	// NOT tile Size (Grid.W×TileSize.W > Size.W); per-tile reads are raw
 	// overlapping frames at stored positions; use the region API.
 	OverlapStitched
