@@ -144,11 +144,36 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 			return ErrRegionEmpty
 		}
 		fillWhite(dst) // stitched output always white-initialized (overlaps/gaps)
-		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
-		defer returnTileScratch(scratch)
 		// Subtile layouts (BIF reduced levels) fetch the same source tile for
 		// every subtile of it (2ⁱ×2ⁱ subtiles share one source). Cache the
 		// last-decoded source so a run of subtiles from one tile decodes it once.
+		//
+		// OverlapBordered levels (DZI/SZI Overlap>0): stored tiles are LARGER than
+		// TileSize (they carry overlap border pixels), so the tile size varies per
+		// position (edge tiles smaller than interior tiles). Use per-call fresh
+		// allocation (imageDecodedTile) rather than a fixed scratch to avoid the
+		// size-mismatch check in copyImageInto. The last-decoded caching still
+		// applies via the lastTile pointer.
+		if lvl.OverlapMode == OverlapBordered {
+			var lastTile *decoder.Image
+			haveCol, haveRow, have := 0, 0, false
+			return compositeStitchedLoop(rl, level, x, y, x0, y0, x1, y1,
+				lvl.TileSize.W, lvl.TileSize.H, dst,
+				func(col, row int) (*decoder.Image, error) {
+					if have && col == haveCol && row == haveRow {
+						return lastTile, nil
+					}
+					t, err := s.imageDecodedTile(image, level, col, row, opts...)
+					if err != nil {
+						return nil, fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", col, row, level, err)
+					}
+					lastTile = t
+					haveCol, haveRow, have = col, row, true
+					return lastTile, nil
+				})
+		}
+		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
+		defer returnTileScratch(scratch)
 		haveCol, haveRow, have := 0, 0, false
 		return compositeStitchedLoop(rl, level, x, y, x0, y0, x1, y1,
 			lvl.TileSize.W, lvl.TileSize.H, dst,

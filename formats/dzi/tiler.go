@@ -8,7 +8,10 @@ import (
 	"strings"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/assocdecode"
 	idzi "github.com/wsilabs/opentile-go/internal/dzi"
+	"github.com/wsilabs/opentile-go/internal/fastpath"
 	"github.com/wsilabs/opentile-go/internal/format"
 )
 
@@ -202,6 +205,28 @@ func (t *Tiler) ImageTileReader(image, level, tx, ty int) (io.ReadCloser, error)
 		return nil, err
 	}
 	return eng.TileReader(tx, ty)
+}
+
+// ImageDecodedTile implements the decodedTiler fast-path for DZI tiles.
+// JPEG tiles go through the codec registry (libjpeg-turbo cgo, with IDCT
+// scale support). PNG tiles are decoded via the standard library (pure Go,
+// works under nocgo). For other compression values it returns
+// fastpath.ErrUnsupported, causing the caller to fall back to the generic
+// codec-registry path (which will return ErrCodecNotRegistered for
+// unrecognised tile formats).
+func (t *Tiler) ImageDecodedTile(image, level, tx, ty int, opts decoder.DecodeOptions) (*decoder.Image, error) {
+	lvl, err := t.Level(image, level)
+	if err != nil {
+		return nil, err
+	}
+	if lvl.Compression != opentile.CompressionPNG && lvl.Compression != opentile.CompressionJPEG {
+		return nil, fmt.Errorf("dzi: ImageDecodedTile: %w", fastpath.ErrUnsupported)
+	}
+	raw, err := t.ImageRawTile(image, level, tx, ty)
+	if err != nil {
+		return nil, err
+	}
+	return assocdecode.ViaCodec(lvl.Compression, raw, opts)
 }
 
 // TileOrigin returns the content cell's top-left in level pixels for (level, col, row).
