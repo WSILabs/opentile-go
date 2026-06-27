@@ -144,17 +144,62 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 			return ErrRegionEmpty
 		}
 		fillWhite(dst) // stitched output always white-initialized (overlaps/gaps)
-		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
-		defer returnTileScratch(scratch)
 		// Subtile layouts (BIF reduced levels) fetch the same source tile for
 		// every subtile of it (2ⁱ×2ⁱ subtiles share one source). Cache the
 		// last-decoded source so a run of subtiles from one tile decodes it once.
+		//
+		// OverlapBordered levels (DZI/SZI Overlap>0): stored tiles are LARGER than
+		// TileSize (they carry overlap border pixels), so the tile size varies per
+		// position (edge tiles smaller than interior tiles). Use per-call fresh
+		// allocation (imageDecodedTile) rather than a fixed scratch to avoid the
+		// size-mismatch check in copyImageInto. The last-decoded caching still
+		// applies via the lastTile pointer.
+		if lvl.OverlapMode == OverlapBordered {
+			var lastTile *decoder.Image
+			haveCol, haveRow, have := 0, 0, false
+			return compositeStitchedLoop(rl, level, x, y, x0, y0, x1, y1,
+				lvl.TileSize.W, lvl.TileSize.H, dst,
+				func(col, row int) (*decoder.Image, error) {
+					if have && col == haveCol && row == haveRow {
+						return lastTile, nil
+					}
+					t, err := s.imageDecodedTile(image, level, col, row, opts...)
+					if err != nil {
+						return nil, fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", col, row, level, err)
+					}
+					lastTile = t
+					haveCol, haveRow, have = col, row, true
+					return lastTile, nil
+				})
+		}
+		scratch := borrowTileScratch(lvl.TileSize.W, lvl.TileSize.H, dst.Format)
+		defer returnTileScratch(scratch)
 		haveCol, haveRow, have := 0, 0, false
 		return compositeStitchedLoop(rl, level, x, y, x0, y0, x1, y1,
 			lvl.TileSize.W, lvl.TileSize.H, dst,
 			func(col, row int) (*decoder.Image, error) {
 				if have && col == haveCol && row == haveRow {
 					return scratch, nil
+				}
+				// Guard against unpadded edge tiles (bare DZI/SZI): if the
+				// level geometry shows this tile is smaller than TileSize,
+				// the strict decoder will reject decoding it into the fixed
+				// TileSize scratch. Use imageDecodedTile (natural-size alloc)
+				// for edge tiles. Padded-tile formats (TIFF/BIF) are
+				// byte-identical: their edge tiles decode to TileSize.
+				tileX := col * lvl.TileSize.W
+				tileY := row * lvl.TileSize.H
+				edgeW := lvl.Size.W-tileX < lvl.TileSize.W
+				edgeH := lvl.Size.H-tileY < lvl.TileSize.H
+				if edgeW || edgeH {
+					t, err := s.imageDecodedTile(image, level, col, row, opts...)
+					if err != nil {
+						return nil, fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", col, row, level, err)
+					}
+					// Do not update haveCol/haveRow: the fresh alloc is not
+					// stored in scratch, so caching it would return the wrong
+					// buffer on the next call.
+					return t, nil
 				}
 				if err := s.imageDecodedTileInto(image, level, col, row, scratch, opts...); err != nil {
 					return nil, fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", col, row, level, err)
@@ -191,18 +236,19 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 
 	for ty := tyMin; ty <= tyMax; ty++ {
 		for tx := txMin; tx <= txMax; tx++ {
-			if err := s.imageDecodedTileInto(image, level, tx, ty, scratch, opts...); err != nil {
-				return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tx, ty, level, err)
-			}
 			tileX := tx * lvl.TileSize.W
 			tileY := ty * lvl.TileSize.H
-			tileW := lvl.TileSize.W
-			tileH := lvl.TileSize.H
-			// Edge tiles may decode to less than nominal TileSize. The
-			// decoder writes only the actual extent into scratch; the
-			// scratch's Width/Height are the nominal pool size, which
-			// stays constant across reuse. Derive the actual decoded
-			// extent from the level geometry instead.
+			// Actual (edge-clipped) decoded extent from level geometry.
+			// Most formats store every tile at full TileSize (edge tiles
+			// zero-padded), so the reusable TileSize scratch matches the
+			// decoded size. Bare DZI/SZI store edge tiles UNPADDED at
+			// their actual size; the strict decoder rejects decoding such
+			// a sub-TileSize tile into the larger scratch (dst WxH !=
+			// decoded WxH). For edge tiles, decode into a freshly-allocated
+			// natural-size image instead. Padded-tile formats are
+			// byte-identical: their edge tiles still decode to TileSize;
+			// only the buffer source changes for the small number of edge
+			// tiles in those formats.
 			actualW := lvl.Size.W - tileX
 			if actualW > lvl.TileSize.W {
 				actualW = lvl.TileSize.W
@@ -211,17 +257,21 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 			if actualH > lvl.TileSize.H {
 				actualH = lvl.TileSize.H
 			}
-			if actualW < tileW {
-				tileW = actualW
-			}
-			if actualH < tileH {
-				tileH = actualH
+			src := scratch
+			if actualW < lvl.TileSize.W || actualH < lvl.TileSize.H {
+				img, err := s.imageDecodedTile(image, level, tx, ty, opts...)
+				if err != nil {
+					return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tx, ty, level, err)
+				}
+				src = img
+			} else if err := s.imageDecodedTileInto(image, level, tx, ty, scratch, opts...); err != nil {
+				return fmt.Errorf("opentile: decode tile (%d,%d) at level %d: %w", tx, ty, level, err)
 			}
 			// Intersect tile bounds with the clipped output region.
 			ix0 := maxInt(tileX, x0)
 			iy0 := maxInt(tileY, y0)
-			ix1 := minInt(tileX+tileW, x1)
-			iy1 := minInt(tileY+tileH, y1)
+			ix1 := minInt(tileX+actualW, x1)
+			iy1 := minInt(tileY+actualH, y1)
 			if ix0 >= ix1 || iy0 >= iy1 {
 				continue
 			}
@@ -231,7 +281,7 @@ func (s *Slide) imageReadRegionImpl(image, level, x, y int, dst *decoder.Image, 
 			srcH := iy1 - iy0
 			dstX := ix0 - x
 			dstY := iy0 - y
-			blitInto(scratch, srcX, srcY, srcW, srcH, dst, dstX, dstY)
+			blitInto(src, srcX, srcY, srcW, srcH, dst, dstX, dstY)
 		}
 	}
 	return nil

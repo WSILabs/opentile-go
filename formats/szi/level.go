@@ -8,7 +8,7 @@ import (
 	"iter"
 
 	opentile "github.com/wsilabs/opentile-go"
-	"github.com/wsilabs/opentile-go/internal/dzi"
+	idzi "github.com/wsilabs/opentile-go/internal/dzi"
 )
 
 // level is the opentile.Level implementation for one SZI/DZI
@@ -16,7 +16,7 @@ import (
 //
 // SZI tiles are self-contained JPEG / PNG files stored as
 // uncompressed (zip.Store) ZIP entries. Each Tile call resolves
-// (x, y) to a ZIP entry via dzi.TilePath + the Tiler's central-
+// (x, y) to a ZIP entry via idzi.TilePath + the Tiler's central-
 // directory map, then reads the entry's bytes verbatim.
 //
 // SZI/DZI tiles do not carry a shared splice prefix (each tile is
@@ -34,6 +34,7 @@ type level struct {
 	cols     int
 	rows     int
 	tileSize int // standard tile dimension (manifest TileSize, typically 256 / 512)
+	overlap  int // manifest Overlap; 0 = clean grid (fast path)
 
 	compression opentile.Compression
 }
@@ -58,10 +59,11 @@ func (l *level) TileSize() opentile.Size { return opentile.Size{W: l.tileSize, H
 // Grid returns the tile-grid dimensions (cols × rows).
 func (l *level) Grid() opentile.Size { return opentile.Size{W: l.cols, H: l.rows} }
 
-// TileOverlap returns the inter-tile pixel overlap. SZI-supported
-// DZI manifests typically declare Overlap=0; this is currently
-// hardcoded zero per Q-decision (full overlap support is deferred).
-func (l *level) TileOverlap() opentile.Point { return opentile.Point{} }
+// TileOverlap returns the inter-tile pixel overlap from the manifest.
+// Zero when Overlap=0 (clean grid); non-zero when Overlap>0 (bordered tiles).
+func (l *level) TileOverlap() opentile.Point {
+	return opentile.Point{X: l.overlap, Y: l.overlap}
+}
 
 // Compression reports the codec of the on-disk tile bitstream
 // (JPEG or PNG, per the manifest's Format attribute).
@@ -189,6 +191,59 @@ func (l *level) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.Ti
 	}
 }
 
+// tileOrigin returns the content cell's top-left in level pixels.
+// This supports the regionLayout composite path for Overlap>0 levels.
+func (l *level) tileOrigin(col, row int) (x, y int, ok bool) {
+	if col < 0 || row < 0 || col >= l.cols || row >= l.rows {
+		return 0, 0, false
+	}
+	return col * l.tileSize, row * l.tileSize, true
+}
+
+// tilesIntersecting returns the content cells overlapping [x,y,x+w,y+h).
+func (l *level) tilesIntersecting(x, y, w, h int) []struct{ Col, Row int } {
+	if w <= 0 || h <= 0 {
+		return nil
+	}
+	c0, r0 := x/l.tileSize, y/l.tileSize
+	c1, r1 := (x+w-1)/l.tileSize, (y+h-1)/l.tileSize
+	if c0 < 0 {
+		c0 = 0
+	}
+	if r0 < 0 {
+		r0 = 0
+	}
+	if c1 >= l.cols {
+		c1 = l.cols - 1
+	}
+	if r1 >= l.rows {
+		r1 = l.rows - 1
+	}
+	var out []struct{ Col, Row int }
+	for r := r0; r <= r1; r++ {
+		for c := c0; c <= c1; c++ {
+			out = append(out, struct{ Col, Row int }{c, r})
+		}
+	}
+	return out
+}
+
+// stitchedSize gates the composite path: ok only when this level has overlap.
+func (l *level) stitchedSize() (w, h int, ok bool) {
+	return l.width, l.height, l.overlap > 0
+}
+
+// unitSize is the content cell size (TileSize × TileSize). Edge clipping is
+// handled by the compositor's region clamp.
+func (l *level) unitSize() (w, h int) { return l.tileSize, l.tileSize }
+
+// subtileSource maps a content cell to its (same) stored tile plus the overlap
+// crop origin within the decoded tile.
+func (l *level) subtileSource(col, row int) (srcCol, srcRow, cropX, cropY int) {
+	ox, oy, _, _ := idzi.ContentRect(col, row, l.width, l.height, l.tileSize, l.overlap)
+	return col, row, ox, oy
+}
+
 // tileEntry resolves (x, y) to the corresponding ZIP entry.
 // Out-of-grid coords return ErrTileOutOfBounds wrapped in
 // TileError. Missing entries within the addressable range
@@ -203,7 +258,7 @@ func (l *level) tileEntry(x, y int) (*zip.File, error) {
 			Err:   opentile.ErrTileOutOfBounds,
 		}
 	}
-	path := dzi.TilePath(l.t.filesDir, l.dziLevel, x, y, l.t.manifest.Format)
+	path := idzi.TilePath(l.t.filesDir, l.dziLevel, x, y, l.t.manifest.Format)
 	entry, ok := l.t.entries[path]
 	if !ok {
 		return nil, &opentile.TileError{

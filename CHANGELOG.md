@@ -9,6 +9,43 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.60.0] — 2026-06-26
+
+DZI/SZI `Overlap > 0` support — clean composited output, new `OverlapMode` /
+`TileContentRect` API, and a pre-existing bare-DZI/SZI edge-tile `ReadRegion` fix.
+
+### Added
+
+- **DZI/SZI `Overlap > 0` support.** Bare DZI (`formats/dzi`) and SZI (`formats/szi`)
+  pyramids whose manifest declares a tile overlap now read correctly:
+  `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` / `StitchedTile` return clean,
+  overlap-free composited pixels, while raw `Tile()` / `DecodedTile()` return the
+  on-disk padded tile. New `opentile.OverlapMode` enum (`OverlapNone` /
+  `OverlapBordered` / `OverlapStitched`) on `Level`; `Level.Overlapping` is now the
+  derived convenience `OverlapMode != OverlapNone` (value unchanged for every
+  previously readable slide). New `Level.TileContentRect(col,row) (Region, bool)`
+  returns the per-tile content crop within a decoded tile. `Overlap = 0` reads are
+  byte-identical. Validated against libvips overlap_0/overlap_1 DZIs of the same
+  slide (region MAD ≈ JPEG noise) plus synthetic lossless PNG fixtures.
+
+### Changed
+
+- `Level.Overlapping` / `Level.Grid` / `Level.TileOverlap` field docs reworded to
+  distinguish "padded tiles" (`OverlapBordered`) from "compacted grid"
+  (`OverlapStitched`); the "Grid does not tile Size" property now belongs to
+  `OverlapMode == OverlapStitched`.
+
+### Fixed
+
+- **Bare DZI/SZI `ReadRegion` on right/bottom edge tiles.** Bare DZI/SZI store edge
+  tiles unpadded at their actual clipped size (unlike TIFF's zero-padded edge
+  tiles); the region compositor decoded each tile into a fixed `TileSize` scratch,
+  which the strict decoder rejected for a sub-`TileSize` edge tile
+  (`dst 256x256 != decoded 176x256`), so `ReadRegion` failed on any region touching
+  a right/bottom edge tile. The compositor now decodes unpadded edge tiles into a
+  natural-size buffer; byte-identical for padded-tile formats (TIFF/BIF). Pre-existing
+  since the v0.52 bare-DZI reader.
+
 ## [0.59.1] — 2026-06-26
 
 Precise subtile crop origin — fixes deep-zoom cross-level drift on legacy

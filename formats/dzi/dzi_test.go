@@ -162,15 +162,19 @@ func TestBareDZIMissingTile(t *testing.T) {
 	}
 }
 
-func TestBareDZIOverlapGuard(t *testing.T) {
+func TestBareDZIOverlapAccepted(t *testing.T) {
+	// Overlap>0 is now supported via regionLayout/subtileLayout crop.
+	// Opening a manifest with Overlap=1 must succeed (no ErrOverlapNotSupported).
 	dir := t.TempDir()
 	dziPath := filepath.Join(dir, "img.dzi")
 	if err := os.WriteFile(dziPath, []byte(manifestXML(1, 256, 512, 512)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := opentile.OpenFile(dziPath); !errors.Is(err, idzi.ErrOverlapNotSupported) {
-		t.Fatalf("Overlap=1 err = %v, want ErrOverlapNotSupported", err)
+	sl, err := opentile.OpenFile(dziPath)
+	if err != nil {
+		t.Fatalf("Overlap=1 open err = %v, want nil", err)
 	}
+	sl.Close()
 }
 
 func TestBareDZIDirWithoutManifestFallsThrough(t *testing.T) {

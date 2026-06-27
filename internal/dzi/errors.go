@@ -2,8 +2,8 @@ package dzi
 
 import "errors"
 
-// ErrOverlapNotSupported is returned at open time when a DZI manifest declares
-// Overlap > 0. Only Overlap=0 is implemented; tile-border cropping for
-// Overlap > 0 is deferred. Both formats/dzi and formats/szi enforce this so an
-// Overlap>0 slide fails loudly instead of being silently mis-placed.
+// ErrOverlapNotSupported is a reserved sentinel for a DZI/SZI manifest whose
+// overlap cannot be modelled. As of the Overlap>0 support, neither formats/dzi
+// nor formats/szi returns it for ordinary overlap — both read Overlap>0 — but
+// it is kept for any future genuinely-unmodellable overlap case.
 var ErrOverlapNotSupported = errors.New("dzi: tile overlap > 0 not supported")
