@@ -164,7 +164,11 @@ func TestFactory_OpenRaw_InvalidZIP(t *testing.T) {
 	}
 }
 
-func TestSZIOverlapGuard(t *testing.T) {
+func TestSZIOverlapAccepted(t *testing.T) {
+	// Overlap>0 is now supported via regionLayout/subtileLayout crop.
+	// Opening a manifest with Overlap=1 must NOT be rejected with ErrOverlapNotSupported.
+	// (The minimal archive below still fails — it has no scan-properties.xml — but the
+	// failure must be for a different reason, proving the guard is gone.)
 	manifest := func(overlap int) string {
 		return fmt.Sprintf(`<Image xmlns="http://schemas.microsoft.com/deepzoom/2008" `+
 			`Format="jpeg" Overlap="%d" TileSize="256"><Size Width="256" Height="256"/></Image>`, overlap)
@@ -178,10 +182,12 @@ func TestSZIOverlapGuard(t *testing.T) {
 		zw.Close()
 		return buf.Bytes()
 	}
+	// Overlap=1: must NOT return ErrOverlapNotSupported (the old guard is gone).
 	bad := build(1)
-	if _, err := openSZI(bytes.NewReader(bad), int64(len(bad)), nil); !errors.Is(err, dzi.ErrOverlapNotSupported) {
-		t.Fatalf("Overlap=1 err = %v, want ErrOverlapNotSupported", err)
+	if _, err := openSZI(bytes.NewReader(bad), int64(len(bad)), nil); errors.Is(err, dzi.ErrOverlapNotSupported) {
+		t.Fatalf("Overlap=1 wrongly rejected: %v", err)
 	}
+	// Overlap=0: still must not return ErrOverlapNotSupported.
 	good := build(0)
 	if _, err := openSZI(bytes.NewReader(good), int64(len(good)), nil); errors.Is(err, dzi.ErrOverlapNotSupported) {
 		t.Fatalf("Overlap=0 wrongly rejected by overlap guard: %v", err)
