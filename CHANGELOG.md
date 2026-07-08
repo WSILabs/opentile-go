@@ -9,6 +9,23 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.60.2] — 2026-07-07
+
+### Fixed
+
+- **JPEG-XL decode never worked.** The `decoder/jpegxl` decode path subscribed to
+  `JXL_DEC_NEED_IMAGE_OUT_BUFFER` via `JxlDecoderSubscribeEvents`. That constant
+  is a *return-only* status (value `5`), not a subscribable bit-flag event (those
+  are the power-of-two `JXL_DEC_BASIC_INFO` / `JXL_DEC_FULL_IMAGE`); passing it
+  made libjxl reject the entire subscription (`JXL_DEC_ERROR`), so every decode
+  failed with "corrupt input data" — even for valid tiles that `djxl` decodes.
+  It went unnoticed because the package had no decode test (only registration +
+  header-`Inspect`, which subscribes to `BASIC_INFO` alone and worked). Now
+  subscribes to `JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE` only; `Decode` /
+  `DecodedTile` / `ReadRegion` work for JPEG-XL tiles (generic-TIFF Compression
+  50002). Added a real end-to-end decode gate (`TestDecodeSampleTile`) that
+  decodes a committed 240×240 `.jxl` tile and asserts real pixels come back.
+
 ## [0.60.1] — 2026-06-27
 
 ### Fixed

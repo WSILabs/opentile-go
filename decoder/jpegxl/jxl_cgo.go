@@ -30,8 +30,14 @@ static int wsi_jxl_decode(
     JxlDecoder *dec = JxlDecoderCreate(NULL);
     if (!dec) return -1;
 
+    // Subscribe ONLY to the bit-flag events (BASIC_INFO, FULL_IMAGE).
+    // JXL_DEC_NEED_IMAGE_OUT_BUFFER is a RETURN-ONLY status (value 5, not a
+    // power-of-two subscribable flag); passing it to JxlDecoderSubscribeEvents
+    // makes libjxl reject the whole mask (JXL_DEC_ERROR), which previously broke
+    // every decode. ProcessInput still emits NEED_IMAGE_OUT_BUFFER on its own;
+    // it is handled in the loop below.
     if (JxlDecoderSubscribeEvents(dec,
-            JXL_DEC_BASIC_INFO | JXL_DEC_NEED_IMAGE_OUT_BUFFER | JXL_DEC_FULL_IMAGE)
+            JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE)
             != JXL_DEC_SUCCESS) {
         JxlDecoderDestroy(dec);
         return -1;
