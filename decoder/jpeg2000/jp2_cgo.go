@@ -1,9 +1,10 @@
 //go:build cgo && !nocgo && !nojp2k
 
 // Package jpeg2000 implements the JPEG 2000 decoder via openjp2.
-// TIFF Compression=33003 (Aperio convention) and 34712 (libtiff
-// convention). Does not support IDCT-time scaling; Decode rejects
-// DecodeOptions.Scale != 1.
+// TIFF Compression=33003 (Aperio JP2K YCbCr convention), 33005 (Aperio
+// JP2K RGB convention), and 34712 (libtiff convention). Color (RGB vs
+// YCbCr) is decided from the codestream, not the tag (see decodeIsYCbCr).
+// Does not support IDCT-time scaling; Decode rejects DecodeOptions.Scale != 1.
 package jpeg2000
 
 /*
@@ -271,7 +272,7 @@ func init() {
 type factory struct{}
 
 func (f *factory) Name() string                  { return "jpeg2000" }
-func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{33003, 34712} }
+func (f *factory) TIFFCompressionTags() []uint16 { return []uint16{33003, 33005, 34712} }
 func (f *factory) New() decoder.Decoder          { return &cgoDecoder{} }
 
 // Inspect parses the JPEG 2000 main header (SIZ + COD, and the JP2 box structure
