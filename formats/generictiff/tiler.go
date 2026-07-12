@@ -249,7 +249,10 @@ func buildMetadata(p *tiff.Page) Metadata {
 			if wt.hasScanner {
 				md.ScannerManufacturer = wt.scannerManufacturer
 			}
-			if wt.hasDate {
+			// Only override the DateTime(306) tag when the provenance value is at
+			// least as precise: a date-only provenance must not zero out a 306 tag
+			// that already carries HH:MM:SS (#108).
+			if wt.hasDate && (wt.dateHasTime || md.AcquisitionDateTime.IsZero()) {
 				md.AcquisitionDateTime = wt.acquisitionDate
 			}
 			if wt.hasMPP {

@@ -338,8 +338,9 @@ func (l *tiledImage) warm() error {
 //	7     JPEG             → CompressionJPEG
 //	8     Deflate          → CompressionDeflate (v0.10 addition)
 //	32946 AdobeDeflate     → CompressionDeflate (same payload as 8)
-//	33003 JP2K (Aperio)    → CompressionJP2K
-//	34712 JP2K (registered) → CompressionJP2K (v0.14 addition)
+//	33003 JP2K (Aperio YCbCr) → CompressionJP2K
+//	33005 JP2K (Aperio RGB)   → CompressionJP2K (#110)
+//	34712 JP2K (registered)   → CompressionJP2K (v0.14 addition)
 //	50001 WebP             → CompressionWebP   (v0.14 addition)
 //	50002 JPEG XL          → CompressionJPEGXL (v0.14 addition)
 //	60001 AVIF             → CompressionAVIF   (v0.14 addition)
@@ -358,7 +359,7 @@ func tiffCompressionToOpentile(comp uint32) opentile.Compression {
 		return opentile.CompressionJPEG
 	case 8, 32946:
 		return opentile.CompressionDeflate
-	case 33003, 34712:
+	case 33003, 33005, 34712:
 		return opentile.CompressionJP2K
 	case 50001:
 		return opentile.CompressionWebP

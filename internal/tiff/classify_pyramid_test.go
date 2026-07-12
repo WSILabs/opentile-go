@@ -337,6 +337,7 @@ func TestValidCompression(t *testing.T) {
 		{"JPEG", 7, true},
 		{"Deflate", 8, true},
 		{"JP2K_Aperio", 33003, true},
+		{"JP2K_Aperio_RGB", 33005, true}, // #110
 
 		// v0.14 additions
 		{"JP2K_registered", 34712, true},

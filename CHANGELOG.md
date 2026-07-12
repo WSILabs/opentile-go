@@ -9,6 +9,39 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.61.0] — 2026-07-12
+
+Reader metadata + codec-tag fixes: JP2K Aperio 33005 on the pyramid path,
+OME-TIFF `<Microscope>` scanner identity, and generic-TIFF acquisition-time
+preservation.
+
+### Added
+
+- **JPEG 2000 Aperio code 33005 (JP2K RGB) on the pyramid path (#110).** The
+  decoder + pyramid classifiers recognized 33003 (Aperio YCbCr) and 34712, but
+  not 33005 (Aperio JP2K RGB) — so a pyramid whose tiles are tagged 33005 was
+  undecodable/unclassifiable (33005 was handled only for associated images).
+  33005 is now registered in `decoder/jpeg2000` `TIFFCompressionTags`, the
+  generic-TIFF + OME-TIFF tiled compression mapping, and `internal/tiff`
+  pyramid-compression validation. Color (RGB vs YCbCr) is decided from the
+  codestream, not the tag, so an RGB/MCT 33005 codestream decodes as RGB with no
+  color-logic change. Unblocks wsitools emitting 33005 for RGB J2K.
+- **OME-TIFF scanner identity from the typed `<Microscope>` element (#106).**
+  The reader now parses `<Instrument><Microscope Manufacturer/Model/SerialNumber>`
+  and the image's `<InstrumentRef>`, resolving the primary image's instrument
+  (or the sole instrument) to populate `ScannerManufacturer` / `ScannerModel` /
+  `ScannerSerial`. New public `ometiff.OMEInstrument` type,
+  `OMEMetadata.Instruments`, and `OMEImage.InstrumentRefID`. Typed-element
+  counterpart to the existing Leica StructuredAnnotations path.
+
+### Fixed
+
+- **generic-TIFF: date-only provenance no longer zeroes the acquisition time
+  (#108).** A wsitools provenance `date=` parsed as date-only overrode the full
+  `DateTime`(306) tag, truncating `HH:MM:SS` to midnight. The reader now parses
+  `date=` as a full timestamp (RFC3339 / `2006-01-02T15:04:05`) when present, and
+  a date-only value never overrides a more-precise 306 tag.
+
 ## [0.60.2] — 2026-07-07
 
 ### Fixed

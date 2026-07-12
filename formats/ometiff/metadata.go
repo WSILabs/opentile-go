@@ -38,6 +38,13 @@ type OMEImage struct {
 	// cross-format Metadata layer to populate Magnification (v0.17).
 	ObjectiveSettingsID string
 
+	// InstrumentRefID is the <InstrumentRef ID> attribute's value,
+	// identifying which <Instrument> acquired this Image. Empty when
+	// absent. Resolved against OMEMetadata.Instruments (by ID) at the
+	// cross-format Metadata layer to populate ScannerManufacturer /
+	// ScannerModel / ScannerSerial from the linked <Microscope> (#106).
+	InstrumentRefID string
+
 	PhysicalSizeX     float64
 	PhysicalSizeY     float64
 	PhysicalSizeXUnit string
@@ -88,6 +95,17 @@ type OMEObjective struct {
 	LensNA                  float64
 }
 
+// OMEInstrument mirrors an <Instrument> element's identity: its ID and the
+// scanner make/model/serial from the child <Microscope> element (#106). The
+// cross-format Metadata layer resolves an Image's InstrumentRefID against this
+// list (by ID) to populate ScannerManufacturer / ScannerModel / ScannerSerial.
+type OMEInstrument struct {
+	ID           string
+	Manufacturer string
+	Model        string
+	SerialNumber string
+}
+
 // OMEMetadata is the top-level parsed view of an OME-XML document.
 // Holds the Image list in document order; further interpretation
 // (classification of macro / label / thumbnail vs main pyramid) is
@@ -108,6 +126,11 @@ type OMEMetadata struct {
 	// resolver (Image.ObjectiveSettingsID → Objective.ID) at the
 	// cross-format Metadata layer (v0.17).
 	Objectives []OMEObjective
+
+	// Instruments is every <Instrument> in document order, with its
+	// <Microscope> make/model/serial (#106). Used by the scanner-identity
+	// resolver (Image.InstrumentRefID → Instrument.ID).
+	Instruments []OMEInstrument
 
 	Images []OMEImage
 }
@@ -139,6 +162,12 @@ func parseOMEMetadata(xmlStr string) (OMEMetadata, error) {
 		Images:  make([]OMEImage, 0, len(doc.Images)),
 	}
 	for _, inst := range doc.Instruments {
+		out.Instruments = append(out.Instruments, OMEInstrument{
+			ID:           inst.ID,
+			Manufacturer: inst.Microscope.Manufacturer,
+			Model:        inst.Microscope.Model,
+			SerialNumber: inst.Microscope.SerialNumber,
+		})
 		for _, obj := range inst.Objectives {
 			out.Objectives = append(out.Objectives, OMEObjective{
 				ID:                      obj.ID,
@@ -158,6 +187,7 @@ func parseOMEMetadata(xmlStr string) (OMEMetadata, error) {
 			Description:         strings.TrimSpace(im.Description),
 			AcquisitionDate:     strings.TrimSpace(im.AcquisitionDate),
 			ObjectiveSettingsID: im.ObjectiveSettings.ID,
+			InstrumentRefID:     im.InstrumentRef.ID,
 			PhysicalSizeX:       im.Pixels.PhysicalSizeX,
 			PhysicalSizeY:       im.Pixels.PhysicalSizeY,
 			PhysicalSizeXUnit:   im.Pixels.PhysicalSizeXUnit,
@@ -188,7 +218,16 @@ type omeDoc struct {
 
 type omeInstrument struct {
 	ID         string         `xml:"ID,attr"`
+	Microscope omeMicroscope  `xml:"Microscope"`
 	Objectives []omeObjective `xml:"Objective"`
+}
+
+// omeMicroscope mirrors the <Microscope> element under <Instrument>, carrying
+// the source scanner identity (#106).
+type omeMicroscope struct {
+	Manufacturer string `xml:"Manufacturer,attr"`
+	Model        string `xml:"Model,attr"`
+	SerialNumber string `xml:"SerialNumber,attr"`
 }
 
 type omeObjective struct {
@@ -202,8 +241,15 @@ type omeImage struct {
 	Name              string               `xml:"Name,attr"`
 	AcquisitionDate   string               `xml:"AcquisitionDate"`
 	Description       string               `xml:"Description"`
+	InstrumentRef     omeInstrumentRef     `xml:"InstrumentRef"`
 	ObjectiveSettings omeObjectiveSettings `xml:"ObjectiveSettings"`
 	Pixels            omePixels            `xml:"Pixels"`
+}
+
+// omeInstrumentRef mirrors the <InstrumentRef ID> element linking an <Image>
+// to the <Instrument> that acquired it (#106).
+type omeInstrumentRef struct {
+	ID string `xml:"ID,attr"`
 }
 
 type omeObjectiveSettings struct {
@@ -253,14 +299,17 @@ type omeChannel struct {
 //   - Properties[ome.creator] from <OME Creator> root attribute.
 //   - Properties[ome.uuid] from <OME UUID> root attribute.
 //
-// Fields NOT populated (the OME fixtures we have don't carry them
-// in the parsed form, and adding them would require parsing
-// StructuredAnnotations OriginalMetadata which is a separate effort):
-//   - ScannerManufacturer / ScannerModel / ScannerSerial — Leica
-//     fixtures stash these in StructuredAnnotations OriginalMetadata
-//     keys like "macro device.model for image" rather than the
-//     typed <Microscope> element.
-//   - ScannerSoftware — same StructuredAnnotations source.
+//   - ScannerManufacturer / ScannerModel / ScannerSerial from the primary
+//     image's linked <Instrument><Microscope> element, resolved via
+//     <InstrumentRef> (or the sole Instrument) (#106).
+//
+// Fields NOT populated:
+//   - ScannerManufacturer / ScannerModel / ScannerSerial when carried ONLY in
+//     Leica's StructuredAnnotations OriginalMetadata (keys like
+//     "macro device.model for image") rather than the typed <Microscope>
+//     element — parsing OriginalMetadata is a separate effort. The typed
+//     <Microscope> path above IS populated.
+//   - ScannerSoftware — StructuredAnnotations OriginalMetadata source.
 //   - PropertyUserName — neither Leica fixture carries an
 //     <Experimenter> element. Code path is in place but inactive
 //     until a fixture surfaces one.
@@ -336,7 +385,41 @@ func crossMetadata(om OMEMetadata, cls omeClassification) opentile.Metadata {
 		}
 	}
 
+	// Scanner identity: resolve the primary image's <InstrumentRef> against the
+	// Instruments list, then read the linked <Microscope> make/model/serial
+	// (#106) — the typed-element counterpart to the Leica StructuredAnnotations
+	// OriginalMetadata path.
+	if inst, ok := resolveInstrument(om, primary.InstrumentRefID); ok {
+		if inst.Manufacturer != "" {
+			md.ScannerManufacturer = inst.Manufacturer
+		}
+		if inst.Model != "" {
+			md.ScannerModel = inst.Model
+		}
+		if inst.SerialNumber != "" {
+			md.ScannerSerial = inst.SerialNumber
+		}
+	}
+
 	return md
+}
+
+// resolveInstrument returns the OMEInstrument that an image's InstrumentRefID
+// points to. When refID is empty or unmatched it falls back to the sole
+// Instrument if the file has exactly one (an unambiguous single-instrument
+// link). ok=false when no instrument can be resolved (#106).
+func resolveInstrument(om OMEMetadata, refID string) (OMEInstrument, bool) {
+	if refID != "" {
+		for _, inst := range om.Instruments {
+			if inst.ID == refID {
+				return inst, true
+			}
+		}
+	}
+	if len(om.Instruments) == 1 {
+		return om.Instruments[0], true
+	}
+	return OMEInstrument{}, false
 }
 
 // convertToMicrons normalises a PhysicalSize value + Unit attribute to

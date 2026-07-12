@@ -266,6 +266,67 @@ func TestCrossMetadataMagnificationFallback(t *testing.T) {
 	}
 }
 
+// TestParseInstrumentMicroscope: <Instrument><Microscope> and the image's
+// <InstrumentRef> parse from OME-XML (#106).
+func TestParseInstrumentMicroscope(t *testing.T) {
+	xmlStr := `<OME>` +
+		`<Instrument ID="Instrument:0"><Microscope Manufacturer="Aperio" Model="GT450" SerialNumber="SN-12345"/></Instrument>` +
+		`<Image ID="Image:0" Name="main"><InstrumentRef ID="Instrument:0"/>` +
+		`<Pixels SizeX="100" SizeY="100" SizeC="3" Type="uint8"/></Image>` +
+		`</OME>`
+	om, err := parseOMEMetadata(xmlStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(om.Instruments) != 1 {
+		t.Fatalf("Instruments = %d, want 1", len(om.Instruments))
+	}
+	i := om.Instruments[0]
+	if i.ID != "Instrument:0" || i.Manufacturer != "Aperio" || i.Model != "GT450" || i.SerialNumber != "SN-12345" {
+		t.Errorf("Instrument = %+v, want Instrument:0/Aperio/GT450/SN-12345", i)
+	}
+	if om.Images[0].InstrumentRefID != "Instrument:0" {
+		t.Errorf("InstrumentRefID = %q, want Instrument:0", om.Images[0].InstrumentRefID)
+	}
+}
+
+// TestCrossMetadataScannerFromMicroscope: the primary image's linked
+// <Microscope> populates ScannerManufacturer/Model/Serial (#106).
+func TestCrossMetadataScannerFromMicroscope(t *testing.T) {
+	om := OMEMetadata{
+		Instruments: []OMEInstrument{
+			{ID: "Instrument:0", Manufacturer: "Aperio", Model: "GT450", SerialNumber: "SN-1"},
+		},
+		Images: []OMEImage{{Name: "main", InstrumentRefID: "Instrument:0"}},
+	}
+	cls := omeClassification{LevelImages: []int{0}, Macro: -1, Label: -1, Thumbnail: -1}
+	md := crossMetadata(om, cls)
+	if md.ScannerManufacturer != "Aperio" || md.ScannerModel != "GT450" || md.ScannerSerial != "SN-1" {
+		t.Errorf("scanner = %q/%q/%q, want Aperio/GT450/SN-1",
+			md.ScannerManufacturer, md.ScannerModel, md.ScannerSerial)
+	}
+}
+
+func TestResolveInstrument(t *testing.T) {
+	two := OMEMetadata{Instruments: []OMEInstrument{
+		{ID: "Instrument:0", Manufacturer: "A"},
+		{ID: "Instrument:1", Manufacturer: "B"},
+	}}
+	if inst, ok := resolveInstrument(two, "Instrument:1"); !ok || inst.Manufacturer != "B" {
+		t.Errorf("ref match = %+v ok=%v, want B/true", inst, ok)
+	}
+	if _, ok := resolveInstrument(two, "Instrument:9"); ok {
+		t.Error("unmatched ref with 2 instruments: ok=true, want false (no ambiguous fallback)")
+	}
+	one := OMEMetadata{Instruments: []OMEInstrument{{ID: "x", Manufacturer: "Solo"}}}
+	if inst, ok := resolveInstrument(one, ""); !ok || inst.Manufacturer != "Solo" {
+		t.Errorf("sole-instrument fallback = %+v ok=%v, want Solo/true", inst, ok)
+	}
+	if _, ok := resolveInstrument(OMEMetadata{}, ""); ok {
+		t.Error("no instruments: ok=true, want false")
+	}
+}
+
 // TestConvertToMicrons: verify the unit table.
 func TestConvertToMicrons(t *testing.T) {
 	cases := []struct {

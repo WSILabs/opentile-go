@@ -27,6 +27,7 @@ type wsiToolsMetadata struct {
 	hasScanner          bool
 	scannerManufacturer string
 	hasDate             bool
+	dateHasTime         bool // provenance date= carried an explicit HH:MM:SS
 	acquisitionDate     time.Time
 	hasMPP              bool
 	micronsPerPixel     float64
@@ -77,9 +78,14 @@ func parseWSIToolsDescription(desc string) (wsiToolsMetadata, bool) {
 				md.hasScanner = true
 			}
 		case "date":
-			if ts, err := time.Parse("2006-01-02", val); err == nil {
+			// Accept a full timestamp (wsitools now emits RFC3339, #108/wsitools#31)
+			// before the legacy date-only form, so acquisition TIME round-trips.
+			// dateHasTime records whether a time component was present, so a
+			// date-only value never clobbers a more-precise DateTime(306) tag.
+			if ts, hasTime, ok := parseProvenanceDate(val); ok {
 				md.acquisitionDate = ts.UTC()
 				md.hasDate = true
+				md.dateHasTime = hasTime
 			}
 		case "mpp":
 			if f, err := strconv.ParseFloat(val, 64); err == nil {
@@ -156,4 +162,22 @@ func tokeniseKVPairs(desc string) []string {
 		out = append(out, current.String())
 	}
 	return out
+}
+
+// parseProvenanceDate parses a wsitools provenance date= value. It accepts a
+// full timestamp (RFC3339, or "2006-01-02T15:04:05" / "2006-01-02 15:04:05")
+// before the legacy date-only "2006-01-02". hasTime reports whether an explicit
+// HH:MM:SS was present, so a date-only value never overrides a more-precise
+// DateTime(306) tag (#108).
+func parseProvenanceDate(val string) (ts time.Time, hasTime, ok bool) {
+	val = strings.TrimSpace(val)
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05"} {
+		if t, err := time.Parse(layout, val); err == nil {
+			return t, true, true
+		}
+	}
+	if t, err := time.Parse("2006-01-02", val); err == nil {
+		return t, false, true
+	}
+	return time.Time{}, false, false
 }

@@ -371,7 +371,7 @@ func tiffCompressionToOpentile(tiffCode uint32) opentile.Compression {
 		return opentile.CompressionJPEG
 	case 8, 32946:
 		return opentile.CompressionDeflate
-	case 33003, 34712:
+	case 33003, 33005, 34712:
 		return opentile.CompressionJP2K
 	}
 	return opentile.CompressionUnknown
