@@ -27,9 +27,55 @@ func TestParseWSIToolsDescription_HappyPath(t *testing.T) {
 	if !md.acquisitionDate.Equal(want) {
 		t.Errorf("date = %v, want %v", md.acquisitionDate, want)
 	}
+	if md.dateHasTime {
+		t.Error("dateHasTime = true for a date-only value, want false (#108)")
+	}
 	// v0.20: Version extracted for Writer population.
 	if md.Version != "0.2.0-dev" {
 		t.Errorf("Version = %q, want 0.2.0-dev", md.Version)
+	}
+}
+
+// TestParseWSIToolsDescription_FullTimestampDate: a full-timestamp provenance
+// date= must round-trip the HH:MM:SS (#108), not be truncated to midnight.
+func TestParseWSIToolsDescription_FullTimestampDate(t *testing.T) {
+	desc := `wsi-tools/0.26.0 transcode source=svs date=2009-12-29T09:59:15Z`
+	md, ok := parseWSIToolsDescription(desc)
+	if !ok || !md.hasDate {
+		t.Fatal("expected date parsed")
+	}
+	if !md.dateHasTime {
+		t.Error("dateHasTime = false, want true for an RFC3339 value")
+	}
+	want := time.Date(2009, 12, 29, 9, 59, 15, 0, time.UTC)
+	if !md.acquisitionDate.Equal(want) {
+		t.Errorf("date = %v, want %v (time component lost)", md.acquisitionDate, want)
+	}
+}
+
+func TestParseProvenanceDate(t *testing.T) {
+	cases := []struct {
+		in      string
+		wantHMS bool
+		want    time.Time
+	}{
+		{"2009-12-29T09:59:15Z", true, time.Date(2009, 12, 29, 9, 59, 15, 0, time.UTC)},
+		{"2009-12-29T09:59:15", true, time.Date(2009, 12, 29, 9, 59, 15, 0, time.UTC)},
+		{"2009-12-29 09:59:15", true, time.Date(2009, 12, 29, 9, 59, 15, 0, time.UTC)},
+		{"2009-12-29", false, time.Date(2009, 12, 29, 0, 0, 0, 0, time.UTC)},
+	}
+	for _, c := range cases {
+		ts, hasTime, ok := parseProvenanceDate(c.in)
+		if !ok {
+			t.Errorf("%q: ok=false, want parseable", c.in)
+			continue
+		}
+		if hasTime != c.wantHMS || !ts.UTC().Equal(c.want) {
+			t.Errorf("%q: got (%v, hasTime=%v), want (%v, hasTime=%v)", c.in, ts.UTC(), hasTime, c.want, c.wantHMS)
+		}
+	}
+	if _, _, ok := parseProvenanceDate("not-a-date"); ok {
+		t.Error("garbage input: ok=true, want false")
 	}
 }
 
