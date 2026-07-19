@@ -47,7 +47,13 @@ func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	if err != nil {
 		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/htj2k: inspect: %w", decoder.ErrCorruptInput)
 	}
-	return h.CodestreamInfo(), nil
+	ci := h.CodestreamInfo()
+	if ci.Components == 1 {
+		ci.DecodedColorSpace = decoder.ColorGrayscale
+	} else {
+		ci.DecodedColorSpace = decoder.ColorRGB
+	}
+	return ci, nil
 }
 
 type cgoDecoder struct {

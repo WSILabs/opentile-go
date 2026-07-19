@@ -42,10 +42,12 @@ func TestJPEGInspect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// image/jpeg encodes YCbCr with 4:2:0 chroma subsampling.
+	// image/jpeg encodes YCbCr with 4:2:0 chroma subsampling. libjpeg-turbo
+	// decodes to RGB, so DecodedColorSpace diverges from the stored ColorEncoding.
 	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessNo ||
-		ci.ColorEncoding != decoder.ColorYCbCr || ci.ChromaSubsampling != decoder.Subsampling420 || ci.Boxed {
-		t.Errorf("color JPEG inspect = %+v, want comps=3 depth=8 lossy YCbCr 4:2:0 raw", ci)
+		ci.ColorEncoding != decoder.ColorYCbCr || ci.DecodedColorSpace != decoder.ColorRGB ||
+		ci.ChromaSubsampling != decoder.Subsampling420 || ci.Boxed {
+		t.Errorf("color JPEG inspect = %+v, want comps=3 depth=8 lossy YCbCr decoded=RGB 4:2:0 raw", ci)
 	}
 
 	// Grayscale JPEG → no chroma.
@@ -57,8 +59,9 @@ func TestJPEGInspect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ci.Components != 1 || ci.ColorEncoding != decoder.ColorGrayscale || ci.ChromaSubsampling != decoder.SubsamplingNone {
-		t.Errorf("gray JPEG inspect = %+v, want comps=1 grayscale none", ci)
+	if ci.Components != 1 || ci.ColorEncoding != decoder.ColorGrayscale ||
+		ci.DecodedColorSpace != decoder.ColorGrayscale || ci.ChromaSubsampling != decoder.SubsamplingNone {
+		t.Errorf("gray JPEG inspect = %+v, want comps=1 grayscale decoded=grayscale none", ci)
 	}
 
 	// Corrupt input → error.

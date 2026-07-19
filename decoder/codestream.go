@@ -46,6 +46,21 @@ type CodestreamInfo struct {
 	// ColorEncoding is the codec-domain color encoding of the samples.
 	ColorEncoding ColorEncoding
 
+	// DecodedColorSpace is the colorspace of the component planes the codec's
+	// decode library hands back — before any reader-side YCbCr→RGB conversion
+	// opentile itself performs. Unlike ColorEncoding (the stored codestream
+	// colorspace, what a frame-copy preserves), this is what the pixels are in
+	// once decoded: JPEG 2000 MCT codestreams report RGB (the library inverts
+	// the MCT); an sYCC or unsignalled Aperio-33003 raw codestream reports
+	// YCbCr (opentile converts it); JPEG and JPEG XL colour tiles, and htj2k,
+	// report RGB (their libraries convert / opentile applies no chroma
+	// conversion); single-component tiles report Grayscale.
+	//
+	// It only ever takes the decoded-pixel subset — ColorGrayscale, ColorRGB,
+	// ColorYCbCr, ColorUnknown — never the ColorYBRICT / ColorYBRRCT stored
+	// transforms.
+	DecodedColorSpace ColorEncoding
+
 	// ChromaSubsampling is the chroma subsampling of the samples. It matters to
 	// frame-copy consumers that must distinguish, e.g., DICOM YBR_FULL_422
 	// (4:2:2) from YBR_FULL (4:4:4) — a conformance distinction. JPEG reports it
