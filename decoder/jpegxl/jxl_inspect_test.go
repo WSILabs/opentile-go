@@ -29,9 +29,11 @@ func TestJPEGXLInspect(t *testing.T) {
 		t.Fatal(err)
 	}
 	// libjxl exposes no header-only lossless flag → LosslessUnknown is expected.
+	// It decodes to RGB, so DecodedColorSpace == RGB for this 3-channel tile.
 	if ci.Components != 3 || ci.BitDepth != 8 || ci.Lossless != decoder.LosslessUnknown ||
-		ci.ColorEncoding != decoder.ColorRGB || ci.ChromaSubsampling != decoder.SubsamplingUnknown || ci.Boxed {
-		t.Errorf("jxl inspect = %+v, want comps=3 depth=8 lossless=unknown RGB raw", ci)
+		ci.ColorEncoding != decoder.ColorRGB || ci.DecodedColorSpace != decoder.ColorRGB ||
+		ci.ChromaSubsampling != decoder.SubsamplingUnknown || ci.Boxed {
+		t.Errorf("jxl inspect = %+v, want comps=3 depth=8 lossless=unknown RGB decoded=RGB raw", ci)
 	}
 
 	if _, err := p.Inspect([]byte{0x00, 0x01, 0x02}); err == nil {

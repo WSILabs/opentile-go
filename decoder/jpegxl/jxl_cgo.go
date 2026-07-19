@@ -180,10 +180,13 @@ func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	switch ch {
 	case 1:
 		ci.ColorEncoding = decoder.ColorGrayscale
+		ci.DecodedColorSpace = decoder.ColorGrayscale
 	case 3:
 		ci.ColorEncoding = decoder.ColorRGB
+		ci.DecodedColorSpace = decoder.ColorRGB
 	default:
 		ci.ColorEncoding = decoder.ColorUnknown
+		ci.DecodedColorSpace = decoder.ColorUnknown
 	}
 	return ci, nil
 }
