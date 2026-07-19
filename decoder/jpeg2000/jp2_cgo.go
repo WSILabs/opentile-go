@@ -284,7 +284,9 @@ func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	if err != nil {
 		return decoder.CodestreamInfo{}, fmt.Errorf("decoder/jpeg2000: inspect: %w", decoder.ErrCorruptInput)
 	}
-	return h.CodestreamInfo(), nil
+	ci := h.CodestreamInfo()
+	ci.DecodedColorSpace = decodedColorSpaceFromHeader(h)
+	return ci, nil
 }
 
 type cgoDecoder struct{}
