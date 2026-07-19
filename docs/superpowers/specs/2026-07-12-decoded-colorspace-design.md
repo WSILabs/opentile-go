@@ -189,11 +189,24 @@ func decodeIsYCbCr(src []byte) bool {
 
 Delete the old `decodeIsYCbCr` and its `jp2EnumSRGB`/`jp2EnumSYCC` const block
 from `jp2_cgo.go` (they move to `color.go`; `detectCodecFormat` and the C bridge
-stay). Behaviour is identical: the old truth table was `h.MCT→false`,
-`sRGB→false`, `sYCC→true`, default→true, parse-error→true; the new path yields
-the same boolean for every 3-component input, and for a 1-component input returns
-`false` (`Grayscale != YCbCr`) — which the C side already ignores because it
-gates conversion on `numcomps == 3`, so no decode output changes.
+stay). The old truth table was `h.MCT→false`, `sRGB→false`, `sYCC→true`,
+default→true, parse-error→true. The new path yields the same boolean for every
+3-component input **that any real codestream produces** — with two deliberate,
+harmless extensions the old table lacked:
+
+- **1-component** input returns `false` (`Grayscale != YCbCr`), where the old
+  table fell through to `true`. The C side ignores it: conversion is gated on
+  `numcomps == 3`.
+- A **3-component input carrying an enumerated *greyscale* colr box**
+  (`EnumColorspace == 17`) now returns `false` (`Grayscale`), where the old
+  table fell through to `true`. This is a self-contradictory header (3 planes
+  labelled greyscale) that no real WSI fixture produces; the new value is
+  actually *more* consistent — the stored-colorspace classifier
+  (`j2kheader.CodestreamInfo`) already maps the same input to `ColorGrayscale`.
+
+Neither extension changes the decode output of any real codestream, so the
+refactor is byte-neutral in practice (pinned by `TestDecodeIsYCbCrParity` over
+the fixtures and the existing decode/RGBA/MCT pixel tests).
 
 ### 4.3 `decoder/jpeg2000/jp2_cgo.go` — `Inspect`
 
