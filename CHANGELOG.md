@@ -9,6 +9,25 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.62.0] — 2026-07-19
+
+### Added
+
+- `decoder.CodestreamInfo.DecodedColorSpace` (`ColorEncoding`) — the colorspace
+  of the component planes the decode library hands back, *before* opentile's
+  reader-side YCbCr→RGB normalization; the decoded-pixel counterpart to the
+  stored `ColorEncoding`. Populated by all four codestream-inspecting codecs
+  (jpeg, jpeg2000, htj2k, jpegxl). JPEG 2000 MCT / JPEG / JPEG XL / htj2k colour
+  tiles report `RGB`; an sYCC or unsignalled Aperio-33003 raw JP2K codestream
+  reports `YCbCr`; single-component tiles report `Grayscale`. Additive; no
+  behaviour change to any existing field or `Decode` output. (#112)
+
+### Changed
+
+- Internal: the jpeg2000 decode-time `decodeIsYCbCr` decision and the new
+  inspect-time `DecodedColorSpace` now share one build-tag-free rule in
+  `decoder/jpeg2000/color.go`, so they cannot drift. No decode output changes.
+
 ## [0.61.0] — 2026-07-12
 
 Reader metadata + codec-tag fixes: JP2K Aperio 33005 on the pyramid path,
