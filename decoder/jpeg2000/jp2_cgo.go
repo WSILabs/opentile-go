@@ -299,42 +299,6 @@ func detectCodecFormat(src []byte) C.int {
 	return C.OPJ_CODEC_JP2
 }
 
-// JP2 'colr' box enumerated colorspace values.
-const (
-	jp2EnumSRGB = 16
-	jp2EnumSYCC = 18
-)
-
-// decodeIsYCbCr reports whether the decoded 3-component planes need a
-// YCbCr->RGB conversion, decided from the codestream rather than a blanket
-// assumption (GH #53). OpenJPEG applies the inverse multiple-component
-// transform (MCT) during decode, so an MCT codestream's components are already
-// RGB. The decoder therefore treats 3-component data as YCbCr only on a
-// positive signal: an sYCC JP2 colorspace box, or — the Aperio 33003 convention
-// — a raw codestream with no MCT and no (decisive) colorspace box. An MCT
-// codestream or an explicit sRGB box is RGB and needs no conversion.
-func decodeIsYCbCr(src []byte) bool {
-	h, err := j2kheader.Parse(src)
-	if err != nil {
-		// Unparseable header: fall back to the historical default (treat
-		// 3-component data as YCbCr), preserving Aperio 33003 behavior.
-		return true
-	}
-	if h.MCT {
-		return false // OpenJPEG already inverted the MCT -> RGB
-	}
-	switch h.EnumColorspace {
-	case jp2EnumSRGB:
-		return false // explicit RGB
-	case jp2EnumSYCC:
-		return true // explicit YCbCr
-	}
-	// No MCT and no decisive colorspace box: ambiguous. Default to YCbCr to
-	// preserve the Aperio 33003 convention (raw J2K, YCbCr, no MCT, no box).
-	// A standard RGB encoder uses MCT or carries an sRGB box, both handled above.
-	return true
-}
-
 func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Image, error) {
 	if len(src) == 0 {
 		return nil, fmt.Errorf("decoder/jpeg2000: empty input: %w", decoder.ErrCorruptInput)
