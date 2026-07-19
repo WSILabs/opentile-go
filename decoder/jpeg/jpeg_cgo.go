@@ -59,14 +59,19 @@ func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 	switch colorspace {
 	case C.TJCS_GRAY:
 		ci.Components, ci.ColorEncoding = 1, decoder.ColorGrayscale
+		ci.DecodedColorSpace = decoder.ColorGrayscale
 	case C.TJCS_RGB:
 		ci.Components, ci.ColorEncoding = 3, decoder.ColorRGB
+		ci.DecodedColorSpace = decoder.ColorRGB
 	case C.TJCS_YCbCr:
 		ci.Components, ci.ColorEncoding = 3, decoder.ColorYCbCr
+		ci.DecodedColorSpace = decoder.ColorRGB // libjpeg-turbo converts YCbCr→RGB
 	case C.TJCS_CMYK, C.TJCS_YCCK:
 		ci.Components, ci.ColorEncoding = 4, decoder.ColorUnknown
+		ci.DecodedColorSpace = decoder.ColorUnknown
 	default:
 		ci.Components, ci.ColorEncoding = 3, decoder.ColorUnknown
+		ci.DecodedColorSpace = decoder.ColorUnknown
 	}
 	switch subsamp {
 	case C.TJSAMP_444:
