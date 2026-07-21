@@ -2,7 +2,53 @@
 
 Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 12 WSI formats (SVS, NDPI, Philips-TIFF, OME-TIFF, BIF, Leica-SCN, generic-TIFF, COG-WSI, IFE, SZI, DICOM-WSI, bare-DZI) with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo core; optional OpenJPEG/JPEG2000, JPEG-XL, WebP, AVIF, HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths. Note: the DICOM reader uses `github.com/WSILabs/dicom` (a maintained pure-Go fork of `suyashkumar/dicom`, no new cgo) for cold-path attribute parsing.
 
-## Current milestone — BIF stitching completed (shipped 2026-06-26, v0.59.1)
+## Current milestone — DecodedColorSpace on CodestreamInfo (shipped 2026-07-21, v0.62.0)
+
+**#112 — expose the decoded-plane colorspace.** New
+`decoder.CodestreamInfo.DecodedColorSpace ColorEncoding` reports the colorspace
+of the sample planes the decode library hands back **before** opentile's own
+reader-side YCbCr→RGB normalization — the decoded-pixel counterpart to the
+existing `ColorEncoding`, which is the **stored** codestream colorspace (what a
+frame-copy preserves). The two genuinely diverge: a raw Aperio-33003 JP2K tile
+stores `RGB` (no MCT / no colr box → the stored-default rule) yet decodes as
+`YCbCr` (OpenJPEG hands back YCbCr, opentile converts); a baseline JPEG stores
+`YCbCr` yet decodes as `RGB` (libjpeg converts). Only ever takes the
+decoded-pixel subset (`Grayscale`/`RGB`/`YCbCr`/`Unknown`), never the
+`YBR_ICT`/`YBR_RCT` stored transforms.
+
+- **Four inspector codecs** (the only ones implementing `CodestreamInspector`):
+  jpeg + jpegxl colour → `RGB` (their libs convert); jpeg2000 → the
+  decode-policy rule (MCT→RGB, sRGB-box→RGB, sYCC-box→YCbCr,
+  no-MCT-no-box→YCbCr [Aperio-33003], 1-comp→Grayscale); **htj2k → `RGB`/
+  `Grayscale` by component count** — openjph reconstructs planes and opentile
+  applies **no** chroma conversion, so decoded is always RGB even for the
+  no-MCT synthetic fixture. That htj2k must **not** reuse the jpeg2000 rule was
+  caught by *measuring* the fixture (`shim.cpp` `set_color_transform(false)`),
+  not reasoning — the recurring lesson again.
+- **One source of truth.** The decode-time `decodeIsYCbCr` (#53) and the new
+  inspect-time value now share a build-tag-free `decoder/jpeg2000/color.go`
+  (`decodedColorSpaceFromHeader`), so they can't drift. Byte-neutral refactor:
+  additive field, no `Decode` output change (pinned by a parity truth-table
+  test + the existing decode/RGBA/MCT pixel tests). Subagent-driven (7 tasks).
+- **CI fix shipped alongside** (`ci: don't persist Go build cache for
+  macOS+HTJ2K`): Go's build cache doesn't track `pkg-config` output, so the
+  restored cache replayed cgo LDFLAGS pinned to a versioned Homebrew Cellar path
+  (`openjph/0.27.4/lib`); a brew bump to 0.30.1 made that path vanish →
+  `ld: library 'openjph' not found` reddened main since #109. `cache: false` on
+  that push-only job forces cgo to re-run pkg-config against the live openjph.
+
+**Recent releases since the BIF arc** (CHANGELOG is canonical): **v0.61.0**
+reader-metadata fixes (#106 OME `<Microscope>` scanner identity, #108
+generic-TIFF provenance-date time component, #110 JP2K tag 33005 + more
+compression tags); **v0.60.2** fixed JPEG-XL decode (it never worked —
+subscribed to the return-only `JXL_DEC_NEED_IMAGE_OUT_BUFFER` status instead of
+`BASIC_INFO|FULL_IMAGE`; "registered + Inspect works" ≠ "decode works", so a
+real end-to-end decode test was added); **v0.60.1** BIF `OverlapMode` on
+stitched levels; **v0.60.0** bare DZI/SZI `Overlap>0` support + the
+`opentile.OverlapMode` enum (`None`/`Bordered`/`Stitched`; `Overlapping`
+retained as derived `!= None`) + a pre-existing edge-tile `ReadRegion` fix.
+
+## Previous milestone — BIF stitching completed (shipped 2026-06-26, v0.59.1)
 
 The BIF overlap-aware stitching arc (begun v0.46.0) is **complete** — the
 whole backlog (#60/#63/#67/#68/#80/#83) is closed and OS-1/OS-2 render
@@ -67,7 +113,8 @@ in every reasoned-only hypothesis):
 > reader, codec-domain scaled decode, `Validate()` API, decoder
 > codestream-inspect, render-thumbnail APIs, bare-DZI 12th-format reader,
 > StitchedTile display tiles, caller-chosen tile size, and assorted format
-> fixes) — see the CHANGELOG for those.
+> fixes) — see the CHANGELOG for those. v0.60–v0.62 are summarized under
+> the current milestone above.
 
 ## Previous milestone — v1.0 API breaking pass (shipped 2026-06-13, v0.41.0)
 
