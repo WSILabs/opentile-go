@@ -175,6 +175,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          # Do NOT persist the Go build cache for this job. It links openjph
+          # (HTJ2K) via `#cgo pkg-config: openjph`, and Go's build cache does
+          # not track pkg-config output as a cache input — so a restored cache
+          # replays stale cgo LDFLAGS that embed the *versioned* Homebrew Cellar
+          # path (e.g. .../openjph/0.27.4/lib). When brew later installs a newer
+          # openjph (0.30.1), that path is gone and every cgo link fails with
+          # `ld: library 'openjph' not found`. A fresh GOCACHE forces cgo to
+          # re-run pkg-config against the currently-installed openjph.
+          cache: false
 
       - name: Cache Homebrew bottles (macOS)
         uses: actions/cache@v4
