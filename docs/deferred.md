@@ -172,16 +172,27 @@ README.md and per-format docs link here.
   per-pair `TileJointInfo` overlap as `tile_advance_x` /
   `tile_advance_y` properties (level-0 only) and silently composes
   overlapping tiles into the `read_region` output.
-- **opentile-go:** new `Level.TileOverlap() image.Point` method on
-  the public `Level` interface returns the per-tile-step pixel
-  overlap (count-weighted average of all `<TileJointInfo>` entries on
-  level 0; zero on pyramid IFDs 1+ which never overlap per spec).
-  Non-BIF formats return `image.Point{}` — additive evolution; no
-  caller change needed.
+- **opentile-go:** the per-tile overlap is surfaced as the
+  `Level.TileOverlap Point` field (a struct field since the v0.41
+  v1.0-API pass; originally the v0.7 `Level.TileOverlap() image.Point`
+  method). Non-BIF non-overlapping formats leave it `Point{}`.
 - **Reason:** `Level.Tile(c, r)` continues to return raw compressed
   bytes (preserving the byte-passthrough hot path), so the consumer
   needs the overlap value to position tiles correctly. Surface as
   metadata, not as a pixel-space crop.
+- **Evolution (v0.46 stitching arc + v0.60.0 `OverlapMode`):** this
+  entry describes the original raw-overlap surface. Since then, (a) the
+  BIF stitching arc (v0.46+) made `Level.Size` the *stitched content
+  hull* and routed `ReadRegion`/`ReadRegionScaled`/`ScaledStrips`/
+  `StitchedTile` through a compositing region layout, so consumers get
+  clean stitched pixels without hand-positioning raw tiles; and (b)
+  v0.60.0 generalized the overlap surface cross-format with
+  `Level.OverlapMode` (`None`/`Bordered`/`Stitched`), `Level.Overlapping`
+  (= `OverlapMode != OverlapNone`), and `Level.TileContentRect(col,row)`
+  (the per-tile content crop). `TileOverlap` remains the raw magnitude;
+  `OverlapMode`/`TileContentRect` are the preferred consumer API. See
+  the current-milestone note in CLAUDE.md and `docs/formats/bif.md` /
+  `docs/formats/dzi.md` §Overlap.
 - **Tracking:** see [`docs/formats/bif.md`](formats/bif.md).
 
 ### BIF: non-strict `ScannerModel` acceptance (since v0.7)
@@ -743,6 +754,29 @@ L25 below — fixture-driven; cervix has no annotations.
 - **Resolution path:** mechanical — `lvl.Size()` → `lvl.Size`; `Pyramid.SizeC()`
   → derive from `leicascn.MetadataOf(tlr).Channels` (len, or 1 when empty).
   No production code; small.
+
+### L38 — HTJ2K: no-MCT sYCC codestream decodes without chroma conversion (since v0.62, #112)
+
+- **Source:** surfaced while designing `DecodedColorSpace` (#112, v0.62.0).
+- **Severity:** Limitation — fixture-driven; pathological, not observed in
+  the wild. Trigger to fix is a real HTJ2K tile that stores YCbCr with no
+  multiple-component transform.
+- **Detail:** opentile's htj2k decoder (`decoder/htj2k`) applies **no**
+  reader-side YCbCr→RGB conversion — it relies on openjph to reconstruct the
+  component planes, which inverts the MCT when the codestream carries one and
+  otherwise passes components through, and opentile packs whatever it gets as
+  RGB. Every real HTJ2K WSI / DICOM tile uses the reversible/irreversible MCT,
+  so this is correct in practice. But a *no-MCT* codestream that signals sYCC
+  (enumerated colorspace 18) stores genuine YCbCr with no transform to invert;
+  openjph hands those planes back as-is and opentile would emit them as RGB
+  without converting → wrong colours. This is exactly why the #112
+  `DecodedColorSpace` for htj2k is derived by **component count** (colour →
+  `RGB`), *not* by the jpeg2000 decode-policy rule (which would report
+  `YCbCr` here) — the field honestly reports what opentile actually decodes.
+- **How to fix if a fixture surfaces:** add an sYCC-no-MCT branch to the htj2k
+  decode path that applies the YCbCr→RGB conversion (mirroring
+  `decoder/jpeg2000`'s `apply_ycbcr` path), and switch htj2k's
+  `DecodedColorSpace` to the shared JP2K rule for that case.
 
 ---
 
