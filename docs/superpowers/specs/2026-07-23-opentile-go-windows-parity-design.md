@@ -65,12 +65,14 @@ A vcpkg manifest listing the six codec libraries with a pinned
     "libwebp",
     "openjph"
   ],
-  "builtin-baseline": "e287d598bce5311742c23b421820cc78396142e5"
+  "builtin-baseline": "40f3c709db80acf154ac4b17a1f83c564ebd022e"
 }
 ```
 
-(Baseline `e287d598…` is the exact commit wsitools pins, so opentile-go builds
-the same codec versions wsitools ships — including openjph 0.30.1. Bump
+(Baseline `40f3c709…` is a current vcpkg `master` commit, as of 2026-07-24 —
+deliberately fresher than wsitools's pin. openjph at this baseline is 0.30.1,
+the same codec version wsitools ships, so there is no version divergence; the
+newer baseline just carries a more current overall ports tree. Bump
 deliberately later if needed.)
 
 Notes:
@@ -82,9 +84,9 @@ Notes:
   **unchanged**. opentile-go is a library, not a binary-shipping CLI, so we do
   **not** add wsitools's full static-release matrix — only the Windows codec
   build needed to run the suite.
-- The `builtin-baseline` should be pinned (reproducibility). Pin to the same
-  commit wsitools uses, or a deliberately chosen current vcpkg baseline;
-  the plan records the exact SHA.
+- The `builtin-baseline` is pinned for reproducibility to the current vcpkg
+  `master` commit `40f3c709…` (§ manifest above), deliberately fresher than
+  wsitools's pin while resolving to the same openjph 0.30.1.
 
 ### 3.2 Windows CI job (`.github/workflows/ci.yml`, new job)
 
