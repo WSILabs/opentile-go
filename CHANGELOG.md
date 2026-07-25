@@ -9,6 +9,23 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [0.63.0] — 2026-07-24
+
+### Added
+- **Windows support (x86-64).** opentile-go now builds and its full test suite
+  passes on Windows with all six cgo codecs — jpeg, jpeg2000, htj2k (openjph),
+  jpegxl, avif, webp. A new push-only `integration-windows` CI job provisions
+  the codec libraries via vcpkg's `x64-mingw-static` triplet + a MinGW-w64
+  toolchain and runs the fixture-backed suite (HTJ2K included). New
+  `docs/windows-dev.md` documents the local Windows build. No API or behavior
+  change; Linux/macOS builds are unaffected.
+
+### Fixed
+- `formats/dzi`: the bare-DZI reader now builds filesystem tile paths with
+  `filepath.Join` (OS-native separators) instead of the forward-slash
+  ZIP-entry helper, so DZI directory pyramids read correctly on Windows.
+  Byte-identical on Linux/macOS.
+
 ## [0.62.0] — 2026-07-19
 
 ### Added
