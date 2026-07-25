@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "opentile-go",
+  "version-string": "0.0.0",
+  "description": "Codec C libraries for opentile-go Windows cgo builds (Windows-only; Linux/macOS use system apt/brew).",
+  "dependencies": [
+    "libjpeg-turbo",
+    "openjpeg",
+    "libjxl",
+    { "name": "libavif", "default-features": false, "features": ["aom"] },
+    "libwebp",
+    "openjph"
+  ],
+  "builtin-baseline": "40f3c709db80acf154ac4b17a1f83c564ebd022e"
+}
