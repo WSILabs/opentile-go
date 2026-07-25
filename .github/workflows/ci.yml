@@ -310,10 +310,11 @@ jobs:
           gh release download "$TAG" --repo WSILabs/wsi-fixtures \
             --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
           for t in "$RUNNER_TEMP/tars"/*.tar; do
-            # --force-local: GNU tar (git-bash) otherwise reads the Windows
-            # drive-letter colon in "D:\a\_temp\..." as an rcp host:path spec
-            # ("Cannot connect to D: resolve failed"). Treat the path as local.
-            tar --force-local -xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
+            # Use Windows' native bsdtar (System32), not git-bash's GNU tar:
+            # GNU tar mis-parses the drive-letter colon as an rcp host:path
+            # ("Cannot connect to D:") and, even with --force-local, can't chdir
+            # to the backslashed -C path. bsdtar takes Windows paths directly.
+            /c/Windows/System32/tar.exe -xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
           done
           echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
           echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
