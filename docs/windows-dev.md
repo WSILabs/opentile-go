@@ -45,7 +45,7 @@ min). Subsequent runs are cached.
 Point `pkg-config` at the vcpkg libs and enable cgo:
 
 ```sh
-export PKG_CONFIG_PATH="$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconf"
+export PKG_CONFIG_PATH="$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconfig"
 export CGO_ENABLED=1
 go build ./...
 go vet ./...
