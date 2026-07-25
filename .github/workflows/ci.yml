@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -219,3 +220,101 @@ jobs:
 
       - name: go test (fixture-backed packages, full codecs incl HTJ2K)
         run: go test . ./formats/... ./internal/... ./tests/... -count=1 -timeout 20m
+
+  # macOS+HTJ2K's sibling on Windows — full-codec coverage via vcpkg
+  # x64-mingw-static (openjph is not an msys2 package; vcpkg is the only path
+  # that builds it for MinGW). Push-only (skipped on PRs) — the vcpkg codec
+  # build is heavy; the binary cache keeps warm runs fast. Static-linked MinGW
+  # libs; no -race (cgo+race on Windows Go is brittle — covered on Linux/macOS).
+  integration-windows:
+    name: integration (public fixtures, Windows + all codecs)
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Set up MSYS2 mingw toolchain
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkgconf
+
+      - name: Put MSYS2 mingw64 on PATH
+        run: |
+          # setup-msys2's mingw64 (gcc + pkgconf) — NOT git-bash's /mingw64,
+          # which is Git's own mingw and has no gcc/pkgconf.
+          echo "${{ steps.msys2.outputs.msys2-location }}\\mingw64\\bin" >> "$GITHUB_PATH"
+
+      - name: Bootstrap vcpkg (pinned baseline)
+        run: |
+          set -euo pipefail
+          git clone https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          BASELINE=$(python -c "import json;print(json.load(open('vcpkg.json'))['builtin-baseline'])")
+          git -C "$RUNNER_TEMP/vcpkg" checkout "$BASELINE"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/vcpkg-bincache"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$RUNNER_TEMP/vcpkg-bincache" >> "$GITHUB_ENV"
+
+      - name: Cache vcpkg-built codec libs
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
+
+      - name: Install codec libs (vcpkg, x64-mingw-static)
+        run: |
+          set -euo pipefail
+          "$VCPKG_ROOT/vcpkg" install \
+            --triplet x64-mingw-static \
+            --x-install-root="$PWD/vcpkg_installed"
+          echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - name: Download public fixture corpus (WSILabs/wsi-fixtures)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/tars" "$RUNNER_TEMP/wsi-fixtures"
+          # Resolve the newest fixture-corpus release (v1, v2, …) explicitly
+          # instead of trusting the repo's "Latest" pointer: a non-corpus
+          # release (e.g. a tools-* validator-binary mirror) can grab Latest
+          # and carry no *.tar, which would silently break this download.
+          TAG="$(gh release list --repo WSILabs/wsi-fixtures --json tagName \
+            --jq '.[].tagName' | grep -E '^v[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)"
+          echo "fixture corpus tag: ${TAG:?no v* corpus release found}"
+          gh release download "$TAG" --repo WSILabs/wsi-fixtures \
+            --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
+          for t in "$RUNNER_TEMP/tars"/*.tar; do
+            tar xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
+          done
+          echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
+          echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
+
+      - name: go build (all six codecs)
+        env:
+          CGO_ENABLED: '1'
+        run: go build ./...
+
+      - name: go vet (all six codecs)
+        env:
+          CGO_ENABLED: '1'
+        run: go vet ./...
+
+      - name: go test (fixture-backed, full codecs incl HTJ2K, no -race)
+        env:
+          CGO_ENABLED: '1'
+        run: go test ./... -count=1 -timeout 30m
