@@ -270,8 +270,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/vcpkg-bincache"
           echo "VCPKG_DEFAULT_BINARY_CACHE=$RUNNER_TEMP/vcpkg-bincache" >> "$GITHUB_ENV"
 
-      - name: Cache vcpkg-built codec libs
-        uses: actions/cache@v4
+      - name: Restore vcpkg codec cache
+        id: vcpkgcache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
@@ -283,6 +284,16 @@ jobs:
             --triplet x64-mingw-static \
             --x-install-root="$PWD/vcpkg_installed"
           echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - name: Save vcpkg codec cache
+        # Save right after the slow codec build so the static libs are cached
+        # even when a later step (fixtures / test) fails — keeps CI bring-up
+        # iterations fast. No-op when the key already exists.
+        if: always() && steps.vcpkgcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
         env:
@@ -299,7 +310,10 @@ jobs:
           gh release download "$TAG" --repo WSILabs/wsi-fixtures \
             --pattern '*.tar' --dir "$RUNNER_TEMP/tars"
           for t in "$RUNNER_TEMP/tars"/*.tar; do
-            tar xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
+            # --force-local: GNU tar (git-bash) otherwise reads the Windows
+            # drive-letter colon in "D:\a\_temp\..." as an rcp host:path spec
+            # ("Cannot connect to D: resolve failed"). Treat the path as local.
+            tar --force-local -xf "$t" -C "$RUNNER_TEMP/wsi-fixtures"
           done
           echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
           echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
