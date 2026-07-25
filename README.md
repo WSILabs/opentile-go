@@ -13,6 +13,8 @@
 
 It began as a Go port of the Python [opentile](https://github.com/imi-bigpicture/opentile) library — staying byte-identical on the four formats opentile covers (SVS, NDPI, Philips, OME-TIFF) — and is now a **superset**: it adds openslide-style decoded-region reading and seven more formats than upstream.
 
+Runs on Linux, macOS, and **Windows** (x86-64, all codecs) — see [Building on Windows](./docs/windows-dev.md) for the Windows toolchain setup.
+
 **What it does:**
 
 - **Raw tile extraction** — `level.Tile(x, y)` returns the compressed bitstream exactly as stored on disk. Pure Go, no cgo — the zero-copy fast path for tile servers and transcoders.
