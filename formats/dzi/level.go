@@ -2,9 +2,12 @@ package dzi
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"iter"
 	"os"
+	"path/filepath"
+	"strconv"
 
 	opentile "github.com/wsilabs/opentile-go"
 	idzi "github.com/wsilabs/opentile-go/internal/dzi"
@@ -81,9 +84,11 @@ func (l *level) subtileSource(col, row int) (srcCol, srcRow, cropX, cropY int) {
 	return col, row, ox, oy
 }
 
-// tilePath resolves (x, y) to the on-disk tile file path.
+// tilePath resolves (x, y) to the on-disk tile file path, using OS-native
+// separators (filepath.Join) — the bare-DZI reader reads these via os.Open,
+// unlike SZI which uses internal/dzi.TilePath for '/'-separated ZIP entries.
 func (l *level) tilePath(x, y int) string {
-	return idzi.TilePath(l.filesDir, l.dziLevel, x, y, l.format)
+	return filepath.Join(l.filesDir, strconv.Itoa(l.dziLevel), fmt.Sprintf("%d_%d.%s", x, y, l.format))
 }
 
 // inBounds reports whether (x, y) is within the level's tile grid.
