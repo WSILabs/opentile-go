@@ -92,6 +92,23 @@ go get github.com/wsilabs/opentile-go
 
 Pin to v0.5.1 or later (v0.5.0 shipped with a wrong module path; see [CHANGELOG](./CHANGELOG.md)).
 
+## Python bindings
+
+A numpy-first Python binding lives in [`python/`](./python/) (`import opentile_go`) —
+a ctypes wrapper over a cgo `c-shared` build of this library:
+
+```python
+from opentile_go import Slide
+
+with Slide("slide.svs") as s:
+    region = s.levels[0].read_region(0, 0, 1024, 1024)  # numpy (H, W, 3) uint8
+    raw    = s.levels[0].tile(0, 0)                      # bytes (compressed)
+    label  = s.associated_images["label"]               # numpy
+```
+
+See [`python/README.md`](./python/README.md) for the API reference and build
+instructions. (Self-contained wheels are in progress; for now build from source.)
+
 ## API
 
 ### Opening a slide
