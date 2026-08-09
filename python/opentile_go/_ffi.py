@@ -69,3 +69,60 @@ def metadata(handle):
     if not ptr:
         raise OpenTileError(_take_err(err) or "opentile: metadata failed")
     return json.loads(_take_cstr(ptr))
+
+
+import numpy as np
+
+_u8pp = ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8))
+_sizep = ctypes.POINTER(ctypes.c_size_t)
+_intp = ctypes.POINTER(ctypes.c_int)
+
+_lib.ot_tile.restype = ctypes.c_int
+_lib.ot_tile.argtypes = [ctypes.c_size_t, ctypes.c_int, ctypes.c_int, ctypes.c_int, _u8pp, _sizep, _c_char_pp]
+
+_lib.ot_decoded_tile.restype = ctypes.c_int
+_lib.ot_decoded_tile.argtypes = [ctypes.c_size_t] + [ctypes.c_int] * 4 + [_u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
+_lib.ot_read_region.restype = ctypes.c_int
+_lib.ot_read_region.argtypes = [ctypes.c_size_t] + [ctypes.c_int] * 6 + [_u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
+
+
+def _take_buf(ptr, n):
+    """Copy an ot_free-owned uint8* buffer of length n into Python bytes, free it."""
+    out = ctypes.string_at(ptr, n)
+    _lib.ot_free(ctypes.cast(ptr, ctypes.c_void_p))
+    return out
+
+
+def _take_image(ptr, n, w, h, bands):
+    """Copy a tight (h,w,bands) uint8 buffer into an owned numpy array, free it."""
+    buf = ctypes.string_at(ptr, n)  # a copy
+    _lib.ot_free(ctypes.cast(ptr, ctypes.c_void_p))
+    return np.frombuffer(buf, dtype=np.uint8).reshape((h, w, bands)).copy()
+
+
+def tile(handle, level, x, y):
+    out = ctypes.POINTER(ctypes.c_uint8)()
+    n = ctypes.c_size_t()
+    err = ctypes.c_char_p()
+    if _lib.ot_tile(handle, level, x, y, ctypes.byref(out), ctypes.byref(n), ctypes.byref(err)) != 0:
+        raise OpenTileError(_take_err(err) or "opentile: tile failed")
+    return _take_buf(out, n.value)
+
+
+def _decode_call(fn, handle, ints):
+    out = ctypes.POINTER(ctypes.c_uint8)()
+    n, w, h, bands = ctypes.c_size_t(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
+    err = ctypes.c_char_p()
+    args = [handle, *ints, ctypes.byref(out), ctypes.byref(n),
+            ctypes.byref(w), ctypes.byref(h), ctypes.byref(bands), ctypes.byref(err)]
+    if fn(*args) != 0:
+        raise OpenTileError(_take_err(err) or "opentile: decode failed")
+    return _take_image(out, n.value, w.value, h.value, bands.value)
+
+
+def decoded_tile(handle, level, x, y, rgba=False):
+    return _decode_call(_lib.ot_decoded_tile, handle, [level, x, y, 1 if rgba else 0])
+
+
+def read_region(handle, level, x, y, w, h, rgba=False):
+    return _decode_call(_lib.ot_read_region, handle, [level, x, y, w, h, 1 if rgba else 0])

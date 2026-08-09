@@ -16,6 +16,8 @@ import (
 	"unsafe"
 
 	opentile "github.com/wsilabs/opentile-go"
+	"github.com/wsilabs/opentile-go/decoder"
+	_ "github.com/wsilabs/opentile-go/decoder/all"
 	_ "github.com/wsilabs/opentile-go/formats/all"
 )
 
@@ -129,4 +131,96 @@ func ot_metadata_json(h C.uintptr_t, errOut **C.char) *C.char {
 		return nil
 	}
 	return cstr(string(b))
+}
+
+// blitTight copies a decoder.Image's row-padded Pix into a freshly malloc'd,
+// tightly-packed Height*Width*bands C buffer (dropping per-row stride padding)
+// and returns the pointer, byte length, width, height, and band count. The
+// caller frees the buffer via ot_free.
+func blitTight(img *decoder.Image) (unsafe.Pointer, C.size_t, C.int, C.int, C.int) {
+	bands := 3
+	if img.Format == decoder.PixelFormatRGBA {
+		bands = 4
+	}
+	rowBytes := img.Width * bands
+	total := rowBytes * img.Height
+	buf := C.malloc(C.size_t(total))
+	dst := unsafe.Slice((*byte)(buf), total)
+	for y := 0; y < img.Height; y++ {
+		copy(dst[y*rowBytes:(y+1)*rowBytes], img.Pix[y*img.Stride:y*img.Stride+rowBytes])
+	}
+	return buf, C.size_t(total), C.int(img.Width), C.int(img.Height), C.int(bands)
+}
+
+func fmtOpt(rgba C.int) []opentile.DecodeOption {
+	if rgba != 0 {
+		return []opentile.DecodeOption{opentile.WithFormat(decoder.PixelFormatRGBA)}
+	}
+	return nil
+}
+
+//export ot_tile
+func ot_tile(h C.uintptr_t, level, x, y C.int, out **C.uint8_t, outLen *C.size_t, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	lv, err := s.Level(int(level))
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	b, err := lv.Tile(int(x), int(y))
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	buf := C.malloc(C.size_t(len(b)))
+	copy(unsafe.Slice((*byte)(buf), len(b)), b)
+	*out = (*C.uint8_t)(buf)
+	*outLen = C.size_t(len(b))
+	return 0
+}
+
+//export ot_decoded_tile
+func ot_decoded_tile(h C.uintptr_t, level, x, y, rgba C.int, out **C.uint8_t, outLen *C.size_t, outW, outH, outBands *C.int, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	lv, err := s.Level(int(level))
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	img, err := lv.DecodedTile(int(x), int(y), fmtOpt(rgba)...)
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	buf, n, w, ht, bands := blitTight(img)
+	*out, *outLen, *outW, *outH, *outBands = (*C.uint8_t)(buf), n, w, ht, bands
+	return 0
+}
+
+//export ot_read_region
+func ot_read_region(h C.uintptr_t, level, x, y, w, ht, rgba C.int, out **C.uint8_t, outLen *C.size_t, outW, outH, outBands *C.int, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	lv, err := s.Level(int(level))
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	region := opentile.Region{Origin: opentile.Point{X: int(x), Y: int(y)}, Size: opentile.Size{W: int(w), H: int(ht)}}
+	img, err := lv.ReadRegion(region, fmtOpt(rgba)...)
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	buf, n, ow, oh, bands := blitTight(img)
+	*out, *outLen, *outW, *outH, *outBands = (*C.uint8_t)(buf), n, ow, oh, bands
+	return 0
 }
