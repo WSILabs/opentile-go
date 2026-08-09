@@ -1,0 +1,6 @@
+_opentilego.*
+*.h
+build/
+dist/
+*.egg-info/
+__pycache__/

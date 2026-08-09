@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opentile-go"
+version = "0.1.0.dev0"
+description = "Python bindings for opentile-go — whole-slide-image tile reader"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools]
+packages = ["opentile_go"]
+
+[tool.setuptools.package-data]
+opentile_go = ["py.typed", "_opentilego.*"]
