@@ -224,3 +224,103 @@ func ot_read_region(h C.uintptr_t, level, x, y, w, ht, rgba C.int, out **C.uint8
 	*out, *outLen, *outW, *outH, *outBands = (*C.uint8_t)(buf), n, ow, oh, bands
 	return 0
 }
+
+//export ot_thumbnail
+func ot_thumbnail(h C.uintptr_t, maxW, maxH C.int, out **C.uint8_t, outLen *C.size_t, outW, outH, outBands *C.int, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	img, err := s.RenderThumbnail(opentile.Size{W: int(maxW), H: int(maxH)})
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	buf, n, w, ht, bands := blitTight(img)
+	*out, *outLen, *outW, *outH, *outBands = (*C.uint8_t)(buf), n, w, ht, bands
+	return 0
+}
+
+//export ot_macro
+func ot_macro(h C.uintptr_t, maxW, maxH C.int, out **C.uint8_t, outLen *C.size_t, outW, outH, outBands *C.int, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	img, err := s.RenderMacro(opentile.Size{W: int(maxW), H: int(maxH)})
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	buf, n, w, ht, bands := blitTight(img)
+	*out, *outLen, *outW, *outH, *outBands = (*C.uint8_t)(buf), n, w, ht, bands
+	return 0
+}
+
+//export ot_associated
+func ot_associated(h C.uintptr_t, name *C.char, rgba C.int, out **C.uint8_t, outLen *C.size_t, outW, outH, outBands *C.int, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	want := C.GoString(name)
+	var fmt decoder.PixelFormat
+	if rgba != 0 {
+		fmt = decoder.PixelFormatRGBA
+	}
+	for _, a := range s.AssociatedImages() {
+		if string(a.Type()) == want {
+			img, err := a.Decode(decoder.DecodeOptions{Format: fmt})
+			if err != nil {
+				setErr(errOut, err.Error())
+				return -1
+			}
+			buf, n, w, ht, bands := blitTight(img)
+			*out, *outLen, *outW, *outH, *outBands = (*C.uint8_t)(buf), n, w, ht, bands
+			return 0
+		}
+	}
+	setErr(errOut, "opentile: no associated image named "+want)
+	return -1
+}
+
+//export ot_tiff_tags_json
+func ot_tiff_tags_json(h C.uintptr_t, level C.int, out **C.char, errOut **C.char) C.int {
+	s := slideOf(h, errOut)
+	if s == nil {
+		return -1
+	}
+	lv, err := s.Level(int(level))
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	tags, ok := lv.TIFFTags()
+	if !ok {
+		*out = nil // signal "no tags" (null pointer, status 0)
+		return 0
+	}
+	type jtag struct {
+		Number uint16   `json:"number"`
+		Name   string   `json:"name"`
+		ASCII  *string  `json:"ascii,omitempty"`
+		Uints  []uint64 `json:"uints,omitempty"`
+	}
+	var out2 []jtag
+	for _, t := range tags {
+		jt := jtag{Number: t.Number, Name: t.Name}
+		if a, ok := t.ASCII(); ok {
+			jt.ASCII = &a
+		} else if u, ok := t.Uints(); ok {
+			jt.Uints = u
+		}
+		out2 = append(out2, jt)
+	}
+	b, err := json.Marshal(out2)
+	if err != nil {
+		setErr(errOut, err.Error())
+		return -1
+	}
+	*out = cstr(string(b))
+	return 0
+}

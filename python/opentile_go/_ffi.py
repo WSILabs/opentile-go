@@ -126,3 +126,43 @@ def decoded_tile(handle, level, x, y, rgba=False):
 
 def read_region(handle, level, x, y, w, h, rgba=False):
     return _decode_call(_lib.ot_read_region, handle, [level, x, y, w, h, 1 if rgba else 0])
+
+
+_lib.ot_thumbnail.restype = ctypes.c_int
+_lib.ot_thumbnail.argtypes = [ctypes.c_size_t, ctypes.c_int, ctypes.c_int, _u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
+_lib.ot_macro.restype = ctypes.c_int
+_lib.ot_macro.argtypes = _lib.ot_thumbnail.argtypes
+_lib.ot_associated.restype = ctypes.c_int
+_lib.ot_associated.argtypes = [ctypes.c_size_t, ctypes.c_char_p, ctypes.c_int, _u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
+_lib.ot_tiff_tags_json.restype = ctypes.c_int
+_lib.ot_tiff_tags_json.argtypes = [ctypes.c_size_t, ctypes.c_int, _c_char_pp, _c_char_pp]
+
+
+def thumbnail(handle, max_w, max_h):
+    return _decode_call(_lib.ot_thumbnail, handle, [max_w, max_h])
+
+
+def macro(handle, max_w, max_h):
+    return _decode_call(_lib.ot_macro, handle, [max_w, max_h])
+
+
+def associated(handle, name, rgba=False):
+    out = ctypes.POINTER(ctypes.c_uint8)()
+    n, w, h, bands = ctypes.c_size_t(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
+    err = ctypes.c_char_p()
+    rc = _lib.ot_associated(handle, name.encode("utf-8"), 1 if rgba else 0,
+                            ctypes.byref(out), ctypes.byref(n), ctypes.byref(w),
+                            ctypes.byref(h), ctypes.byref(bands), ctypes.byref(err))
+    if rc != 0:
+        raise OpenTileError(_take_err(err) or "opentile: associated failed")
+    return _take_image(out, n.value, w.value, h.value, bands.value)
+
+
+def tiff_tags(handle, level):
+    out = ctypes.c_char_p()
+    err = ctypes.c_char_p()
+    if _lib.ot_tiff_tags_json(handle, level, ctypes.byref(out), ctypes.byref(err)) != 0:
+        raise OpenTileError(_take_err(err) or "opentile: tiff tags failed")
+    if not out.value:
+        return None
+    return json.loads(_take_cstr(ctypes.cast(out, ctypes.c_void_p)))
