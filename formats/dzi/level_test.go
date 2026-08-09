@@ -3,6 +3,7 @@ package dzi
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,5 +37,23 @@ func TestLevelTileReadsFile(t *testing.T) {
 	// In-grid but file absent.
 	if _, err := l.Tile(0, 0); err == nil {
 		t.Fatal("Tile(0,0) want missing-tile error (no file written)")
+	}
+}
+
+func TestTilePathUsesOSNativeSeparators(t *testing.T) {
+	l := &level{
+		filesDir: filepath.Join("root", "slide_files"),
+		dziLevel: 5,
+		format:   "jpeg",
+	}
+	got := l.tilePath(3, 4)
+	want := filepath.Join("root", "slide_files", "5", "3_4.jpeg")
+	if got != want {
+		t.Errorf("tilePath = %q, want %q", got, want)
+	}
+	// On Windows the separator is '\\'; a filesystem path must not carry a
+	// stray forward slash (the SZI/ZIP forward-slash form is wrong for os.Open).
+	if os.PathSeparator == '\\' && strings.ContainsRune(got, '/') {
+		t.Errorf("tilePath %q contains a forward slash on a backslash-separator OS", got)
 	}
 }
