@@ -29,7 +29,6 @@ class Level:
     def __init__(self, slide, meta, index):
         self._slide = slide
         self.index = index
-        self._i = index
         self.size = tuple(meta["size"])
         self.tile_size = tuple(meta["tile_size"])
         self.grid = tuple(meta["grid"])
@@ -44,17 +43,17 @@ class Level:
         return h
 
     def tile(self, x, y):
-        return _ffi.tile(self._handle(), self._i, x, y)
+        return _ffi.tile(self._handle(), self.index, x, y)
 
     def decoded_tile(self, x, y, rgba=False):
-        return _ffi.decoded_tile(self._handle(), self._i, x, y, rgba=rgba)
+        return _ffi.decoded_tile(self._handle(), self.index, x, y, rgba=rgba)
 
     def read_region(self, x, y, w, h, rgba=False):
-        return _ffi.read_region(self._handle(), self._i, x, y, w, h, rgba=rgba)
+        return _ffi.read_region(self._handle(), self.index, x, y, w, h, rgba=rgba)
 
     @property
     def tiff_tags(self):
-        return _ffi.tiff_tags(self._handle(), self._i)
+        return _ffi.tiff_tags(self._handle(), self.index)
 
 
 class Slide:
@@ -83,9 +82,13 @@ class Slide:
         return _ffi.associated(self._handle(), name)
 
     def thumbnail(self, width=None, height=None):
+        if not width and not height:
+            width = 1024  # default fit-box when neither axis is given
         return _ffi.thumbnail(self._handle(), width or 0, height or 0)
 
     def macro(self, width=None, height=None):
+        if not width and not height:
+            width = 1024
         return _ffi.macro(self._handle(), width or 0, height or 0)
 
     def close(self):
