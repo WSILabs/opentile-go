@@ -39,19 +39,45 @@ class BuildGoLib(build_py):
 
 
 class PlatformWheel(bdist_wheel):
-    """Emit `py3-none-<platform>` — Python-agnostic, platform-specific."""
+    """Emit `py3-none-<platform>` — Python-agnostic, platform-specific.
+
+    `go build -buildmode=c-shared` produces a *single-arch* Mach-O, but a
+    universal2 CPython reports the platform as `macosx_..._universal2`. Tagging a
+    single-arch lib `universal2` is a lie (it would install on the wrong arch and
+    fail to load), so rewrite the platform's arch to the real Go binary arch.
+    """
 
     @staticmethod
     def _forced_tag(tag):
+        # Pure tag rewrite: Python-agnostic (py3/none), keep the platform as-is.
         _, _, plat = tag
         return ("py3", "none", plat)
+
+    @staticmethod
+    def _macos_arch():
+        # arm64 / x86_64 of the just-built shared object; None if truly fat.
+        so = os.path.join(HERE, "opentile_go", _lib_filename())
+        try:
+            out = subprocess.check_output(["lipo", "-archs", so], text=True)
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        archs = out.split()
+        return archs[0] if len(archs) == 1 else None
 
     def finalize_options(self):
         super().finalize_options()
         self.root_is_pure = False  # force a platform (non-pure) wheel
 
     def get_tag(self):
-        return self._forced_tag(super().get_tag())
+        py, abi, plat = self._forced_tag(super().get_tag())
+        # A universal2 CPython over-reports the platform, but Go's c-shared lib is
+        # single-arch — retag to the real arch so the wheel doesn't install on a
+        # mac where the .so can't load (and so arm64/x86_64 wheels don't collide).
+        if sys.platform == "darwin" and plat.endswith("_universal2"):
+            arch = self._macos_arch()
+            if arch:
+                plat = plat[: -len("universal2")] + arch
+        return (py, abi, plat)
 
 
 class BinaryDistribution(Distribution):
