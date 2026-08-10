@@ -31,7 +31,10 @@ class BuildGoLib(build_py):
         out = os.path.join(HERE, "opentile_go", _lib_filename())
         env = dict(os.environ, CGO_ENABLED="1")
         subprocess.check_call(
-            ["go", "build", "-buildmode=c-shared", "-o", out, "./cshim"],
+            # -buildvcs=false: skip git VCS stamping — it errors ("dubious
+            # ownership", exit 128) inside the manylinux build container, and a
+            # shared library needs no VCS stamp.
+            ["go", "build", "-buildmode=c-shared", "-buildvcs=false", "-o", out, "./cshim"],
             cwd=HERE,
             env=env,
         )

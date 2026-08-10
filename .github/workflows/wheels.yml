@@ -75,6 +75,7 @@ jobs:
         if: matrix.macos_cross == '1'
         shell: bash
         run: |
+          echo "GOARCH=amd64" >> "$GITHUB_ENV"   # target amd64 so cgo's -arch x86_64 doesn't clash with a default arm64
           echo "CGO_CFLAGS=-arch x86_64"  >> "$GITHUB_ENV"
           echo "CGO_CXXFLAGS=-arch x86_64" >> "$GITHUB_ENV"
           echo "CGO_LDFLAGS=-arch x86_64" >> "$GITHUB_ENV"
@@ -93,8 +94,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/vcpkg-bincache"
           echo "VCPKG_DEFAULT_BINARY_CACHE=$RUNNER_TEMP/vcpkg-bincache" >> "$GITHUB_ENV"
 
-      - name: Cache vcpkg codec libs
-        uses: actions/cache@v4
+      - name: Restore vcpkg codec cache
+        id: vcpkgcache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: wheels-vcpkg-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json') }}
@@ -107,6 +109,15 @@ jobs:
             --overlay-triplets="$PWD/.github/vcpkg-triplets" \
             --x-install-root="$PWD/vcpkg_installed"
           echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/${{ matrix.triplet }}/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - name: Save vcpkg codec cache
+        # Save right after the slow codec build so it persists even when a later
+        # step (wheel build / validate) fails — keeps bring-up iterations fast.
+        if: always() && steps.vcpkgcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: wheels-vcpkg-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json') }}
 
       # --- build + repair + validate wheel ---
       - name: Build wheel
@@ -136,17 +147,16 @@ jobs:
           esac
           ls -la wheelhouse
 
-      - name: Validate wheel (install + import + read fixture)
+      - name: Validate wheel (install the repaired wheel + import from site-packages)
         shell: bash
-        working-directory: python
         run: |
           set -euo pipefail
-          python3 -m pip install numpy || python -m pip install numpy
-          python3 -m pip install wheelhouse/*.whl || python -m pip install wheelhouse/*.whl
-          python3 - <<'PY'
-          import opentile_go
-          print("opentile_go", opentile_go.__version__, "imported from wheel OK")
-          PY
+          PY=python3; command -v python3 >/dev/null || PY=python
+          "$PY" -m pip install numpy
+          "$PY" -m pip install python/wheelhouse/*.whl
+          # Import from the repo root — NOT python/ — so the INSTALLED (repaired)
+          # wheel in site-packages is loaded, not the un-repaired source-tree lib.
+          "$PY" -c "import opentile_go, os; print('opentile_go', opentile_go.__version__, 'from', os.path.dirname(opentile_go.__file__)); assert 'site-packages' in opentile_go.__file__, opentile_go.__file__"
 
       - uses: actions/upload-artifact@v4
         with:
