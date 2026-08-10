@@ -3,6 +3,7 @@ name: Wheels
 on:
   workflow_dispatch:
   push:
+    branches: [feat/python-wheels]   # TEMPORARY (Phase-2 bring-up): remove before merge
     tags:
       - 'py-v*.*.*'   # dedicated Python-binding release tags, distinct from the Go module's v*.*.*
 
