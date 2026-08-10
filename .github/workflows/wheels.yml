@@ -1,0 +1,182 @@
+name: Wheels
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'py-v*.*.*'   # dedicated Python-binding release tags, distinct from the Go module's v*.*.*
+
+permissions:
+  contents: read
+  id-token: write   # OIDC for PyPI trusted publishing
+
+jobs:
+  build:
+    name: wheel ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64,   runner: ubuntu-latest,    container: 'quay.io/pypa/manylinux_2_28_x86_64', triplet: x64-linux-static,   repair: auditwheel }
+          - { name: linux-aarch64,  runner: ubuntu-24.04-arm, container: 'quay.io/pypa/manylinux_2_28_aarch64', triplet: arm64-linux-static, repair: auditwheel }
+          - { name: macos-arm64,    runner: macos-latest,     container: '',                                    triplet: arm64-osx-static,  repair: delocate }
+          - { name: macos-x86_64,   runner: macos-latest,     container: '',                                    triplet: x64-osx-static,    repair: delocate, macos_cross: '1' }
+          - { name: windows-x86_64, runner: windows-latest,   container: '',                                    triplet: x64-mingw-static,  repair: delvewheel }
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- toolchain: Go + Python + per-OS build prereqs ---
+      - name: Set up Go + Python (manylinux container)
+        if: startsWith(matrix.name, 'linux')
+        shell: bash
+        run: |
+          set -euo pipefail
+          yum install -y nasm autoconf-archive perl-IPC-Cmd zip
+          curl -sSL "https://go.dev/dl/go1.25.0.linux-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" -o /tmp/go.tgz
+          tar -C /usr/local -xzf /tmp/go.tgz
+          echo "/usr/local/go/bin" >> "$GITHUB_PATH"
+          echo "/opt/python/cp310-cp310/bin" >> "$GITHUB_PATH"   # a Python to drive `build`
+
+      - name: Set up Go
+        if: "!startsWith(matrix.name, 'linux')"
+        uses: actions/setup-go@v5
+        with: { go-version: '1.25.0' }
+
+      - name: Set up Python
+        if: "!startsWith(matrix.name, 'linux')"
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: Install prereqs (macOS)
+        if: startsWith(matrix.name, 'macos')
+        run: brew install nasm pkg-config
+
+      - name: Set up MSYS2 mingw (Windows)
+        id: msys2
+        if: matrix.name == 'windows-x86_64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-pkgconf
+
+      - name: Windows PATH + pkgconf
+        if: matrix.name == 'windows-x86_64'
+        shell: bash
+        run: |
+          echo '${{ steps.msys2.outputs.msys2-location }}\mingw64\bin' >> "$GITHUB_PATH"
+          echo "PKG_CONFIG=pkgconf" >> "$GITHUB_ENV"
+
+      - name: macOS x86_64 cross-build flags
+        if: matrix.macos_cross == '1'
+        shell: bash
+        run: |
+          echo "CGO_CFLAGS=-arch x86_64"  >> "$GITHUB_ENV"
+          echo "CGO_CXXFLAGS=-arch x86_64" >> "$GITHUB_ENV"
+          echo "CGO_LDFLAGS=-arch x86_64" >> "$GITHUB_ENV"
+          echo "_PYTHON_HOST_PLATFORM=macosx-10.9-x86_64" >> "$GITHUB_ENV"
+
+      # --- vcpkg static codecs ---
+      - name: Bootstrap vcpkg (pinned baseline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          BASELINE=$(python3 -c "import json;print(json.load(open('vcpkg.json'))['builtin-baseline'])" 2>/dev/null || python -c "import json;print(json.load(open('vcpkg.json'))['builtin-baseline'])")
+          git -C "$RUNNER_TEMP/vcpkg" checkout "$BASELINE"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics || "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/vcpkg-bincache"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$RUNNER_TEMP/vcpkg-bincache" >> "$GITHUB_ENV"
+
+      - name: Cache vcpkg codec libs
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: wheels-vcpkg-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Install codec libs (static)
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} \
+            --overlay-triplets="$PWD/.github/vcpkg-triplets" \
+            --x-install-root="$PWD/vcpkg_installed"
+          echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/${{ matrix.triplet }}/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      # --- build + repair + validate wheel ---
+      - name: Build wheel
+        shell: bash
+        working-directory: python
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade build || python -m pip install --upgrade build
+          CGO_ENABLED=1 python3 -m build --wheel --outdir dist 2>/dev/null || CGO_ENABLED=1 python -m build --wheel --outdir dist
+          ls -la dist
+
+      - name: Repair wheel (auditwheel / delocate / delvewheel)
+        shell: bash
+        working-directory: python
+        run: |
+          set -euo pipefail
+          case "${{ matrix.repair }}" in
+            auditwheel)
+              python3 -m pip install auditwheel
+              for w in dist/*.whl; do auditwheel repair "$w" -w wheelhouse; done ;;
+            delocate)
+              python3 -m pip install delocate
+              for w in dist/*.whl; do delocate-wheel -w wheelhouse "$w"; done ;;
+            delvewheel)
+              python -m pip install delvewheel
+              for w in dist/*.whl; do delvewheel repair "$w" -w wheelhouse; done ;;
+          esac
+          ls -la wheelhouse
+
+      - name: Validate wheel (install + import + read fixture)
+        shell: bash
+        working-directory: python
+        run: |
+          set -euo pipefail
+          python3 -m pip install numpy || python -m pip install numpy
+          python3 -m pip install wheelhouse/*.whl || python -m pip install wheelhouse/*.whl
+          python3 - <<'PY'
+          import opentile_go
+          print("opentile_go", opentile_go.__version__, "imported from wheel OK")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.name }}
+          path: python/wheelhouse/*.whl
+
+  publish-testpypi:
+    name: publish to TestPyPI (dry-run)
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: wheel-*, path: dist, merge-multiple: true }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    name: publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/py-v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: wheel-*, path: dist, merge-multiple: true }
+      - uses: pypa/gh-action-pypi-publish@release/v1
