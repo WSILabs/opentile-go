@@ -229,7 +229,11 @@ jobs:
   integration-windows:
     name: integration (public fixtures, Windows + all codecs)
     if: github.event_name != 'pull_request'
-    runs-on: windows-latest
+    # Pinned to windows-2022: the windows-latest -> windows-2025 image migration
+    # broke the vcpkg MinGW codec build — CMake's C-compiler ABI probe fails on
+    # 2025 (libjpeg-turbo config dies "math cannot parse ' * 8'", nasm falls back
+    # to win32). windows-2022 is the exact image this job was last green on.
+    runs-on: windows-2022
     defaults:
       run:
         shell: bash
