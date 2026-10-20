@@ -247,17 +247,24 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          path-type: inherit
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-pkgconf
 
-      - name: Put MSYS2 mingw64 on PATH
+      - name: Put MSYS2 mingw64 on PATH + select pkgconf
         run: |
-          # setup-msys2's mingw64 (gcc + pkgconf) — NOT git-bash's /mingw64,
-          # which is Git's own mingw and has no gcc/pkgconf.
+          # Prepend setup-msys2's mingw64 bin (gcc + pkgconf) — NOT git-bash's
+          # /mingw64, which is Git's own mingw with no gcc/pkgconf. Without this
+          # the newer windows-latest image's MSVC/Strawberry tools shadow the
+          # MinGW toolchain and CMake's C-compiler ABI probe fails (vcpkg codec
+          # build dies at libjpeg-turbo "math cannot parse ' * 8'").
           echo "${{ steps.msys2.outputs.msys2-location }}\\mingw64\\bin" >> "$GITHUB_PATH"
+          # cgo + vcpkg: invoke pkgconf explicitly so the default 'pkg-config'
+          # doesn't resolve to the runner's Strawberry-Perl stub.
+          echo "PKG_CONFIG=pkgconf" >> "$GITHUB_ENV"
 
       - name: Bootstrap vcpkg (pinned baseline)
         run: |
