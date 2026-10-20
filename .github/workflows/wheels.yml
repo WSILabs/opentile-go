@@ -58,21 +58,37 @@ jobs:
           # so the static codec .a's and the Go lib share one deployment target.
           echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos_cross == '1' && '10.13' || '11.0' }}" >> "$GITHUB_ENV"
 
-      - name: Set up MSYS2 mingw (Windows)
+      - name: Set up MSYS2 (Windows; cmake/ninja/pkgconf only — GCC from winlibs)
         id: msys2
         if: matrix.name == 'windows-x86_64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           path-type: inherit
+          # No mingw-w64-x86_64-gcc: MSYS2's GCC 16 breaks CMake's ABI probe
+          # ("math cannot parse ' * 8'"); the compiler is pinned to winlibs
+          # GCC 15.3 below. MSYS2 supplies only the build tools.
           install: >-
-            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-pkgconf
+
+      - name: Install pinned MinGW GCC 15.3 (winlibs, Windows)
+        if: matrix.name == 'windows-x86_64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/brechtsanders/winlibs_mingw/releases/download/15.3.0posix-14.0.0-msvcrt-r1/winlibs-x86_64-posix-seh-gcc-15.3.0-mingw-w64msvcrt-14.0.0-r1.zip"
+          curl -fsSL "$url" -o "$RUNNER_TEMP/winlibs.zip"
+          python -c "import zipfile; zipfile.ZipFile(r'$RUNNER_TEMP/winlibs.zip').extractall(r'$RUNNER_TEMP/winlibs')"
+          "$RUNNER_TEMP/winlibs/mingw64/bin/x86_64-w64-mingw32-gcc.exe" --version | head -1
 
       - name: Windows PATH + pkgconf
         if: matrix.name == 'windows-x86_64'
         shell: bash
         run: |
+          # MSYS2 bin (cmake/ninja/pkgconf) then winlibs bin LAST so winlibs
+          # GCC 15.3 wins (GITHUB_PATH prepends; last-written = highest priority).
           echo '${{ steps.msys2.outputs.msys2-location }}\mingw64\bin' >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP\\winlibs\\mingw64\\bin" >> "$GITHUB_PATH"
           echo "PKG_CONFIG=pkgconf" >> "$GITHUB_ENV"
 
       - name: macOS x86_64 cross-build flags + Rosetta (build Intel wheel on arm64)
