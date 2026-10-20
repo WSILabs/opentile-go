@@ -250,7 +250,11 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
+          # No `update: true`: it runs pacman -Syu and pulls a bleeding-edge
+          # gcc/binutils whose ABI output CMake's probe can't parse
+          # ("Detecting C compiler ABI info - failed" though the compiler works),
+          # emptying CMAKE_SIZEOF_VOID_P and killing the libjpeg-turbo config.
+          # The proven-good wheels.yml / wsitools Windows jobs omit it too.
           path-type: inherit
           install: >-
             mingw-w64-x86_64-gcc
