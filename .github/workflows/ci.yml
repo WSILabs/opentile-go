@@ -353,4 +353,8 @@ jobs:
       - name: go test (fixture-backed, full codecs incl HTJ2K, no -race)
         env:
           CGO_ENABLED: '1'
-        run: go test ./... -count=1 -timeout 30m
+        # -extldflags=-static: statically link the MinGW C/C++ runtime into the
+        # cgo test binaries so they don't load a mismatched libstdc++/libgcc/
+        # libwinpthread DLL at runtime (0xc0000139 entry-point-not-found when the
+        # winlibs-GCC-15.3 build picks up MSYS2's GCC-16 runtime DLL).
+        run: go test -ldflags "-extldflags=-static" ./... -count=1 -timeout 30m

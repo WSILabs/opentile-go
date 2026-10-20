@@ -30,14 +30,18 @@ class BuildGoLib(build_py):
     def run(self):
         out = os.path.join(HERE, "opentile_go", _lib_filename())
         env = dict(os.environ, CGO_ENABLED="1")
-        subprocess.check_call(
-            # -buildvcs=false: skip git VCS stamping — it errors ("dubious
-            # ownership", exit 128) inside the manylinux build container, and a
-            # shared library needs no VCS stamp.
-            ["go", "build", "-buildmode=c-shared", "-buildvcs=false", "-o", out, "./cshim"],
-            cwd=HERE,
-            env=env,
-        )
+        # -buildvcs=false: skip git VCS stamping — it errors ("dubious ownership",
+        # exit 128) inside the manylinux build container; a shared library needs
+        # no VCS stamp.
+        cmd = ["go", "build", "-buildmode=c-shared", "-buildvcs=false"]
+        if sys.platform == "win32":
+            # Statically link the MinGW C/C++ runtime (libstdc++, libgcc,
+            # libwinpthread) into the .pyd so it has no external runtime-DLL deps.
+            # Without this the winlibs-GCC-15.3-built .pyd loads a mismatched
+            # MinGW runtime DLL at import (WinError 127 / entry point not found).
+            cmd += ["-ldflags", "-extldflags=-static"]
+        cmd += ["-o", out, "./cshim"]
+        subprocess.check_call(cmd, cwd=HERE, env=env)
         super().run()
 
 
