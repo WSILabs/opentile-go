@@ -33,15 +33,11 @@ class BuildGoLib(build_py):
         # -buildvcs=false: skip git VCS stamping — it errors ("dubious ownership",
         # exit 128) inside the manylinux build container; a shared library needs
         # no VCS stamp.
-        cmd = ["go", "build", "-buildmode=c-shared", "-buildvcs=false"]
-        if sys.platform == "win32":
-            # Statically link the MinGW C/C++ runtime into the .pyd so it has no
-            # external runtime-DLL deps — otherwise the winlibs-GCC-15.3 .pyd loads
-            # a mismatched MinGW runtime DLL at import (WinError 127). Full -static
-            # (not just -static-libgcc/-libstdc++) is required: the lighter form
-            # leaves libwinpthread dynamic and regressed the wheel import.
-            cmd += ["-ldflags", "-extldflags=-static"]
-        cmd += ["-o", out, "./cshim"]
+        # Dynamic linking on all platforms. On Windows the MinGW runtime is
+        # winlibs GCC 15.3 (the sole MinGW toolchain on PATH — no MSYS2), so the
+        # .pyd links against one consistent runtime; delvewheel bundles those
+        # DLLs into the wheel. (Static libstdc++ crashed the C++ codecs.)
+        cmd = ["go", "build", "-buildmode=c-shared", "-buildvcs=false", "-o", out, "./cshim"]
         subprocess.check_call(cmd, cwd=HERE, env=env)
         super().run()
 

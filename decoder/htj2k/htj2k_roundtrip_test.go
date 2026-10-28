@@ -1,4 +1,4 @@
-//go:build cgo && !nocgo && !nohtj2k && !windows
+//go:build cgo && !nocgo && !nohtj2k
 
 package htj2k
 
