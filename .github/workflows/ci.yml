@@ -353,8 +353,8 @@ jobs:
       - name: go test (fixture-backed, full codecs incl HTJ2K, no -race)
         env:
           CGO_ENABLED: '1'
-        # -extldflags=-static: statically link the MinGW C/C++ runtime into the
-        # cgo test binaries so they don't load a mismatched libstdc++/libgcc/
-        # libwinpthread DLL at runtime (0xc0000139 entry-point-not-found when the
-        # winlibs-GCC-15.3 build picks up MSYS2's GCC-16 runtime DLL).
-        run: go test -ldflags "-extldflags=-static" ./... -count=1 -timeout 30m
+        # Static libgcc+libstdc++ so cgo test binaries don't load a mismatched
+        # libstdc++/libgcc DLL (0xc0000139). NOT full -static: static libwinpthread
+        # breaks GCC exception/TLS handling in openjph's encoder (0xc0000005 in the
+        # htj2k encode test); winpthread stays dynamic (winlibs copy wins on PATH).
+        run: go test -ldflags "-extldflags '-static-libgcc -static-libstdc++'" ./... -count=1 -timeout 30m

@@ -35,11 +35,12 @@ class BuildGoLib(build_py):
         # no VCS stamp.
         cmd = ["go", "build", "-buildmode=c-shared", "-buildvcs=false"]
         if sys.platform == "win32":
-            # Statically link the MinGW C/C++ runtime (libstdc++, libgcc,
-            # libwinpthread) into the .pyd so it has no external runtime-DLL deps.
-            # Without this the winlibs-GCC-15.3-built .pyd loads a mismatched
-            # MinGW runtime DLL at import (WinError 127 / entry point not found).
-            cmd += ["-ldflags", "-extldflags=-static"]
+            # Static libgcc + libstdc++ so the winlibs-GCC-15.3 .pyd doesn't load
+            # a mismatched libstdc++/libgcc DLL at import (WinError 127). NOT full
+            # -static: statically linking libwinpthread breaks GCC exception/TLS
+            # handling in openjph's encoder (access violation 0xc0000005);
+            # winpthread stays dynamic (bundled by delvewheel from winlibs).
+            cmd += ["-ldflags", "-extldflags '-static-libgcc -static-libstdc++'"]
         cmd += ["-o", out, "./cshim"]
         subprocess.check_call(cmd, cwd=HERE, env=env)
         super().run()
