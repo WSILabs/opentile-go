@@ -27,6 +27,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Neutralize Strawberry Perl MinGW runtime (Windows)
+        if: matrix.name == 'windows-x86_64'
+        shell: bash
+        run: |
+          # Strawberry Perl's ancient GCC-8 runtime DLLs on the base PATH shadow
+          # winlibs' GCC-15.3 runtime during delvewheel bundling + at import
+          # (0xc0000139 / WinError 127). Rename it so winlibs is the only MinGW
+          # runtime present.
+          mv /c/Strawberry /c/Strawberry.disabled 2>/dev/null || true
+
       # --- toolchain: Go + Python + per-OS build prereqs ---
       - name: Set up Go + Python (manylinux container)
         if: startsWith(matrix.name, 'linux')

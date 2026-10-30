@@ -236,6 +236,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Neutralize Strawberry Perl MinGW runtime
+        shell: bash
+        run: |
+          # The windows-latest image bakes Strawberry Perl (with an ancient
+          # GCC 8 runtime: libstdc++-6/libgcc_s/libwinpthread) onto PATH. Those
+          # DLLs shadow winlibs' GCC-15.3 runtime at test runtime AND during
+          # delvewheel's bundling → entry-point-not-found (0xc0000139 / WinError
+          # 127). Rename it away so winlibs is the only MinGW runtime present.
+          mv /c/Strawberry /c/Strawberry.disabled 2>/dev/null || true
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
