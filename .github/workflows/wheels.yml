@@ -2,6 +2,11 @@ name: Wheels
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload the built wheels to TestPyPI. Off = build + validate only. TestPyPI never accepts a file twice, so publish a given version once."
+        type: boolean
+        default: false
   push:
     tags:
       - 'py-v*.*.*'   # dedicated Python-binding release tags, distinct from the Go module's v*.*.*
@@ -210,8 +215,10 @@ jobs:
           path: python/wheelhouse/*.whl
 
   publish-testpypi:
-    name: publish to TestPyPI (dry-run)
-    if: github.event_name == 'workflow_dispatch'
+    name: publish to TestPyPI
+    # Manual runs only, and only when asked: a plain dispatch just builds and
+    # validates the wheels.
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
     needs: build
     runs-on: ubuntu-latest
     environment: testpypi
