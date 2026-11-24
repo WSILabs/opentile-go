@@ -35,10 +35,9 @@ var errorCodes = []struct {
 	{opentile.ErrRegionEmpty, errRange},
 	{opentile.ErrUnsupportedFormat, errFormat},
 	{opentile.ErrInvalidTIFF, errFormat},
-	{decoder.ErrCodecUnavailable, errCodec},
+	{decoder.ErrCodecUnavailable, errCodec}, // also opentile.ErrCGORequired (same value)
 	{opentile.ErrCodecNotRegistered, errCodec},
 	{opentile.ErrUnsupportedCompression, errCodec},
-	{opentile.ErrCGORequired, errCodec},
 	{opentile.ErrCorruptTile, errCorrupt},
 	{decoder.ErrCorruptInput, errCorrupt},
 	{opentile.ErrBadJPEGBitstream, errCorrupt},

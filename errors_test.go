@@ -2,8 +2,12 @@ package opentile
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"testing"
+
+	"github.com/wsilabs/opentile-go/decoder"
+	"github.com/wsilabs/opentile-go/internal/jpegturbo"
 )
 
 func TestSentinelErrors(t *testing.T) {
@@ -77,5 +81,26 @@ func TestV02Sentinels(t *testing.T) {
 	te := &TileError{Level: 0, X: 1, Y: 2, Err: ErrBadJPEGBitstream}
 	if !errors.Is(te, ErrBadJPEGBitstream) {
 		t.Fatal("TileError should unwrap to ErrBadJPEGBitstream")
+	}
+}
+
+// TestErrCGORequiredMatchesBuildErrors pins the ErrCGORequired doc promise:
+// it must match what the library really returns when a codec is missing.
+// Before #104's follow-up it was a separate value nothing ever returned.
+func TestErrCGORequiredMatchesBuildErrors(t *testing.T) {
+	cases := map[string]error{
+		// NDPI / Philips raw tiles: TileError wrapping the jpegturbo stub error.
+		"jpegturbo crop": &TileError{Level: 0, X: 1, Y: 2,
+			Err: fmt.Errorf("oneframe: extend frame: %w", jpegturbo.ErrCGORequired)},
+		// Decoded paths: a codec stub's error.
+		"codec stub": fmt.Errorf("decoder/jpeg: requires cgo: %w", decoder.ErrCodecUnavailable),
+	}
+	for name, err := range cases {
+		if !errors.Is(err, ErrCGORequired) {
+			t.Errorf("%s: %v does not match ErrCGORequired", name, err)
+		}
+		if !errors.Is(err, decoder.ErrCodecUnavailable) {
+			t.Errorf("%s: %v does not match decoder.ErrCodecUnavailable", name, err)
+		}
 	}
 }

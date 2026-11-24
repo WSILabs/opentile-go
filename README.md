@@ -82,7 +82,13 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 - **Optional codec libraries**, each disableable with a `no<codec>` build tag if you don't have it: OpenJPEG / JPEG 2000 (`nojp2k`), libjxl (`nojxl`), libwebp (`nowebp`), libavif (`noavif`), openjph / HTJ2K (`nohtj2k`). libjpeg-turbo is the only codec linked under every cgo build.
 - **`pkg-config`** to resolve the above at build time.
 
-opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`level.Tile`) are pure Go and need no cgo.** Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported: raw-tile reads and SVS / NDPI-stripped passthrough work; decode paths (NDPI OneFrame / edge-tile fill, Philips sparse-tile fill, OME OneFrame, and any non-JPEG codec) return `ErrCGORequired`.
+opentile-go uses **cgo for codec decode** — `internal/jpegturbo/` wraps libjpeg-turbo (incl. its `tjTransform` lossless DCT-domain crops); the `decoder/*` packages link the other codec libraries above. **Raw-tile reads (`level.Tile`) are pure Go for most formats**, but a few build their tiles with a lossless libjpeg-turbo crop and so need cgo even for raw bytes: NDPI stripped and one-frame levels, the NDPI label, Philips sparse (blank) tiles, and OME-TIFF one-frame levels. Building without cgo (`-tags nocgo` or `CGO_ENABLED=0`) is supported. Every other raw-tile read and all metadata work. Those crop paths and every decode path (decoded tiles, regions, thumbnails, and JPEG / JPEG 2000 / other codec associated images; pure-Go PNG, LZW and uncompressed ones still decode) return an error matching `opentile.ErrCGORequired`, the same value as `decoder.ErrCodecUnavailable`:
+
+```go
+if errors.Is(err, opentile.ErrCGORequired) {
+    // this build lacks the codec; fall back or report
+}
+```
 
 ## Install
 

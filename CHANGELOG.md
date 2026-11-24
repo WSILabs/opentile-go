@@ -19,6 +19,15 @@ upstream references, and retirement audit per milestone.
   could not detect it with `errors.Is`. It now wraps the public
   `decoder.ErrCodecUnavailable`. Message text gains that suffix; nothing else
   changes, and cgo builds are unaffected.
+- **`opentile.ErrCGORequired` now matches the errors it documents.** It was a
+  separate value that nothing ever returned, so
+  `errors.Is(err, opentile.ErrCGORequired)` never matched. It is now the same
+  value as `decoder.ErrCodecUnavailable` and matches every "codec not in this
+  build" failure. Under a cgo build with a `no<codec>` tag that includes the
+  disabled codec. Its `Error()` text is now `decoder: codec not available in
+  this build`. README corrected: NDPI stripped / one-frame, the NDPI label,
+  Philips sparse tiles and OME-TIFF one-frame levels need cgo even for raw
+  tiles (it claimed raw reads and NDPI-stripped passthrough were pure Go).
 - **Tests skip cleanly under nocgo with fixtures present (#104).** 33 tests in
   six packages failed on a local `CGO_ENABLED=0 -tags nocgo` run with
   `OPENTILE_TESTDIR` set; CI never saw it because its nocgo step has no
