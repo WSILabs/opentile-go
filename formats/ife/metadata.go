@@ -640,8 +640,10 @@ func readICCProfile(r io.ReaderAt, off uint64, fileSize int64) ([]byte, error) {
 	}
 	bodyOff := int64(off) + iccHeaderSize
 	entryN := int64(binary.LittleEndian.Uint32(hdr[10:14]))
-	// #121: a 16-bit-truncated length (an older Iris encoder) leaves the full
-	// profile on disk; trust the profile's own size when it proves truncation.
+	// #121: Iris encoders before upstream c7e3070 (2026-08-08) wrote this
+	// length with a 16-bit store. The full profile is still on disk, so trust
+	// the profile's own size when it proves truncation. Upstream's reader does
+	// not recover these files; keep this while they circulate.
 	if n, ok := untruncatedICCSize(r, bodyOff, entryN, fileSize); ok {
 		entryN = n
 	}

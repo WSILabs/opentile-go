@@ -13,7 +13,8 @@ upstream references, and retirement audit per milestone.
 
 ### Fixed
 - `formats/ife`: recover ICC profiles whose `ICC_PROFILE` length was written
-  truncated to 16 bits by an older Iris encoder (#121). The public
+  truncated to 16 bits by Iris encoders before upstream `c7e3070`
+  (2026-08-08) (#121). The public
   `cervix_2x_jpeg.iris` stores 6,064 bytes for a 13,113,264-byte profile, so
   `ICCProfile()` returned an unusable fragment that lcms2 could not link. The
   reader now uses the profile's own size field when it proves truncation (ICC

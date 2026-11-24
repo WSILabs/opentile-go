@@ -289,6 +289,13 @@ README.md and per-format docs link here.
   link the profiles"); at the declared length it builds a working
   transform. The guard is the exact truncation signature, so spec-correct
   files are unaffected.
+- **Upstream status:** the writer bug was a `STORE_U16` of `ENTRY_NUMBER` in
+  `STORE_ICC_COLOR_PROFILE` (`src/IrisCodecExtension.cpp`). Iris fixed it in
+  [`c7e3070`](https://github.com/IrisDigitalPathology/Iris-File-Extension/commit/c7e3070)
+  (2026-08-08, "Add CI gates and fix byte handling"), so new files are
+  correct. The fix does not cover existing files: the reference reader still
+  trusts the stored length, and the public `cervix_2x_jpeg.iris` on Iris's S3
+  bucket predates the fix. Keep the recovery while such files circulate.
 - **Tracking:** #121.
 
 ### Default mmap-backed `OpenFile` (since v0.9)
