@@ -229,17 +229,20 @@ jobs:
   integration-windows:
     name: integration (public fixtures, Windows + all codecs)
     if: github.event_name != 'pull_request'
-    # Non-blocking: TRACKED toolchain regression (not our code). windows-latest's
-    # MSYS2 now ships GCC 16 (no released CMake can ABI-probe it for the vcpkg
-    # codec build), forcing a winlibs GCC 15.3 toolchain; dynamic linking then
-    # loads a mismatched MinGW runtime (Strawberry Perl / Git-for-Windows copies
-    # of libstdc++-6 shadow winlibs' → 0xc0000139), while full-static linking
-    # crashes the C++ codecs (libjxl decode / openjph encode). Revisit with an
-    # llvm-mingw (clang) toolchain, or once CMake/MSYS2 stabilize on GCC 16.
-    # The library ships green on Linux + macOS (incl. HTJ2K); Windows users
-    # build from source until this is resolved.
-    continue-on-error: true
+    # Toolchain: winlibs GCC 15.3 (MSYS2's GCC 16 can't be ABI-probed by released
+    # CMake for the vcpkg codec build). Two Windows-specific hazards, both fixed:
+    #  1. Runtime shadowing (0xc0000139): Strawberry Perl's and Git Bash's own
+    #     /mingw64/bin libstdc++-6 get loaded instead of winlibs'. Strawberry is
+    #     renamed away; each Go step re-prepends WINLIBS_BIN to PATH.
+    #  2. GCC bug 54412 (intermittent access violation at 0xffffffffffffffff in
+    #     libjxl decode / openjph encode): aligned AVX stores to a 16-byte-
+    #     aligned Win64 stack. Codecs build with the .github/vcpkg-triplets
+    #     overlay and cgo with -Wa,-muse-unaligned-vector-move.
     runs-on: windows-latest
+    env:
+      # cgo's own C/C++ (codec shims) gets the same 54412 guard as the codecs.
+      CGO_CFLAGS: -O2 -g -Wa,-muse-unaligned-vector-move
+      CGO_CXXFLAGS: -O2 -g -Wa,-muse-unaligned-vector-move
     defaults:
       run:
         shell: bash
@@ -306,13 +309,14 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json', '.github/vcpkg-triplets/x64-mingw-static.cmake') }}
 
       - name: Install codec libs (vcpkg, x64-mingw-static)
         run: |
           set -euo pipefail
           "$VCPKG_ROOT/vcpkg" install \
             --triplet x64-mingw-static \
+            --overlay-triplets="$PWD/.github/vcpkg-triplets" \
             --x-install-root="$PWD/vcpkg_installed"
           echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconfig" >> "$GITHUB_ENV"
 
@@ -324,7 +328,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json', '.github/vcpkg-triplets/x64-mingw-static.cmake') }}
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
         env:
