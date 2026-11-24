@@ -638,18 +638,58 @@ func readICCProfile(r io.ReaderAt, off uint64, fileSize int64) ([]byte, error) {
 	if got := binary.LittleEndian.Uint16(hdr[8:10]); got != recoverICCProfile {
 		return nil, fmt.Errorf("ICC_PROFILE recovery 0x%04x != 0x%04x", got, recoverICCProfile)
 	}
-	entryN := binary.LittleEndian.Uint32(hdr[10:14])
+	bodyOff := int64(off) + iccHeaderSize
+	entryN := int64(binary.LittleEndian.Uint32(hdr[10:14]))
+	// #121: a 16-bit-truncated length (an older Iris encoder) leaves the full
+	// profile on disk; trust the profile's own size when it proves truncation.
+	if n, ok := untruncatedICCSize(r, bodyOff, entryN, fileSize); ok {
+		entryN = n
+	}
 	if entryN == 0 {
 		return nil, nil
 	}
-	if int64(off)+iccHeaderSize+int64(entryN) > fileSize {
+	if bodyOff+entryN > fileSize {
 		return nil, fmt.Errorf("ICC_PROFILE body past EOF")
 	}
 	body := make([]byte, entryN)
-	if _, err := r.ReadAt(body, int64(off)+iccHeaderSize); err != nil {
+	if _, err := r.ReadAt(body, bodyOff); err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 	return body, nil
+}
+
+// iccProfileHeaderSize is the fixed ICC.1 profile header: profile size (u32
+// big-endian) at byte 0 and the 'acsp' signature at byte 36.
+const iccProfileHeaderSize = 128
+
+// untruncatedICCSize recovers the length of an ICC profile whose IFE
+// ENTRY_NUMBER was written truncated to 16 bits (issue #121). The spec field
+// is u32, but an older upstream encoder stored it with a 16-bit write, so a
+// profile of 64 KiB or more records only size mod 65536 while the whole
+// profile is still on disk (the public cervix_2x_jpeg.iris sample stores
+// 6,064 for a 13,113,264-byte profile).
+//
+// Deviation from the upstream reader, which reads exactly ENTRY_NUMBER bytes.
+// It applies only when the bytes at bodyOff are a real ICC header ('acsp'), the
+// declared size exceeds stored by a non-zero multiple of 65536 (the truncation
+// signature), and the declared size fits in the file. Otherwise ok=false and
+// the caller keeps the stored length, so spec-correct files are unaffected.
+func untruncatedICCSize(r io.ReaderAt, bodyOff, stored, fileSize int64) (int64, bool) {
+	if bodyOff+iccProfileHeaderSize > fileSize {
+		return 0, false
+	}
+	var h [iccProfileHeaderSize]byte
+	if _, err := r.ReadAt(h[:], bodyOff); err != nil {
+		return 0, false
+	}
+	if string(h[36:40]) != "acsp" {
+		return 0, false
+	}
+	declared := int64(binary.BigEndian.Uint32(h[0:4]))
+	if declared <= stored || (declared-stored)%(1<<16) != 0 || bodyOff+declared > fileSize {
+		return 0, false
+	}
+	return declared, true
 }
 
 // associatedImage is the IFE implementation of

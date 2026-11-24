@@ -3,6 +3,7 @@ package ife
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"os"
@@ -162,8 +163,13 @@ func TestCervixEndToEnd(t *testing.T) {
 		t.Errorf("Writer (v0.20): got %q, want prefix 'iris/' (IFE writer is the Iris codec; source scanner attribution lives in ImageDescription)", cm.Writer)
 	}
 	icc := tiler.ICCProfile()
-	if len(icc) != 6064 {
-		t.Errorf("ICCProfile size = %d, want 6064", len(icc))
+	// #121: the block's ENTRY_NUMBER says 6064 (the true size truncated to
+	// 16 bits by an older Iris encoder); the whole profile is on disk and is
+	// recovered from its own header.
+	if len(icc) != 13113264 {
+		t.Errorf("ICCProfile size = %d, want 13113264 (full profile, not the truncated 6064)", len(icc))
+	} else if declared := binary.BigEndian.Uint32(icc[0:4]); int(declared) != len(icc) || string(icc[36:40]) != "acsp" {
+		t.Errorf("ICCProfile header: size field %d, signature %q; want %d, \"acsp\"", declared, icc[36:40], len(icc))
 	}
 	assoc := tiler.AssociatedImages()
 	if len(assoc) != 1 {
