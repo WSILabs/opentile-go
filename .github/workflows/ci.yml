@@ -280,6 +280,11 @@ jobs:
           curl -fsSL "$url" -o "$RUNNER_TEMP/winlibs.zip"
           python -c "import zipfile; zipfile.ZipFile(r'$RUNNER_TEMP/winlibs.zip').extractall(r'$RUNNER_TEMP/winlibs')"
           echo "$RUNNER_TEMP\\winlibs\\mingw64\\bin" >> "$GITHUB_PATH"
+          # GITHUB_PATH alone isn't enough at runtime: Git Bash's launcher
+          # prepends its own /mingw64/bin (Git for Windows' libstdc++-6 /
+          # libgcc_s / libwinpthread) ahead of it in every bash step, so the
+          # Go steps below re-prepend this to PATH (see "Use winlibs runtime").
+          echo "WINLIBS_BIN=$(cygpath -u "$RUNNER_TEMP")/winlibs/mingw64/bin" >> "$GITHUB_ENV"
           # Force cgo to use chocolatey's pkg-config (absolute path) over the
           # runner's Strawberry-Perl pkg-config stub.
           echo "PKG_CONFIG=C:\\ProgramData\\chocolatey\\bin\\pkg-config.exe" >> "$GITHUB_ENV"
@@ -345,21 +350,34 @@ jobs:
           echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
           echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
 
+      # Use winlibs runtime: every Go step re-prepends WINLIBS_BIN because Git
+      # Bash puts Git for Windows' /mingw64/bin first on PATH, and its older
+      # libstdc++-6.dll then gets loaded by the test binaries instead of
+      # winlibs' → 0xc0000139 (entry point not found) for every binary linking
+      # openjph (decoder/htj2k and everything importing decoder/all).
       - name: go build (all six codecs)
         env:
           CGO_ENABLED: '1'
-        run: go build ./...
+        run: |
+          export PATH="$WINLIBS_BIN:$PATH"
+          go build ./...
 
       - name: go vet (all six codecs)
         env:
           CGO_ENABLED: '1'
-        run: go vet ./...
+        run: |
+          export PATH="$WINLIBS_BIN:$PATH"
+          go vet ./...
 
       - name: go test (fixture-backed, full codecs incl HTJ2K, no -race)
         env:
           CGO_ENABLED: '1'
-        # Dynamic linking against winlibs' consistent MinGW runtime (the sole one
-        # on PATH) — the C++ codec tests (jpegxl decode, htj2k encode/roundtrip)
-        # now run and validate the toolchain. No -static (static libstdc++ broke
-        # C++ exception/TLS and crashed those codecs).
-        run: go test ./... -count=1 -timeout 30m
+        # Dynamic linking against winlibs' consistent MinGW runtime — the C++
+        # codec tests (jpegxl decode, htj2k encode/roundtrip) run and validate
+        # the toolchain. No -static (static libstdc++ broke C++ exception/TLS
+        # and crashed those codecs).
+        run: |
+          export PATH="$WINLIBS_BIN:$PATH"
+          echo "libstdc++-6.dll resolution order (first wins):"
+          where.exe libstdc++-6.dll || true
+          go test ./... -count=1 -timeout 30m
