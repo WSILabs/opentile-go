@@ -3,6 +3,7 @@ package opentile_test
 import (
 	"bytes"
 	"errors"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,6 +41,7 @@ func TestReadRegionFullTile(t *testing.T) {
 	tileW := lvl.TileSize.W
 	tileH := lvl.TileSize.H
 	img, err := mustLevel(t, slide, 0).ReadRegion(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: tileW, H: tileH}})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -68,6 +70,7 @@ func TestReadRegionAcrossTileBoundary(t *testing.T) {
 		t.Skip("slide too small for boundary test")
 	}
 	img, err := mustLevel(t, slide, 0).ReadRegion(opentile.Region{Origin: opentile.Point{X: tileW / 2, Y: 0}, Size: opentile.Size{W: tileW, H: 64}})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -107,6 +110,7 @@ func TestReadRegionOutOfBoundsRightEdge(t *testing.T) {
 	lvl := slide.Levels()[0]
 	x := lvl.Size.W - 64
 	img, err := mustLevel(t, slide, 0).ReadRegion(opentile.Region{Origin: opentile.Point{X: x, Y: 0}, Size: opentile.Size{W: 192, H: 64}})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -127,6 +131,7 @@ func TestReadRegionOutOfBoundsRightEdge(t *testing.T) {
 func TestReadRegionOutOfBoundsNegative(t *testing.T) {
 	slide := openSampleSlide(t)
 	img, err := mustLevel(t, slide, 0).ReadRegion(opentile.Region{Origin: opentile.Point{X: -64, Y: 0}, Size: opentile.Size{W: 128, H: 64}})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -152,6 +157,7 @@ func TestReadRegionEntirelyOutOfBounds(t *testing.T) {
 func TestReadRegionWithRGBA(t *testing.T) {
 	slide := openSampleSlide(t)
 	img, err := mustLevel(t, slide, 0).ReadRegion(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: 64, H: 64}}, opentile.WithFormat(decoder.PixelFormatRGBA))
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}
@@ -171,7 +177,9 @@ func TestReadRegionInto(t *testing.T) {
 	for i := range dst.Pix {
 		dst.Pix[i] = 0xAA // marker
 	}
-	if err := mustLevel(t, slide, 0).ReadRegionInto(opentile.Point{X: 0, Y: 0}, dst); err != nil {
+	err := mustLevel(t, slide, 0).ReadRegionInto(opentile.Point{X: 0, Y: 0}, dst)
+	testutil.SkipIfNoDecode(t, err)
+	if err != nil {
 		t.Fatalf("ReadRegionInto: %v", err)
 	}
 	// Some byte must have changed from 0xAA.
@@ -222,6 +230,7 @@ func TestReadRegionAllFormats(t *testing.T) {
 				h = lvl.Size.H
 			}
 			img, err := mustLevel(t, slide, 0).ReadRegion(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: opentile.Size{W: w, H: h}})
+			testutil.SkipIfNoDecode(t, err)
 			if err != nil {
 				t.Fatalf("ReadRegion: %v", err)
 			}

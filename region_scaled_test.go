@@ -2,6 +2,7 @@ package opentile_test
 
 import (
 	"bytes"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,6 +35,7 @@ func TestReadRegionScaledOutDims(t *testing.T) {
 	slide := openScaledSample(t)
 	lvl := slide.Levels()[0]
 	img, err := slide.Pyramid(0).ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 256, H: 256})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegionScaled: %v", err)
 	}
@@ -47,6 +49,7 @@ func TestReadRegionScaledKernelChoice(t *testing.T) {
 	lvl := slide.Levels()[0]
 	lanczos, err := slide.Pyramid(0).ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 128, H: 128},
 		opentile.WithResampleKernel(resample.Lanczos))
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("Lanczos: %v", err)
 	}
@@ -64,6 +67,7 @@ func TestReadRegionScaledTinyOutput(t *testing.T) {
 	slide := openScaledSample(t)
 	lvl := slide.Levels()[0]
 	img, err := slide.Pyramid(0).ReadRegionScaled(opentile.Region{Origin: opentile.Point{X: 0, Y: 0}, Size: lvl.Size}, opentile.Size{W: 10, H: 10})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegionScaled tiny: %v", err)
 	}

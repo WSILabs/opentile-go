@@ -9,6 +9,7 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 	_ "github.com/wsilabs/opentile-go/decoder/all"
 	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 )
 
 // TestStitchedDisplayTileCustomSize verifies a consumer can render BIF display
@@ -54,7 +55,9 @@ func TestStitchedDisplayTileCustomSize(t *testing.T) {
 			for _, c := range [][2]int{{grid.W / 3, grid.H / 3}, {grid.W / 2, grid.H / 2}} {
 				tx, ty := c[0], c[1]
 				dst := decoder.NewImageFormat(disp.W, disp.H, decoder.PixelFormatRGB)
-				if err := l.StitchedTileInto(tx, ty, dst); err != nil {
+				err := l.StitchedTileInto(tx, ty, dst)
+				testutil.SkipIfNoDecode(t, err)
+				if err != nil {
 					t.Fatalf("StitchedTileInto(%d,%d) 512×512: %v", tx, ty, err)
 				}
 				region, err := l.ReadRegion(opentile.Region{

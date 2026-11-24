@@ -1,6 +1,7 @@
 package opentile_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,7 @@ func TestDecodedTileWithJPEGDecoder(t *testing.T) {
 	defer slide.Close()
 
 	img, err := mustLevel(t, slide, 0).DecodedTile(0, 0)
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("DecodedTile: %v", err)
 	}
@@ -46,6 +48,7 @@ func TestImageDecodedTileWithJPEGDecoder(t *testing.T) {
 	defer slide.Close()
 
 	img, err := mustImageLevel(t, slide, 0, 0).DecodedTile(0, 0)
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ImageDecodedTile: %v", err)
 	}
@@ -66,6 +69,7 @@ func TestDecodedTileWithRGBAFormat(t *testing.T) {
 	defer slide.Close()
 
 	img, err := mustLevel(t, slide, 0).DecodedTile(0, 0, opentile.WithFormat(decoder.PixelFormatRGBA))
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("DecodedTile(RGBA): %v", err)
 	}

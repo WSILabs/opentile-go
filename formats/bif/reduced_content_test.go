@@ -1,6 +1,7 @@
 package bif_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,6 +58,7 @@ func TestReducedContentMatchesDownsampledL0(t *testing.T) {
 			// pick a textured interior region of the reduced level
 			ox, oy := pickTextured(t, lr, w, h)
 			rImg, err := lr.ReadRegion(opentile.Region{Origin: opentile.Point{X: ox, Y: oy}, Size: opentile.Size{W: w, H: h}})
+			testutil.SkipIfNoDecode(t, err)
 			if err != nil {
 				t.Fatal(err)
 			}

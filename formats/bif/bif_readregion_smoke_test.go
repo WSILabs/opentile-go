@@ -1,6 +1,7 @@
 package bif_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,6 +46,7 @@ func TestBIFReadRegionStitchedSmoke(t *testing.T) {
 	// Read a 512×512 region from the interior (well inside the tissue area).
 	reg := opentile.Region{Origin: opentile.Point{X: 5000, Y: 5000}, Size: opentile.Size{W: 512, H: 512}}
 	img, err := lvl.ReadRegion(reg)
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("ReadRegion: %v", err)
 	}

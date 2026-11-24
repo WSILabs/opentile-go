@@ -1,6 +1,7 @@
 package opentile_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -37,6 +38,7 @@ func TestPyramidReadMethods(t *testing.T) {
 		opentile.Region{Size: opentile.Size{W: 64, H: 64}},
 		opentile.Size{W: 32, H: 32},
 	)
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("Pyramid(0).ReadRegionScaled: %v", err)
 	}

@@ -1,6 +1,7 @@
 package parity
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,6 +75,7 @@ func TestMultiDimCompat2D(t *testing.T) {
 					continue
 				}
 				b, err := lvl0.Tile(0, 0)
+				testutil.SkipIfNoDecode(t, err)
 				if err != nil {
 					t.Errorf("image %d ImageRawTile(0,0,0): %v", ii, err)
 					continue

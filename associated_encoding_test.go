@@ -2,6 +2,7 @@ package opentile_test
 
 import (
 	"bytes"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"image"
 	stdjpeg "image/jpeg"
 	"io"
@@ -149,6 +150,7 @@ func TestAssociatedEncodingRoundtrip(t *testing.T) {
 				recon := reconstructFromEncoding(t, src, w, h)
 
 				ref, err := a.Decode(decoder.DecodeOptions{Format: decoder.PixelFormatRGBA})
+				testutil.SkipIfNoDecode(t, err)
 				if err != nil {
 					t.Fatalf("%s %q Decode: %v", rel, a.Type(), err)
 				}

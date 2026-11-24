@@ -9,11 +9,20 @@
 // cannot link C dependencies.
 package jpegturbo
 
-import "errors"
+import (
+	"fmt"
+
+	"github.com/wsilabs/opentile-go/decoder"
+)
 
 // ErrCGORequired is returned from Crop when the package was compiled without
 // cgo support. Callers propagate this wrapped in opentile.TileError.
-var ErrCGORequired = errors.New("jpegturbo: this operation requires cgo + libjpeg-turbo (build without -tags nocgo)")
+//
+// It wraps the public decoder.ErrCodecUnavailable. This package is internal,
+// so without the wrap a library user could not detect the nocgo case with
+// errors.Is on the NDPI and Philips raw-tile paths that crop through here
+// (#104).
+var ErrCGORequired = fmt.Errorf("jpegturbo: this operation requires cgo + libjpeg-turbo (build without -tags nocgo): %w", decoder.ErrCodecUnavailable)
 
 // Region is an MCU-aligned pixel rectangle within a JPEG. libjpeg-turbo with
 // TJXOPT_PERFECT rejects non-aligned regions rather than silently producing

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -339,6 +340,7 @@ func checkLevels(
 			for y := 0; y < lvl.Grid.H; y++ {
 				for x := 0; x < lvl.Grid.W; x++ {
 					b, err := lvl.Tile(x, y)
+					testutil.SkipIfNoDecode(t, err)
 					if err != nil {
 						t.Errorf("%sImageRawTile(%d,%d) level %d: %v", labelPrefix, x, y, i, err)
 						continue
@@ -364,6 +366,7 @@ func checkLevels(
 			positions := tests.SamplePositions(lvl.Grid, lvl.Size, lvl.TileSize)
 			for _, p := range positions {
 				b, err := lvl.Tile(p.X, p.Y)
+				testutil.SkipIfNoDecode(t, err)
 				if err != nil {
 					t.Errorf("%ssampled ImageRawTile(%d,%d) level %d: %v", labelPrefix, p.X, p.Y, i, err)
 					continue
