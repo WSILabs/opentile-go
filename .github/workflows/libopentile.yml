@@ -1,0 +1,333 @@
+name: libopentile
+
+# Builds libopentile, the C API in capi/, as a self-contained shared library
+# per platform, tests it, and attaches it to the GitHub release (#120 step 3).
+# The six codecs and lcms2 are linked in statically (vcpkg static triplets +
+# pkg-config --static). The Windows DLL also carries its MinGW runtime
+# (-extldflags=-static), so it depends only on system DLLs and MSVC programs
+# can link it through the import library made here from libopentile.def.
+#
+# - Push of a v*.*.* tag: build, test, attach to that tag's release (the
+#   release itself is created by release.yml from the same push).
+# - Pull request or push to main touching the C API or its build inputs:
+#   build + test only (the push also keeps main's vcpkg cache warm, which tag
+#   builds restore).
+# - Manual run: build + test the selected branch; artifacts stay on the run.
+#   Set release_tag to build that tag's source instead and attach the
+#   archives to its existing release.
+#
+# Never publishes anywhere but this repo's GitHub releases.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+    branches: [main]
+    paths: # not applied to tag pushes
+      - 'capi/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'vcpkg.json'
+      - '.github/vcpkg-triplets/**'
+      - '.github/workflows/libopentile.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'capi/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'vcpkg.json'
+      - '.github/vcpkg-triplets/**'
+      - '.github/workflows/libopentile.yml'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing v* tag to build and attach to its release. Empty = build + test this branch only (nothing is attached)."
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  FIXTURE_TAG: v8 # WSILabs/wsi-fixtures release holding the C tests' slide
+
+jobs:
+  build:
+    name: libopentile ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64,   runner: ubuntu-latest,    container: 'quay.io/pypa/manylinux_2_28_x86_64',  triplet: x64-linux-static }
+          - { name: linux-aarch64,  runner: ubuntu-24.04-arm, container: 'quay.io/pypa/manylinux_2_28_aarch64', triplet: arm64-linux-static }
+          - { name: macos-arm64,    runner: macos-latest,     container: '',                                    triplet: arm64-osx-static }
+          - { name: macos-x86_64,   runner: macos-latest,     container: '',                                    triplet: x64-osx-static, macos_cross: '1' }
+          - { name: windows-x86_64, runner: windows-latest,   container: '',                                    triplet: x64-mingw-static }
+    steps:
+      # ci/ = this workflow's revision (build script, vcpkg manifest, triplets).
+      # src/ = the code to build: the same commit, or release_tag on a manual
+      # run (older tags predate the build script).
+      - uses: actions/checkout@v4
+        with: { path: ci }
+
+      - uses: actions/checkout@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        with: { path: src, ref: '${{ inputs.release_tag }}' }
+
+      - name: Resolve version + source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ -n "${{ inputs.release_tag }}" ]; then
+            v="${{ inputs.release_tag }}"; src="$GITHUB_WORKSPACE/src"
+          elif [ "${{ github.ref_type }}" = tag ]; then
+            v="${{ github.ref_name }}"; src="$GITHUB_WORKSPACE/ci"
+          else
+            v="dev-${GITHUB_SHA::7}"; src="$GITHUB_WORKSPACE/ci"
+          fi
+          case "$v" in
+            v[0-9]*.[0-9]*.[0-9]*|dev-*) ;;
+            *) echo "not a v*.*.* tag: $v" >&2; exit 1 ;;
+          esac
+          echo "OT_VERSION=$v" >> "$GITHUB_ENV"
+          echo "OT_SRC_ROOT=$src" >> "$GITHUB_ENV"
+          echo "version $v, source $src"
+
+      - name: Neutralize Strawberry Perl MinGW runtime (Windows)
+        if: matrix.name == 'windows-x86_64'
+        shell: bash
+        run: |
+          # Strawberry Perl puts its own old GCC runtime, gcc and pkg-config on
+          # PATH. Remove it so winlibs is the only MinGW toolchain.
+          mv /c/Strawberry /c/Strawberry.disabled 2>/dev/null || true
+
+      # --- toolchain -----------------------------------------------------------
+      - name: Set up Go + build prereqs (manylinux container)
+        if: startsWith(matrix.name, 'linux')
+        shell: bash
+        run: |
+          set -euo pipefail
+          yum install -y nasm autoconf-archive perl-IPC-Cmd zip
+          curl -fsSL "https://go.dev/dl/go1.25.0.linux-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" -o /tmp/go.tgz
+          tar -C /usr/local -xzf /tmp/go.tgz
+          echo "/usr/local/go/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Go
+        if: "!startsWith(matrix.name, 'linux')"
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          # Go's build cache doesn't track pkg-config output; release builds
+          # always compile cgo fresh.
+          cache: false
+
+      - name: Install prereqs (macOS)
+        if: startsWith(matrix.name, 'macos')
+        run: |
+          brew install nasm pkg-config
+          # Must match VCPKG_OSX_DEPLOYMENT_TARGET in the osx triplets.
+          echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos_cross == '1' && '10.13' || '11.0' }}" >> "$GITHUB_ENV"
+
+      - name: macOS x86_64 cross-build flags (Intel library on the arm64 runner)
+        if: matrix.macos_cross == '1'
+        run: |
+          echo "GOARCH=amd64" >> "$GITHUB_ENV"
+          echo "CGO_CFLAGS=-arch x86_64" >> "$GITHUB_ENV"
+          echo "CGO_CXXFLAGS=-arch x86_64" >> "$GITHUB_ENV"
+          echo "CGO_LDFLAGS=-arch x86_64" >> "$GITHUB_ENV"
+          softwareupdate --install-rosetta --agree-to-license || true
+
+      - name: Install pkg-config (chocolatey, Windows)
+        if: matrix.name == 'windows-x86_64'
+        shell: pwsh
+        run: choco install pkgconfiglite -y --no-progress
+
+      - name: Install MinGW GCC 15.3 (winlibs, Windows)
+        if: matrix.name == 'windows-x86_64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/brechtsanders/winlibs_mingw/releases/download/15.3.0posix-14.0.0-msvcrt-r1/winlibs-x86_64-posix-seh-gcc-15.3.0-mingw-w64msvcrt-14.0.0-r1.zip"
+          curl -fsSL "$url" -o "$RUNNER_TEMP/winlibs.zip"
+          7z x -y -o"$RUNNER_TEMP/winlibs" "$RUNNER_TEMP/winlibs.zip" > /dev/null
+          echo "$RUNNER_TEMP\\winlibs\\mingw64\\bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG=C:\\ProgramData\\chocolatey\\bin\\pkg-config.exe" >> "$GITHUB_ENV"
+          # Git Bash prepends its own /mingw64/bin ahead of GITHUB_PATH in every
+          # bash step; the bash steps below re-prepend winlibs.
+          echo "WINLIBS_BIN=$(cygpath -u "$RUNNER_TEMP")/winlibs/mingw64/bin" >> "$GITHUB_ENV"
+          # GCC bug 54412 guard for cgo's own C/C++ (the codecs get it from the
+          # x64-mingw-static overlay triplet).
+          echo "CGO_CFLAGS=-O2 -g -Wa,-muse-unaligned-vector-move" >> "$GITHUB_ENV"
+          echo "CGO_CXXFLAGS=-O2 -g -Wa,-muse-unaligned-vector-move" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/winlibs/mingw64/bin/gcc.exe" --version | head -1
+
+      # --- vcpkg: static codecs + lcms2 ------------------------------------------
+      - name: Bootstrap vcpkg (pinned baseline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=$(grep -o '"builtin-baseline": *"[0-9a-f]*"' ci/vcpkg.json | grep -o '[0-9a-f]\{40\}')
+          git clone -q https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          git -C "$RUNNER_TEMP/vcpkg" checkout -q "$baseline"
+          if [ "${{ matrix.name }}" = windows-x86_64 ]; then
+            "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat" -disableMetrics
+          else
+            "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          fi
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/vcpkg-bincache"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$RUNNER_TEMP/vcpkg-bincache" >> "$GITHUB_ENV"
+
+      - name: Restore vcpkg cache
+        id: vcpkgcache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: libopentile-vcpkg-${{ matrix.triplet }}-${{ hashFiles('ci/vcpkg.json', format('ci/.github/vcpkg-triplets/{0}.cmake', matrix.triplet)) }}
+          # Same baseline + triplets as the wheel and Windows CI builds, so
+          # their cached packages are reusable; only lcms2 is extra.
+          restore-keys: |
+            libopentile-vcpkg-${{ matrix.triplet }}-
+            wheels-vcpkg-${{ matrix.triplet }}-
+            vcpkg-${{ matrix.triplet }}-
+
+      - name: Install codecs + lcms2 (static)
+        shell: bash
+        working-directory: ci
+        run: |
+          set -euo pipefail
+          "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} --x-feature=capi \
+            --overlay-triplets="$PWD/.github/vcpkg-triplets" \
+            --x-install-root="$GITHUB_WORKSPACE/vcpkg_installed"
+
+      - name: Save vcpkg cache
+        if: always() && steps.vcpkgcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: libopentile-vcpkg-${{ matrix.triplet }}-${{ hashFiles('ci/vcpkg.json', format('ci/.github/vcpkg-triplets/{0}.cmake', matrix.triplet)) }}
+
+      # --- build, check, test ------------------------------------------------------
+      - name: Build, stage + check (Go tests, OS-only deps, all exports)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${WINLIBS_BIN:-}" ]; then export PATH="$WINLIBS_BIN:$PATH"; fi
+          bash ci/capi/scripts/build-release.sh "$OT_VERSION" "${{ matrix.name }}" \
+            "vcpkg_installed/${{ matrix.triplet }}" dist
+          echo "STAGE=dist/libopentile-$OT_VERSION-${{ matrix.name }}" >> "$GITHUB_ENV"
+
+      - name: Fetch the test slide
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/WSILabs/wsi-fixtures/releases/download/$FIXTURE_TAG/svs.tar" -o svs.tar
+          mkdir -p fixtures && tar xf svs.tar -C fixtures
+          slide="$PWD/fixtures/svs/CMU-1-Small-Region.svs"
+          test -f "$slide"
+          command -v cygpath > /dev/null && slide=$(cygpath -w "$slide")
+          echo "SLIDE=$slide" >> "$GITHUB_ENV"
+
+      - name: C tests (smoke + close race)
+        if: matrix.name != 'windows-x86_64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          arch=""; [ "${{ matrix.macos_cross }}" = 1 ] && arch="-arch x86_64"
+          lib="$PWD/$STAGE/lib"
+          mkdir -p ctest
+          cc $arch -std=gnu99 -Wall -I "$STAGE/include" "$OT_SRC_ROOT/capi/test/smoke.c" \
+            -L "$lib" -Wl,-rpath,"$lib" -lopentile -o ctest/smoke
+          cc $arch -std=gnu99 -Wall -I "$STAGE/include" "$OT_SRC_ROOT/capi/test/threads.c" \
+            -L "$lib" -Wl,-rpath,"$lib" -lopentile -lpthread -o ctest/threads
+          ctest/smoke "$SLIDE"
+          ctest/threads "$SLIDE"
+
+      - name: C close-race test (Windows, MinGW GCC)
+        if: matrix.name == 'windows-x86_64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$WINLIBS_BIN:$PATH"
+          mkdir -p ctest
+          # threads.c needs pthreads + GCC atomics, so GCC builds it, linking
+          # the DLL directly. smoke.c is the MSVC check (next step).
+          gcc -std=gnu99 -Wall -I "$STAGE/include" "$OT_SRC_ROOT/capi/test/threads.c" \
+            -L "$STAGE/bin" -lopentile -o ctest/threads.exe
+          PATH="$PWD/$STAGE/bin:$PATH" ctest/threads.exe "$SLIDE"
+
+      - name: MSVC import library + MSVC smoke test (Windows)
+        if: matrix.name == 'windows-x86_64'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'no Visual Studio with the x64 C++ tools' }
+          $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
+          $s = $env:STAGE -replace '/', '\'
+          $src = $env:OT_SRC_ROOT
+          # The smoke test runs with ONLY the library's bin\ and System32 on
+          # PATH: no MinGW runtime anywhere, which proves the DLL is
+          # self-contained.
+          @"
+          call "$vcvars" > nul || exit /b 1
+          lib /nologo /def:$s\lib\libopentile.def /machine:x64 /out:$s\lib\libopentile.lib || exit /b 1
+          del $s\lib\libopentile.exp
+          cl /nologo /W3 /std:c11 /I $s\include "$src\capi\test\smoke.c" /Fo:ctest\ /Fe:ctest\smoke-msvc.exe /link $s\lib\libopentile.lib || exit /b 1
+          set "PATH=%CD%\$s\bin;%SystemRoot%\System32;%SystemRoot%"
+          ctest\smoke-msvc.exe "%SLIDE%" || exit /b 1
+          "@ | Set-Content -Path msvc.cmd -Encoding ascii
+          cmd /c msvc.cmd
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          n=$(basename "$STAGE")
+          if [ "${{ matrix.name }}" = windows-x86_64 ]; then
+            7z a -tzip "$n.zip" "$n" > /dev/null
+          else
+            tar -czf "$n.tar.gz" "$n"
+          fi
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libopentile-${{ matrix.name }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: attach to release
+    needs: build
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: libopentile-*, path: dist, merge-multiple: true }
+
+      - name: Checksums + upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ (github.event_name == 'workflow_dispatch' && inputs.release_tag) || github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum libopentile-* > "libopentile-$TAG-SHA256SUMS.txt"
+          cat "libopentile-$TAG-SHA256SUMS.txt"
+          # On a tag push, release.yml creates the release; wait for it.
+          for i in $(seq 1 30); do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 && break
+            echo "waiting for release $TAG ($i)"; sleep 20
+          done
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber libopentile-*

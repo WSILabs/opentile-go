@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "opentile-go",
   "version-string": "0.0.0",
-  "description": "Codec C libraries for opentile-go Windows cgo builds (Windows-only; Linux/macOS use system apt/brew).",
+  "description": "Codec C libraries for opentile-go cgo builds: Windows CI, the Python wheels, and the libopentile release libraries.",
   "dependencies": [
     "libjpeg-turbo",
     "openjpeg",
@@ -11,6 +11,14 @@
     "libwebp",
     "openjph"
   ],
+  "features": {
+    "capi": {
+      "description": "lcms2 for libopentile's ICC-to-sRGB colour management. Install with --x-feature=capi. No lcms plugins: fastfloat and threaded are GPL-3.0.",
+      "dependencies": [
+        { "name": "lcms", "default-features": false }
+      ]
+    }
+  },
   "builtin-baseline": "469a0504e4a6ebf6173d1c0f51a7fa34c382fd43",
   "overrides": [
     { "name": "openjph", "version": "0.30.1" }
