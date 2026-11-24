@@ -1,0 +1,28 @@
+; Generated from opentile.h by `go test -run TestDefFile -update`. Do not edit.
+LIBRARY libopentile.dll
+EXPORTS
+    ot_api_version
+    ot_associated_decode
+    ot_associated_info_get
+    ot_associated_raw
+    ot_associated_tiff_tags_json
+    ot_close
+    ot_codec_available
+    ot_color_management_available
+    ot_icc_profile
+    ot_last_error
+    ot_last_error_code
+    ot_level_info_get
+    ot_library_version
+    ot_macro
+    ot_metadata_json
+    ot_open
+    ot_pyramid_info_get
+    ot_read_region
+    ot_read_region_scaled
+    ot_slide_info_get
+    ot_thumbnail
+    ot_tiff_tags_json
+    ot_tile_decoded
+    ot_tile_raw
+    ot_tile_stitched

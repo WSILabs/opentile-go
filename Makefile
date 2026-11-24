@@ -1,4 +1,4 @@
-.PHONY: test cover parity vet bench bench-ndpi bench-ndpi-mt bench-svs bench-svs-mt bench-ndpi-mem
+.PHONY: test cover parity vet bench bench-ndpi bench-ndpi-mt bench-svs bench-svs-mt bench-ndpi-mem capi capi-smoke
 
 test:
 	go test ./... -race -count=1
@@ -149,3 +149,21 @@ bench-all: ## Cross-format throughput regression gate (local)
 bench-compare: ## Competitive report: opentile-go vs openslide vs python opentile
 	@go build -tags openslidebench -o /tmp/bench-compare ./cmd/bench/compare/
 	@OPENTILE_TESTDIR="$(OPENTILE_TESTDIR)" /tmp/bench-compare
+
+# C API (capi/, its own Go module). Dev build: links the system codecs and
+# lcms2 dynamically; release builds are per-platform scripts (issue #120 step 3).
+CAPI_GOOS := $(shell go env GOOS)
+CAPI_LIB := $(if $(filter windows,$(CAPI_GOOS)),libopentile.dll,$(if $(filter darwin,$(CAPI_GOOS)),libopentile.dylib,libopentile.so))
+CAPI_EXE := $(if $(filter windows,$(CAPI_GOOS)),.exe,)
+
+capi: ## Header/export sync tests + build capi/build/libopentile.*
+	cd capi && go vet . && go test -count=1 . && \
+	  CGO_ENABLED=1 go build -buildmode=c-shared -o build/$(CAPI_LIB) .
+
+capi-smoke: capi ## C smoke + close-race tests against SLIDE=<path>
+	@test -n "$(SLIDE)" || { echo "usage: make capi-smoke SLIDE=path/to/slide"; exit 2; }
+	cd capi && cc -std=gnu99 -Wall -I. test/smoke.c -Lbuild -lopentile -o build/smoke$(CAPI_EXE) && \
+	  cc -std=gnu99 -Wall -I. test/threads.c -Lbuild -lopentile -lpthread -o build/threads$(CAPI_EXE)
+	cd capi/build && PATH="$$PWD:$$PATH" LD_LIBRARY_PATH="$$PWD" DYLD_LIBRARY_PATH="$$PWD" \
+	  ./smoke$(CAPI_EXE) "$(abspath $(SLIDE))" && \
+	  PATH="$$PWD:$$PATH" LD_LIBRARY_PATH="$$PWD" DYLD_LIBRARY_PATH="$$PWD" ./threads$(CAPI_EXE) "$(abspath $(SLIDE))"
