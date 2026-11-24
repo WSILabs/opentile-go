@@ -138,7 +138,9 @@ if [ -n "$(echo "$bad" | tr -d '[:space:]')" ]; then
 fi
 missing=""
 for s in $want; do
-    echo "$have" | grep -qx "$s" || missing="$missing $s"
+    # A here-string, not a pipe: grep -q exits on the first match, and with
+    # pipefail the killed echo (SIGPIPE) would count a found symbol missing.
+    grep -qx "$s" <<< "$have" || missing="$missing $s"
 done
 if [ -n "$missing" ]; then
     echo "FAIL: not exported:$missing" >&2
