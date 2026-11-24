@@ -24,8 +24,8 @@ This mirrors the `integration-windows` job in `.github/workflows/ci.yml`.
 3. **vcpkg** — clone and bootstrap:
    ```sh
    git clone https://github.com/microsoft/vcpkg C:/vcpkg
-   # Pin to the baseline in this repo's vcpkg.json for reproducibility:
-   git -C C:/vcpkg checkout 40f3c709db80acf154ac4b17a1f83c564ebd022e
+   # Pin to the "builtin-baseline" in this repo's vcpkg.json for reproducibility:
+   git -C C:/vcpkg checkout "$(python -c "import json;print(json.load(open('vcpkg.json'))['builtin-baseline'])")"
    C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
    ```
 
@@ -34,8 +34,16 @@ This mirrors the `integration-windows` job in `.github/workflows/ci.yml`.
 From the repo root (which contains `vcpkg.json`):
 
 ```sh
-C:/vcpkg/vcpkg install --triplet x64-mingw-static --x-install-root=./vcpkg_installed
+C:/vcpkg/vcpkg install --triplet x64-mingw-static \
+  --overlay-triplets=./.github/vcpkg-triplets --x-install-root=./vcpkg_installed
 ```
+
+The overlay is vcpkg's stock `x64-mingw-static` plus
+`-Wa,-muse-unaligned-vector-move`, a guard against GCC bug 54412. Some MinGW
+GCC builds (e.g. winlibs 15.3, which CI uses) emit aligned AVX stores to the
+stack, which only has 16-byte alignment on Win64. libjxl's decoder and openjph's
+encoder then crash intermittently with an access violation at
+`0xffffffffffffffff`. Keep the overlay even if your GCC doesn't show it.
 
 The first run compiles openjph, libjxl, and libavif/aom from source (~20–40
 min). Subsequent runs are cached.
@@ -47,6 +55,8 @@ Point `pkg-config` at the vcpkg libs and enable cgo:
 ```sh
 export PKG_CONFIG_PATH="$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconfig"
 export CGO_ENABLED=1
+export CGO_CFLAGS="-O2 -g -Wa,-muse-unaligned-vector-move"   # same guard for cgo's own C/C++
+export CGO_CXXFLAGS="$CGO_CFLAGS"
 go build ./...
 go vet ./...
 go test ./... -count=1 -timeout 30m
@@ -60,4 +70,11 @@ go test ./... -count=1 -timeout 30m
   corpus; without it those tests skip. CI downloads the public
   `WSILabs/wsi-fixtures` corpus.
 - **Static libs.** `x64-mingw-static` statically links the codecs into the test
-  binaries — no loose DLLs to place on PATH.
+  binaries. The binaries still load the toolchain's `libstdc++-6.dll`, though.
+- **Runtime shadowing (`0xc0000139`).** If a test binary exits with
+  `0xc0000139` (entry point not found) before running, it loaded a different
+  MinGW `libstdc++-6.dll` than the one it was built against. Check with
+  `where.exe libstdc++-6.dll`: your compiler's `bin` must be first. Git Bash
+  puts Git for Windows' own `/mingw64/bin` (or `/ucrt64/bin`) first in every
+  shell, and Strawberry Perl ships another copy. Prepend your toolchain's
+  `bin` to PATH in the shell you test from.

@@ -229,17 +229,20 @@ jobs:
   integration-windows:
     name: integration (public fixtures, Windows + all codecs)
     if: github.event_name != 'pull_request'
-    # Non-blocking: TRACKED toolchain regression (not our code). windows-latest's
-    # MSYS2 now ships GCC 16 (no released CMake can ABI-probe it for the vcpkg
-    # codec build), forcing a winlibs GCC 15.3 toolchain; dynamic linking then
-    # loads a mismatched MinGW runtime (Strawberry Perl / Git-for-Windows copies
-    # of libstdc++-6 shadow winlibs' → 0xc0000139), while full-static linking
-    # crashes the C++ codecs (libjxl decode / openjph encode). Revisit with an
-    # llvm-mingw (clang) toolchain, or once CMake/MSYS2 stabilize on GCC 16.
-    # The library ships green on Linux + macOS (incl. HTJ2K); Windows users
-    # build from source until this is resolved.
-    continue-on-error: true
+    # Toolchain: winlibs GCC 15.3 (MSYS2's GCC 16 can't be ABI-probed by released
+    # CMake for the vcpkg codec build). Two Windows-specific hazards, both fixed:
+    #  1. Runtime shadowing (0xc0000139): Strawberry Perl's and Git Bash's own
+    #     /mingw64/bin libstdc++-6 get loaded instead of winlibs'. Strawberry is
+    #     renamed away; each Go step re-prepends WINLIBS_BIN to PATH.
+    #  2. GCC bug 54412 (intermittent access violation at 0xffffffffffffffff in
+    #     libjxl decode / openjph encode): aligned AVX stores to a 16-byte-
+    #     aligned Win64 stack. Codecs build with the .github/vcpkg-triplets
+    #     overlay and cgo with -Wa,-muse-unaligned-vector-move.
     runs-on: windows-latest
+    env:
+      # cgo's own C/C++ (codec shims) gets the same 54412 guard as the codecs.
+      CGO_CFLAGS: -O2 -g -Wa,-muse-unaligned-vector-move
+      CGO_CXXFLAGS: -O2 -g -Wa,-muse-unaligned-vector-move
     defaults:
       run:
         shell: bash
@@ -280,6 +283,11 @@ jobs:
           curl -fsSL "$url" -o "$RUNNER_TEMP/winlibs.zip"
           python -c "import zipfile; zipfile.ZipFile(r'$RUNNER_TEMP/winlibs.zip').extractall(r'$RUNNER_TEMP/winlibs')"
           echo "$RUNNER_TEMP\\winlibs\\mingw64\\bin" >> "$GITHUB_PATH"
+          # GITHUB_PATH alone isn't enough at runtime: Git Bash's launcher
+          # prepends its own /mingw64/bin (Git for Windows' libstdc++-6 /
+          # libgcc_s / libwinpthread) ahead of it in every bash step, so the
+          # Go steps below re-prepend this to PATH (see "Use winlibs runtime").
+          echo "WINLIBS_BIN=$(cygpath -u "$RUNNER_TEMP")/winlibs/mingw64/bin" >> "$GITHUB_ENV"
           # Force cgo to use chocolatey's pkg-config (absolute path) over the
           # runner's Strawberry-Perl pkg-config stub.
           echo "PKG_CONFIG=C:\\ProgramData\\chocolatey\\bin\\pkg-config.exe" >> "$GITHUB_ENV"
@@ -301,13 +309,14 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json', '.github/vcpkg-triplets/x64-mingw-static.cmake') }}
 
       - name: Install codec libs (vcpkg, x64-mingw-static)
         run: |
           set -euo pipefail
           "$VCPKG_ROOT/vcpkg" install \
             --triplet x64-mingw-static \
+            --overlay-triplets="$PWD/.github/vcpkg-triplets" \
             --x-install-root="$PWD/vcpkg_installed"
           echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/x64-mingw-static/lib/pkgconfig" >> "$GITHUB_ENV"
 
@@ -319,7 +328,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-x64-mingw-static-${{ hashFiles('vcpkg.json', '.github/vcpkg-triplets/x64-mingw-static.cmake') }}
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
         env:
@@ -345,21 +354,34 @@ jobs:
           echo "OPENTILE_TESTDIR=$RUNNER_TEMP/wsi-fixtures" >> "$GITHUB_ENV"
           echo "corpus formats:"; ls "$RUNNER_TEMP/wsi-fixtures"
 
+      # Use winlibs runtime: every Go step re-prepends WINLIBS_BIN because Git
+      # Bash puts Git for Windows' /mingw64/bin first on PATH, and its older
+      # libstdc++-6.dll then gets loaded by the test binaries instead of
+      # winlibs' → 0xc0000139 (entry point not found) for every binary linking
+      # openjph (decoder/htj2k and everything importing decoder/all).
       - name: go build (all six codecs)
         env:
           CGO_ENABLED: '1'
-        run: go build ./...
+        run: |
+          export PATH="$WINLIBS_BIN:$PATH"
+          go build ./...
 
       - name: go vet (all six codecs)
         env:
           CGO_ENABLED: '1'
-        run: go vet ./...
+        run: |
+          export PATH="$WINLIBS_BIN:$PATH"
+          go vet ./...
 
       - name: go test (fixture-backed, full codecs incl HTJ2K, no -race)
         env:
           CGO_ENABLED: '1'
-        # Dynamic linking against winlibs' consistent MinGW runtime (the sole one
-        # on PATH) — the C++ codec tests (jpegxl decode, htj2k encode/roundtrip)
-        # now run and validate the toolchain. No -static (static libstdc++ broke
-        # C++ exception/TLS and crashed those codecs).
-        run: go test ./... -count=1 -timeout 30m
+        # Dynamic linking against winlibs' consistent MinGW runtime — the C++
+        # codec tests (jpegxl decode, htj2k encode/roundtrip) run and validate
+        # the toolchain. No -static (static libstdc++ broke C++ exception/TLS
+        # and crashed those codecs).
+        run: |
+          export PATH="$WINLIBS_BIN:$PATH"
+          echo "libstdc++-6.dll resolution order (first wins):"
+          where.exe libstdc++-6.dll || true
+          go test ./... -count=1 -timeout 30m
