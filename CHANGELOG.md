@@ -9,6 +9,20 @@ The single source of truth for "what was deferred and why" is
 front-page summary; the deferred file has the full reasoning,
 upstream references, and retirement audit per milestone.
 
+## [Unreleased]
+
+### Fixed
+- `formats/ife`: recover ICC profiles whose `ICC_PROFILE` length was written
+  truncated to 16 bits by an older Iris encoder (#121). The public
+  `cervix_2x_jpeg.iris` stores 6,064 bytes for a 13,113,264-byte profile, so
+  `ICCProfile()` returned an unusable fragment that lcms2 could not link. The
+  reader now uses the profile's own size field when it proves truncation (ICC
+  `acsp` signature, declared size larger by an exact multiple of 64 KiB, fits in
+  the file). Spec-correct files are unaffected. `ICCProfile()` on cervix now
+  returns the full profile, which costs about 12 ms more at open and 13 MB
+  resident. Files converted from such slides before this fix (e.g. with
+  wsitools) carry the truncated profile.
+
 ## [0.63.0] — 2026-07-24
 
 ### Added

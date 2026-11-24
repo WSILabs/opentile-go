@@ -272,6 +272,25 @@ README.md and per-format docs link here.
   unambiguous and matches what the reader needs anyway.
 - **Tracking:** T3 gate (commit `d597755`) recorded the surprise.
 
+### IFE: truncated ICC_PROFILE length recovered (unreleased, #121)
+
+- **Upstream:** the Iris reference reader reads exactly `ENTRY_NUMBER`
+  bytes from the `ICC_PROFILE` block. The spec field is u32.
+- **opentile-go:** when the stored length is shorter than the size in the
+  profile's own ICC header, `formats/ife` `readICCProfile` reads the
+  declared size instead (`untruncatedICCSize`). This applies only when the
+  bytes carry the `acsp` signature, the declared size exceeds the stored
+  one by a non-zero multiple of 65,536, and the declared size fits in the
+  file. Otherwise the stored length is used unchanged.
+- **Reason:** an older Iris encoder wrote `ENTRY_NUMBER` with a 16-bit
+  store, so profiles of 64 KiB or more record `size mod 65536`. The public
+  `cervix_2x_jpeg.iris` records 6,064 for a 13,113,264-byte profile that
+  is fully on disk. At the stored length lcms2 can't link it ("Couldn't
+  link the profiles"); at the declared length it builds a working
+  transform. The guard is the exact truncation signature, so spec-correct
+  files are unaffected.
+- **Tracking:** #121.
+
 ### Default mmap-backed `OpenFile` (since v0.9)
 
 - **Upstream:** Python opentile uses `open()` semantics — file
