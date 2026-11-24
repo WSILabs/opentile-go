@@ -1,6 +1,7 @@
 package opentile_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"io"
 	"os"
 	"path/filepath"
@@ -49,6 +50,7 @@ func TestScaledStripsWholeSlideSVS(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("Next strip %d: %v", stripCount, err)
 		}
@@ -89,6 +91,7 @@ func TestScaledStripsCrossFormat(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
+				testutil.SkipIfNoDecode(t, err)
 				if err != nil {
 					t.Fatalf("Next: %v", err)
 				}
@@ -156,9 +159,9 @@ func TestBIFScaledStripsStitchedGeometry(t *testing.T) {
 	// Target: ~1/8 scale. outW = ceil(23432/8) = 2929 (stitched).
 	// If geometry were derived from the padded 24576: ceil(24576/8) = 3072.
 	const scale = 8
-	outW := (stitchedW + scale - 1) / scale  // 2929
-	outH := (stitchedH + scale - 1) / scale  // 2688
-	wrongW := (paddedW + scale - 1) / scale  // 3072 — wrong, padded
+	outW := (stitchedW + scale - 1) / scale // 2929
+	outH := (stitchedH + scale - 1) / scale // 2688
+	wrongW := (paddedW + scale - 1) / scale // 3072 — wrong, padded
 
 	t0src := opentile.Region{
 		Origin: opentile.Point{X: 0, Y: 0},
@@ -175,6 +178,7 @@ func TestBIFScaledStripsStitchedGeometry(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("ScaledStrips Next: %v", err)
 		}

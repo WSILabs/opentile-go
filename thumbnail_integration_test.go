@@ -1,6 +1,7 @@
 package opentile_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,6 +44,7 @@ func TestRenderThumbnailIntegration(t *testing.T) {
 
 	t.Run("fit-box 256", func(t *testing.T) {
 		img, err := s.RenderThumbnail(opentile.Size{W: 256, H: 256})
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("RenderThumbnail: %v", err)
 		}
@@ -62,6 +64,7 @@ func TestRenderThumbnailIntegration(t *testing.T) {
 
 	t.Run("fit-width 200", func(t *testing.T) {
 		img, err := s.RenderThumbnail(opentile.Size{W: 200, H: 0})
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("RenderThumbnail: %v", err)
 		}
@@ -77,6 +80,7 @@ func TestRenderThumbnailIntegration(t *testing.T) {
 
 	t.Run("fit-height 200", func(t *testing.T) {
 		img, err := s.RenderThumbnail(opentile.Size{W: 0, H: 200})
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("RenderThumbnail: %v", err)
 		}

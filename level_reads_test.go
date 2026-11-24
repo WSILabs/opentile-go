@@ -2,6 +2,7 @@ package opentile_test
 
 import (
 	"bytes"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"testing"
 
 	opentile "github.com/wsilabs/opentile-go"
@@ -41,6 +42,7 @@ func TestLevelReadMethods(t *testing.T) {
 
 	// DecodedTile returns a tile-sized decoded image.
 	img, err := lvl.DecodedTile(0, 0)
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("Level.DecodedTile(0,0): %v", err)
 	}

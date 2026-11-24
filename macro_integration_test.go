@@ -1,6 +1,7 @@
 package opentile_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,6 +30,7 @@ func TestRenderMacroIntegration(t *testing.T) {
 	defer s.Close()
 
 	img, err := s.RenderMacro(opentile.Size{W: 600})
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("RenderMacro: %v", err)
 	}

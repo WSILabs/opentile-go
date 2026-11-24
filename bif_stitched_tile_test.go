@@ -1,6 +1,7 @@
 package opentile_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -49,6 +50,7 @@ func TestBIFStitchedTileEqualsReadRegion(t *testing.T) {
 			continue
 		}
 		st, err := lvl.StitchedTile(vx, vy)
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("StitchedTile(%d,%d): %v", vx, vy, err)
 		}

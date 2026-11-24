@@ -11,6 +11,21 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Fixed
+- **nocgo builds: every "needs a codec" failure now matches
+  `decoder.ErrCodecUnavailable` (#104).** NDPI stripped / one-frame raw tiles,
+  the NDPI label crop and Philips sparse-tile fill go through the internal
+  libjpeg-turbo crop, whose nocgo error was an internal sentinel. Library users
+  could not detect it with `errors.Is`. It now wraps the public
+  `decoder.ErrCodecUnavailable`. Message text gains that suffix; nothing else
+  changes, and cgo builds are unaffected.
+- **Tests skip cleanly under nocgo with fixtures present (#104).** 33 tests in
+  six packages failed on a local `CGO_ENABLED=0 -tags nocgo` run with
+  `OPENTILE_TESTDIR` set; CI never saw it because its nocgo step has no
+  fixtures. A shared `internal/testutil.SkipIfNoDecode` helper skips them
+  (associated-image checks log and continue instead, so pure-Go PNG / LZW /
+  uncompressed images are still checked).
+
 ## [0.64.0] — 2026-11-24
 
 ### Added

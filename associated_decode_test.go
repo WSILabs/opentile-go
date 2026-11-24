@@ -7,6 +7,7 @@ import (
 	"github.com/wsilabs/opentile-go/decoder"
 	_ "github.com/wsilabs/opentile-go/decoder/all"
 	_ "github.com/wsilabs/opentile-go/formats/all"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 )
 
 // pixSpan reports the min and max byte across a strided sample of pix.
@@ -32,6 +33,12 @@ func pixSpan(pix []byte) (mn, mx byte) {
 func checkDecode(t *testing.T, label string, a opentile.AssociatedImage, format decoder.PixelFormat) {
 	t.Helper()
 	img, err := a.Decode(decoder.DecodeOptions{Format: format})
+	if testutil.NoDecode(err) {
+		// Log, don't skip: pure-Go encodings (PNG, LZW, uncompressed) still
+		// decode under nocgo and the rest of the walk should check them.
+		t.Logf("%s %q Decode(fmt=%v): codec not in this build, not checked: %v", label, a.Type(), format, err)
+		return
+	}
 	if err != nil {
 		t.Errorf("%s %q Decode(fmt=%v): %v", label, a.Type(), format, err)
 		return
@@ -71,10 +78,10 @@ func TestAssociatedDecodeAllFormats(t *testing.T) {
 		"ome-tiff/Leica-1.ome.tiff",
 		"bif/Ventana-1.bif",
 		"ife/cervix_2x_jpeg.iris",
-		"generic-tiff/CMU-1.stripped.tiff",      // LZW label + JPEG thumbnail/macro
-		"svs/590_crop_lzw_imagescope.tif",       // ImageScope LZW export: LZW thumbnail+label, JPEG overview
-		"svs/590_crop_none_imagescope.tif",      // ImageScope uncompressed export: RAW thumbnail+label
-		"ome-tiff/CMU-1-Small-Region.ome.tiff",  // #23: wsitools OME — LZW label + multi-strip JPEG thumbnail/overview
+		"generic-tiff/CMU-1.stripped.tiff",     // LZW label + JPEG thumbnail/macro
+		"svs/590_crop_lzw_imagescope.tif",      // ImageScope LZW export: LZW thumbnail+label, JPEG overview
+		"svs/590_crop_none_imagescope.tif",     // ImageScope uncompressed export: RAW thumbnail+label
+		"ome-tiff/CMU-1-Small-Region.ome.tiff", // #23: wsitools OME — LZW label + multi-strip JPEG thumbnail/overview
 		"leica-scn/Leica-1.scn",
 		"szi/CMU-1.szi",
 		"cog-wsi/CMU-1_cog-wsi.tiff",

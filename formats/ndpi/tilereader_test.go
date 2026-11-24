@@ -3,6 +3,7 @@ package ndpi_test
 import (
 	"bytes"
 	"context"
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"io"
 	"os"
 	"path/filepath"
@@ -34,6 +35,7 @@ func TestNDPITileReaderMatchesTile(t *testing.T) {
 	defer tiler.Close()
 	for i, lvl := range tiler.Levels() {
 		direct, err := lvl.Tile(0, 0)
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Errorf("RawTile(0,0) level %d: %v", i, err)
 			continue
@@ -89,6 +91,7 @@ func TestNDPITilesIterRowMajor(t *testing.T) {
 	}
 	got := make([]opentile.Point, 0, len(want))
 	for pos, res := range lvl.Tiles(context.Background()) {
+		testutil.SkipIfNoDecode(t, res.Err)
 		if res.Err != nil {
 			t.Errorf("RangeTiles iter at %v: %v", pos, res.Err)
 			continue

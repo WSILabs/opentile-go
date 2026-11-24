@@ -1,6 +1,7 @@
 package bif_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,6 +63,7 @@ func TestBIFTilePlacementSpatial(t *testing.T) {
 
 	luma := func(col, row int) float64 {
 		img, err := lvl.DecodedTile(col, row)
+		testutil.SkipIfNoDecode(t, err)
 		if err != nil {
 			t.Fatalf("DecodedTile(%d,%d): %v", col, row, err)
 		}

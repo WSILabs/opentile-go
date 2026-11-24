@@ -1,6 +1,7 @@
 package dicom_test
 
 import (
+	"github.com/wsilabs/opentile-go/internal/testutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,6 +60,7 @@ func TestDICOMJP2KDecode(t *testing.T) {
 
 	// Decode routes to the OpenJPEG decoder and produces a tile-sized image.
 	img, err := mustLevel(t, s, 0).DecodedTile(0, 0)
+	testutil.SkipIfNoDecode(t, err)
 	if err != nil {
 		t.Fatalf("DecodedTile: %v", err)
 	}
@@ -91,6 +93,7 @@ func TestDICOMJP2KColorParity(t *testing.T) {
 		for _, lv := range s.Levels() {
 			if lv.Size.W == w && lv.Size.H == h {
 				img, err := lv.DecodedTile(0, 0)
+				testutil.SkipIfNoDecode(t, err)
 				if err != nil {
 					t.Fatalf("decode %s: %v", name, err)
 				}
