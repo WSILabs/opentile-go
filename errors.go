@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/wsilabs/opentile-go/decoder"
 	"github.com/wsilabs/opentile-go/internal/tiff"
 )
 
@@ -31,9 +32,17 @@ var (
 	// guard; consumers encounter it only on malformed slides.
 	ErrMCUAlignment = errors.New("opentile: operation requires MCU alignment")
 
-	// Returned from NDPI one-frame levels and NDPI label on builds compiled
-	// without cgo (CGO_ENABLED=0 or -tags nocgo).
-	ErrCGORequired = errors.New("opentile: operation requires cgo build with libjpeg-turbo")
+	// ErrCGORequired matches any error caused by a codec missing from this
+	// build: a nocgo build (CGO_ENABLED=0 or -tags nocgo), or a cgo build
+	// with a no<codec> tag. Without cgo that covers decoded tiles, regions,
+	// thumbnails and associated images, plus NDPI stripped / one-frame raw
+	// tiles, the NDPI label and Philips sparse-tile fill (all cropped
+	// losslessly through libjpeg-turbo).
+	//
+	// It is the same value as decoder.ErrCodecUnavailable, so
+	// errors.Is(err, ErrCGORequired) and
+	// errors.Is(err, decoder.ErrCodecUnavailable) are interchangeable.
+	ErrCGORequired = decoder.ErrCodecUnavailable
 
 	// Reserved for future use; currently unfired because v0.2 defaults the
 	// NDPI tile size to 512 rather than erroring. Predefined so exporting
