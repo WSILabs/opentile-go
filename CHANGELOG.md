@@ -11,6 +11,48 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.64.0] — 2026-11-24
+
+### Added
+- **`capi/` — libopentile, a C API for non-Go consumers (#120 steps 1–2).** A
+  separate Go module (`github.com/wsilabs/opentile-go/capi`) built with
+  `-buildmode=c-shared` / `c-archive` behind a hand-written, MSVC-compatible
+  `opentile.h` (25 `ot_*` functions, API version 1.0). Opaque `uint64` slide
+  handles with a blocking `ot_close` that waits for in-flight calls;
+  thread-local last-error (`ot_last_error_code` / `ot_last_error`); frozen
+  `int32` status codes and enums; `struct_size`-versioned structs; a
+  size-query buffer convention (`dst, capacity, out_len`) so the library
+  never allocates memory the caller must free. Covers metadata (structs plus
+  a JSON superset), raw / decoded / stitched tiles, `read_region` and
+  `read_region_scaled`, thumbnail / macro / associated images, ICC profiles
+  and raw TIFF tags. Optional per-call ICC→sRGB colour management via lcms2
+  (`OT_DECODE_SRGB`; `nolcms2` build tag to drop it). `make capi` /
+  `make capi-smoke SLIDE=…`; C smoke and thread tests in `capi/test/`.
+  Design: `docs/superpowers/specs/2026-11-23-capi-design.md`. No change to
+  the Go API. Release binaries per platform are #120 step 3 (not yet
+  shipped).
+- **`python/` — `opentile_go` Python binding (preview, not on PyPI).** A
+  numpy-first `Slide` / `Level` facade over a Go `c-shared` shim (raw /
+  decoded tiles, `read_region`, associated images, thumbnail / macro, TIFF
+  tags), byte-parity tested against the Go reader. A `Wheels` workflow
+  builds static wheels for linux-x86_64 / aarch64, macos-arm64 / x86_64 and
+  windows-x86_64 (one `py3-none` wheel per platform, CPython ≥ 3.10). It
+  publishes only on a `py-v*` tag (PyPI) or a manual dispatch with
+  `publish` on (TestPyPI); Go `v*` tags never publish. Package version stays
+  `0.1.0.dev0`. Per #120 the binding will move onto `capi/` and drop
+  `python/cshim`.
+
+### Changed
+- **Windows CI is blocking again.** The `integration-windows` job (winlibs
+  GCC 15.3 + vcpkg `x64-mingw-static`) passes the full suite with all six
+  codecs. Two fixes got it there: winlibs' `bin` is prepended to PATH ahead
+  of Git Bash's `/mingw64/bin`, whose `libstdc++-6.dll` shadowed the
+  toolchain's (`0xc0000139`); and a vcpkg overlay triplet plus `CGO_CFLAGS`
+  add `-Wa,-muse-unaligned-vector-move` against GCC bug 54412 (aligned AVX
+  stack stores that crashed libjxl decode and openjph encode with
+  `0xc0000005`). openjph is pinned to 0.30.1 in `vcpkg.json` (0.32.0's
+  encoder crashes on Windows). `docs/windows-dev.md` updated.
+
 ### Fixed
 - `formats/ife`: recover ICC profiles whose `ICC_PROFILE` length was written
   truncated to 16 bits by Iris encoders before upstream `c7e3070`

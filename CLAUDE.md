@@ -2,7 +2,39 @@
 
 Began as a Go port of [imi-bigpicture/opentile](https://github.com/imi-bigpicture/opentile) (Apache 2.0, Sectra AB); its functionality is now a **superset of opentile, additionally incorporating openslide-like decoded-region reading** — 12 WSI formats (SVS, NDPI, Philips-TIFF, OME-TIFF, BIF, Leica-SCN, generic-TIFF, COG-WSI, IFE, SZI, DICOM-WSI, bare-DZI) with `ReadRegion`/scaled-strip (DZI), memory-budget, associated-image, and raw-tag APIs beyond upstream's raw-tile scope. Reads tiles from WSI (whole-slide imaging) files used in digital pathology. cgo is used only for codec decode (libjpeg-turbo core; optional OpenJPEG/JPEG2000, JPEG-XL, WebP, AVIF, HTJ2K, each `no<codec>`-disableable); raw-tile reads are pure Go, and a `nocgo` build returns `ErrCGORequired` for decode paths. Note: the DICOM reader uses `github.com/WSILabs/dicom` (a maintained pure-Go fork of `suyashkumar/dicom`, no new cgo) for cold-path attribute parsing.
 
-## Current milestone — DecodedColorSpace on CodestreamInfo (shipped 2026-07-21, v0.62.0)
+## Current milestone — libopentile C API + Python preview (shipped 2026-11-24, v0.64.0)
+
+**#120 steps 1–2 — one C API for all non-Go consumers.** New separate Go
+module `capi/` (`github.com/wsilabs/opentile-go/capi`, `replace ../`) builds
+`libopentile` (`c-shared`/`c-archive`) behind a hand-written MSVC-compatible
+`capi/opentile.h`; `header_test.go` keeps the header, exports, constants and
+generated `libopentile.def` in sync (`go test -run TestDefFile -update`).
+Design: `docs/superpowers/specs/2026-11-23-capi-design.md`.
+
+- **Shape:** `uint64` handle table, per-entry in-flight `WaitGroup` →
+  `ot_close` blocks until calls drain; thread-local last-error in C (a cgo
+  export runs on the caller's thread); size-query buffers (no `ot_free`);
+  `struct_size`-versioned structs; frozen `int32` codes/enums.
+- **Colour:** per-call `OT_DECODE_SRGB` → lcms2 ICC→sRGB, lazily built per
+  slide per pixel format (`cmsFLAGS_NOCACHE`); `nolcms2` drops it.
+- **Python:** `python/` `opentile_go` preview binding (Go `c-shared` shim +
+  ctypes/numpy) and a 5-target `Wheels` workflow. **Never publishes unless
+  asked:** PyPI only on a `py-v*` tag, TestPyPI only on dispatch with
+  `publish` (default off). Go `v*` tags only run `release.yml`.
+- **Windows CI blocking again** (v0.63.0 added it non-blocking): winlibs
+  `bin` must precede Git Bash's `/mingw64/bin` (`0xc0000139` libstdc++
+  shadowing), and `-Wa,-muse-unaligned-vector-move` (vcpkg overlay triplet in
+  `.github/vcpkg-triplets/` + `CGO_CFLAGS`) works around GCC bug 54412 —
+  aligned AVX stack stores faulting at `0xffffffffffffffff` in libjxl/openjph.
+  Found by reproducing locally and disassembling the fault, not by guessing.
+- **#121 IFE ICC fix:** Iris encoders before upstream `c7e3070` stored the
+  ICC length with a 16-bit write; the reader recovers the true size from the
+  ICC header under a strict guard.
+- **Next (#120 steps 3–6):** per-platform libopentile release binaries
+  (Windows `.dll` + `.def` → MSVC `.lib`), C API tests in CI, move `python/`
+  onto `capi/` and drop `python/cshim`, downstream switch.
+
+## Previous milestone — DecodedColorSpace on CodestreamInfo (shipped 2026-07-21, v0.62.0)
 
 **#112 — expose the decoded-plane colorspace.** New
 `decoder.CodestreamInfo.DecodedColorSpace ColorEncoding` reports the colorspace
@@ -545,7 +577,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 - **Don't guess format behavior — read upstream.** This is a **direct port** of Python opentile (which delegates format details to tifffile). Whenever classification, layout, tag semantics, or edge-case handling is unclear: **read `imi-bigpicture/opentile` first, then `cgohlke/tifffile`**. Guessed behavior cost v0.2 five separate debugging cycles (NDPI IFD layout, NDPI metadata tag numbers, NDPI StripOffsets tag, NDPI striped vs. oneframe gate, APP14 byte values) — every one fixed by reading the actual upstream source. The v0.4 plan elevates this to a structural per-task `Step 0: Confirm upstream` action that the executor must run before any production-code edit. The rule: if you catch yourself reasoning from first principles about a WSI format quirk, stop and find the upstream code that handles it. Port directly, adapt for Go idioms, but preserve the logic.
 - **No cutting corners; no active users yet.** Complete things we know are broken before moving on. When a bug is identified, the rule is: fix it, don't defer. Plan thoroughly for v0.3+ rather than race.
 - **Architectural placement of ported logic:** format-specific quirks belong in the format package (`formats/ndpi/`, `formats/svs/`), not `internal/tiff`. `internal/tiff` stays a generic TIFF/BigTIFF/NDPI-IFD parser. Examples: NDPI page-series grouping, SVS ImageDescription quirks, Philips sparse-tile filling.
-- **cgo is for codec decode only.** `internal/jpegturbo/` links libjpeg-turbo (also the `tjTransform` lossless DCT-domain crops); it is the only codec linked under *every* `cgo` build. `decoder/jpeg2000` (OpenJPEG) and `decoder/{jpegxl,webp,avif,htj2k}` (libjxl/libwebp/libavif/openjph) are each disableable via a `no<codec>` build tag — `nojp2k`, `nojxl`, `nowebp`, `noavif`, `nohtj2k` (Linux CI builds `nohtj2k`; macOS + Windows CI build all six). `internal/openslideshim/` (build tag `openslidebench`) links libopenslide for the benchmark suite only. Raw-tile reads are pure Go; under `nocgo` / `CGO_ENABLED=0` the decode paths return `ErrCGORequired` and the rest works. The same six codecs build on Windows (x86-64) via vcpkg's `x64-mingw-static` triplet with a MinGW-w64 toolchain — the `integration-windows` CI job runs the full suite there (openjph is not an MSYS2 package, so vcpkg is the only MinGW HTJ2K path). See `docs/windows-dev.md`.
+- **cgo is for codec decode only.** `internal/jpegturbo/` links libjpeg-turbo (also the `tjTransform` lossless DCT-domain crops); it is the only codec linked under *every* `cgo` build. `decoder/jpeg2000` (OpenJPEG) and `decoder/{jpegxl,webp,avif,htj2k}` (libjxl/libwebp/libavif/openjph) are each disableable via a `no<codec>` build tag — `nojp2k`, `nojxl`, `nowebp`, `noavif`, `nohtj2k` (Linux CI builds `nohtj2k`; macOS + Windows CI build all six). `internal/openslideshim/` (build tag `openslidebench`) links libopenslide for the benchmark suite only. The separate `capi/` module uses cgo for the C ABI itself and optionally lcms2 (colour management); `python/cshim` (a `main` package inside the core module, built `c-shared` for the Python binding) adds no C dependencies beyond the codecs. Library importers never link either one. Raw-tile reads are pure Go; under `nocgo` / `CGO_ENABLED=0` the decode paths return `ErrCGORequired` and the rest works. The same six codecs build on Windows (x86-64) via vcpkg's `x64-mingw-static` triplet with a MinGW-w64 toolchain — the `integration-windows` CI job runs the full suite there (openjph is not an MSYS2 package, so vcpkg is the only MinGW HTJ2K path). See `docs/windows-dev.md`.
 - **Ported portions under Apache 2.0** with attribution to Sectra AB retained in `NOTICE` (a license obligation — keep it even as the project grows independent). Not affiliated with or endorsed by Sectra AB or the BigPicture project.
 - **Parity with upstream is the correctness bar.** Upstream's pytest cases are ported to Go tests; a fixture-backed integration suite compares tile bytes against a committed snapshot. An opt-in `//go:build parity` harness that shells out to Python opentile is v0.2.
 - **Lock-free hot path for metadata.** Parsed IFDs, per-tile offset/length arrays, and metadata are populated at `Open()` time and immutable thereafter. `Tile()` is safe to call concurrently from many goroutines — the shared-state caches in `formats/ndpi/stripped.go` (per-frame assembly cache) and `formats/ndpi/oneframe.go` (extended-frame cache) use double-checked locking and `sync.Once` respectively and produce byte-deterministic results regardless of which goroutine populates them first.
