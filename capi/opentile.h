@@ -231,6 +231,8 @@ OT_API int ot_read_region_scaled(ot_slide s, int32_t pyramid,
                                  const ot_decode_opts* opts, ot_image* img);
 
 /* ---- rendered & associated images ---- */
+/* Thumbnail / macro fitted into max_w x max_h, keeping the aspect ratio.
+ * 0 leaves that axis unconstrained; at least one must be positive. */
 OT_API int ot_thumbnail(ot_slide s, int32_t max_w, int32_t max_h,
                         const ot_decode_opts* opts, ot_image* img);
 OT_API int ot_macro(ot_slide s, int32_t max_w, int32_t max_h,

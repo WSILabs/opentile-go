@@ -677,6 +677,15 @@ func ot_read_region_scaled(h C.ot_slide, pyramid C.int32_t, x, y, w, ht C.int64_
 
 // ---- rendered & associated images ----
 
+// checkFitBounds validates a thumbnail/macro fit box. As in RenderThumbnail
+// and RenderMacro, 0 leaves an axis unconstrained; at least one must be set.
+func checkFitBounds(maxW, maxH C.int32_t, fn string) C.int {
+	if maxW < 0 || maxH < 0 || (maxW == 0 && maxH == 0) {
+		return fail(errArg, "opentile: "+fn+": max_w and max_h must be >= 0, with at least one positive")
+	}
+	return statusOK
+}
+
 // slideImage is the shared body of the slide-scoped pixel calls.
 func slideImage(h C.ot_slide, opts *C.ot_decode_opts, img *C.ot_image,
 	render func(*opentile.Slide, decodeOpts) (*decoder.Image, error)) C.int {
@@ -701,8 +710,8 @@ func slideImage(h C.ot_slide, opts *C.ot_decode_opts, img *C.ot_image,
 
 //export ot_thumbnail
 func ot_thumbnail(h C.ot_slide, maxW, maxH C.int32_t, opts *C.ot_decode_opts, img *C.ot_image) C.int {
-	if maxW <= 0 || maxH <= 0 {
-		return fail(errArg, "opentile: ot_thumbnail: max_w and max_h must be positive")
+	if st := checkFitBounds(maxW, maxH, "ot_thumbnail"); st != statusOK {
+		return st
 	}
 	return slideImage(h, opts, img, func(s *opentile.Slide, d decodeOpts) (*decoder.Image, error) {
 		return s.RenderThumbnail(opentile.Size{W: int(maxW), H: int(maxH)}, d.options()...)
@@ -711,8 +720,8 @@ func ot_thumbnail(h C.ot_slide, maxW, maxH C.int32_t, opts *C.ot_decode_opts, im
 
 //export ot_macro
 func ot_macro(h C.ot_slide, maxW, maxH C.int32_t, opts *C.ot_decode_opts, img *C.ot_image) C.int {
-	if maxW <= 0 || maxH <= 0 {
-		return fail(errArg, "opentile: ot_macro: max_w and max_h must be positive")
+	if st := checkFitBounds(maxW, maxH, "ot_macro"); st != statusOK {
+		return st
 	}
 	return slideImage(h, opts, img, func(s *opentile.Slide, d decodeOpts) (*decoder.Image, error) {
 		return s.RenderMacro(opentile.Size{W: int(maxW), H: int(maxH)}, d.options()...)

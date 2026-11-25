@@ -16,4 +16,4 @@ test = ["pytest>=7"]
 packages = ["opentile_go"]
 
 [tool.setuptools.package-data]
-opentile_go = ["py.typed", "_opentilego.*"]
+opentile_go = ["py.typed", "libopentile.*", "LICENSE", "NOTICE", "licenses/**/*"]

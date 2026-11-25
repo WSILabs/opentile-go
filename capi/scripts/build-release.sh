@@ -33,6 +33,11 @@ if [ $# -ne 4 ]; then
 fi
 version=$1 platform=$2 triplet_dir=$3 out_dir=$4
 
+# No VCS stamping for any go command here (vet, test, build, list): inside
+# build containers git may not trust the checkout ("dubious ownership"), and
+# the library's version comes from -X main.version.
+export GOFLAGS="${GOFLAGS:+$GOFLAGS }-buildvcs=false"
+
 here=$(cd "$(dirname "$0")/.." && pwd) # capi/ holding this script and tools/
 root=$(cd "${OT_SRC_ROOT:-$here/..}" && pwd)
 capi="$root/capi"

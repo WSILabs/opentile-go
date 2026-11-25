@@ -11,6 +11,18 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed
+- **The Python binding now runs on libopentile (#120 step 4).** `opentile_go`
+  calls the C API (`capi/opentile.h`) through ctypes, and `python/cshim`, its
+  separate Go shim, is gone. The Python API is unchanged; the TIFF-tag dicts
+  gain `type`, `count`, `rationals` and `raw_b64` keys. Wheels now bundle the
+  libopentile release build (`capi/scripts/build-release.sh`): the same
+  library as the GitHub release archives, with all six codecs and lcms2
+  linked in statically and only OS dependencies, plus its third-party
+  notices in `opentile_go/licenses/`. The Windows wheel is built the same
+  way and is no longer allowed to fail. Dev builds (`python/build_dev.sh`)
+  now also need lcms2.
+
 ### Added
 - **The Python binding's pytest suite now runs in CI (#127).** A Linux job
   runs it on every pull request against a dev build. The `Wheels` workflow
@@ -38,6 +50,19 @@ upstream references, and retirement audit per milestone.
   libavif and are unchanged.
 
 ### Fixed
+- **libopentile can be loaded at run time on Linux.** `dlopen` of
+  `libopentile.so` (Python ctypes, plugin loaders) failed with "cannot
+  allocate memory in static TLS block". The per-thread last error was a
+  4 KB `__thread` buffer, and because the Go runtime uses initial-exec TLS,
+  glibc must fit the library's whole TLS segment into its small reserve for
+  dlopen'd modules. POSIX builds now keep the error in a heap block per
+  thread behind a pthread key. Programs linking the library at startup were
+  unaffected. The v0.64.0 release libraries have this bug. A new
+  `capi/test/dlopen.c` check runs in the libopentile workflow.
+- **`ot_thumbnail` / `ot_macro` accept a single-axis fit box.** They
+  required both `max_w` and `max_h` to be positive, stricter than
+  `RenderThumbnail` / `RenderMacro`, where 0 leaves an axis unconstrained;
+  the Python binding's `thumbnail(width=...)` relies on that.
 - **nocgo builds: every "needs a codec" failure now matches
   `decoder.ErrCodecUnavailable` (#104).** NDPI stripped / one-frame raw tiles,
   the NDPI label crop and Philips sparse-tile fill go through the internal

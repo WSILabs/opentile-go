@@ -245,6 +245,12 @@ jobs:
             -L "$lib" -Wl,-rpath,"$lib" -lopentile -lpthread -o ctest/threads
           ctest/smoke "$SLIDE"
           ctest/threads "$SLIDE"
+          # Run-time loading, as ctypes and plugin loaders do (static TLS).
+          # dlopen.c comes from this workflow's own revision so older release
+          # tags get the check too.
+          cc $arch -std=gnu99 -Wall -I "$STAGE/include" ci/capi/test/dlopen.c -ldl -o ctest/dlopen
+          case "${{ matrix.name }}" in macos-*) lib_file=libopentile.dylib ;; *) lib_file=libopentile.so ;; esac
+          ctest/dlopen "$lib/$lib_file"
 
       - name: C close-race test (Windows, MinGW GCC)
         if: matrix.name == 'windows-x86_64'

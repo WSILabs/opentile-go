@@ -1,2 +1,1 @@
-recursive-include cshim *.go
 include opentile_go/py.typed

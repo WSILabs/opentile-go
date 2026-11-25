@@ -19,7 +19,7 @@ users of the Go library. It always builds against the working tree (`replace ../
 | `errors.c` | per-thread last error |
 | `icc.c`, `icc_lcms.go` / `icc_nolcms.go` | lcms2 slide-ICC → sRGB (build tag `nolcms2` disables it) |
 | `header_test.go` | header ↔ `//export` sync, frozen constant values, `.def` freshness |
-| `test/smoke.c`, `test/threads.c` | C tests against a built library and a real slide |
+| `test/smoke.c`, `test/threads.c`, `test/dlopen.c` | C tests against a built library and a real slide; run-time loading (`dlopen`) |
 
 ## Dev build
 
