@@ -30,7 +30,7 @@ Design: `docs/superpowers/specs/2026-11-23-capi-design.md`.
 - **#121 IFE ICC fix:** Iris encoders before upstream `c7e3070` stored the
   ICC length with a 16-bit write; the reader recovers the true size from the
   ICC header under a strict guard.
-- **Since v0.64.0 (unreleased):** per-platform libopentile release binaries
+- **v0.64.1 (2026-11-24):** per-platform libopentile release binaries
   (#120 step 3; AVIF through dav1d, no AV1 encoder); the Python pytest suite
   in CI (#127); `python/` moved onto libopentile and `python/cshim` dropped
   (#120 step 4) — wheels bundle the static release build. **Next:** downstream

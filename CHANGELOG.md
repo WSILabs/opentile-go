@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.64.1] — 2026-11-24
+
 ### Changed
 - **The Python binding now runs on libopentile (#120 step 4).** `opentile_go`
   calls the C API (`capi/opentile.h`) through ctypes, and `python/cshim`, its
