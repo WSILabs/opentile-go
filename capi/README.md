@@ -57,11 +57,12 @@ The `libopentile` workflow (`.github/workflows/libopentile.yml`) builds them
 with `scripts/build-release.sh`. That script runs the Go tests, builds
 against the vcpkg static triplets through `pkg-config --static`
 (`tools/pkgconfig-static`), and fails unless every `libopentile.def` function
-is exported, only OS libraries are linked, and no AV1 encoder is linked in. The workflow then runs
-`test/smoke.c` and `test/threads.c` against the packaged library; on Windows
-the smoke test is compiled by MSVC and run with nothing but the DLL and
-`System32` on `PATH`. The same workflow builds and tests (without attaching
-anything) on pull requests that touch `capi/` or its build inputs.
+is exported, only OS libraries are linked, and no AV1 encoder is linked in.
+The workflow then runs `test/smoke.c` and `test/threads.c` against the
+packaged library; on Windows the smoke test is compiled by MSVC and run with
+nothing but the DLL and `System32` on `PATH`. The same workflow builds and
+tests (without attaching anything) on pull requests that touch `capi/` or its
+build inputs.
 
 To attach archives to an existing release, run the workflow by hand with
 `release_tag` set. To build locally, install the codecs with
