@@ -222,7 +222,7 @@ jobs:
           if [ -n "${WINLIBS_BIN:-}" ]; then export PATH="$WINLIBS_BIN:$PATH"; fi
           PY=python3; command -v python3 >/dev/null || PY=python
           if [ "${{ matrix.macos_cross }}" = "1" ]; then PY="arch -x86_64 python3"; fi
-          $PY -m pip install pytest
+          $PY -m pip install pytest setuptools # test_build_backend loads setup.py
           # The public CMU-1-Small-Region.svs, as the libopentile C tests use.
           curl -fsSL "https://github.com/WSILabs/wsi-fixtures/releases/download/v8/svs.tar" -o "$RUNNER_TEMP/svs.tar"
           mkdir -p "$RUNNER_TEMP/fixtures" && tar xf "$RUNNER_TEMP/svs.tar" -C "$RUNNER_TEMP/fixtures"

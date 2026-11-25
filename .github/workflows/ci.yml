@@ -193,7 +193,7 @@ jobs:
           GOFLAGS: -tags=nohtj2k # applies to build_dev.sh and test_parity's go run
         run: |
           set -euo pipefail
-          python -m pip install numpy pytest
+          python -m pip install numpy pytest setuptools
           python/build_dev.sh
           curl -fsSL "https://github.com/WSILabs/wsi-fixtures/releases/download/v8/svs.tar" -o "$RUNNER_TEMP/svs.tar"
           mkdir -p "$RUNNER_TEMP/fixtures" && tar xf "$RUNNER_TEMP/svs.tar" -C "$RUNNER_TEMP/fixtures"
