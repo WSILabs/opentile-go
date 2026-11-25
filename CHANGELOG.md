@@ -25,6 +25,11 @@ upstream references, and retirement audit per milestone.
   `PATH`. Pull requests touching `capi/` or its build inputs run the same
   build and tests (#120 step 5 for the C API). `vcpkg.json` gains a `capi`
   feature (lcms2, no GPL plugins). Build script: `capi/scripts/build-release.sh`.
+- **AVIF now decodes through dav1d instead of aom in every vcpkg build**
+  (Windows CI, the Python wheels and the libopentile release libraries).
+  opentile only decodes, and dav1d is decode-only, so no AV1 encoder is linked
+  in; the release build fails if one is. Linux and macOS CI use the system
+  libavif and are unchanged.
 
 ### Fixed
 - **nocgo builds: every "needs a codec" failure now matches

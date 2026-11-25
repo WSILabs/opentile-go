@@ -46,7 +46,8 @@ attached, plus a `SHA256SUMS` file:
 Each has `include/opentile.h`, `LICENSE`, `NOTICE`, this README and
 `licenses/` (notices for every statically linked library). The libraries are
 self-contained. The six codecs and lcms2 are linked in statically, and each
-library depends only on the OS:
+library depends only on the OS. AVIF decodes through dav1d; no AV1 encoder
+is linked in. Dependencies:
 - Linux: libc, libm, libpthread, libdl, librt, libstdc++, libgcc_s.
 - macOS: `/usr/lib` and system frameworks.
 - Windows: DLLs in `System32` only, with the MinGW C/C++ runtime linked in, so
@@ -56,7 +57,7 @@ The `libopentile` workflow (`.github/workflows/libopentile.yml`) builds them
 with `scripts/build-release.sh`. That script runs the Go tests, builds
 against the vcpkg static triplets through `pkg-config --static`
 (`tools/pkgconfig-static`), and fails unless every `libopentile.def` function
-is exported and only OS libraries are linked. The workflow then runs
+is exported, only OS libraries are linked, and no AV1 encoder is linked in. The workflow then runs
 `test/smoke.c` and `test/threads.c` against the packaged library; on Windows
 the smoke test is compiled by MSVC and run with nothing but the DLL and
 `System32` on `PATH`. The same workflow builds and tests (without attaching

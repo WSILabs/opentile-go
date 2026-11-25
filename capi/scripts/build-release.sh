@@ -20,8 +20,8 @@
 #   LICENSE, NOTICE, README.md, licenses/ (third-party notices for what is linked in)
 #
 # It first runs capi's Go tests (header/export sync), and fails if the library
-# links anything outside the OS or does not export every function in
-# libopentile.def.
+# links anything outside the OS, does not export every function in
+# libopentile.def, or carries an AV1 encoder (AVIF decodes through dav1d).
 #
 # OT_SRC_ROOT builds a different checkout (e.g. an older release tag) with
 # this script and its tools; it defaults to the repo holding this script.
@@ -146,5 +146,16 @@ if [ -n "$missing" ]; then
     echo "FAIL: not exported:$missing" >&2
     exit 1
 fi
-echo "ok: $(echo "$want" | wc -w | tr -d ' ') functions exported, OS libraries only"
+# AVIF must decode through dav1d with no AV1 encoder linked in (#120): some
+# downstream release checks reject libraries that carry AV1 encoder code.
+# These are the encoders' interface/version strings (aom, SVT-AV1, rav1e);
+# libavif's codec table names only the codecs compiled in.
+for s in 'AOMedia Project AV1 Encoder' 'SVT-AV1' 'rav1e'; do
+    if grep -aq "$s" "$libpath"; then
+        echo "FAIL: AV1 encoder linked in (found \"$s\"); build libavif with dav1d only" >&2
+        exit 1
+    fi
+done
+grep -aq dav1d "$libpath" || { echo "FAIL: dav1d (AVIF decode) not linked in" >&2; exit 1; }
+echo "ok: $(echo "$want" | wc -w | tr -d ' ') functions exported, OS libraries only, AVIF via dav1d with no AV1 encoder"
 ls -la "$stage/$(dirname "$lib")"
