@@ -263,6 +263,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          # Go's build cache doesn't track pkg-config output, so a cache built
+          # against older vcpkg codecs replays their cgo link flags (switching
+          # libavif from aom to dav1d failed with "cannot find -laom"). Key the
+          # cache on the codec inputs too.
+          cache-dependency-path: |
+            go.sum
+            vcpkg.json
+            .github/vcpkg-triplets/x64-mingw-static.cmake
 
       # Windows MinGW toolchain = winlibs GCC 15.3 ONLY (no MSYS2). MSYS2 now
       # ships GCC 16, which (a) no released CMake can ABI-probe and (b) whose

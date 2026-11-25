@@ -45,7 +45,7 @@ stack, which only has 16-byte alignment on Win64. libjxl's decoder and openjph's
 encoder then crash intermittently with an access violation at
 `0xffffffffffffffff`. Keep the overlay even if your GCC doesn't show it.
 
-The first run compiles openjph, libjxl, and libavif/aom from source (~20–40
+The first run compiles openjph, libjxl, and libavif/dav1d from source (~20–40
 min). Subsequent runs are cached.
 
 ## Build & test opentile-go

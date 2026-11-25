@@ -99,7 +99,8 @@ capi/
 ├── errors.c / .h       thread-local last error
 ├── icc.c / .h          lcms2 transform (ported from openscope-native, build tag !nolcms2)
 ├── icc_nolcms.go       stub: color_managed always 0
-├── build/              per-platform build scripts (port of build-dll.sh + pkg-config-static wrapper)
+├── scripts/build-release.sh  release build for every platform (port of build-dll.sh); build/ is gitignored output
+├── tools/pkgconfig-static/   pkg-config --static wrapper for cgo
 └── test/               C smoke test (C99, compiled by MSVC in CI on Windows)
 ```
 

@@ -151,7 +151,7 @@ bench-compare: ## Competitive report: opentile-go vs openslide vs python opentil
 	@OPENTILE_TESTDIR="$(OPENTILE_TESTDIR)" /tmp/bench-compare
 
 # C API (capi/, its own Go module). Dev build: links the system codecs and
-# lcms2 dynamically; release builds are per-platform scripts (issue #120 step 3).
+# lcms2 dynamically; release builds use capi/scripts/build-release.sh (see capi/README.md).
 CAPI_GOOS := $(shell go env GOOS)
 CAPI_LIB := $(if $(filter windows,$(CAPI_GOOS)),libopentile.dll,$(if $(filter darwin,$(CAPI_GOOS)),libopentile.dylib,libopentile.so))
 CAPI_EXE := $(if $(filter windows,$(CAPI_GOOS)),.exe,)

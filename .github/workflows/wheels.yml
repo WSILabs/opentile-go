@@ -63,7 +63,11 @@ jobs:
       - name: Set up Go
         if: "!startsWith(matrix.name, 'linux')"
         uses: actions/setup-go@v5
-        with: { go-version: '1.25.0' }
+        with:
+          go-version: '1.25.0'
+          # Go's build cache doesn't track pkg-config output; a stale one
+          # replays old codec link flags (e.g. -laom after the dav1d switch).
+          cache: false
 
       - name: Set up Python
         if: "!startsWith(matrix.name, 'linux')"

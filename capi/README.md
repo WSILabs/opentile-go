@@ -30,9 +30,45 @@ make capi                                  # sync tests + build/libopentile.{so,
 make capi-smoke SLIDE=path/to/slide.svs    # + C smoke and close-race tests
 ```
 
-This dev build links codecs and lcms2 dynamically. Self-contained release
-builds (static codecs; on Windows a DLL plus `.lib` that needs no MinGW runtime)
-are #120 step 3.
+This dev build links codecs and lcms2 dynamically.
+
+## Release builds
+
+Each `v*` release of opentile-go has a libopentile archive per platform
+attached, plus a `SHA256SUMS` file:
+
+| Archive | Library |
+|---|---|
+| `libopentile-<v>-linux-x86_64.tar.gz`, `-linux-aarch64` | `lib/libopentile.so` (glibc ≥ 2.28, manylinux_2_28) |
+| `libopentile-<v>-macos-arm64.tar.gz`, `-macos-x86_64` | `lib/libopentile.dylib` (install name `@rpath/libopentile.dylib`; macOS ≥ 11.0 arm64, ≥ 10.13 x86_64) |
+| `libopentile-<v>-windows-x86_64.zip` | `bin/libopentile.dll`, `lib/libopentile.lib` (MSVC import library), `lib/libopentile.def` |
+
+Each has `include/opentile.h`, `LICENSE`, `NOTICE`, this README and
+`licenses/` (notices for every statically linked library). The libraries are
+self-contained. The six codecs and lcms2 are linked in statically, and each
+library depends only on the OS. AVIF decodes through dav1d; no AV1 encoder
+is linked in. Dependencies:
+- Linux: libc, libm, libpthread, libdl, librt, libstdc++, libgcc_s.
+- macOS: `/usr/lib` and system frameworks.
+- Windows: DLLs in `System32` only, with the MinGW C/C++ runtime linked in, so
+  an MSVC program links `libopentile.lib` and ships `libopentile.dll` beside it.
+
+The `libopentile` workflow (`.github/workflows/libopentile.yml`) builds them
+with `scripts/build-release.sh`. That script runs the Go tests, builds
+against the vcpkg static triplets through `pkg-config --static`
+(`tools/pkgconfig-static`), and fails unless every `libopentile.def` function
+is exported, only OS libraries are linked, and no AV1 encoder is linked in.
+The workflow then runs `test/smoke.c` and `test/threads.c` against the
+packaged library; on Windows the smoke test is compiled by MSVC and run with
+nothing but the DLL and `System32` on `PATH`. The same workflow builds and
+tests (without attaching anything) on pull requests that touch `capi/` or its
+build inputs.
+
+To attach archives to an existing release, run the workflow by hand with
+`release_tag` set. To build locally, install the codecs with
+`vcpkg install --triplet <triplet> --x-feature=capi
+--overlay-triplets=.github/vcpkg-triplets` and run
+`capi/scripts/build-release.sh <version> <platform> vcpkg_installed/<triplet> dist`.
 
 ## Changing the API
 

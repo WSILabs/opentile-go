@@ -11,6 +11,26 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added
+- **libopentile release binaries (#120 step 3).** A new `libopentile`
+  workflow builds the C API as a self-contained shared library for
+  linux-x86_64 / aarch64, macos-arm64 / x86_64 and windows-x86_64, and
+  attaches the archives plus a `SHA256SUMS` file to each `v*` GitHub release.
+  The six codecs and lcms2 are linked in statically (vcpkg static triplets
+  plus `pkg-config --static`), so each library depends only on the OS. The
+  Windows archive has the DLL (MinGW runtime linked in), the `.def` and an
+  MSVC import `.lib`. Every build checks its dependencies and exports, then
+  runs the C smoke and close-race tests on a real slide; on Windows, MSVC
+  compiles the smoke test, which runs with only the DLL and `System32` on
+  `PATH`. Pull requests touching `capi/` or its build inputs run the same
+  build and tests (#120 step 5 for the C API). `vcpkg.json` gains a `capi`
+  feature (lcms2, no GPL plugins). Build script: `capi/scripts/build-release.sh`.
+- **AVIF now decodes through dav1d instead of aom in every vcpkg build**
+  (Windows CI, the Python wheels and the libopentile release libraries).
+  opentile only decodes, and dav1d is decode-only, so no AV1 encoder is linked
+  in; the release build fails if one is. Linux and macOS CI use the system
+  libavif and are unchanged.
+
 ### Fixed
 - **nocgo builds: every "needs a codec" failure now matches
   `decoder.ErrCodecUnavailable` (#104).** NDPI stripped / one-frame raw tiles,
