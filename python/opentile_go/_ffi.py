@@ -1,24 +1,101 @@
-"""ctypes binding to the opentile-go c-shared shim. Loads the bundled
-_opentilego.<so|dylib|pyd>, declares the C-ABI, and marshals buffers to
-Python bytes / numpy arrays. Pure Python — keeps the wheel Python-agnostic."""
+"""ctypes binding to libopentile, the opentile-go C API (capi/opentile.h).
+
+Loads the bundled libopentile.<so|dylib|dll>, declares the functions the
+facade uses, and marshals buffers to Python bytes / numpy arrays. Pure Python,
+so the wheel is Python-version agnostic.
+
+C API conventions this module relies on:
+  - every call returns an int status (0 = OK, negative = OT_ERR_*); the
+    message is the calling thread's ot_last_error();
+  - the library never allocates for the caller: outputs go into buffers we
+    provide, and a too-small one fails with OT_ERR_BUFFER and the needed size;
+  - pixel reads fill an ot_image; structs start with struct_size.
+"""
 
 import ctypes
 import glob
 import json
 import os
 
+import numpy as np
+
 from . import OpenTileError
 
-_c_char_pp = ctypes.POINTER(ctypes.c_char_p)
+# ---- constants (capi/opentile.h; frozen) ------------------------------------
+OT_OK = 0
+OT_ERR_BUFFER = -4
+OT_ERR_RANGE = -5
+OT_ERR_UNSUPPORTED = -10
+OT_PIXEL_RGB8 = 0
+OT_PIXEL_RGBA8 = 1
+_API_MAJOR = 1
 
 
+# ---- structs ------------------------------------------------------------------
+class _DecodeOpts(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("pixel_format", ctypes.c_int32),
+        ("flags", ctypes.c_uint32),
+        ("scale", ctypes.c_int32),
+        ("kernel", ctypes.c_int32),
+    ]
+
+
+class _Image(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("data", ctypes.c_void_p),
+        ("capacity", ctypes.c_size_t),
+        ("stride", ctypes.c_int32),
+        ("width", ctypes.c_int32),
+        ("height", ctypes.c_int32),
+        ("pixel_format", ctypes.c_int32),
+        ("color_managed", ctypes.c_int32),
+    ]
+
+
+class _LevelInfo(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("width", ctypes.c_int32),
+        ("height", ctypes.c_int32),
+        ("tile_w", ctypes.c_int32),
+        ("tile_h", ctypes.c_int32),
+        ("grid_w", ctypes.c_int32),
+        ("grid_h", ctypes.c_int32),
+        ("stitched_grid_w", ctypes.c_int32),
+        ("stitched_grid_h", ctypes.c_int32),
+        ("overlap_mode", ctypes.c_int32),
+        ("tile_overlap_x", ctypes.c_int32),
+        ("tile_overlap_y", ctypes.c_int32),
+        ("compression", ctypes.c_int32),
+        ("downsample", ctypes.c_double),
+        ("mpp_x", ctypes.c_double),
+        ("mpp_y", ctypes.c_double),
+        ("focal_plane", ctypes.c_double),
+        ("tile_max_bytes", ctypes.c_uint64),
+    ]
+
+
+class _AssociatedInfo(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("type", ctypes.c_char * 32),
+        ("width", ctypes.c_int32),
+        ("height", ctypes.c_int32),
+        ("compression", ctypes.c_int32),
+    ]
+
+
+# ---- loading --------------------------------------------------------------------
 def _load():
     here = os.path.dirname(os.path.abspath(__file__))
-    hits = sorted(glob.glob(os.path.join(here, "_opentilego.*")))
-    hits = [h for h in hits if not h.endswith(".h")]
+    hits = [h for h in sorted(glob.glob(os.path.join(here, "libopentile.*")))
+            if os.path.splitext(h)[1].lower() in (".so", ".dylib", ".dll")]
     if not hits:
         raise OpenTileError(
-            "opentile_go native library not built; run python/build_dev.sh (dev) "
+            "opentile_go native library not found; run python/build_dev.sh (dev) "
             "or install a wheel"
         )
     return ctypes.CDLL(hits[0])
@@ -26,143 +103,221 @@ def _load():
 
 _lib = _load()
 
-_lib.ot_open.restype = ctypes.c_size_t
-_lib.ot_open.argtypes = [ctypes.c_char_p, _c_char_pp]
-_lib.ot_close.argtypes = [ctypes.c_size_t]
-_lib.ot_free.argtypes = [ctypes.c_void_p]
-_lib.ot_metadata_json.restype = ctypes.c_void_p
-_lib.ot_metadata_json.argtypes = [ctypes.c_size_t, _c_char_pp]
+_i32p = ctypes.POINTER(ctypes.c_int32)
+_sizep = ctypes.POINTER(ctypes.c_size_t)
+_u64 = ctypes.c_uint64
+_i32 = ctypes.c_int32
+_i64 = ctypes.c_int64
 
 
-def _take_err(err):
-    """Consume an err_out char* (free + return its text) or return None."""
-    if err.value is None:
-        return None
-    msg = err.value.decode("utf-8", "replace")
-    _lib.ot_free(ctypes.cast(err, ctypes.c_void_p))
-    return msg
+def _decl(name, *argtypes):
+    fn = getattr(_lib, name)
+    fn.restype = ctypes.c_int
+    fn.argtypes = list(argtypes)
+    return fn
 
 
-def _take_cstr(ptr):
-    """Copy a malloc'd char* into a Python str and free it."""
-    s = ctypes.cast(ptr, ctypes.c_char_p).value.decode("utf-8", "replace")
-    _lib.ot_free(ptr)
-    return s
+_ot_api_version = _decl("ot_api_version", _i32p, _i32p)
+_ot_last_error = _decl("ot_last_error", ctypes.c_char_p, ctypes.c_size_t, _sizep)
+_ot_open = _decl("ot_open", ctypes.c_char_p, ctypes.c_void_p, ctypes.POINTER(_u64))
+_ot_close = _decl("ot_close", _u64)
+_ot_metadata_json = _decl("ot_metadata_json", _u64, ctypes.c_char_p, ctypes.c_size_t, _sizep)
+_ot_level_info_get = _decl("ot_level_info_get", _u64, _i32, _i32, ctypes.POINTER(_LevelInfo))
+_ot_associated_info_get = _decl("ot_associated_info_get", _u64, _i32, ctypes.POINTER(_AssociatedInfo))
+_ot_tiff_tags_json = _decl("ot_tiff_tags_json", _u64, _i32, _i32, ctypes.c_char_p, ctypes.c_size_t, _sizep)
+_ot_tile_raw = _decl("ot_tile_raw", _u64, _i32, _i32, _i32, _i32, ctypes.c_char_p, ctypes.c_size_t, _sizep)
+_img_args = (ctypes.POINTER(_DecodeOpts), ctypes.POINTER(_Image))
+_ot_tile_decoded = _decl("ot_tile_decoded", _u64, _i32, _i32, _i32, _i32, *_img_args)
+_ot_read_region = _decl("ot_read_region", _u64, _i32, _i32, _i64, _i64, _i32, _i32, *_img_args)
+_ot_thumbnail = _decl("ot_thumbnail", _u64, _i32, _i32, *_img_args)
+_ot_macro = _decl("ot_macro", _u64, _i32, _i32, *_img_args)
+_ot_associated_decode = _decl("ot_associated_decode", _u64, _i32, *_img_args)
 
 
+def _check_api():
+    major, minor = _i32(), _i32()
+    _ot_api_version(ctypes.byref(major), ctypes.byref(minor))
+    if major.value != _API_MAJOR:
+        raise OpenTileError(
+            f"opentile_go needs libopentile API {_API_MAJOR}.x, found {major.value}.{minor.value}"
+        )
+
+
+_check_api()
+
+
+# ---- errors and buffers ---------------------------------------------------------
+def _last_error():
+    n = ctypes.c_size_t()
+    _ot_last_error(None, 0, ctypes.byref(n))
+    buf = ctypes.create_string_buffer(n.value + 1)
+    _ot_last_error(buf, len(buf), ctypes.byref(n))
+    return buf.value.decode("utf-8", "replace")
+
+
+def _raise(rc, what):
+    msg = _last_error() or f"opentile: {what} failed"
+    raise OpenTileError(msg)
+
+
+def _bytes_call(fn, args, guess=0, as_string=False):
+    """Call a (dst, capacity, out_len) function; return the output bytes.
+
+    Tries a guessed capacity first, then retries once with the reported size,
+    so the common case is one call.
+    """
+    n = ctypes.c_size_t()
+    extra = 1 if as_string else 0
+    cap = guess
+    if cap <= 0:
+        rc = fn(*args, None, 0, ctypes.byref(n))
+        if rc != OT_OK:
+            _raise(rc, fn.__name__)
+        cap = n.value + extra
+    for _ in range(2):
+        buf = ctypes.create_string_buffer(max(cap, 1))
+        rc = fn(*args, buf, cap, ctypes.byref(n))
+        if rc == OT_OK:
+            return buf.raw[: n.value]
+        if rc != OT_ERR_BUFFER:
+            _raise(rc, fn.__name__)
+        cap = n.value + extra
+    _raise(rc, fn.__name__)
+
+
+def _decode_opts(rgba):
+    o = _DecodeOpts()
+    o.struct_size = ctypes.sizeof(_DecodeOpts)
+    o.pixel_format = OT_PIXEL_RGBA8 if rgba else OT_PIXEL_RGB8
+    return o
+
+
+def _image_call(fn, args, rgba, guess=None):
+    """Call an ot_image-filling function; return an (H, W, bands) uint8 array.
+
+    guess is an upper bound (w, h) on the output size. With it the pixels
+    decode straight into a numpy buffer in one call; otherwise (or if the
+    guess is too small) a size query or OT_ERR_BUFFER gives the exact size.
+    """
+    bands = 4 if rgba else 3
+    opts = _decode_opts(rgba)
+    img = _Image()
+    img.struct_size = ctypes.sizeof(_Image)
+    if guess is None or guess[0] <= 0 or guess[1] <= 0:
+        rc = fn(*args, ctypes.byref(opts), ctypes.byref(img))  # data = NULL: size query
+        if rc != OT_OK:
+            _raise(rc, fn.__name__)
+        guess = (img.width, img.height)
+    for _ in range(2):
+        w, h = guess
+        arr = np.empty(max(w * h * bands, 1), dtype=np.uint8)
+        img.data = arr.ctypes.data
+        img.capacity = arr.nbytes
+        img.stride = 0  # tight rows
+        rc = fn(*args, ctypes.byref(opts), ctypes.byref(img))
+        if rc == OT_OK:
+            ow, oh = img.width, img.height
+            out = arr[: ow * oh * bands].reshape((oh, ow, bands))
+            return out if out.size == arr.size else out.copy()
+        if rc != OT_ERR_BUFFER:
+            _raise(rc, fn.__name__)
+        guess = (img.width, img.height)
+        img.stride = 0
+    _raise(rc, fn.__name__)
+
+
+# ---- slides -----------------------------------------------------------------------
 def open_slide(path):
-    err = ctypes.c_char_p()
-    h = _lib.ot_open(os.fspath(path).encode("utf-8"), ctypes.byref(err))
-    if h == 0:
-        raise OpenTileError(_take_err(err) or "opentile: open failed")
-    return h
+    h = _u64()
+    rc = _ot_open(os.fspath(path).encode("utf-8"), None, ctypes.byref(h))
+    if rc != OT_OK:
+        _raise(rc, "open")
+    return h.value
 
 
 def close_slide(handle):
     if handle:
-        _lib.ot_close(handle)
+        _ot_close(handle)
 
 
 def metadata(handle):
-    err = ctypes.c_char_p()
-    ptr = _lib.ot_metadata_json(handle, ctypes.byref(err))
-    if not ptr:
-        raise OpenTileError(_take_err(err) or "opentile: metadata failed")
-    return json.loads(_take_cstr(ptr))
+    """The slide's metadata document (see capi/json.go; a superset of the
+    keys the facade reads: format, mpp, magnification, properties, levels,
+    associated)."""
+    raw = _bytes_call(_ot_metadata_json, (handle,), as_string=True)
+    return json.loads(raw.decode("utf-8"))
 
 
-import numpy as np
-
-_u8pp = ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8))
-_sizep = ctypes.POINTER(ctypes.c_size_t)
-_intp = ctypes.POINTER(ctypes.c_int)
-
-_lib.ot_tile.restype = ctypes.c_int
-_lib.ot_tile.argtypes = [ctypes.c_size_t, ctypes.c_int, ctypes.c_int, ctypes.c_int, _u8pp, _sizep, _c_char_pp]
-
-_lib.ot_decoded_tile.restype = ctypes.c_int
-_lib.ot_decoded_tile.argtypes = [ctypes.c_size_t] + [ctypes.c_int] * 4 + [_u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
-_lib.ot_read_region.restype = ctypes.c_int
-_lib.ot_read_region.argtypes = [ctypes.c_size_t] + [ctypes.c_int] * 6 + [_u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
-
-
-def _take_buf(ptr, n):
-    """Copy an ot_free-owned uint8* buffer of length n into Python bytes, free it."""
-    out = ctypes.string_at(ptr, n)
-    _lib.ot_free(ctypes.cast(ptr, ctypes.c_void_p))
-    return out
-
-
-def _take_image(ptr, n, w, h, bands):
-    """Copy a tight (h,w,bands) uint8 buffer into an owned numpy array, free it."""
-    buf = ctypes.string_at(ptr, n)  # a copy
-    _lib.ot_free(ctypes.cast(ptr, ctypes.c_void_p))
-    return np.frombuffer(buf, dtype=np.uint8).reshape((h, w, bands)).copy()
+def _level_info(handle, level):
+    info = _LevelInfo()
+    info.struct_size = ctypes.sizeof(_LevelInfo)
+    rc = _ot_level_info_get(handle, 0, level, ctypes.byref(info))
+    if rc != OT_OK:
+        _raise(rc, "level info")
+    return info
 
 
 def tile(handle, level, x, y):
-    out = ctypes.POINTER(ctypes.c_uint8)()
-    n = ctypes.c_size_t()
-    err = ctypes.c_char_p()
-    if _lib.ot_tile(handle, level, x, y, ctypes.byref(out), ctypes.byref(n), ctypes.byref(err)) != 0:
-        raise OpenTileError(_take_err(err) or "opentile: tile failed")
-    return _take_buf(out, n.value)
-
-
-def _decode_call(fn, handle, ints):
-    out = ctypes.POINTER(ctypes.c_uint8)()
-    n, w, h, bands = ctypes.c_size_t(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
-    err = ctypes.c_char_p()
-    args = [handle, *ints, ctypes.byref(out), ctypes.byref(n),
-            ctypes.byref(w), ctypes.byref(h), ctypes.byref(bands), ctypes.byref(err)]
-    if fn(*args) != 0:
-        raise OpenTileError(_take_err(err) or "opentile: decode failed")
-    return _take_image(out, n.value, w.value, h.value, bands.value)
+    guess = int(_level_info(handle, level).tile_max_bytes)
+    return _bytes_call(_ot_tile_raw, (handle, 0, level, x, y), guess=guess)
 
 
 def decoded_tile(handle, level, x, y, rgba=False):
-    return _decode_call(_lib.ot_decoded_tile, handle, [level, x, y, 1 if rgba else 0])
+    info = _level_info(handle, level)
+    return _image_call(_ot_tile_decoded, (handle, 0, level, x, y), rgba,
+                       guess=(info.tile_w, info.tile_h))
 
 
 def read_region(handle, level, x, y, w, h, rgba=False):
-    return _decode_call(_lib.ot_read_region, handle, [level, x, y, w, h, 1 if rgba else 0])
-
-
-_lib.ot_thumbnail.restype = ctypes.c_int
-_lib.ot_thumbnail.argtypes = [ctypes.c_size_t, ctypes.c_int, ctypes.c_int, _u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
-_lib.ot_macro.restype = ctypes.c_int
-_lib.ot_macro.argtypes = _lib.ot_thumbnail.argtypes
-_lib.ot_associated.restype = ctypes.c_int
-_lib.ot_associated.argtypes = [ctypes.c_size_t, ctypes.c_char_p, ctypes.c_int, _u8pp, _sizep, _intp, _intp, _intp, _c_char_pp]
-_lib.ot_tiff_tags_json.restype = ctypes.c_int
-_lib.ot_tiff_tags_json.argtypes = [ctypes.c_size_t, ctypes.c_int, _c_char_pp, _c_char_pp]
+    return _image_call(_ot_read_region, (handle, 0, level, x, y, w, h), rgba, guess=(w, h))
 
 
 def thumbnail(handle, max_w, max_h):
-    return _decode_call(_lib.ot_thumbnail, handle, [max_w, max_h])
+    # Upper bound on the fitted size, so the decode goes straight into the
+    # array. With one axis given, the other follows level 0's aspect ratio
+    # (+2 covers rounding); a too-small guess just costs a retry.
+    guess = (max_w, max_h)
+    if max_w <= 0 or max_h <= 0:
+        l0 = _level_info(handle, 0)
+        if l0.width > 0 and l0.height > 0:
+            if max_w > 0:
+                guess = (max_w, max_w * l0.height // l0.width + 2)
+            elif max_h > 0:
+                guess = (max_h * l0.width // l0.height + 2, max_h)
+    return _image_call(_ot_thumbnail, (handle, max_w, max_h), False, guess=guess)
 
 
 def macro(handle, max_w, max_h):
-    return _decode_call(_lib.ot_macro, handle, [max_w, max_h])
+    # The macro canvas has its own aspect ratio; with one axis given, ask.
+    guess = (max_w, max_h) if max_w > 0 and max_h > 0 else None
+    return _image_call(_ot_macro, (handle, max_w, max_h), False, guess=guess)
 
 
 def associated(handle, name, rgba=False):
-    out = ctypes.POINTER(ctypes.c_uint8)()
-    n, w, h, bands = ctypes.c_size_t(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
-    err = ctypes.c_char_p()
-    rc = _lib.ot_associated(handle, name.encode("utf-8"), 1 if rgba else 0,
-                            ctypes.byref(out), ctypes.byref(n), ctypes.byref(w),
-                            ctypes.byref(h), ctypes.byref(bands), ctypes.byref(err))
-    if rc != 0:
-        raise OpenTileError(_take_err(err) or "opentile: associated failed")
-    return _take_image(out, n.value, w.value, h.value, bands.value)
+    """Decode the first associated image whose type is name."""
+    i = 0
+    while True:
+        info = _AssociatedInfo()
+        info.struct_size = ctypes.sizeof(_AssociatedInfo)
+        rc = _ot_associated_info_get(handle, i, ctypes.byref(info))
+        if rc == OT_ERR_RANGE:
+            raise OpenTileError(f"opentile: no associated image named {name}")
+        if rc != OT_OK:
+            _raise(rc, "associated info")
+        if info.type.decode("utf-8", "replace") == name:
+            return _image_call(_ot_associated_decode, (handle, i), rgba,
+                               guess=(info.width, info.height))
+        i += 1
 
 
 def tiff_tags(handle, level):
-    out = ctypes.c_char_p()
-    err = ctypes.c_char_p()
-    if _lib.ot_tiff_tags_json(handle, level, ctypes.byref(out), ctypes.byref(err)) != 0:
-        raise OpenTileError(_take_err(err) or "opentile: tiff tags failed")
-    if not out.value:
+    """Raw TIFF tags for a level of the main pyramid, or None for non-TIFF
+    formats and levels without tags."""
+    n = ctypes.c_size_t()
+    rc = _ot_tiff_tags_json(handle, 0, level, None, 0, ctypes.byref(n))
+    if rc == OT_ERR_UNSUPPORTED:
         return None
-    return json.loads(_take_cstr(ctypes.cast(out, ctypes.c_void_p)))
+    if rc != OT_OK:
+        _raise(rc, "tiff tags")
+    raw = _bytes_call(_ot_tiff_tags_json, (handle, 0, level), guess=n.value + 1, as_string=True)
+    return json.loads(raw.decode("utf-8")) or None

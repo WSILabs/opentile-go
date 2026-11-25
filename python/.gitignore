@@ -1,4 +1,7 @@
-_opentilego.*
+opentile_go/libopentile.*
+opentile_go/LICENSE
+opentile_go/NOTICE
+opentile_go/licenses/
 *.h
 build/
 dist/

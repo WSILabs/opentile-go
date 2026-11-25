@@ -163,9 +163,10 @@ jobs:
       - name: go test (fixture-backed packages, nohtj2k)
         run: go test -tags nohtj2k . ./formats/... ./internal/... ./tests/... -count=1 -timeout 15m
 
-  # The Python binding's pytest suite against a dev build (system codecs,
-  # nohtj2k as above). The Wheels workflow runs the same suite against each
-  # installed wheel, but only when dispatched or tagged.
+  # The Python binding's pytest suite against a dev build of libopentile
+  # (system codecs + lcms2, nohtj2k as above). The Wheels workflow runs the
+  # same suite against each installed wheel, but only when dispatched or
+  # tagged.
   python:
     name: python binding (pytest, Linux)
     runs-on: ubuntu-latest
@@ -185,7 +186,7 @@ jobs:
       - name: Install cgo deps (Linux, cached)
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev liblcms2-dev pkg-config
           version: '1'
 
       - name: Build the binding + run pytest

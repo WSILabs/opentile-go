@@ -1,12 +1,22 @@
 """setuptools build backend for opentile_go.
 
-Builds the Go c-shared FFI library (`go build -buildmode=c-shared`) into the
-package directory, then emits a Python-agnostic *platform* wheel tagged
-`py3-none-<platform>` — the only native artifact is the Go shared library, which
-is Python-version-independent, so one wheel serves every CPython >= 3.10.
+Puts libopentile (the opentile-go C API, ../capi) in the package directory,
+then emits a Python-agnostic *platform* wheel tagged `py3-none-<platform>`.
+The only native artifact is that shared library, which is Python-version
+independent, so one wheel serves every CPython >= 3.10.
+
+Two ways to get the library:
+  - OPENTILE_GO_STAGE=<dir>: a release build staged by
+    capi/scripts/build-release.sh (codecs and lcms2 linked in statically, only
+    OS dependencies). Its LICENSE, NOTICE and licenses/ come along. Wheels use
+    this, so they ship the same library as the GitHub release archives.
+  - otherwise, a dev build: `go build -buildmode=c-shared` of ../capi against
+    the codecs and lcms2 found by pkg-config (linked dynamically).
 """
 
+import glob
 import os
+import shutil
 import subprocess
 import sys
 
@@ -16,29 +26,63 @@ from setuptools.command.bdist_wheel import bdist_wheel
 from setuptools.dist import Distribution
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PKG = os.path.join(HERE, "opentile_go")
+CAPI = os.path.join(HERE, "..", "capi")
 
 
 def _lib_filename():
-    # ctypes.CDLL loads a Mach-O/ELF shared object by any name; keep it stable so
-    # the _ffi.py glob (`_opentilego.*`) finds it. Windows uses .pyd.
-    return "_opentilego.pyd" if sys.platform == "win32" else "_opentilego.so"
+    if sys.platform == "win32":
+        return "libopentile.dll"
+    if sys.platform == "darwin":
+        return "libopentile.dylib"
+    return "libopentile.so"
+
+
+def _clean_package_dir():
+    # Drop a previous build's library and notices so a wheel never mixes builds.
+    for old in glob.glob(os.path.join(PKG, "libopentile.*")) + glob.glob(os.path.join(PKG, "_opentilego.*")):
+        os.remove(old)
+    for d in ("licenses",):
+        shutil.rmtree(os.path.join(PKG, d), ignore_errors=True)
+    for f in ("LICENSE", "NOTICE"):
+        p = os.path.join(PKG, f)
+        if os.path.exists(p):
+            os.remove(p)
+
+
+def _copy_stage(stage):
+    sub = "bin" if sys.platform == "win32" else "lib"
+    src = os.path.join(stage, sub, _lib_filename())
+    if not os.path.isfile(src):
+        raise SystemExit(f"OPENTILE_GO_STAGE: {src} not found (run capi/scripts/build-release.sh)")
+    shutil.copy2(src, os.path.join(PKG, _lib_filename()))
+    for f in ("LICENSE", "NOTICE"):
+        shutil.copy2(os.path.join(stage, f), os.path.join(PKG, f))
+    shutil.copytree(os.path.join(stage, "licenses"), os.path.join(PKG, "licenses"))
+
+
+def _dev_build():
+    out = os.path.join(PKG, _lib_filename())
+    env = dict(os.environ, CGO_ENABLED="1")
+    # -buildvcs=false: VCS stamping errors ("dubious ownership") inside build
+    # containers, and a shared library needs no stamp.
+    cmd = ["go", "build", "-buildmode=c-shared", "-buildvcs=false", "-o", out, "."]
+    subprocess.check_call(cmd, cwd=CAPI, env=env)
+    h = os.path.splitext(out)[0] + ".h"  # Go's generated header; opentile.h is the public one
+    if os.path.exists(h):
+        os.remove(h)
 
 
 class BuildGoLib(build_py):
-    """Build the Go c-shared FFI lib before packaging copies package data."""
+    """Put libopentile in the package before packaging copies package data."""
 
     def run(self):
-        out = os.path.join(HERE, "opentile_go", _lib_filename())
-        env = dict(os.environ, CGO_ENABLED="1")
-        # -buildvcs=false: skip git VCS stamping — it errors ("dubious ownership",
-        # exit 128) inside the manylinux build container; a shared library needs
-        # no VCS stamp.
-        # Dynamic linking on all platforms. On Windows the MinGW runtime is
-        # winlibs GCC 15.3 (the sole MinGW toolchain on PATH — no MSYS2), so the
-        # .pyd links against one consistent runtime; delvewheel bundles those
-        # DLLs into the wheel. (Static libstdc++ crashed the C++ codecs.)
-        cmd = ["go", "build", "-buildmode=c-shared", "-buildvcs=false", "-o", out, "./cshim"]
-        subprocess.check_call(cmd, cwd=HERE, env=env)
+        _clean_package_dir()
+        stage = os.environ.get("OPENTILE_GO_STAGE")
+        if stage:
+            _copy_stage(stage)
+        else:
+            _dev_build()
         super().run()
 
 

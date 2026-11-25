@@ -20,12 +20,6 @@ jobs:
     name: wheel ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
-    # Windows is non-blocking (tracked toolchain regression — see ci.yml's
-    # integration-windows comment: GCC-16/CMake + MinGW-runtime contamination).
-    # The 4 Linux/macOS wheels build + validate green and publish; the Windows
-    # wheel is deferred (revisit with llvm-mingw). Non-windows failures still
-    # fail the matrix.
-    continue-on-error: ${{ matrix.name == 'windows-x86_64' }}
     strategy:
       fail-fast: false
       matrix:
@@ -154,7 +148,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} \
+          # --x-feature=capi adds lcms2 (libopentile's ICC -> sRGB).
+          "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} --x-feature=capi \
             --overlay-triplets="$PWD/.github/vcpkg-triplets" \
             --x-install-root="$PWD/vcpkg_installed"
           echo "PKG_CONFIG_PATH=$PWD/vcpkg_installed/${{ matrix.triplet }}/lib/pkgconfig" >> "$GITHUB_ENV"
@@ -169,14 +164,30 @@ jobs:
           key: wheels-vcpkg-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json', format('.github/vcpkg-triplets/{0}.cmake', matrix.triplet)) }}
 
       # --- build + repair + validate wheel ---
+      - name: Build libopentile (static release build, checked)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${WINLIBS_BIN:-}" ]; then export PATH="$WINLIBS_BIN:$PATH"; fi
+          # The same build as the GitHub release archives: codecs + lcms2
+          # static, OS-only dependencies, every export present, no AV1 encoder.
+          v="py-${GITHUB_SHA::7}"
+          bash capi/scripts/build-release.sh "$v" "${{ matrix.name }}" \
+            "vcpkg_installed/${{ matrix.triplet }}" libopentile-stage
+          stage="$PWD/libopentile-stage/libopentile-$v-${{ matrix.name }}"
+          command -v cygpath >/dev/null && stage=$(cygpath -w "$stage") # Python on Windows
+          echo "OPENTILE_GO_STAGE=$stage" >> "$GITHUB_ENV"
+
       - name: Build wheel
         shell: bash
         working-directory: python
         run: |
           set -euo pipefail
           if [ -n "${WINLIBS_BIN:-}" ]; then export PATH="$WINLIBS_BIN:$PATH"; fi
-          python3 -m pip install --upgrade build || python -m pip install --upgrade build
-          CGO_ENABLED=1 python3 -m build --wheel --outdir dist 2>/dev/null || CGO_ENABLED=1 python -m build --wheel --outdir dist
+          PY=python3; command -v python3 >/dev/null || PY=python
+          $PY -m pip install --upgrade build
+          # setup.py copies the staged library and its notices (OPENTILE_GO_STAGE).
+          $PY -m build --wheel --outdir dist
           ls -la dist
 
       - name: Repair wheel (auditwheel / delocate / delvewheel)

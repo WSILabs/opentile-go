@@ -70,9 +70,12 @@ Full docstrings are available via `help(opentile_go.Slide)` in a REPL.
 
 ## Building from source (development)
 
-Requires Go 1.23+ and the codec libraries (jpeg-turbo, openjpeg, openjph,
-jpeg-xl, libavif, libwebp) — on macOS: `brew install jpeg-turbo openjpeg openjph
-jpeg-xl libavif webp pkg-config`.
+The binding is pure Python (ctypes + numpy) over **libopentile**, the
+opentile-go C API in [`capi/`](../capi). `build_dev.sh` builds it into the
+package as `opentile_go/libopentile.{so,dylib,dll}`. That needs Go 1.25+, a C
+compiler, the codec libraries (jpeg-turbo, openjpeg, openjph, jpeg-xl, libavif,
+libwebp) and lcms2. On macOS: `brew install jpeg-turbo openjpeg openjph jpeg-xl
+libavif webp little-cms2 pkg-config`.
 
 ```sh
 cd python && ./build_dev.sh && pip install -e . && pytest
@@ -85,4 +88,7 @@ The tests need a slide: set `OPENTILE_TESTDIR`, or put one under the repo's
 CI runs this suite on every pull request (Linux dev build), and the `Wheels`
 workflow runs it against each installed wheel on all five platforms.
 
-Wheels bundle all six codecs statically (no system install needed).
+Wheels bundle the libopentile release build (`capi/scripts/build-release.sh`,
+the same library as the GitHub release archives): all six codecs and lcms2 are
+linked in statically, it depends only on the OS, and its third-party notices
+ship in `opentile_go/licenses/`.

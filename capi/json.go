@@ -8,7 +8,7 @@ import (
 )
 
 // JSON documents returned by ot_metadata_json / ot_*tiff_tags_json. The
-// metadata schema is a superset of the one python/cshim produced: existing
+// metadata schema is a superset of the Python binding's original shim: existing
 // keys keep their meaning; new keys are only ever added.
 
 type jsonLevel struct {

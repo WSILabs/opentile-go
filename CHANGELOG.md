@@ -11,6 +11,18 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed
+- **The Python binding now runs on libopentile (#120 step 4).** `opentile_go`
+  calls the C API (`capi/opentile.h`) through ctypes, and `python/cshim`, its
+  separate Go shim, is gone. The Python API is unchanged; the TIFF-tag dicts
+  gain `type`, `count`, `rationals` and `raw_b64` keys. Wheels now bundle the
+  libopentile release build (`capi/scripts/build-release.sh`): the same
+  library as the GitHub release archives, with all six codecs and lcms2
+  linked in statically and only OS dependencies, plus its third-party
+  notices in `opentile_go/licenses/`. The Windows wheel is built the same
+  way and is no longer allowed to fail. Dev builds (`python/build_dev.sh`)
+  now also need lcms2.
+
 ### Added
 - **The Python binding's pytest suite now runs in CI (#127).** A Linux job
   runs it on every pull request against a dev build. The `Wheels` workflow
