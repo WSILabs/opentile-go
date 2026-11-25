@@ -2,6 +2,15 @@ import os
 import pathlib
 import pytest
 
+
+def pytest_configure(config):
+    # CI's wheel test sets this so the suite fails if it picked up the source
+    # tree's opentile_go instead of the installed, repaired wheel.
+    if os.environ.get("OPENTILE_GO_EXPECT_INSTALLED") == "1":
+        import opentile_go
+        where = os.path.normcase(opentile_go.__file__)
+        assert "site-packages" in where, f"opentile_go loaded from {where}, not the installed wheel"
+
 def _find_slide():
     # OPENTILE_TESTDIR (CI corpus) or the repo's local sample_files.
     roots = []

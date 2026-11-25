@@ -12,6 +12,12 @@ upstream references, and retirement audit per milestone.
 ## [Unreleased]
 
 ### Added
+- **The Python binding's pytest suite now runs in CI (#127).** A Linux job
+  runs it on every pull request against a dev build. The `Wheels` workflow
+  runs it against each installed, repaired wheel on all five platforms,
+  including the byte-parity test against the Go reader; it fails if the
+  tests load the source tree instead of the installed wheel. Before this,
+  CI only checked that a wheel imports.
 - **libopentile release binaries (#120 step 3).** A new `libopentile`
   workflow builds the C API as a self-contained shared library for
   linux-x86_64 / aarch64, macos-arm64 / x86_64 and windows-x86_64, and
