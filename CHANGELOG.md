@@ -50,6 +50,10 @@ upstream references, and retirement audit per milestone.
   libavif and are unchanged.
 
 ### Fixed
+- **`ot_thumbnail` / `ot_macro` accept a single-axis fit box.** They
+  required both `max_w` and `max_h` to be positive, stricter than
+  `RenderThumbnail` / `RenderMacro`, where 0 leaves an axis unconstrained;
+  the Python binding's `thumbnail(width=...)` relies on that.
 - **nocgo builds: every "needs a codec" failure now matches
   `decoder.ErrCodecUnavailable` (#104).** NDPI stripped / one-frame raw tiles,
   the NDPI label crop and Philips sparse-tile fill go through the internal
