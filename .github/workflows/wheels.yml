@@ -217,6 +217,9 @@ jobs:
         shell: bash
         env:
           OPENTILE_GO_EXPECT_INSTALLED: '1'
+          # test_parity's `go run` reference needs the codecs; Go turns cgo off
+          # by default when cross-compiling (macos-x86_64 on the arm64 runner).
+          CGO_ENABLED: '1'
         run: |
           set -euo pipefail
           if [ -n "${WINLIBS_BIN:-}" ]; then export PATH="$WINLIBS_BIN:$PATH"; fi
