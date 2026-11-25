@@ -32,12 +32,12 @@ var errNoLevelImages = errors.New("ome: no main pyramid Images in OME document")
 // "label" / "macro" / "thumbnail". Anything else (including empty
 // Name) classifies as a main pyramid.
 //
-// Behaviour deviates from upstream for multi-image OME files: rather
+// Behavior deviates from upstream for multi-image OME files: rather
 // than overwriting `level_series_index` on each match (last wins),
 // we collect every main-pyramid Image index in LevelImages. The
 // associated types (Macro / Label / Thumbnail) preserve last-wins
 // semantics since by convention an OME file carries at most one of
-// each, and upstream's behaviour is well-defined when more than one
+// each, and upstream's behavior is well-defined when more than one
 // appears.
 func classifyImages(metas []OMEImage) (omeClassification, error) {
 	if len(metas) == 0 {

@@ -543,7 +543,7 @@ func (l *levelImpl) TilePrefix() []byte {
 // JPEG, so this delegates to TileInto.
 //
 // For empty (AOI-absent) tiles in the shared-tables case, the body
-// returned is the synthesised blank-tile JPEG — a complete self-
+// returned is the synthesized blank-tile JPEG — a complete self-
 // contained tile that consumers can use as-is or splice with
 // TilePrefix() (wasteful but valid).
 //
@@ -562,7 +562,7 @@ func (l *levelImpl) TileBodyInto(x, y int, dst []byte) (int, error) {
 		return 0, err
 	}
 	if l.isEmpty(idx) {
-		// Synthesised blank tile: a complete self-contained JPEG.
+		// Synthesized blank tile: a complete self-contained JPEG.
 		b, err := blankTile(l.tileSize.W, l.tileSize.H, l.scanWhitePoint)
 		if err != nil {
 			return 0, &opentile.TileError{Level: l.index, X: x, Y: y, Err: err}
@@ -613,7 +613,7 @@ func (l *levelImpl) warm() error {
 // a pooled buffer.
 //
 // See readTileAtIdx for the empty-tile / JPEGTables-splice / raw
-// passthrough behaviour shared with TileAt.
+// passthrough behavior shared with TileAt.
 func (l *levelImpl) Tile(col, row int) ([]byte, error) {
 	idx, err := l.indexOf(0, col, row)
 	if err != nil {
@@ -713,7 +713,7 @@ func (l *levelImpl) isEmpty(idx int) bool {
 }
 
 // Tiles iterates every tile position in image-space row-major order.
-// Serial — callers parallelise on top of Tile(c, r) if needed.
+// Serial — callers parallelize on top of Tile(c, r) if needed.
 func (l *levelImpl) Tiles(ctx context.Context) iter.Seq2[opentile.Point, opentile.TileResult] {
 	return func(yield func(opentile.Point, opentile.TileResult) bool) {
 		for r := 0; r < l.grid.H; r++ {

@@ -24,7 +24,7 @@ import (
 //
 // Magnification is always 0 unless the wsi-tools ImageDescription
 // extension supplies one: generic TIFFs don't carry magnification in
-// any standard TIFF tag and we don't synthesise one. Derive from
+// any standard TIFF tag and we don't synthesize one. Derive from
 // MPP.Symmetric() if needed (e.g., 0.25 µm/px ≈ 40× on a typical
 // pathology scanner — but that's caller policy, not slide truth).
 //

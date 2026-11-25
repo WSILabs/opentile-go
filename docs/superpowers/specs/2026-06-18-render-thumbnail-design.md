@@ -119,7 +119,7 @@ propagate from `Level(0)`.
 A viewer needs a macro-style orientation image even for slides that embed no
 macro. `RenderMacro` synthesizes one: a slide-shaped canvas (the **non-label
 scan area** of a standard slide, ~50×25 mm) with the whole-slide tissue
-composited at its **true physical size** and centred.
+composited at its **true physical size** and centered.
 
 ```go
 func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, error)
@@ -133,10 +133,10 @@ func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, 
   populated axis fills the other); else `10/Magnification` (objective rule of
   thumb — 40×→0.25, 20×→0.5); else **error** (cannot place to scale).
 - **Tissue:** physical mm = `L0.Size × mpp / 1000`; rendered to exactly that px
-  size via `ReadRegionScaled` (stretch honours anisotropic MPP), blitted
-  **centred** on the white canvas. If the tissue exceeds the scan area it is
+  size via `ReadRegionScaled` (stretch honors anisotropic MPP), blitted
+  **centered** on the white canvas. If the tissue exceeds the scan area it is
   scaled to fit, preserving aspect. For BIF the tissue render is stitched.
-- **Position:** centred only — true on-slide placement (NDPI offset-from-centre,
+- **Position:** centered only — true on-slide placement (NDPI offset-from-center,
   SCN/DICOM/BIF slide-coordinate origin) is a deferred enhancement requiring a
   new cross-format slide-coordinate metadata layer (not built here).
 
@@ -146,7 +146,7 @@ upscale clamp — the canvas is synthetic).
 
 **Tests:** unit (`fitAspect` fit-box/width/height/upscale/errors; `effectiveMPP`
 MPP / objective-fallback / neither-errors) + fixture-gated integration
-(canvas 600×300 for `bounds {600}`, composite = white background + centred
+(canvas 600×300 for `bounds {600}`, composite = white background + centered
 tissue at physical scale).
 
 **Out of scope (now):** true position; drawing the label/frosted end;

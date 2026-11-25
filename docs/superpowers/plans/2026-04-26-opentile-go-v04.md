@@ -14,7 +14,7 @@
 
 **Sample slides:** Local under `sample_files/svs/`, `sample_files/ndpi/`. Set `OPENTILE_TESTDIR=$PWD/sample_files` for integration tests. The full set: CMU-1-Small-Region.svs, CMU-1.svs, JP2K-33003-1.svs, scan_620_.svs, svs_40x_bigtiff.svs, CMU-1.ndpi, OS-2.ndpi, Hamamatsu-1.ndpi.
 
-**Python venv:** `/private/tmp/opentile-py/bin/python` has Python 3.12 + opentile 0.20.0 + tifffile + imagecodecs (which transitively includes the libopenjp2 wrapper). Reuse for parity-oracle work and for upstream-behaviour verification commands.
+**Python venv:** `/private/tmp/opentile-py/bin/python` has Python 3.12 + opentile 0.20.0 + tifffile + imagecodecs (which transitively includes the libopenjp2 wrapper). Reuse for parity-oracle work and for upstream-behavior verification commands.
 
 **libopenjp2 install (macOS, dev machine):**
 ```sh
@@ -30,7 +30,7 @@ pkg-config --modversion libopenjp2  # expect 2.5+
 **Every task** in this plan starts with `Step 0: Confirm upstream`. The step:
 
 1. Names the upstream file path + line range that governs the
-   behaviour the task is implementing (typically under
+   behavior the task is implementing (typically under
    `imi-bigpicture/opentile`, `cgohlke/tifffile`, or `imagecodecs`).
 2. States the rule the Go implementation must match in one or two
    sentences.
@@ -198,7 +198,7 @@ libopenjp2 with these options. Record the divergence as a new L-item:
 ```markdown
 ### L19 — libopenjp2 jpeg2k_encode is non-deterministic
 - **Source:** v0.4 Task 1 JP2K determinism gate
-- **Severity:** Permanent — upstream library behaviour
+- **Severity:** Permanent — upstream library behavior
 - **Detail:** Round-tripping the same numpy array through
   imagecodecs.jpeg2k_encode with identical options produces different
   byte streams across passes. Pixel output decodes identical (verified
@@ -347,12 +347,12 @@ sha256sum out_a.jpg out_b.jpg
 
 **Case A: `out_a.jpg == out_b.jpg`** (deterministic in C, divergent
 through cgo). The bug is in our cgo wrapper. Likely candidates:
-uninitialised buffer reuse, callback closure capturing stack memory,
+uninitialized buffer reuse, callback closure capturing stack memory,
 goroutine scheduler entering the C call in a different state. Fix
 locally — Task 9 carries the fix.
 
 **Case B: `out_a.jpg != out_b.jpg`** (non-deterministic in C, same
-behaviour through cgo). The bug is in libjpeg-turbo's `tjTransform`
+behavior through cgo). The bug is in libjpeg-turbo's `tjTransform`
 itself. File an upstream issue / PR; close L12 as
 "upstream-non-deterministic, parity skipped." Update `docs/deferred.md`
 to mark L12 Permanent (pending upstream fix) and remove the v0.4
@@ -455,7 +455,7 @@ including the exact shape and dtype operations on numpy arrays.]
 Whether to expose corrupt-edge reconstruct as opt-in (e.g. a new
 `Config.WithSVSReconstructEdges(bool)` option, default false) or always-
 on. v0.3 returns ErrCorruptTile; flipping the default changes observable
-behaviour. Lean toward opt-in for v0.4, default-on by v0.5.
+behavior. Lean toward opt-in for v0.4, default-on by v0.5.
 ```
 
 - [ ] **Step 2: Branch on resize-algorithm choice**
@@ -664,7 +664,7 @@ In `opentile.go`, near the existing `KindLabel`/`KindOverview`/
 //
 // Python opentile 0.20.0 does not expose Map pages as associated
 // images; surfacing them is a deliberate Go-side extension paralleling
-// the synthesised-label extension (see WithNDPISynthesizedLabel).
+// the synthesized-label extension (see WithNDPISynthesizedLabel).
 const KindMap = "map"
 ```
 
@@ -851,7 +851,7 @@ fixture is unchanged.
 
 - [ ] **Step 0: Confirm upstream**
 
-No upstream behaviour to confirm — this is a fixture regeneration
+No upstream behavior to confirm — this is a fixture regeneration
 following Task 6's classifier change. The fixture format is owned by
 this repo (see `tests/fixtures.go`); no external contract.
 
@@ -1652,7 +1652,7 @@ git add internal/openjp2/openjp2_cgo.go internal/openjp2/openjp2_cgo_test.go
 git commit -m "feat(openjp2): R9 — Encode implementation, <byte|pixel>-parity vs imagecodecs
 
 Output matches imagecodecs.jpeg2k_encode <byte-for-byte | within JP2K
-quantisation tolerance> on the JP2K-33003-1.svs L0 tile fixture.
+quantization tolerance> on the JP2K-33003-1.svs L0 tile fixture.
 
 DefaultEncodeOpts mirrors Python opentile's call (level=80,
 codecformat=J2K, colorspace=SRGB, mct=true, reversible=false,
@@ -1780,7 +1780,7 @@ upstream snippet above.)
 ## Task 15: corrupt-edge reconstruct (`_get_scaled_tile` port)
 
 **Goal:** Port `_get_scaled_tile` and `_get_fixed_tile` so a corrupt
-edge tile's bytes can be synthesised from the parent level. Replaces
+edge tile's bytes can be synthesized from the parent level. Replaces
 the v0.3 `ErrCorruptTile` return with a reconstruct call.
 
 **Files:**
@@ -1826,7 +1826,7 @@ Implement reconstruct in stages:
 3. **Wire into Tile().** When `_tile_is_corrupt(tile_point)` returns
    true, call reconstruct; otherwise the existing path.
 4. **Opt-in flag.** Add `Config.WithSVSReconstructEdges(bool)`,
-   default `false` for v0.4 (changes observable behaviour; v0.5 may
+   default `false` for v0.4 (changes observable behavior; v0.5 may
    flip the default).
 
 (Step bodies elided; full code is a mechanical port from the
@@ -2000,7 +2000,7 @@ project's git-safety conventions.)
 
 - [ ] **Step 4: Final report**
 
-Compose a brief report summarising what landed in v0.4 (suitable for
+Compose a brief report summarizing what landed in v0.4 (suitable for
 a release note); paste into the chat or a `docs/releases/v0.4.md` if
 the user wants a permanent record.
 

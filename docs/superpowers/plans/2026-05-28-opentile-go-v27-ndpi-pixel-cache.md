@@ -107,7 +107,7 @@ Makefile                              + bench-ndpi target running
                                          cmd/bench/ndpi against CMU-1.ndpi;
                                          fails if throughput < 130 Mpix/s.
 
-CHANGELOG.md                          v0.27.0 entry summarising the
+CHANGELOG.md                          v0.27.0 entry summarizing the
                                        architectural win + measured numbers.
 
 CLAUDE.md                             Update "Current milestone" block to

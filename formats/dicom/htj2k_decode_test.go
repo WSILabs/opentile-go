@@ -61,7 +61,7 @@ func TestDICOMHTJ2KDecode(t *testing.T) {
 
 // TestDICOMHTJ2KColorParity: the HTJ2K fixture is a lossless transcode of the
 // original JPEG 3DHISTECH-1, so the same-dimension tile must match closely
-// (any colour mishandling would show large diffs).
+// (any color mishandling would show large diffs).
 func TestDICOMHTJ2KColorParity(t *testing.T) {
 	base := os.Getenv("OPENTILE_TESTDIR")
 	if base == "" {

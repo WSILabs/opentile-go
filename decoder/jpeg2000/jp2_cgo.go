@@ -189,11 +189,11 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
 
     // Each component may be chroma-subsampled (4:2:2 / 4:2:0): comps[c].data
     // holds only comps[c].w * comps[c].h samples, NOT w*h. Index every
-    // component by its OWN geometry, nearest-neighbour upsampling subsampled
+    // component by its OWN geometry, nearest-neighbor upsampling subsampled
     // planes via the per-component subsampling factors dx/dy. Indexing all
     // three by a single i in [0, w*h) over-reads subsampled chroma planes
-    // (heap over-read -> intermittent SIGBUS and colour corruption).
-    // Mirrors OpenJPEG's own opj_decompress colour packing. See GH #7.
+    // (heap over-read -> intermittent SIGBUS and color corruption).
+    // Mirrors OpenJPEG's own opj_decompress color packing. See GH #7.
     opj_image_comp_t *c0 = &image->comps[0];
     opj_image_comp_t *c1 = &image->comps[1];
     opj_image_comp_t *c2 = &image->comps[2];
@@ -209,7 +209,7 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
             int i0 = (y / dy0) * w0 + (x / dx0);
             int i1 = (y / dy1) * w1 + (x / dx1);
             int i2 = (y / dy2) * w2 + (x / dx2);
-            // Defence in depth: clamp to each plane's sample count so an
+            // Defense in depth: clamp to each plane's sample count so an
             // inconsistent declared geometry can never drive an OOB read.
             if (i0 < 0) i0 = 0; else if (i0 >= n0) i0 = n0 - 1;
             if (i1 < 0) i1 = 0; else if (i1 >= n1) i1 = n1 - 1;
@@ -221,7 +221,7 @@ static int opj_jpeg2000_decode(const uint8_t *in, size_t in_len,
 
             int r, g, b;
             if (is_ycbcr) {
-                // Standard YCbCr -> RGB; chroma centred at 128.
+                // Standard YCbCr -> RGB; chroma centered at 128.
                 int Y  = v0;
                 int Cb = v1 - 128;
                 int Cr = v2 - 128;

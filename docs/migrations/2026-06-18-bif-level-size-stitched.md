@@ -28,7 +28,7 @@ dimensions in wsitools, openscope, or other consumers that may have stored the o
 raw extent should be invalidated and regenerated.
 
 `ReadRegion` and `ScaledStrips` (DZI conversion) output is now correctly stitched
-for DP-generation slides; the old output included seam artefacts where raw frame
+for DP-generation slides; the old output included seam artifacts where raw frame
 boundaries produced visible lines at the 1024-pixel grid spacing.
 
 ## Legacy iScan slides are also affected (#63)

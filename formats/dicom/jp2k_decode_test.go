@@ -72,7 +72,7 @@ func TestDICOMJP2KDecode(t *testing.T) {
 // TestDICOMJP2KColorParity confirms color/photometric correctness without a
 // Python oracle: the JP2K fixture is a *lossless* gdcmconv transcode of the
 // original JPEG-baseline 3DHISTECH-1, so decoding the same-dimension tile
-// from both must match within a tile (any colour-space mishandling would
+// from both must match within a tile (any color-space mishandling would
 // show large diffs). Skips unless both fixtures are present.
 func TestDICOMJP2KColorParity(t *testing.T) {
 	base := os.Getenv("OPENTILE_TESTDIR")

@@ -58,7 +58,7 @@ func parseWSIToolsDescription(desc string) (wsiToolsMetadata, bool) {
 		md.Version = rest
 	}
 
-	for _, tok := range tokeniseKVPairs(desc) {
+	for _, tok := range tokenizeKVPairs(desc) {
 		eq := strings.IndexByte(tok, '=')
 		if eq < 0 {
 			continue
@@ -116,7 +116,7 @@ func populateWSIToolsProperties(md *Metadata, desc string) {
 		}
 	}
 	// source / codec from kv pairs.
-	for _, tok := range tokeniseKVPairs(desc) {
+	for _, tok := range tokenizeKVPairs(desc) {
 		eq := strings.IndexByte(tok, '=')
 		if eq < 0 {
 			continue
@@ -136,9 +136,9 @@ func populateWSIToolsProperties(md *Metadata, desc string) {
 	}
 }
 
-// tokeniseKVPairs splits a wsi-tools ImageDescription line into
+// tokenizeKVPairs splits a wsi-tools ImageDescription line into
 // key=value tokens, treating double-quoted values as a single token.
-func tokeniseKVPairs(desc string) []string {
+func tokenizeKVPairs(desc string) []string {
 	var out []string
 	var current strings.Builder
 	inQuotes := false

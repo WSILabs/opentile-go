@@ -41,7 +41,7 @@ milestone.
 ## Universal task contract: "confirm upstream first"
 
 Every task starts with `Step 0: Confirm upstream` — names the
-upstream rule that governs the behaviour, states it, includes a
+upstream rule that governs the behavior, states it, includes a
 verification command. No task body proceeds until that command has
 been run.
 
@@ -273,7 +273,7 @@ follow-up work is clear.
 
 Pure interface evolution. Every existing format inherits 2D-only
 semantics via embedded defaults. Codebase compiles + every test
-passes after this batch with no behavioural change.
+passes after this batch with no behavioral change.
 
 ## Task 4: New `TileCoord` struct + `ErrDimensionUnavailable`
 
@@ -398,7 +398,7 @@ Apply to:
 - `image_test.go::*fakeLevel`
 
 - [ ] **Step 3: Verify.** `go build ./...`; `go vet ./...`;
-`go test ./... -count=1 -race` (every test stays green; behaviour
+`go test ./... -count=1 -race` (every test stays green; behavior
 unchanged).
 
 - [ ] **Step 4: Commit.** `feat(level): add TileAt(TileCoord) to
@@ -638,7 +638,7 @@ Pass `focus` into each `levelImpl` (or store on Tiler and have
 
 - [ ] **Step 6: Verify.** `go test ./formats/bif/... -count=1 -race`
 (all existing tests stay green — `imageDepth=1` path is unchanged
-behaviour).
+behavior).
 
 - [ ] **Step 7: Commit.** `feat(bif): multi-Z TileAt with
 IMAGE_DEPTH × tile-array stride`.
@@ -848,7 +848,7 @@ func (i *pyramidImage) ZPlaneFocus(z int) float64 {
 brightfield OME files (Leica fixtures), `<Pixels SizeC=3>` describes
 RGB sample count, NOT separately-stored channels. The reader's
 job is to figure out which is which. For v0.7, the simplest correct
-behaviour is:
+behavior is:
 
 - If `Channels` count == 1 (the typical RGB-stored-as-one-element
   case), report `SizeC() = 1` regardless of `<Pixels SizeC>`.

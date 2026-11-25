@@ -422,9 +422,9 @@ func resolveInstrument(om OMEMetadata, refID string) (OMEInstrument, bool) {
 	return OMEInstrument{}, false
 }
 
-// convertToMicrons normalises a PhysicalSize value + Unit attribute to
+// convertToMicrons normalizes a PhysicalSize value + Unit attribute to
 // microns/pixel. OME-TIFF convention treats a missing Unit attribute
-// as "µm", so absent / blank / unrecognised units pass through
+// as "µm", so absent / blank / unrecognized units pass through
 // unchanged (which is the right default for the vast majority of
 // OME-TIFF files).
 //

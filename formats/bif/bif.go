@@ -9,7 +9,7 @@
 // Detection is a single substring match (`<iScan` in any IFD's XMP)
 // shared by both spec-compliant DP slides and legacy iScan slides;
 // internal classification then routes each open file to a
-// spec-compliant or legacy behavioural path. See spec §4 for the
+// spec-compliant or legacy behavioral path. See spec §4 for the
 // branching rationale and `docs/deferred.md §1a` for the v0.7
 // deviations from upstream Python opentile.
 //

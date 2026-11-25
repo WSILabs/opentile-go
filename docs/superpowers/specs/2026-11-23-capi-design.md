@@ -479,7 +479,7 @@ single change, so no compatibility aliases are planned.
 1. **Handle:** `uint64_t` table handle, not an opaque pointer. A pointer would
    be fake, since Go can't safely hand out real ones, and the table catches
    stale or double-closed handles.
-2. **Colour management:** per call (`OT_DECODE_SRGB`), not per handle.
+2. **Color management:** per call (`OT_DECODE_SRGB`), not per handle.
 3. **Pyramid:** an explicit argument on every level-scoped call.
 4. **Scope:** `ScaledStrips` deferred; `ot_read_region_scaled` and
    `ot_tile_stitched` are in v1.

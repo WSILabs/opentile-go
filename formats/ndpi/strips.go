@@ -34,7 +34,7 @@ type StripInfo struct {
 // readStripes parses NDPI pyramid-level strip metadata from page p.
 //
 // If the page does NOT carry tag 65426 (McuStarts), readStripes returns
-// (nil, nil) — signalling that the level is a true one-frame image and
+// (nil, nil) — signaling that the level is a true one-frame image and
 // the caller should fall back to the oneFrameImage path.
 //
 // If the tag IS present, this function:

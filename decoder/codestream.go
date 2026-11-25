@@ -51,8 +51,8 @@ type CodestreamInfo struct {
 	// opentile itself performs. Unlike ColorEncoding (the stored codestream
 	// colorspace, what a frame-copy preserves), this is what the pixels are in
 	// once decoded: JPEG 2000 MCT codestreams report RGB (the library inverts
-	// the MCT); an sYCC or unsignalled Aperio-33003 raw codestream reports
-	// YCbCr (opentile converts it); JPEG and JPEG XL colour tiles, and htj2k,
+	// the MCT); an sYCC or unsignaled Aperio-33003 raw codestream reports
+	// YCbCr (opentile converts it); JPEG and JPEG XL color tiles, and htj2k,
 	// report RGB (their libraries convert / opentile applies no chroma
 	// conversion); single-component tiles report Grayscale.
 	//

@@ -55,7 +55,7 @@ v0.45.1, [#53](https://github.com/WSILabs/opentile-go/issues/53)); JP2K
 | R6 | 3DHistech TIFF | parked | parked behind [#2](https://github.com/WSILabs/opentile-go/issues/2). Single-file conversion target produced by 3DHistech software; rare in practice. Trigger to take it on is a real slide. Upstream opentile has a ~200 LOC reader; cheap to revive if motivated. (The multi-file *native* MRXS source format is a separate, larger effort — tracked at [#100](https://github.com/WSILabs/opentile-go/issues/100).) |
 | R7 | OME TIFF | v0.6 | ✅ landed. Closes the upstream-opentile format set; SubIFD-based pyramid + multi-image deviation + dual-reference parity (opentile-py + tifffile). |
 | R8 | BigTIFF support | v0.2 | ✅ landed (Batch 1) |
-| R9 | JPEG 2000 decode | ✅ landed | JP2K **decode** is supported (OpenJPEG via `decoder/jpeg2000`; `JP2K-33003-1.svs` reads in CI; RGB/YCbCr codestream fix v0.45.1 [#53](https://github.com/WSILabs/opentile-go/issues/53)). Native JP2K tile passthrough (the v0.1+ behaviour) is unaffected. **JP2K encode is struck** — opentile-go is a reader; tile encoding is writer-side (wsitools), out of scope, not a roadmap item. |
+| R9 | JPEG 2000 decode | ✅ landed | JP2K **decode** is supported (OpenJPEG via `decoder/jpeg2000`; `JP2K-33003-1.svs` reads in CI; RGB/YCbCr codestream fix v0.45.1 [#53](https://github.com/WSILabs/opentile-go/issues/53)). Native JP2K tile passthrough (the v0.1+ behavior) is unaffected. **JP2K encode is struck** — opentile-go is a reader; tile encoding is writer-side (wsitools), out of scope, not a roadmap item. |
 | R10 | Remote I/O backends (S3, HTTP range, fsspec equivalents) | out-of-scope; consumers supply `io.ReaderAt` | permanent |
 | R11 | Python parity oracle under `//go:build parity` | v0.2 | ✅ landed (Task 25-26, Batch 7) |
 | R12 | CLI wrapper | out-of-scope for v1 | permanent |
@@ -75,21 +75,21 @@ v0.45.1, [#53](https://github.com/WSILabs/opentile-go/issues/53)); JP2K
 
 ## 1a. Deviations from upstream Python opentile
 
-Behaviours where opentile-go intentionally differs from upstream
-Python opentile 0.20.0. Each entry names the upstream behaviour, our
+Behaviors where opentile-go intentionally differs from upstream
+Python opentile 0.20.0. Each entry names the upstream behavior, our
 deviation, and why. This section is the canonical source of truth;
 README.md and per-format docs link here.
 
-### NDPI synthesised label (since v0.2)
+### NDPI synthesized label (since v0.2)
 
 - **Upstream:** `NdpiTiler.labels` returns empty — Python opentile does
   not surface NDPI labels at all.
-- **opentile-go:** synthesises a label by cropping the left 30% of the
+- **opentile-go:** synthesizes a label by cropping the left 30% of the
   overview page (`formats/ndpi/associated.go::newLabelImage`).
   Disable via `opentile.WithNDPISynthesizedLabel(false)`.
 - **Reason:** Aperio-style label affordance is more useful for
   downstream consumers than nothing; opt-out preserves the upstream
-  no-label behaviour for callers that need it.
+  no-label behavior for callers that need it.
 - **Tracking:** L14 in §2 below.
 
 ### NDPI Map page surfacing (since v0.4)
@@ -162,7 +162,7 @@ README.md and per-format docs link here.
   `overview` / `macro` / `thumbnail` / `label` / `map` kind taxonomy
   via the new `kind="probability"` enum value.
 - **Reason:** the slide author embedded the probability map; throwing
-  it away is value loss. Consumers that don't recognise the kind
+  it away is value loss. Consumers that don't recognize the kind
   iterate-and-skip cleanly via the existing `Associated()` API.
 - **Tracking:** see [`docs/formats/bif.md`](formats/bif.md).
 
@@ -438,7 +438,7 @@ README.md and per-format docs link here.
 
 ## 2. Active limitations (open after v0.3)
 
-Real behaviour gaps that have not been closed. Each entry's **Severity**
+Real behavior gaps that have not been closed. Each entry's **Severity**
 field declares whether it's a permanent design choice (the library
 cannot reasonably address it without breaking compatibility) or a
 v0.4 work-item (a real fix is queued for the existing-format
@@ -501,7 +501,7 @@ completeness milestone). Items closed during v0.3 are listed in §5.
 - **Severity:** v0.8+ — input-data-dependent. The
   `strings.HasPrefix(scannerModel, "VENTANA DP")` rule lands future
   DP scanners on the spec-compliant path automatically; if a real
-  DP 600 (or later) fixture surfaces a behavioural difference (Z-stack
+  DP 600 (or later) fixture surfaces a behavioral difference (Z-stack
   default, varying overlap distribution, new XMP attributes), it'll
   be a deviation to fold into §1a above.
 - **Tracked at:** [#99](https://github.com/WSILabs/opentile-go/issues/99)
@@ -521,7 +521,7 @@ BIF in `sample_files/`). The work was executed sequentially on
 now parses METADATA + ATTRIBUTES + IMAGE_ARRAY + ICC_PROFILE (skips
 ANNOTATIONS). `Tiler.Metadata()` surfaces magnification from the
 header; `Tiler.ICCProfile()` returns the embedded color profile;
-`Tiler.Associated()` exposes the IMAGE_ARRAY entries with normalised
+`Tiler.Associated()` exposes the IMAGE_ARRAY entries with normalized
 kinds ("thumbnail" / "label" / "overview" / "macro" / "map" /
 "probability"; unknown titles surface lowercased). New
 `ife.MetadataOf(tiler)` accessor returns IFE-specific fields:
@@ -553,7 +553,7 @@ L25 below — fixture-driven; cervix has no annotations.
   + synthetic-writer unit tests as the correctness bar; cross-tool
   byte-equality vs `tile_server_iris` HTTP output remains a future
   follow-up.
-- IFE has no Python analogue (tifffile / opentile-py don't read it),
+- IFE has no Python analog (tifffile / opentile-py don't read it),
   so v0.7's tifffile + opentile parity oracles don't port. Coverage
   is `TestSlideParity` SHA hashes against `cervix_2x_jpeg.ife.json`
   + `tests/parity/ife_geometry_test.go` per-fixture pinning + the
@@ -795,8 +795,8 @@ L25 below — fixture-driven; cervix has no annotations.
   so this is correct in practice. But a *no-MCT* codestream that signals sYCC
   (enumerated colorspace 18) stores genuine YCbCr with no transform to invert;
   openjph hands those planes back as-is and opentile would emit them as RGB
-  without converting → wrong colours. This is exactly why the #112
-  `DecodedColorSpace` for htj2k is derived by **component count** (colour →
+  without converting → wrong colors. This is exactly why the #112
+  `DecodedColorSpace` for htj2k is derived by **component count** (color →
   `RGB`), *not* by the jpeg2000 decode-policy rule (which would report
   `YCbCr` here) — the field honestly reports what opentile actually decodes.
 - **How to fix if a fixture surfaces:** add an sYCC-no-MCT branch to the htj2k
@@ -876,13 +876,13 @@ locks the change in.
 - **N-3** — Cache luma DC per level via `CropOpts` (`108e6da`)
 - **N-4** — DQT lookup walks segments before byte-scan (`d40c6d2`)
 - **N-5** — `WithNDPISynthesizedLabel(bool)` option (`cf8889d`)
-- **N-6** — Chroma DC=0 visual behaviour documented (`b6b6234`)
+- **N-6** — Chroma DC=0 visual behavior documented (`b6b6234`)
 - **N-7** — `%w` wrapping audit in `formats/ndpi` (`308d5ad`)
 - **N-9** — NDPI sniff cross-cutting peek documented (`b6b6234`)
 
 **N-numbered items closed as not-applicable (architecture changed since plan was written):**
 
-- **I4 / N-? (Assembler)** — Plan proposed an `Assembler` type to precompute the JPEG header prefix per level. NDPI striped already amortises the prefix work via per-frameSize header caching in `getPatchedHeader`; SVS associated `Bytes()` is called rarely enough that per-call overhead doesn't show in profiles. The optimisation didn't apply.
+- **I4 / N-? (Assembler)** — Plan proposed an `Assembler` type to precompute the JPEG header prefix per level. NDPI striped already amortizes the prefix work via per-frameSize header caching in `getPatchedHeader`; SVS associated `Bytes()` is called rarely enough that per-call overhead doesn't show in profiles. The optimization didn't apply.
 - **I5** — Plan proposed a defensive RSTn count check requiring "exactly 1 RSTn per fragment." Aperio SVS strips legitimately carry multiple internal RSTn markers (one per encoder restart-interval row); enforcing exactly-1 would error on valid inputs.
 - **N-10** — Plan proposed inverting striped Tile()'s Crop fall-through to choose the helper up front by geometry. The `extendsBeyond` heuristic is broader than "Crop errored," so the inversion changes which tiles take the OOB-fill code path → different bytes via a different libjpeg-turbo transform path. Reverted with an inline comment naming the divergence (`acc2282`).
 
@@ -964,7 +964,7 @@ that locks the change in.
   byte-by-byte (the easily-missed `i += 1` at line 6540) corrected
   this: N PS entries → N-1 corrected sizes, with the first PS entry
   calibrating only.
-- The synthesised-XML metadata tests passed under a flat
+- The synthesized-XML metadata tests passed under a flat
   `encoding/xml` schema, but the real Philips fixtures wrap
   level-specific Attributes inside `PIM_DP_SCANNED_IMAGES > Array >
   DataObject`. Smoke test against real fixtures forced a rewrite to
@@ -1596,7 +1596,7 @@ validator-cap relaxations to handle real Grundium scanner output.
 
 - **`formats/leicascn` package** — Factory + Detection + Tiler +
   Level + AssociatedImage covering all 3 openslide-testdata SCN
-  fixtures. Multi-region composite levels with synthesised blank-
+  fixtures. Multi-region composite levels with synthesized blank-
   tile fill for inter-region gaps; multi-channel `TileAt` for
   fluorescence.
 - **`opentile.FormatLeicaSCN` Format constant** (`"leica-scn"`).
@@ -1723,7 +1723,7 @@ deferred work.
   concat (libtiff RST-marker layout); multi-strip LZW decode +
   re-encode (lifted from `formats/svs/lzwlabel.go`'s pattern).
   Multi-strip Deflate and tiled associated images are silently
-  dropped per spec §6 — IFD recognised but not exposed.
+  dropped per spec §6 — IFD recognized but not exposed.
 - **`generictiff.Metadata` + `generictiff.MetadataOf`** — format-specific
   metadata via the established pattern (mirrors
   `svs.MetadataOf`, `bif.MetadataOf`). `MicronsPerPixel` derived
@@ -2063,7 +2063,7 @@ plan tasks across 5 batches, executed sequentially.
   returned the wrong sentinel for `imageDepth=1` + `Z=1`.
 - T12: existing `formats/ome/metadata_test.go` golden assertions
   needed updates because the parser previously dropped
-  SizeZ/C/T silently — exposing them honestly was a behavioural
+  SizeZ/C/T silently — exposing them honestly was a behavioral
   change at the test surface.
 
 **OME deferral (carried forward):**
@@ -2276,12 +2276,12 @@ Each gate decides a done-when bar or fix path for subsequent tasks.
   | OS-1.bif | 10 | L8 | 1 | 0 | |
   | OS-1.bif | 11 | L9 | 1 | 0 | |
 
-  **Implication for Task 14:** Both fixtures are single-AOI scans with complete tile coverage — no real empty tiles to validate the blank-fill path. Task 14 (empty-tile synthesis testing) must include a synthetic BIF-XMP test fixture with explicit empty tiles. The spec's encoding is confirmed as sufficient discriminator; the implementation path (fill with `ScanWhitePoint`-coloured JPEG) has no in-fixture validation opportunity.
+  **Implication for Task 14:** Both fixtures are single-AOI scans with complete tile coverage — no real empty tiles to validate the blank-fill path. Task 14 (empty-tile synthesis testing) must include a synthetic BIF-XMP test fixture with explicit empty tiles. The spec's encoding is confirmed as sufficient discriminator; the implementation path (fill with `ScanWhitePoint`-colored JPEG) has no in-fixture validation opportunity.
 
 #### Task 5 — ScanWhitePoint extraction gate
 
 - **Date:** 2026-04-27
-- **Outcome:** Both fixtures probe successfully for the `ScanWhitePoint` XMP attribute. Ventana-1.bif carries `ScanWhitePoint="235"` (spec-compliant iScan, DP 200 scanner); OS-1.bif returns missing (legacy iScan, no ScannerModel attribute). Matches the design assumption exactly. When `ScanWhitePoint` is absent, the blank-tile filler (Task 9, invoked by Task 14) defaults to RGB 255 (true white). This aligns with typical TIFF and openslide conventions for unspecified fill colour. Forward reference: Tasks 9 (blank-tile generator) and 14 (empty-tile path) will read this value to fill empty tiles; the precise extraction and JPEG-encoding details are specified when those tasks execute.
+- **Outcome:** Both fixtures probe successfully for the `ScanWhitePoint` XMP attribute. Ventana-1.bif carries `ScanWhitePoint="235"` (spec-compliant iScan, DP 200 scanner); OS-1.bif returns missing (legacy iScan, no ScannerModel attribute). Matches the design assumption exactly. When `ScanWhitePoint` is absent, the blank-tile filler (Task 9, invoked by Task 14) defaults to RGB 255 (true white). This aligns with typical TIFF and openslide conventions for unspecified fill color. Forward reference: Tasks 9 (blank-tile generator) and 14 (empty-tile path) will read this value to fill empty tiles; the precise extraction and JPEG-encoding details are specified when those tasks execute.
 
 ### v0.6 gates
 
@@ -2363,7 +2363,7 @@ Each gate decides a done-when bar or fix path for subsequent tasks.
 - **Cross-check:** OME OneFrame levels also use single-strip
   JPEG-compressed pages whose strip bytes start with SOI+JFIF
   (self-contained — `jpegtables=None` on every OME fixture page).
-  No JPEGTables splice required. Behaviour matches what
+  No JPEGTables splice required. Behavior matches what
   `formats/ndpi/oneframe.go` already does.
 - **Consequence:** Task 10 factors the body into `internal/oneframe/`.
   NDPI and OME both import it. Format-specific bits (MPP, pyramid
@@ -2441,8 +2441,8 @@ Each gate decides a done-when bar or fix path for subsequent tasks.
   - **Always present (4/4):** `DICOM_PIXEL_SPACING` (per-level series, count varies 9-11), `DICOM_BITS_ALLOCATED` (8), `DICOM_BITS_STORED` (8), `DICOM_HIGH_BIT` (7), `DICOM_LOSSY_IMAGE_COMPRESSION_METHOD`, `DICOM_LOSSY_IMAGE_COMPRESSION_RATIO`, `DICOM_MANUFACTURER`, `DICOM_PIXEL_REPRESENTATION` (0), `DICOM_SOFTWARE_VERSIONS`.
   - **Sometimes missing (1/4):** `DICOM_ACQUISITION_DATETIME` (only in Philips-4: `'20160718122300.000000'`), `DICOM_DEVICE_SERIAL_NUMBER` (only in Philips-4: `'FMT0107'`). Parser must return zero/empty for these on the other 3 fixtures.
   - **Multi-value strings** (space-separated, quoted): `DICOM_SOFTWARE_VERSIONS` (e.g. `'"1.6.6186" "20150402_R48" "4.0.3"'` on Philips-4), `DICOM_LOSSY_IMAGE_COMPRESSION_METHOD` (e.g. `'"PHILIPS_DP_1_0" "PHILIPS_TIFF_1_0"'`), `DICOM_LOSSY_IMAGE_COMPRESSION_RATIO`. Parser strips quotes and splits on whitespace.
-  - **Scanner manufacturer is not always "Philips":** Philips-1 + Philips-3 say `Hamamatsu`, Philips-2 says `3D Histech`, Philips-4 says `PHILIPS`. The format is open — non-Philips scanners can emit Philips TIFF. Surfacing the actual manufacturer string verbatim is correct (no normalisation).
-  - **`DICOM_PIXEL_SPACING` example value:** `'"0.000226891" "0.000226907"'` — quoted, space-separated `(W, H)` in metres-per-pixel. Floats with quotes around each. Parser strips quotes and splits.
+  - **Scanner manufacturer is not always "Philips":** Philips-1 + Philips-3 say `Hamamatsu`, Philips-2 says `3D Histech`, Philips-4 says `PHILIPS`. The format is open — non-Philips scanners can emit Philips TIFF. Surfacing the actual manufacturer string verbatim is correct (no normalization).
+  - **`DICOM_PIXEL_SPACING` example value:** `'"0.000226891" "0.000226907"'` — quoted, space-separated `(W, H)` in meters-per-pixel. Floats with quotes around each. Parser strips quotes and splits.
   - **`DICOM_ACQUISITION_DATETIME` format:** `'20160718122300.000000'` — Go layout: `"20060102150405.000000"`. Microseconds are always zero in our one example.
 - **Consequence:** Task 11 (PhilipsTiffMetadata XML parser) handles missing values via Optional / pointer-to-T patterns, splits on whitespace + strips `"` for the multi-value string fields, parses dates with the documented Go layout. No additional disambiguation needed beyond what upstream's parser already encodes.
 
@@ -2581,7 +2581,7 @@ throughput catch costs the CPU profile alone hides.
 v0.9 is a sole-focus performance milestone (mmap default, `TileInto`,
 `TileMaxSize`, `WarmLevel`, splice template, concurrency-contract
 docs). Per owner instruction (2026-05-01), every other deferred work
-item is parked here as a single backlog list to be re-prioritised
+item is parked here as a single backlog list to be re-prioritized
 once v0.9 ships. This is **not** a re-classification of the items
 themselves — they retain their existing severity tags in §2 above —
 just a unified view that says "we'll decide what's next after v0.9
@@ -2809,7 +2809,7 @@ Probed 2026-05-05.
   same way (3-level series + 1-level series). v0.11 options:
   (a) bump `LeftoverTiledMaxAreaRatio` to ~5%, silently dropping
   the orphan; (b) attempt multiple chain candidates and pick the
-  one that minimises leftovers; (c) surface the orphan as a
+  one that minimizes leftovers; (c) surface the orphan as a
   format-specific Level via a new "supplementary level" surface.
   Option (a) is the simplest path and may be the right v0.11
   default given how often Grundium-style mixed-ratio chains

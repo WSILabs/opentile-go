@@ -65,7 +65,7 @@ Pyramid construction short-circuits when every tiled IFD carries `WSILevelIndex`
 | Tiled levels (any compression) | ✅ passthrough | Source-format preserving (JPEG / JP2K / LZW / Deflate / WebP / JPEG XL / AVIF / HTJ2K) — same compression matrix as generic-TIFF |
 | Native-first level ordering | ✅ | Driven by `WSILevelIndex` tag, not geometric inference |
 | `Tile`, `TileInto`, `TileReader` | ✅ | Delegated to inner `generictiff.Tiler`; zero-alloc per v0.9 `TileMaxSize` buffer pattern |
-| `TilePrefix` / `TileBodyInto` / `TileBodyMaxSize` (v0.13 splice API) | ✅ | Delegated; behaviour matches generic-TIFF for the underlying codec |
+| `TilePrefix` / `TileBodyInto` / `TileBodyMaxSize` (v0.13 splice API) | ✅ | Delegated; behavior matches generic-TIFF for the underlying codec |
 | `Tiles(ctx)` row-major iterator | ✅ | Standard pattern |
 | `WarmLevel(i)` page-cache pre-warm | ✅ | Standard v0.9 pattern |
 | Cross-format `opentile.Metadata` | ✅ | Populated from WSI private tags (see Metadata below) |

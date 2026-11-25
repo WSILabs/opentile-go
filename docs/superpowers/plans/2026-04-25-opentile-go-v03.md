@@ -2496,11 +2496,11 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 In `internal/jpegturbo/turbo.go`:
 ```go
 // CropOpts is an optional argument to CropWithBackgroundLuminance. Callers
-// that already know the source's luma DC quantisation value pass the
+// that already know the source's luma DC quantization value pass the
 // pre-computed luma DC coefficient via DCBackground; otherwise the cgo
 // path re-parses the source's DQT on every call.
 type CropOpts struct {
-	// DCBackground is the post-quantisation DC coefficient to plant in OOB
+	// DCBackground is the post-quantization DC coefficient to plant in OOB
 	// luma blocks. If zero, the cgo path computes it from
 	// (luminance, source's luma DQT). Pass non-zero to skip the per-call
 	// DQT parse.
@@ -2553,7 +2553,7 @@ In `formats/ndpi/oneframe.go` and `formats/ndpi/striped.go`, the level structs g
 ```go
 type oneFrameImage struct {
 	// ... existing fields ...
-	dcBackground int // post-quantisation DC for white-fill (0 if not yet computed)
+	dcBackground int // post-quantization DC for white-fill (0 if not yet computed)
 }
 ```
 
@@ -2693,7 +2693,7 @@ In `internal/jpeg/concat.go`:
 ```go
 // Assembler precomputes the header prefix for a fixed JPEGTables /
 // ColorspaceFix / first-fragment-SOF combination. Callers that assemble
-// many tiles from the same source amortise the SplitJPEGTables and
+// many tiles from the same source amortize the SplitJPEGTables and
 // first-fragment-parsing work over all calls.
 //
 // Assemble takes new fragments and returns a complete JPEG bytestream.

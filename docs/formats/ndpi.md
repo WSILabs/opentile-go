@@ -14,11 +14,11 @@ Hamamatsu's NanoZoomer scanner output. File extension `.ndpi`. Common in patholo
 | Capability | Status | Notes |
 |---|---|---|
 | Striped pyramid levels | ✅ | Per-frame assembly from RST-bounded stripes; tile output via libjpeg-turbo MCU-aligned crop |
-| OneFrame pyramid levels | ✅ | Single big JPEG per page, virtualised into tile cells via `internal/oneframe` (factored in v0.6 from `formats/ndpi/oneframe.go`) |
+| OneFrame pyramid levels | ✅ | Single big JPEG per page, virtualized into tile cells via `internal/oneframe` (factored in v0.6 from `formats/ndpi/oneframe.go`) |
 | Edge-tile out-of-bounds fill | ✅ | DCT-domain white fill via libjpeg-turbo CUSTOMFILTER, matching Python's `__need_fill_background` gate exactly (L12 fix in v0.4) |
 | 64-bit offset extension | ✅ | Files >4 GB (`Hamamatsu-1.ndpi` exercises this) |
 | Associated overview | ✅ | The `Magnification == -1.0` page; cropped + pixel-equivalent re-encode |
-| Associated label (synthesised) | ✅ deviation | Cropped from the left 30% of overview — Go-side extension. Disable with `opentile.WithNDPISynthesizedLabel(false)` |
+| Associated label (synthesized) | ✅ deviation | Cropped from the left 30% of overview — Go-side extension. Disable with `opentile.WithNDPISynthesizedLabel(false)` |
 | Associated Map pages | ✅ deviation | The `Magnification == -2.0` page (single-channel grayscale uncompressed strip) surfaced as `AssociatedImage` with `Type() == "map"`. Go-side extension; Python opentile filters them out |
 | Format-specific metadata | ✅ via `ndpi.MetadataOf(t)` — source-lens magnification, focal offset, scanner serial |
 
@@ -43,13 +43,13 @@ None of our 3 local NDPI fixtures (`CMU-1.ndpi`, `OS-2.ndpi`, `Hamamatsu-1.ndpi`
 
 ## Parity
 
-**Byte-identical to Python opentile 0.20.0** on every sampled tile + every associated image (except synthesised label and Map page — see Deviations below), across our 3 fixtures. Verified by `tests/oracle/parity_test.go`.
+**Byte-identical to Python opentile 0.20.0** on every sampled tile + every associated image (except synthesized label and Map page — see Deviations below), across our 3 fixtures. Verified by `tests/oracle/parity_test.go`.
 
 ## Deviations from upstream Python opentile
 
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|
-| Synthesised label cropped from overview | v0.2 | `opentile.WithNDPISynthesizedLabel(false)` | Upstream's `NdpiTiler.labels` returns empty — Python opentile does not surface NDPI labels at all. Aperio-style label affordance is more useful for downstream consumers. (L14 in `docs/deferred.md`) |
+| Synthesized label cropped from overview | v0.2 | `opentile.WithNDPISynthesizedLabel(false)` | Upstream's `NdpiTiler.labels` returns empty — Python opentile does not surface NDPI labels at all. Aperio-style label affordance is more useful for downstream consumers. (L14 in `docs/deferred.md`) |
 | Map pages exposed as `AssociatedImage` | v0.4 | not opt-out-able | tifffile already classifies `series.name == 'Map'`; surfacing matches what the underlying TIFF carries. Upstream chose not to. (R13 in `docs/deferred.md`) |
 
 ## Cross-format Metadata mapping (v0.17)

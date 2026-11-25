@@ -58,6 +58,6 @@ func TestExplicitBudgetIgnoresGOMEMLIMIT(t *testing.T) {
 	t.Cleanup(func() { debug.SetMemoryLimit(prev) })
 	c := newConfig([]Option{WithMemoryBudget(900_000_000)})
 	if got := c.resolveMemoryBudget(); got != 900_000_000 {
-		t.Fatalf("explicit budget must be honoured verbatim: got %d", got)
+		t.Fatalf("explicit budget must be honored verbatim: got %d", got)
 	}
 }

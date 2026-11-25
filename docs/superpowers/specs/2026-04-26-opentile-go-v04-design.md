@@ -16,13 +16,13 @@ documented as design choices.
 
 ## 2. Universal task contract: "confirm upstream first"
 
-Every task in the v0.4 plan must reference upstream behaviour before
+Every task in the v0.4 plan must reference upstream behavior before
 writing a line of production code. The rule that landed in
 `feedback_no_guessing.md` and the v0.2 / v0.3 invariants section of
 `CLAUDE.md` is now structural — each task body in the plan starts with
 a `Step 0: Confirm upstream` action that names:
 
-- The upstream file path + line range that governs the behaviour
+- The upstream file path + line range that governs the behavior
   (typically under `imi-bigpicture/opentile`, `cgohlke/tifffile`, or
   `imagecodecs`).
 - A one-line statement of the rule the Go implementation must match.
@@ -40,9 +40,9 @@ extended. The point is to make it impossible for a task to begin with
 Two failure modes this prevents:
 1. Re-introducing a bug we already paid to fix (multiple v0.2 cycles
    were spent re-discovering tag layouts that tifffile documents).
-2. Inventing behaviour upstream doesn't have, then fighting parity
+2. Inventing behavior upstream doesn't have, then fighting parity
    tests forever (the v0.3 N-10 task's "extendsBeyond" inversion got
-   reverted because the optimisation produced different bytes from
+   reverted because the optimization produced different bytes from
    upstream — could have been caught by reading upstream first).
 
 ## 3. Themes
@@ -60,7 +60,7 @@ Two failure modes this prevents:
 | ID | What | Mechanism |
 |---|---|---|
 | R9 | JPEG 2000 decode/encode | New `internal/openjp2/` cgo package, scoped like `internal/jpegturbo/`. `Decode` + `Encode` mirroring imagecodecs' options (`level=80, codecformat=J2K, colorspace=SRGB, mct=True, reversible=False, bitspersample=8`). `nocgo` build-tag stubs return `ErrCGORequired`. |
-| R4 | Aperio SVS corrupt-edge reconstruct | Port upstream's `_detect_corrupt_edges` (`opentile/formats/svs/svs_image.py:267-291`) and `_get_scaled_tile` / `_get_fixed_tile` (`svs_image.py:301-396`). For corrupt edge tiles, decode neighbours from the higher-resolution parent level, paste into a scratch raster, BILINEAR-resize, re-encode in the page's compression. JPEG path uses libjpeg-turbo encode; JP2K path uses the new openjp2 binding. |
+| R4 | Aperio SVS corrupt-edge reconstruct | Port upstream's `_detect_corrupt_edges` (`opentile/formats/svs/svs_image.py:267-291`) and `_get_scaled_tile` / `_get_fixed_tile` (`svs_image.py:301-396`). For corrupt edge tiles, decode neighbors from the higher-resolution parent level, paste into a scratch raster, BILINEAR-resize, re-encode in the page's compression. JPEG path uses libjpeg-turbo encode; JP2K path uses the new openjp2 binding. |
 
 ### Theme C — JIT verification gates (run before Theme A or B sink real work)
 
@@ -85,7 +85,7 @@ tasks. Each has explicit success / failure branches:
    permanently. If only through our wrapper, fix locally. Determines
    whether L12 is a 30-minute task or a multi-week one.
 4. **R4 mechanism audit** — read `_get_scaled_tile` and confirm the
-   chain (decode neighbours → BILINEAR resize → re-encode). Identify
+   chain (decode neighbors → BILINEAR resize → re-encode). Identify
    the Go-side image-processing dependency: stdlib `image` + a
    handwritten BILINEAR-equivalent resize, or a third-party package.
    The gate's outcome shapes Theme B's task list.
@@ -99,7 +99,7 @@ README + CLAUDE.md milestone bump, final `make cover` / `go vet` /
 ## 4. Out-of-scope (deferred to v0.5+)
 
 - New format support (R5 Philips, R6 3DHistech, R7 OME).
-- Permanent items (L4 missing MPP, L5 NDPI sniff, L14 NDPI synthesised
+- Permanent items (L4 missing MPP, L5 NDPI sniff, L14 NDPI synthesized
   label, R10 remote I/O, R12 CLI). These stay documented in §2 and §1
   respectively.
 - Anything beyond the four roadmap items + three L-items called out in

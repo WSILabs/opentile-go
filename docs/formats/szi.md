@@ -95,7 +95,7 @@ than rejected.
 
 ### The DZI/OpenSeadragon overlap model (applies to SZI)
 
-Each stored tile carries `Overlap` extra pixels on every edge that has a neighbour:
+Each stored tile carries `Overlap` extra pixels on every edge that has a neighbor:
 left border when `col > 0`, top border when `row > 0`, right/bottom borders when
 not the last column/row. The content cell is unchanged; it sits at offset
 `(col>0 ? Overlap : 0, row>0 ? Overlap : 0)` inside the stored tile. Edge tiles
@@ -120,7 +120,7 @@ at the right/bottom boundary are stored UNPADDED at their actual content size.
 - `Level.Grid` still tiles `Level.Size` exactly (unlike BIF's `OverlapStitched`
   where the grid does not tile Size).
 
-`Overlap = 0` reads are byte-identical to prior behaviour; `Level.OverlapMode ==
+`Overlap = 0` reads are byte-identical to prior behavior; `Level.OverlapMode ==
 OverlapNone` and `Level.Overlapping == false`.
 
 ## What's not supported
@@ -199,7 +199,7 @@ No upstream byte-equality oracle: SZI is beyond Python opentile's coverage. The 
 
 ## Deviations from upstream Python opentile
 
-Upstream Python opentile doesn't read SZI, so every v0.16 behaviour in this package is technically a deviation. The interesting one — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — is:
+Upstream Python opentile doesn't read SZI, so every v0.16 behavior in this package is technically a deviation. The interesting one — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — is:
 
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|

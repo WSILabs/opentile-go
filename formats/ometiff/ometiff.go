@@ -73,7 +73,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 	}
 
 	// Default OneFrame tile size: derive from first main pyramid's base page.
-	// cfg is ignored for OME (mirrors upstream Python opentile behaviour).
+	// cfg is ignored for OME (mirrors upstream Python opentile behavior).
 	oneFrameTileSize, err := defaultOneFrameTileSizeFromFile(pages, cls.LevelImages)
 	if err != nil {
 		return nil, err

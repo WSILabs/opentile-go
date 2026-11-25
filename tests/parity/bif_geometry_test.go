@@ -54,7 +54,7 @@ var bifFixtures = []bifFixture{
 			// (raw frame addressing unchanged). See GH #60 / stitch.go.
 			{W: 23432, H: 21504, TileW: 1024, TileH: 1024, GridW: 24, GridH: 21, OverlapX: 2, OverlapY: 0},
 			// L1-L7 derive from the L0 stitched hull via floor-halving (#78):
-			// Size = floor(L0_size / 2^i), matching bio-formats behaviour.
+			// Size = floor(L0_size / 2^i), matching bio-formats behavior.
 			// Grid stays at the raw frame count (12, 6, 3, 2, 1, 1, 1).
 			{W: 11716, H: 10752, TileW: 1024, TileH: 1024, GridW: 12, GridH: 11},
 			{W: 5858, H: 5376, TileW: 1024, TileH: 1024, GridW: 6, GridH: 6},

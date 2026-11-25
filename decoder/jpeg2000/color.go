@@ -15,7 +15,7 @@ const (
 // decodedColorSpaceFromHeader reports the colorspace of the planes OpenJPEG hands
 // opentile's jpeg2000 decoder, before its YCbCr→RGB normalization. It is the
 // decode-policy counterpart to the stored ColorEncoding: an MCT codestream
-// decodes to RGB (OpenJPEG inverts the MCT); an sYCC box or an unsignalled raw
+// decodes to RGB (OpenJPEG inverts the MCT); an sYCC box or an unsignaled raw
 // codestream (the Aperio-33003 convention) is treated as YCbCr and converted; a
 // single component is grayscale.
 func decodedColorSpaceFromHeader(h j2kheader.Info) decoder.ColorEncoding {

@@ -74,7 +74,7 @@ func TestL12OOBFillIsWhite(t *testing.T) {
 		}
 	}
 	// Belt-and-braces: an in-image pixel (col < 896) must NOT be the
-	// OOB-fill colour. If a future regression makes everything white,
+	// OOB-fill color. If a future regression makes everything white,
 	// this guard catches it.
 	r, g, b, _ := img.At(100, 100).RGBA()
 	r8, g8, b8 := r>>8, g>>8, b>>8

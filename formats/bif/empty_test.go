@@ -53,7 +53,7 @@ func TestEmptyTilePathReturnsBlank(t *testing.T) {
 	if len(tile) < 4 || tile[0] != 0xFF || tile[1] != 0xD8 {
 		t.Fatalf("blank tile not a JPEG: first bytes %x", tile[:min(8, len(tile))])
 	}
-	// Decode and sample the centre pixel.
+	// Decode and sample the center pixel.
 	img, err := jpeg.Decode(bytes.NewReader(tile))
 	if err != nil {
 		t.Fatalf("decode blank tile: %v", err)

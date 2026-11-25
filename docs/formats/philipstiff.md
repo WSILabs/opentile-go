@@ -46,7 +46,7 @@ Matches upstream Python opentile. SZI/DZI is the exception — its readers retur
 
 ## Deviations from upstream
 
-None. Behaviour matches Python opentile 0.20.0 exactly.
+None. Behavior matches Python opentile 0.20.0 exactly.
 
 ## Cross-format Metadata mapping (v0.17)
 
@@ -74,7 +74,7 @@ Philips's DICOM-attribute XML carries the cross-format-canonical fields. v0.17 s
 ## Known issues + history
 
 - **`computeCorrectedSizes` algorithm** (v0.5 T6): the v0.5 plan's first draft mis-read the upstream loop (assumed N PS entries → N corrected sizes including baseline). Reading byte-by-byte, the actual algorithm is N → N-1 corrected sizes, with the first PS entry calibrating only.
-- **Nested DICOM-XML walker** (v0.5 T9): synthesised-XML metadata tests passed under a flat `encoding/xml` schema, but real Philips fixtures wrap level-specific Attributes inside `PIM_DP_SCANNED_IMAGES > Array > DataObject`. Forced a rewrite to a stack-based token decoder mirroring `ElementTree.iter('Attribute')`.
+- **Nested DICOM-XML walker** (v0.5 T9): synthesized-XML metadata tests passed under a flat `encoding/xml` schema, but real Philips fixtures wrap level-specific Attributes inside `PIM_DP_SCANNED_IMAGES > Array > DataObject`. Forced a rewrite to a stack-based token decoder mirroring `ElementTree.iter('Attribute')`.
 - **Sparse-tile double-splice** (v0.5 T10): `NativeTiledTiffImage.get_tile` always splices JPEGTables onto whatever `_read_frame` returns, including the cached blank tile that already has tables inside (from `_create_blank_tile`'s pre-fill_frame splice). Result is duplicate DQT/DHT segments in the sparse-tile output — JPEG decoders accept this. Cross-check against Python at Philips-4 L0 (0,0) caught our initial single-splice version.
 
 See [`docs/deferred.md`](../deferred.md) for the full reasoning + commit references.

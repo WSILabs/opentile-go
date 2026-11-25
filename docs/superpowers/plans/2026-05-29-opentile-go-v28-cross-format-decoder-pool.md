@@ -380,7 +380,7 @@ Create `internal/decoderhandle/handle.go`:
 // tjhandle is single-threaded), so Borrow grants exclusive access for
 // the lifetime of the borrow.
 //
-// Lifetime: members are lazy-initialised on first Borrow. Close drains
+// Lifetime: members are lazy-initialized on first Borrow. Close drains
 // the pool and tears down every member. After Close, Borrow returns
 // ErrClosed; Return on a closed pool tears the member down directly.
 package decoderhandle

@@ -16,7 +16,7 @@ import (
 type ifdRole int
 
 const (
-	ifdRoleUnknown     ifdRole = iota // ImageDescription absent or unrecognised
+	ifdRoleUnknown     ifdRole = iota // ImageDescription absent or unrecognized
 	ifdRoleLabel                      // "Label_Image" (DP) or "Label Image" (legacy)
 	ifdRoleProbability                // "Probability_Image" (DP only)
 	ifdRoleThumbnail                  // "Thumbnail" (legacy only)
@@ -72,7 +72,7 @@ func classifyIFD(idx int, p *tiff.Page) classifiedIFD {
 
 // parsePyramidDescription walks the SPACE-delimited `key=value`
 // tokens and populates out.Level / Mag / Quality. Tokens without an
-// `=` or with unrecognised keys are silently ignored. Malformed
+// `=` or with unrecognized keys are silently ignored. Malformed
 // numeric values leave the field at its zero value.
 func parsePyramidDescription(desc string, out *classifiedIFD) {
 	for _, tok := range strings.Split(desc, " ") {
@@ -124,7 +124,7 @@ func inventory(file *tiff.File) (levels, associated, unknown []classifiedIFD, er
 	}
 	// Stable sort by Level ascending. Stable so IFDs with the same
 	// parsed level (anomalous; shouldn't happen) preserve their
-	// IFD-index order for deterministic behaviour.
+	// IFD-index order for deterministic behavior.
 	sortLevelsByPyramidIndex(levels)
 	return levels, associated, unknown, nil
 }

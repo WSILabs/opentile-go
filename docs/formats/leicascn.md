@@ -8,7 +8,7 @@ Leica's WSI format for the SCN400 / SCN400F brightfield + fluorescence scanner f
 
 - **TIFF dialect**: BigTIFF only (verified across all 3 fixtures; the SCN XML schema URN appears to assume BigTIFF).
 - **Detection**: BigTIFF + IFD 0's ImageDescription contains the SCN schema URN `http://www.leica-microsystems.com/scn/2010/10/01`. Cheap substring search; full XML parse happens at `Open` time. Sealed at v0.11 design Q1.
-- **Mental model**: a SCN file is **one slide, discontinuously sampled**. The scanner scans only the rectangles containing tissue (not the whole slide bounding box like SVS does). Multiple `<image>` elements share one slide-level coordinate system via `<view offsetX/Y>` attributes. Whitespace between scan rectangles isn't stored at all — our reader fills those gaps with synthesised white JPEG tiles so the consumer sees one continuous slide.
+- **Mental model**: a SCN file is **one slide, discontinuously sampled**. The scanner scans only the rectangles containing tissue (not the whole slide bounding box like SVS does). Multiple `<image>` elements share one slide-level coordinate system via `<view offsetX/Y>` attributes. Whitespace between scan rectangles isn't stored at all — our reader fills those gaps with synthesized white JPEG tiles so the consumer sees one continuous slide.
 - **XML mapping**: IFD 0's ImageDescription carries the SCN XML. `<scn>/<collection>` defines slide physical extents (in nm); each `<image>` has `<pixels>/<dimension r="N" c="C" ifd="K">` entries mapping (resolution × channel) → TIFF IFD index, plus `<view>` (slide-physical offset/size) and `<scanSettings>/<objective>` + `<illuminationSource>` metadata. **Without the XML the file is a pile of unlabeled IFDs.**
 - **Auxiliary vs main classification (sealed Q2)**: an `<image>` is auxiliary iff its `<view>` covers the entire `<collection>` (offset 0,0 + dims match). Otherwise it's a main scan. Magnification is metadata only — geometric matters. Mirrors openslide's `is_macro` check at `src/openslide-vendor-leica.c:469` and bio-formats's classification.
 - **Multi-channel**: fluorescence main scans carry `<dimension c="N">` attributes mapping each (resolution, channel) pair to its own IFD. `Image.SizeC()` returns `max(c)+1`; per-channel access via `Level.TileAt(TileCoord{C: c, X, Y})` reads from the correct IFD.
@@ -49,7 +49,7 @@ collection sizeX=26.5mm sizeY=76.7mm
    └─ 6 IFDs:  IFD21 ... IFD26
 ```
 
-The 4 main scans are 4 vertically-stacked tissue regions on one slide. SCN stores only the rectangles containing tissue; the whitespace between them isn't in the file. Our reader composites the 4 mains into a single Image; the whitespace gaps render as synthesised white JPEG tiles so consumers see one continuous slide.
+The 4 main scans are 4 vertically-stacked tissue regions on one slide. SCN stores only the rectangles containing tissue; the whitespace between them isn't in the file. Our reader composites the 4 mains into a single Image; the whitespace gaps render as synthesized white JPEG tiles so consumers see one continuous slide.
 
 ## What's supported
 
@@ -59,7 +59,7 @@ The 4 main scans are 4 vertically-stacked tissue regions on one slide. SCN store
 | Auxiliary/main classification | ✅ | View-extent matching (sealed Q2). Magnification is metadata; not part of the role decision |
 | Single-region pyramid | ✅ | Leica-1, Leica-Fluorescence-1 |
 | Multi-region composite pyramid | ✅ | Leica-2; sealed Q4. Multi-region offsets are tile-snapped (rounded down to nearest tile boundary) for raw-tile-bytes API alignment — see "Position imprecision" below |
-| Inter-region blank fill | ✅ | Sealed Q6. Synthesised white JPEG cached per tile size; consumer never sees the discontinuity |
+| Inter-region blank fill | ✅ | Sealed Q6. Synthesized white JPEG cached per tile size; consumer never sees the discontinuity |
 | Multi-channel fluorescence | ✅ | Sealed Q7. `Image.SizeC()` + `Level.TileAt(TileCoord{C, X, Y})` via the v0.7 multi-dim API |
 | Auxiliary `<image>` → AssociatedImage | ✅ | Sealed Q8. Each auxiliary surfaces its lowest-resolution IFD as a single AssociatedImage with `Type() == "overview"`; multiple auxiliaries (Fluorescence has 2) surfaced in XML order |
 | Format-specific metadata via `leicascn.MetadataOf` | ✅ | CollectionUUID, Barcode, Auxiliaries (per-aux illumination + objective), Regions (per-main offset/size in nm + objective + illumination), Channels (per-channel filter + exposure metadata for fluorescence) |
@@ -112,7 +112,7 @@ Tile byte-equality oracle vs bio-formats is **not feasible** — bio-formats dec
 
 ## Deviations from upstream Python opentile
 
-Upstream Python opentile doesn't read SCN, so every v0.11 behaviour in this package is technically a deviation. The interesting one — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — is:
+Upstream Python opentile doesn't read SCN, so every v0.11 behavior in this package is technically a deviation. The interesting one — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — is:
 
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|

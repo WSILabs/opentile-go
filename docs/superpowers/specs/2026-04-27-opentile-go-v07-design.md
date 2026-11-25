@@ -41,7 +41,7 @@ exactly one. **Section 7** revisits the validation strategy.
 
 Every task in the v0.7 plan starts with `Step 0: Confirm upstream`,
 naming the upstream file path + line range that governs the
-behaviour and including a verification command the executor must run
+behavior and including a verification command the executor must run
 before any production-code edit. Carries forward unchanged from
 v0.4 / v0.5 / v0.6.
 
@@ -70,18 +70,18 @@ Detailed per-IFD probe in `notes/2026-04-27-bif-research.md §2`.
 opentile-go accepts **any iScan-tagged BigTIFF** (any TIFF whose
 XMP contains an `<iScan>` element). Acceptance is independent of
 `ScannerModel`. Internally the reader classifies into one of two
-behavioural paths at `Open()` time:
+behavioral paths at `Open()` time:
 
 - **Spec-compliant path** when `<iScan>/@ScannerModel` starts with
   the literal prefix `"VENTANA DP"` (current values: `"VENTANA DP
   200"`, `"VENTANA DP 600"`; the prefix future-proofs against new
-  DP scanners). Behaviour follows the Roche BIF whitepaper:
+  DP scanners). Behavior follows the Roche BIF whitepaper:
   probability-map IFD, ScanWhitePoint filling, AOI-origin metadata,
   all four `Direction` values accepted. Validated against the
   whitepaper + tifffile pixel oracle.
 - **Legacy-iScan path** for everything else (missing ScannerModel,
   iScan Coreo, iScan HT, anything not matching the `"VENTANA DP"`
-  prefix). Behaviour follows openslide's existing reader.
+  prefix). Behavior follows openslide's existing reader.
   Validated against openslide pixel-equivalence.
 
 The two paths share most code; they differ in (a) IFD-1 role
@@ -96,7 +96,7 @@ fixtures must round-trip cleanly. Rejecting either is a bug.
 **DP 600 caveat.** No DP 600 spec document or fixture is in hand at
 v0.7 implementation time. The current spec-compliant path treats DP
 600 as identical to DP 200; if a real DP 600 fixture surfaces a
-behavioural difference (e.g., Z-stack default, different overlap
+behavioral difference (e.g., Z-stack default, different overlap
 distribution, new XMP attributes), it gets pinned to the project's
 deviations registry and a follow-up milestone fixes it. The same
 caveat applies to any future `"VENTANA DP *"` scanner that picks up
@@ -161,7 +161,7 @@ detected tissue at that location. v0.7 surfaces it as an
 associated image with `kind="probability"`, joining the existing
 `label`, `overview`, `thumbnail`, `macro`, `map` kinds. The slide
 author embedded the data; throwing it away is a value loss.
-Consumers that don't recognise the new kind skip it gracefully —
+Consumers that don't recognize the new kind skip it gracefully —
 the existing `Associated() []AssociatedImage` API already iterates
 unknown kinds.
 
@@ -169,7 +169,7 @@ The new kind gets registered in `docs/deferred.md §1a` as a v0.7
 deviation from upstream. (Strictly speaking, upstream opentile
 doesn't read BIF at all, so this is "v0.7 introduces" rather than
 "v0.7 deviates" — but the deviations registry is the canonical
-log of *every* opentile-go behaviour with no upstream peer, and that
+log of *every* opentile-go behavior with no upstream peer, and that
 includes new associated-image kinds.)
 
 ## 7. Correctness validation strategy — triple oracle

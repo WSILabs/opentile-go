@@ -26,7 +26,7 @@ shortcuts to `Images()[0]`.
 
 Every task in the v0.6 plan starts with `Step 0: Confirm upstream`,
 naming the upstream file path + line range that governs the
-behaviour and including a verification command the executor must run
+behavior and including a verification command the executor must run
 before any production-code edit. Same contract v0.4 / v0.5 used.
 Carries forward unchanged.
 
@@ -147,7 +147,7 @@ what's needed for OME; if ≥80% is shared, factor into
 `internal/oneframe/`; otherwise copy into `formats/ome/oneframe.go`
 with comments referencing the NDPI sibling. Either is acceptable;
 factoring buys clarity if it works cleanly, and v0.7 (BIF) likely
-needs the same machinery so the factored package would amortise.
+needs the same machinery so the factored package would amortize.
 
 ### 4.4 OME-XML metadata
 
@@ -285,7 +285,7 @@ to land cleanly.
   opentile** section. Becomes the single source of truth.
 - `README.md` "Status" banner trimmed to one paragraph.
 - `README.md` gains a top-level **"Deviations from upstream Python
-  opentile"** section (or subsection under Status) summarising the
+  opentile"** section (or subsection under Status) summarizing the
   3 deviations in 1-line each with links to `deferred.md`.
 
 ### Theme F — Polish + ship
@@ -312,7 +312,7 @@ cover` / `go vet` / `-race` sweep, `make parity`, tag v0.6.0.
 
 Things v0.6 lands cheaply that make v0.7 (Ventana BIF) easier:
 
-- **Image interface + Tiler.Images()** generalises if BIF turns out
+- **Image interface + Tiler.Images()** generalizes if BIF turns out
   to also have multi-image cases. Even if it doesn't, the API shape
   is in place.
 - **`internal/tiff` SubIFD support** — BIF uses SubIFDs in some

@@ -28,12 +28,12 @@ Set `OPENTILE_TESTDIR=$PWD/sample_files` for integration tests; the resolver gai
 
 ## Universal task contract: "confirm upstream first"
 
-Every task starts with `Step 0: Confirm upstream` — names the upstream rule that governs the behaviour, states it, includes a verification command. No task body proceeds until that command has been run.
+Every task starts with `Step 0: Confirm upstream` — names the upstream rule that governs the behavior, states it, includes a verification command. No task body proceeds until that command has been run.
 
 For BIF the upstream sources are layered, in priority order:
 1. **`docs/superpowers/notes/2026-04-27-bif-research.md`** — the authoritative project-internal mirror of the Roche whitepaper, openslide reader, and fixture probe data. **Cite this first**; it has line-range pointers into the underlying sources.
-2. **The Roche BIF whitepaper PDF** — `sample_files/ventana-bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf`. Convert once: `pdftotext -layout sample_files/ventana-bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf /tmp/bif-whitepaper.txt`. Then grep that text. Canonical for VENTANA DP behaviour.
-3. **openslide `src/openslide-vendor-ventana.c`** — fetch via `gh api repos/openslide/openslide/contents/src/openslide-vendor-ventana.c -H 'Accept: application/vnd.github.raw' > /tmp/openslide-ventana.c` once, then grep. **LGPL 2.1 — read-for-understanding only; never copy code verbatim into opentile-go.** Canonical for legacy-iScan behaviour and pre-DP200 quirks.
+2. **The Roche BIF whitepaper PDF** — `sample_files/ventana-bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf`. Convert once: `pdftotext -layout sample_files/ventana-bif/Roche-Digital-Pathology-BIF-Whitepaper.pdf /tmp/bif-whitepaper.txt`. Then grep that text. Canonical for VENTANA DP behavior.
+3. **openslide `src/openslide-vendor-ventana.c`** — fetch via `gh api repos/openslide/openslide/contents/src/openslide-vendor-ventana.c -H 'Accept: application/vnd.github.raw' > /tmp/openslide-ventana.c` once, then grep. **LGPL 2.1 — read-for-understanding only; never copy code verbatim into opentile-go.** Canonical for legacy-iScan behavior and pre-DP200 quirks.
 4. **The two local fixtures** — probed via the Python tifffile commands captured in the notes file §2.
 
 Local upstream Python tifffile reference (carry-over from v0.6):
@@ -226,7 +226,7 @@ Document any unexpected description value in the gate-outcome record.
 
 ## Task 4: Empty-tile gate — confirm offset-zero / bytecount-zero is the spec marker
 
-**Goal:** Confirm the spec's empty-tile encoding (`TileOffsets[i] == 0` and `TileByteCounts[i] == 0`) matches what tifffile reports. Required because v0.7 fills empty tiles with `ScanWhitePoint`-coloured JPEGs (mirrors Philips R5).
+**Goal:** Confirm the spec's empty-tile encoding (`TileOffsets[i] == 0` and `TileByteCounts[i] == 0`) matches what tifffile reports. Required because v0.7 fills empty tiles with `ScanWhitePoint`-colored JPEGs (mirrors Philips R5).
 
 **Files:**
 - Modify: `docs/deferred.md` (§8 v0.7 gate-outcomes).
@@ -467,7 +467,7 @@ func (l *tiledImage) TileOverlap() image.Point { return image.Point{} }
 
 (Adjust the receiver type per file; e.g., `stripedImage`, `oneframeImage`, etc.)
 
-- [ ] **Step 3: Verify.** `go build ./...` succeeds; `go test ./... -count=1 -race` passes (no behavioural change expected).
+- [ ] **Step 3: Verify.** `go build ./...` succeeds; `go test ./... -count=1 -race` passes (no behavioral change expected).
 
 ## Task 9: BIF blank-tile generator (mirrors Philips R5)
 
@@ -484,7 +484,7 @@ ls -la formats/philips/blanktile.go 2>&1 | head -3
 grep -n 'ScanWhitePoint\|empty JPEG-tiles' /tmp/bif-whitepaper.txt
 ```
 
-Reuse the Philips approach as a template; spec mandates `ScanWhitePoint`-coloured fill.
+Reuse the Philips approach as a template; spec mandates `ScanWhitePoint`-colored fill.
 
 - [ ] **Step 1: Implement.** Function signature:
 
@@ -492,7 +492,7 @@ Reuse the Philips approach as a template; spec mandates `ScanWhitePoint`-coloure
 package bif
 
 // blankTile returns a JPEG-encoded tile of size tileW × tileH filled with
-// the given RGB white-point colour. Cached by (tileW, tileH, white) tuple.
+// the given RGB white-point color. Cached by (tileW, tileH, white) tuple.
 func blankTile(tileW, tileH int, white uint8) ([]byte, error)
 ```
 
@@ -617,7 +617,7 @@ func classifyGeneration(iscan *bifxml.IScan) Generation {
 grep -n '^### 5\.3\|level=N mag=M' docs/superpowers/specs/2026-04-27-opentile-go-v07-design.md
 ```
 
-Spec §5.3 lists every recognised description value.
+Spec §5.3 lists every recognized description value.
 
 - [ ] **Step 1: Implement.** A pure helper:
 
@@ -914,7 +914,7 @@ If `import openslide` fails: `/private/tmp/opentile-py/bin/pip install openslide
 **Goal:** Extend the v0.6 tifffile oracle to handle BIF: open via `tifffile.TiffFile`, page-index into the BIF pyramid IFD, slice via `page.asarray()[y:y+h, x:x+w]`, hash. Both fixtures.
 
 **Files:**
-- Modify: `tests/oracle/tifffile_runner.py` (add a BIF code path or generalise the existing one), `tests/oracle/tifffile_test.go`.
+- Modify: `tests/oracle/tifffile_runner.py` (add a BIF code path or generalize the existing one), `tests/oracle/tifffile_test.go`.
 
 - [ ] **Step 0: Confirm upstream.**
 
@@ -923,7 +923,7 @@ ls tests/oracle/tifffile_runner.py
 grep -n 'def tile_hash\|def slide_open' tests/oracle/tifffile_runner.py | head -10
 ```
 
-- [ ] **Step 1: Generalise.** The v0.6 OME path indexes into a SubIFD pyramid; BIF indexes into top-level IFDs ordered by parsed `level=N`. Extend the runner with a per-format level→page-index map computed at `slide_open` time.
+- [ ] **Step 1: Generalize.** The v0.6 OME path indexes into a SubIFD pyramid; BIF indexes into top-level IFDs ordered by parsed `level=N`. Extend the runner with a per-format level→page-index map computed at `slide_open` time.
 
 - [ ] **Step 2: Apply serpentine remap.** Critical: tifffile sees raw TileOffsets in serpentine order. The Go side reads in image-space (col, row) order. When the test asks for tile (col, row) in image space, the runner must look up the matching tile in tifffile's serpentine layout — which means the runner needs the same `imageToSerpentine` algebra as `formats/bif/serpentine.go`. Port the algorithm to Python.
 
@@ -952,7 +952,7 @@ If `tests/parity/` doesn't exist, create it; mirror the `tests/oracle/` test sca
 
 ## Task 23: Sampled-tile fixture generation
 
-**Goal:** Generate `tests/fixtures/Ventana-1.bif.json` and `tests/fixtures/OS-1.bif.json` with sampled-tile expectations that lock in the parity behaviour. Mirrors the v0.6 fixture generation pattern.
+**Goal:** Generate `tests/fixtures/Ventana-1.bif.json` and `tests/fixtures/OS-1.bif.json` with sampled-tile expectations that lock in the parity behavior. Mirrors the v0.6 fixture generation pattern.
 
 **Files:**
 - Modify: `tests/generate_test.go`.
@@ -979,7 +979,7 @@ OPENTILE_TESTDIR="$PWD/sample_files" \
 
 # Batch F — Docs + ship
 
-Finalise: deviations registry, per-format reader notes, README, CHANGELOG, milestone bump, and a final validation sweep.
+Finalize: deviations registry, per-format reader notes, README, CHANGELOG, milestone bump, and a final validation sweep.
 
 ## Task 24: `docs/deferred.md` updates
 
@@ -1071,7 +1071,7 @@ make bench  # NDPI regression gate; should be unaffected by v0.7
 
 - [ ] **Step 1: Coverage.** `make cover` shows ≥80% per package, including new `formats/bif/` and `internal/bifxml/`.
 
-- [ ] **Step 2: Confirm `feat/v0.7` branch is clean.** `git status` clean; `git log --oneline main..feat/v0.7` summarises the work.
+- [ ] **Step 2: Confirm `feat/v0.7` branch is clean.** `git status` clean; `git log --oneline main..feat/v0.7` summarizes the work.
 
 - [ ] **Step 3: Open PR.** Title: `v0.7: Ventana BIF support`. Body cross-links spec, plan, notes, deferred.md updates, CHANGELOG entry.
 
@@ -1086,7 +1086,7 @@ git tag -a v0.7.0 -m "v0.7.0: Ventana BIF support" && git push --tags
 
 ## Plan-level notes
 
-- **Task ordering rigour.** The Step 0 contract is non-negotiable. v0.4 / v0.5 / v0.6 each had a moment where an implementer proceeded without confirming upstream and shipped a regression; the cost in subagent rounds to back out always exceeded the upfront `grep` cost. BIF is *more* sensitive than v0.6 because there's no upstream Python reference — the notes file and the whitepaper are the only sources of truth, and they are denser to read than `tifffile.py`.
+- **Task ordering rigor.** The Step 0 contract is non-negotiable. v0.4 / v0.5 / v0.6 each had a moment where an implementer proceeded without confirming upstream and shipped a regression; the cost in subagent rounds to back out always exceeded the upfront `grep` cost. BIF is *more* sensitive than v0.6 because there's no upstream Python reference — the notes file and the whitepaper are the only sources of truth, and they are denser to read than `tifffile.py`.
 - **Don't guess on overlap.** Both fixtures record `OverlapX=0`, `OverlapY=0`. The `TileOverlap()` return is therefore zero on both — the *path* is exercised but the *non-zero output* never is. Implementers will be tempted to "test what we have" and call it good; that leaves the per-pair weighted-average code uncovered. Add at least one synthetic-XMP unit test that drives non-zero overlap through the parser+collapse pipeline.
 - **Don't implement Z-stacks.** Multiple `<Frame>` nodes per (col, row) for `Z>0` are explicitly deferred to v0.8+. v0.7 reads only `Z=0` frames; surface `IMAGE_DEPTH > 1` via metadata so consumers know the slide is volumetric.
 - **`make parity` env vars.** v0.6 set `OPENTILE_ORACLE_PYTHON`. v0.7 may need a separate `OPENTILE_ORACLE_OPENSLIDE_PYTHON` if openslide-python isn't co-installed in the same venv. Add to `Makefile` only if the pip install in T20 doesn't keep them aligned.

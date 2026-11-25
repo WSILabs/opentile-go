@@ -20,7 +20,7 @@ import (
 //     (multi-tile concat would require a JPEG decode+re-encode pass
 //     which we don't implement on the auxiliary path).
 //
-// Tiler.Open() filters these out silently — the IFD is recognised
+// Tiler.Open() filters these out silently — the IFD is recognized
 // but the auxiliary is not exposed via Associated().
 var errUnsupportedAuxiliary = errors.New("leicascn: auxiliary image shape unsupported")
 

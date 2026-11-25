@@ -56,8 +56,8 @@ In `decoder/codestream.go`, insert the field immediately after the `ColorEncodin
 	// opentile itself performs. Unlike ColorEncoding (the stored codestream
 	// colorspace, what a frame-copy preserves), this is what the pixels are in
 	// once decoded: JPEG 2000 MCT codestreams report RGB (the library inverts
-	// the MCT); an sYCC or unsignalled Aperio-33003 raw codestream reports
-	// YCbCr (opentile converts it); JPEG and JPEG XL colour tiles, and htj2k,
+	// the MCT); an sYCC or unsignaled Aperio-33003 raw codestream reports
+	// YCbCr (opentile converts it); JPEG and JPEG XL color tiles, and htj2k,
 	// report RGB (their libraries convert / opentile applies no chroma
 	// conversion); single-component tiles report Grayscale.
 	//
@@ -127,7 +127,7 @@ func TestDecodedColorSpace(t *testing.T) {
 }
 
 // decodeIsYCbCr must return the historical truth value for every fixture, pinning
-// the refactor as behaviour-preserving (the decode path depends on it, GH #53).
+// the refactor as behavior-preserving (the decode path depends on it, GH #53).
 func TestDecodeIsYCbCrParity(t *testing.T) {
 	for _, tc := range []struct {
 		file string
@@ -180,7 +180,7 @@ const (
 // decodedColorSpaceFromHeader reports the colorspace of the planes OpenJPEG hands
 // opentile's jpeg2000 decoder, before its YCbCr→RGB normalization. It is the
 // decode-policy counterpart to the stored ColorEncoding: an MCT codestream
-// decodes to RGB (OpenJPEG inverts the MCT); an sYCC box or an unsignalled raw
+// decodes to RGB (OpenJPEG inverts the MCT); an sYCC box or an unsignaled raw
 // codestream (the Aperio-33003 convention) is treated as YCbCr and converted; a
 // single component is grayscale.
 func decodedColorSpaceFromHeader(h j2kheader.Info) decoder.ColorEncoding {
@@ -401,7 +401,7 @@ git commit -m "feat(jpeg2000): report DecodedColorSpace from Inspect (#112)"
 
 ### Task 4: Populate `DecodedColorSpace` in the htj2k `Inspect`
 
-htj2k applies no reader-side chroma conversion (openjph reconstructs the stored planes, opentile packs RGB), so decoded output is RGB for colour input and Grayscale for one component — regardless of MCT/box signalling. Set by component count.
+htj2k applies no reader-side chroma conversion (openjph reconstructs the stored planes, opentile packs RGB), so decoded output is RGB for color input and Grayscale for one component — regardless of MCT/box signaling. Set by component count.
 
 **Files:**
 - Modify: `decoder/htj2k/htj2k_cgo.go` (`Inspect`, ~lines 45-51)
@@ -466,7 +466,7 @@ git commit -m "feat(htj2k): report DecodedColorSpace (RGB/Grayscale) from Inspec
 
 ### Task 5: Populate `DecodedColorSpace` in the jpeg `Inspect`
 
-libjpeg-turbo's `Decode` emits RGB for any colour input and grayscale for `TJCS_GRAY`. So a JFIF tile whose stored `ColorEncoding` is `YCbCr` reports decoded `RGB` — the headline divergence.
+libjpeg-turbo's `Decode` emits RGB for any color input and grayscale for `TJCS_GRAY`. So a JFIF tile whose stored `ColorEncoding` is `YCbCr` reports decoded `RGB` — the headline divergence.
 
 **Files:**
 - Modify: `decoder/jpeg/jpeg_cgo.go` (`Inspect` colorspace switch, ~lines 59-70)
@@ -560,7 +560,7 @@ git commit -m "feat(jpeg): report DecodedColorSpace (RGB/Grayscale) from Inspect
 
 ### Task 6: Populate `DecodedColorSpace` in the jpegxl `Inspect`
 
-libjxl's `Decode` outputs RGB(A); mirror the existing colour-channel switch.
+libjxl's `Decode` outputs RGB(A); mirror the existing color-channel switch.
 
 **Files:**
 - Modify: `decoder/jpegxl/jxl_cgo.go` (`Inspect` channel switch, ~lines 180-187)
@@ -644,10 +644,10 @@ Open `CHANGELOG.md`, find the most recent version heading (`## [0.61.0] — 2026
   of the component planes the decode library hands back, *before* opentile's
   reader-side YCbCr→RGB normalization; the decoded-pixel counterpart to the
   stored `ColorEncoding`. Populated by all four codestream-inspecting codecs
-  (jpeg, jpeg2000, htj2k, jpegxl). JPEG 2000 MCT / JPEG / JPEG XL / htj2k colour
-  tiles report `RGB`; an sYCC or unsignalled Aperio-33003 raw JP2K codestream
+  (jpeg, jpeg2000, htj2k, jpegxl). JPEG 2000 MCT / JPEG / JPEG XL / htj2k color
+  tiles report `RGB`; an sYCC or unsignaled Aperio-33003 raw JP2K codestream
   reports `YCbCr`; single-component tiles report `Grayscale`. Additive; no
-  behaviour change to any existing field or `Decode` output. (#112)
+  behavior change to any existing field or `Decode` output. (#112)
 
 ### Changed
 - Internal: the jpeg2000 decode-time `decodeIsYCbCr` decision and the new
