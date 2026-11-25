@@ -194,7 +194,7 @@ func parseMetadata(xmlStr string) (Metadata, error) {
 // attribute names are uppercase ASCII + underscores + digits (e.g.,
 // "PIM_DP_UFS_BARCODE", "PIIM_DP_SCANNER_RACK_NUMBER",
 // "DICOM_DERIVATION_DESCRIPTION"). Anything else is junk we don't
-// recognise.
+// recognize.
 func isPhilipsKey(s string) bool {
 	if s == "" {
 		return false

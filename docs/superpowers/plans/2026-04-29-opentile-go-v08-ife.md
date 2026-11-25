@@ -58,7 +58,7 @@ unit tests + per-fixture geometry pinning.
 ## Universal task contract: "confirm upstream first"
 
 Every task starts with `Step 0: Confirm upstream` — names the
-upstream rule that governs the behaviour, states it, includes a
+upstream rule that governs the behavior, states it, includes a
 verification command. No task body proceeds until that command has
 been run.
 

@@ -512,7 +512,7 @@ func TestMetadataWrongRecoveryRejected(t *testing.T) {
 	}
 }
 
-func TestNormaliseAssociatedType(t *testing.T) {
+func TestNormalizeAssociatedType(t *testing.T) {
 	for _, tc := range []struct {
 		in   string
 		want opentile.AssociatedType
@@ -528,14 +528,14 @@ func TestNormaliseAssociatedType(t *testing.T) {
 		{"freetext", "freetext"},
 		{"Custom Label", "custom label"},
 	} {
-		if got := normaliseAssociatedType(tc.in); got != tc.want {
-			t.Errorf("normaliseAssociatedType(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := normalizeAssociatedType(tc.in); got != tc.want {
+			t.Errorf("normalizeAssociatedType(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
 
 func TestMetadataOfWalksWrappers(t *testing.T) {
-	// Pin the unwrap behaviour: opentile.OpenFile returns a
+	// Pin the unwrap behavior: opentile.OpenFile returns a
 	// *fileCloser wrapper; MetadataOf must walk through it.
 	// Synthetic test via a minimal wrapper type.
 	mb := &metadataBuilder{codecMajor: 1, magnification: 5}

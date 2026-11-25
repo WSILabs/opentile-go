@@ -41,7 +41,7 @@ Five steps:
 
 1. **Compute scale** = `2^(this.pyramid_index - parent.pyramid_index)`.
    For typical SVS pyramids this is 4 (each level halves both axes).
-   Generalised — we don't hardcode 2× because some SVS files skip
+   Generalized — we don't hardcode 2× because some SVS files skip
    levels.
 
 2. **Walk the parent's `scale × scale` tile region** at `tile_point`.
@@ -221,7 +221,7 @@ func (l *tiledImage) Tile(x, y int) ([]byte, error) {
 
 The opt-in flag (`Config.WithSVSReconstructEdges(bool)`, default
 `false` per §4 below) gates the fallback. When the flag is off,
-behaviour matches v0.3 exactly — corrupt tiles still error.
+behavior matches v0.3 exactly — corrupt tiles still error.
 
 ### 3.3 Per-level cache
 
@@ -246,7 +246,7 @@ Lean **opt-in for v0.4 (`Config.WithSVSReconstructEdges(false)` default)**, defa
 
 Reasoning: the v0.3 contract returns `ErrCorruptTile` on edge tiles.
 Flipping the default to "silently substitute reconstructed bytes"
-is observable behaviour change for downstream consumers who may
+is observable behavior change for downstream consumers who may
 have been counting on the error to signal slide damage. Opt-in
 preserves v0.3 semantics for existing callers; consumers who want
 the reconstruct opt-in.
@@ -292,7 +292,7 @@ recursion — `parent.get_decoded_tiles` calls
 `parent.get_tile(...)` which itself dispatches through
 `_tile_is_corrupt → _get_fixed_tile`.
 
-Our port gets the same behaviour for free if `reconstructTile`
+Our port gets the same behavior for free if `reconstructTile`
 calls `parent.Tile(...)` (not `parent.indexOf(...)` directly).
 Recursion bottoms out at the level whose parent is nil
 (pyramid_index == 0). Worth noting in code comments.
@@ -312,7 +312,7 @@ return nil, &opentile.TileError{
 
 This matters for LZW / Deflate slides we haven't seen yet.
 v0.3 Task 20 (L3) added a `Compression=999` synthetic test; the
-reconstruct path for unrecognised compression needs an analog.
+reconstruct path for unrecognized compression needs an analog.
 
 ## 5. Theme dependency graph
 

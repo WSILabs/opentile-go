@@ -173,7 +173,7 @@ int wsi_htj2k_decode(const uint8_t *src, size_t src_len, int resolution_factor,
                 // it is smaller than w, so we must never index p[] with the
                 // luma column x directly — that would read past the line buffer
                 // (heap OOB). Map each output column to its source sample by
-                // nearest neighbour: sx = x*lw/w. This is the identity when
+                // nearest neighbor: sx = x*lw/w. This is the identity when
                 // lw == w (the 4:4:4 case wsi-tools emits today), and a correct
                 // horizontal upsample when lw < w. Vertical subsampling under
                 // interleaved pull is validated separately once a subsampled

@@ -657,7 +657,7 @@ Find the v0.14 "Current milestone" header and replace with v0.15:
 
 ## Previous milestone — v0.14 (shipped 2026-05-08)
 
-Novel-codec milestone — generic-TIFF reader recognises 4 new tile
+Novel-codec milestone — generic-TIFF reader recognizes 4 new tile
 compression tag values (WebP / JPEG XL / AVIF / HTJ2K) produced by
 the user's wsi-tools transcoder. Plus a wsi-tools ImageDescription
 parser. Additive — no breaking changes.

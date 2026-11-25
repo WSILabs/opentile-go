@@ -44,7 +44,7 @@ type strippedImage struct {
 	// for non-edge tiles. Stored so we don't recompute on every Tile call.
 	frameSize opentile.Size
 
-	// dcBackground is the post-quantisation luma DC coefficient to plant
+	// dcBackground is the post-quantization luma DC coefficient to plant
 	// in OOB DCT blocks during edge-tile CropWithBackground calls. Derived
 	// once at construction from the level's shared JPEGHeader DQT (the DC
 	// quant doesn't vary across strips/tiles of the same level), then

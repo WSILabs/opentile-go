@@ -65,7 +65,7 @@ func (h Info) CodestreamInfo() decoder.CodestreamInfo {
 		ci.ColorEncoding = decoder.ColorYBRICT
 	default:
 		switch h.EnumColorspace {
-		case 17: // greyscale
+		case 17: // grayscale
 			ci.ColorEncoding = decoder.ColorGrayscale
 		case 18: // sYCC
 			ci.ColorEncoding = decoder.ColorYCbCr

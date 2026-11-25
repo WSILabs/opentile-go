@@ -13,7 +13,7 @@ import (
 // fill tiles for inter-region SCN gaps. Real SCN tile bytes don't
 // carry an ImageDescription quality marker (the JPEG comes from the
 // scanner's libtiff encoder), so we pick a high-quality value that
-// keeps the synthesised white tiles visually consistent when
+// keeps the synthesized white tiles visually consistent when
 // adjacent to real tissue in a viewer.
 const blankTileQuality = 95
 

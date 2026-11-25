@@ -302,7 +302,7 @@ func (l *tiledImage) TileInto(x, y int, dst []byte) (int, error) {
 // TileReader returns an io.ReadCloser over the tile bytes. When the
 // page has no JPEGTables (the common OME case), backed by an
 // io.SectionReader for zero-copy streaming. When tables are spliced,
-// materialises through Tile() and wraps a bytes.Reader.
+// materializes through Tile() and wraps a bytes.Reader.
 func (l *tiledImage) TileReader(x, y int) (io.ReadCloser, error) {
 	if x < 0 || y < 0 || x >= l.grid.W || y >= l.grid.H {
 		return nil, &opentile.TileError{Level: l.index, X: x, Y: y, Err: opentile.ErrTileOutOfBounds}

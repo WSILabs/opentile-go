@@ -147,7 +147,7 @@ func (l *compositeLevel) TilePrefix() []byte {
 
 // TileBodyInto reads the on-disk tile bytes at composite-space (x, y)
 // channel 0 into dst WITHOUT applying the splice prefix. For
-// inter-region gap tiles, the synthesised blank JPEG is returned as
+// inter-region gap tiles, the synthesized blank JPEG is returned as
 // the body — it is a complete self-contained JPEG (per v0.13 spec Q4).
 //
 // Specialized in v0.13.
@@ -312,7 +312,7 @@ func (l *compositeLevel) tileIntoChannel(c, x, y int, dst []byte) (int, error) {
 	return n, nil
 }
 
-// TileReader returns an io.ReadCloser over the tile bytes. Materialises
+// TileReader returns an io.ReadCloser over the tile bytes. Materializes
 // through Tile() (multi-region splice + blank-fill paths can't be
 // expressed as contiguous file regions in general).
 func (l *compositeLevel) TileReader(x, y int) (io.ReadCloser, error) {

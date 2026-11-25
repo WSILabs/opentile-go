@@ -27,10 +27,10 @@ The two fixtures are deliberately complementary — one tests the spec-compliant
 
 | Capability | Status | Notes |
 |---|---|---|
-| iScan detection + classification (BigTIFF or classic TIFF) | ✅ | T1 / T2 / T3 gates pin the discriminator behaviour (see deferred.md §9 v0.7 gates); detection keys on the `<iScan` XMP marker alone, so legacy classic-TIFF iScan slides are read too (#37) |
+| iScan detection + classification (BigTIFF or classic TIFF) | ✅ | T1 / T2 / T3 gates pin the discriminator behavior (see deferred.md §9 v0.7 gates); detection keys on the `<iScan` XMP marker alone, so legacy classic-TIFF iScan slides are read too (#37) |
 | Tiled pyramid levels | ✅ | Both raw-passthrough (Ventana-1: no JPEGTables) and `jpeg.InsertTables`-spliced output (OS-1: shared tables) |
 | Row-major `(col,row)` → `TILE_OFFSETS`, `<Frame>`-honored | ✅ | `buildFrameIndex` + row-major fallback; bio-formats spatial oracle (#57) |
-| Empty tiles (TileOffsets[i]=0 AND TileByteCounts[i]=0) | ✅ | Filled with `ScanWhitePoint`-coloured JPEG via `formats/bif/blanktile.go` (T9). Both real fixtures have zero empty tiles — synthetic-only fixture coverage on this path |
+| Empty tiles (TileOffsets[i]=0 AND TileByteCounts[i]=0) | ✅ | Filled with `ScanWhitePoint`-colored JPEG via `formats/bif/blanktile.go` (T9). Both real fixtures have zero empty tiles — synthetic-only fixture coverage on this path |
 | Probability map exposure (spec-compliant only) | ✅ | New `AssociatedImage.Type() == "probability"` (LZW grayscale; multi-strip raw passthrough) |
 | Thumbnail exposure (legacy only) | ✅ | `AssociatedImage.Type() == "thumbnail"` (single-tile JPEG) |
 | Label / overview exposure (every fixture) | ✅ | `AssociatedImage.Type() == "overview"`. Ventana-1: multi-strip uncompressed RGB. OS-1: single-tile JPEG |
@@ -153,7 +153,7 @@ SZI/DZI is the exception — its readers return border-sized tiles per spec; see
 | Capability | Status | Why |
 |---|---|---|
 | openslide pixel-equivalence | ⚠️ — infrastructure-only in v0.7 | The runner / session / protocol are in `tests/oracle/openslide_*` but the assertion is gated. Resolution depends on whether opentile-go's padded-grid view or openslide's AOI-hull view is the right one to expose. Tracked as L19 |
-| DP 600 verification | ⚠️ — schedule-driven | The `HasPrefix("VENTANA DP")` rule lands DP 600 on the spec-compliant path; behavioural variance from DP 200 is unverified without a fixture. Tracked as L20 |
+| DP 600 verification | ⚠️ — schedule-driven | The `HasPrefix("VENTANA DP")` rule lands DP 600 on the spec-compliant path; behavioral variance from DP 200 is unverified without a fixture. Tracked as L20 |
 | AOI-cropped Tile variant | ❌ — not designed yet | opentile-go's `Tile(col, row)` references the padded TIFF grid; an AOI-cropped variant would expose openslide's view. v0.8 work item |
 | Multi-tile associated images | ❌ — error | Both real fixtures have single-tile or multi-strip associated pages; multi-tile seems unused in practice |
 
@@ -163,7 +163,7 @@ Three layered oracles cover v0.7 BIF correctness:
 
 1. **tifffile byte-equality** (`tests/oracle/tifffile_test.go::TestTifffileParityBIF`) — Ventana-1 only. Tests opentile-go's `Tile(col, row)` raw-passthrough output against tifffile's `page.dataoffsets[row_major_idx]` raw bytes. Confirms (a) row-major `TILE_OFFSETS` indexing, (b) level=N → page sorting, (c) raw-byte fidelity. It is **placement-agnostic** (both sides use the same row-major map); spatial placement is verified separately against bio-formats (`TestBIFTilePlacementSpatial`, #59). OS-1 excluded because shared JPEGTables modify the bytes.
 
-2. **Sampled-tile SHA256 fixtures** (`tests/integration_test.go::TestSlideParity`) — both fixtures. Records corner / centre / edge probe SHA256 hashes in `tests/fixtures/Ventana-1.bif.json` and `OS-1.bif.json`; regenerate via `OPENTILE_TESTDIR=$PWD/sample_files go test ./tests -tags generate -run TestGenerateFixtures -generate -v`. Catches regressions in our own output across both fixture types.
+2. **Sampled-tile SHA256 fixtures** (`tests/integration_test.go::TestSlideParity`) — both fixtures. Records corner / center / edge probe SHA256 hashes in `tests/fixtures/Ventana-1.bif.json` and `OS-1.bif.json`; regenerate via `OPENTILE_TESTDIR=$PWD/sample_files go test ./tests -tags generate -run TestGenerateFixtures -generate -v`. Catches regressions in our own output across both fixture types.
 
 3. **Geometry sanity tests** (`tests/parity/bif_geometry_test.go::TestBIFGeometry`) — both fixtures, no build tag, runs in `make test`. Pins per-level Size / TileSize / Grid / TileOverlap, JPEG markers, ICC presence, AOI origin alignment, EncodeInfo Ver, Generation, ScanRes.
 
@@ -171,7 +171,7 @@ Three layered oracles cover v0.7 BIF correctness:
 
 ## Deviations from upstream Python opentile
 
-Upstream Python opentile doesn't read BIF, so every v0.7 behaviour is technically a deviation. The interesting ones — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — are:
+Upstream Python opentile doesn't read BIF, so every v0.7 behavior is technically a deviation. The interesting ones — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — are:
 
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|
@@ -189,7 +189,7 @@ BIF's iScan XMP carries the cross-format-canonical fields. v0.17 surfaces them:
 | `Magnification` | `Magnification` |
 | Vendor (constant) | `ScannerManufacturer = "Roche"` |
 | `ScannerModel` | `ScannerModel` (e.g., `VENTANA DP 200`) |
-| Synthesised splice descriptor | `ImageDescription` (`level=0 mag=40 quality=95`) |
+| Synthesized splice descriptor | `ImageDescription` (`level=0 mag=40 quality=95`) |
 | `UserName` | `Properties[PropertyUserName]` (canonical) AND `Properties["ventana.UserName"]` |
 | every other iScan XMP attribute | `Properties["ventana.<key>"]` (vendor passthrough — 13–18 keys per fixture) |
 | `BuildVersion` (iScan XMP) | `Metadata.Writer` (v0.20) |

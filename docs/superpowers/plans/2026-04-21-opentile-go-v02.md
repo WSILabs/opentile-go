@@ -2007,7 +2007,7 @@ import (
 type ConcatOpts struct {
     Width, Height   uint16 // output SOF dimensions
     JPEGTables      []byte // raw TIFF JPEGTables value; DQT/DHT extracted via SplitJPEGTables
-    ColorspaceFix   bool   // if true, emit an APP14 "Adobe" segment signalling RGB (for SVS non-standard RGB JPEGs)
+    ColorspaceFix   bool   // if true, emit an APP14 "Adobe" segment signaling RGB (for SVS non-standard RGB JPEGs)
     RestartInterval int    // 0 = no DRI; otherwise emit DRI and insert RST markers between fragment scans
 }
 

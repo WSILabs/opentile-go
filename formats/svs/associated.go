@@ -187,7 +187,7 @@ func computeRestartInterval(fragments [][]byte, mcuW, mcuH int) (int, error) {
 		// unconditionally to avoid byte divergence on edge cases where
 		// the page has >1 strip but the caller never gets multi-strip.
 		// If it's a single fragment AND only one strip total, Python's
-		// behaviour still writes the DRI. Return the computed value, not 0.
+		// behavior still writes the DRI. Return the computed value, not 0.
 	}
 	sof, err := parseFirstSOF(fragments[0])
 	if err != nil {

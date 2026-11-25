@@ -1133,7 +1133,7 @@ def test_read_region_byte_parity_with_go(slide_path):
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `cd python && python -m pytest tests/test_parity.py -q`
-Expected: FAIL initially only if the facade region path is wrong — but since Task 6 is green, this should surface any stride/offset bug. If Task 4–6 are correct it may PASS immediately; the value is the guard. Run it and confirm behaviour; if it fails, the stride copy or region mapping is wrong — fix in `blitTight`/`ot_read_region`.
+Expected: FAIL initially only if the facade region path is wrong — but since Task 6 is green, this should surface any stride/offset bug. If Task 4–6 are correct it may PASS immediately; the value is the guard. Run it and confirm behavior; if it fails, the stride copy or region mapping is wrong — fix in `blitTight`/`ot_read_region`.
 
 - [ ] **Step 3: Ensure it passes; write the README**
 

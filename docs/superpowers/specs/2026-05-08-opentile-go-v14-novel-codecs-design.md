@@ -2,7 +2,7 @@
 
 **Status:** sealed 2026-05-08.
 **Work branch:** `feat/v0.14`.
-**Headline:** generic-TIFF reader extended to recognise four novel tile compression values produced by the user's `wsi-tools` transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus opportunistic parsing of the wsi-tools `ImageDescription` format to populate cross-format Metadata fields. Additive — no breaking changes.
+**Headline:** generic-TIFF reader extended to recognize four novel tile compression values produced by the user's `wsi-tools` transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus opportunistic parsing of the wsi-tools `ImageDescription` format to populate cross-format Metadata fields. Additive — no breaking changes.
 
 ## 1. Scope
 
@@ -62,7 +62,7 @@ Parsed fields populate the existing standard `Metadata` surface (per sealed Q2):
 
 The parser is lenient: unknown keys are ignored (forward-compatible with future wsi-tools additions); malformed values produce zero on that field but don't fail the file load.
 
-### 1.4. Validator + classifier behaviour
+### 1.4. Validator + classifier behavior
 
 `internal/tiff/classify_pyramid.go::validCompression` accepts the five new tag values (50001, 50002, 60001, 60003, 34712). Tiled IFDs using these compressions become valid pyramid candidates per the existing v0.11 single-level (MinLevels=1) and multi-level pyramid rules — no other validator changes.
 
@@ -130,7 +130,7 @@ New `formats/generictiff/wsitools_test.go` (or extend an existing test file): pu
 
 ## 6. Active limitations introduced
 
-None new. v0.14 is additive-only (3 new enum values + 1 parser). Existing consumers using v0.13 surfaces see no behaviour change.
+None new. v0.14 is additive-only (3 new enum values + 1 parser). Existing consumers using v0.13 surfaces see no behavior change.
 
 The four §11 backlog rows for the wsi-tools-style novel-codec generic TIFFs (which weren't actually parked items, but a brand-new requirement) shipped here.
 

@@ -24,7 +24,7 @@ type Metadata struct {
 
 	// Generation is the routing decision: "spec-compliant" for
 	// VENTANA DP scanners (200, 600, future); "legacy-iscan" for
-	// pre-DP iScan slides and any unrecognised iScan ScannerModel.
+	// pre-DP iScan slides and any unrecognized iScan ScannerModel.
 	Generation string
 
 	// ScanRes is the base-level microns/pixel from <iScan>/@ScanRes.

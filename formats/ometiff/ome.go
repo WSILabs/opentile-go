@@ -12,7 +12,7 @@
 // new format.Reader.Pyramids() API. Upstream's base Tiler loop
 // silently overwrites _level_series_index on each match and surfaces
 // only the last main pyramid; we treat that as an upstream oversight
-// rather than intentional behaviour.
+// rather than intentional behavior.
 package ometiff
 
 import (

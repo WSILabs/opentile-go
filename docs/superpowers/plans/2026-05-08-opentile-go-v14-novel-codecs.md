@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Recognise four novel TIFF compression tag values produced by the user's wsi-tools transcoder (WebP/JPEG XL/AVIF/HTJ2K) + parse the wsi-tools `ImageDescription` to populate cross-format `Metadata`. Additive — no breaking changes.
+**Goal:** Recognize four novel TIFF compression tag values produced by the user's wsi-tools transcoder (WebP/JPEG XL/AVIF/HTJ2K) + parse the wsi-tools `ImageDescription` to populate cross-format `Metadata`. Additive — no breaking changes.
 
 **Architecture:** Single-batch additive milestone. T1-T3 land the public `Compression` enum values + tag mappings + validator whitelist. T4 lands the wsi-tools `ImageDescription` parser. T5 wires the four real-fixture files into TestSlideParity + geometry pinning. T6 closes with docs.
 
@@ -460,9 +460,9 @@ func parseWSIToolsDescription(desc string) (wsiToolsMetadata, bool) {
 	}
 	var md wsiToolsMetadata
 
-	// Tokenise into key=value pairs, respecting double-quoted values.
+	// Tokenize into key=value pairs, respecting double-quoted values.
 	// e.g.  scanner="Aperio Image Library" → key=scanner value=Aperio Image Library
-	for _, tok := range tokeniseKVPairs(desc) {
+	for _, tok := range tokenizeKVPairs(desc) {
 		eq := strings.IndexByte(tok, '=')
 		if eq < 0 {
 			continue
@@ -498,10 +498,10 @@ func parseWSIToolsDescription(desc string) (wsiToolsMetadata, bool) {
 	return md, true
 }
 
-// tokeniseKVPairs splits a wsi-tools ImageDescription line into
+// tokenizeKVPairs splits a wsi-tools ImageDescription line into
 // key=value tokens, treating double-quoted values as a single token.
 // The leading `wsi-tools/<version> transcode` prefix is dropped.
-func tokeniseKVPairs(desc string) []string {
+func tokenizeKVPairs(desc string) []string {
 	var out []string
 	var current strings.Builder
 	inQuotes := false
@@ -924,7 +924,7 @@ Find the compression-whitelist section. Add the v0.14 codecs:
 ```markdown
 ## v0.14 (this milestone) — novel tile codecs
 
-opentile-go's generic-TIFF reader recognises four additional TIFF
+opentile-go's generic-TIFF reader recognizes four additional TIFF
 compression tag values produced by `wsi-tools` (the user's WSI
 transcoder) plus the registered JP2K code:
 
@@ -1019,7 +1019,7 @@ Mirror the v0.13 [0.13.0] structure. Insert before [0.13.0]:
 ```markdown
 ## [0.14.0] — 2026-05-08
 
-Novel-codec milestone — generic-TIFF reader recognises four new
+Novel-codec milestone — generic-TIFF reader recognizes four new
 tile compression tag values produced by the user's wsi-tools
 transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus opportunistic parsing
 of the wsi-tools ImageDescription format to populate standard
@@ -1066,7 +1066,7 @@ Metadata fields. Additive — no breaking changes.
 - **Tag value mappings are wsi-tools-specific** for AVIF (60001)
   and HTJ2K (60003) — not formally registered TIFF codes. Files
   produced by other tooling using different tag values for these
-  codecs would not be recognised.
+  codecs would not be recognized.
 - v0.14 introduced no new active limitations.
 - v1.0 cut remains pending.
 - cgo footprint unchanged.
@@ -1081,14 +1081,14 @@ Replace "Current milestone — v0.13" block with v0.14. Demote v0.13 to "Previou
 ```markdown
 ## Current milestone — v0.14 (shipped)
 
-- **Scope:** Novel-codec milestone — generic-TIFF reader recognises
+- **Scope:** Novel-codec milestone — generic-TIFF reader recognizes
   4 new tile compression tag values produced by the user's wsi-tools
   transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus a wsi-tools
   ImageDescription parser populating standard Metadata fields.
   Additive — no breaking changes. 6 plan tasks single batch.
 - **API additions:** 3 new `opentile.Compression` enum values
   (`CompressionWebP`, `CompressionJPEGXL`, `CompressionHTJ2K`);
-  validator + reader recognise tags 34712 (registered JP2K),
+  validator + reader recognize tags 34712 (registered JP2K),
   50001 (WebP), 50002 (JPEG XL), 60001 (AVIF — existing
   `CompressionAVIF` enum), 60003 (HTJ2K). wsi-tools
   ImageDescription parser hidden behind the existing
@@ -1193,7 +1193,7 @@ EOF
 - §1.1 (3 new enum values) → T1.
 - §1.2 (5 new tag mappings) → T2 (validator) + T3 (mapping function).
 - §1.3 (wsi-tools parser) → T4.
-- §1.4 (validator behaviour) → T2.
+- §1.4 (validator behavior) → T2.
 - §3 (Q-decisions) → reflected throughout.
 - §4 (4 fixtures) → T5.
 - §5 (test strategy) → T1/T2/T3 unit tests + T4 parser tests + T5 fixtures + geometry pinning.

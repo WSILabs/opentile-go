@@ -109,7 +109,7 @@ func MetadataOf(v any) (*Metadata, bool) {
 // (spec page lists "http://www.pathozoom.com/SZI", probed CMU-1
 // fixture uses "http://www.pathozoom.com/szi"). xml.Unmarshal
 // matches on the local element name regardless of namespace, which
-// is the lenient behaviour we want.
+// is the lenient behavior we want.
 type rawScanProperties struct {
 	XMLName    xml.Name      `xml:"image"`
 	Date       string        `xml:"date,attr"`

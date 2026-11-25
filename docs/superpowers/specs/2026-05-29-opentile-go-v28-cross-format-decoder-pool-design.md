@@ -20,7 +20,7 @@ and adds bench-svs / bench-ndpi-mt measurement coverage.
 ### 1.1. New shared package `internal/decoderhandle`
 
 A small bounded pool of `decoder.Decoder` instances. Members are
-lazy-initialised (first `Borrow` calls `factory.New()`); pool capacity
+lazy-initialized (first `Borrow` calls `factory.New()`); pool capacity
 caps the maximum simultaneously-borrowed members; `Borrow` blocks when
 all members are in use; `Return` is non-blocking; `Close` drains and
 tears down every member.

@@ -92,7 +92,7 @@ distinguishes DP from legacy. Extend the L0 derivation to the reduced levels —
   `Size[i] = floor(Size[i-1] / 2)` per axis, seeded by `Size[0] =` the L0 stitched
   hull. This reproduces the bio-formats `sizeX` chain exactly
   (`23432,11716,5858,2929,1464,732,366,183`); DP heights are unchanged (no Y
-  overlap → the padded IFD height already equalled `hull/2^i`).
+  overlap → the padded IFD height already equaled `hull/2^i`).
 - `Downsample[i]` is the literal `l0Hull.W / Size[i].W` ratio (self-consistent
   with `Size`, the openslide convention — `level_downsamples` reports the literal
   ratio, not a forced power of two). Because `Size` is floor-halved, L1–L3 are

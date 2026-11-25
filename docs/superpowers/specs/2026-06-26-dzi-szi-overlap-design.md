@@ -16,7 +16,7 @@ standard DZI/OpenSeadragon overlap model so those files read correctly:
 composited region/strip/stitched-tile output is overlap-free and pixel-faithful
 to the source, while raw per-tile reads remain a faithful byte passthrough.
 
-`Overlap = 0` behaviour is unchanged and byte-identical.
+`Overlap = 0` behavior is unchanged and byte-identical.
 
 ## Background: the DZI overlap model (measured, not assumed)
 
@@ -26,7 +26,7 @@ halves dims (round up); the tile grid is `ceil(levelDim / TileSize)` per axis �
 all unchanged from `Overlap = 0`.
 
 With `Overlap = ov`, each **stored** tile additionally carries `ov` redundant
-pixels on every edge that has a neighbour: left if `col > 0`, top if `row > 0`,
+pixels on every edge that has a neighbor: left if `col > 0`, top if `row > 0`,
 right if not the last column, bottom if not the last row. The tile's **content**
 cell is unchanged — `[col·T, row·T]` of size up to `T×T`, clipped to the level
 remainder at the right/bottom edges. The content sits at offset
@@ -126,7 +126,7 @@ A consumer recovers every per-side overlap from a decoded tile `W×H` and its
 `TileContentRect{(ox,oy),(cw,ch)}`: `left=ox, top=oy, right=W-ox-cw,
 bottom=H-oy-ch`.
 
-## Read-path behaviour (DZI/SZI Overlap > 0)
+## Read-path behavior (DZI/SZI Overlap > 0)
 
 | API | Returns | Notes |
 |---|---|---|
@@ -180,13 +180,13 @@ func ContentRect(col, row, levelW, levelH, tileSize, overlap int) (offX, offY, w
 `grid = ceil(levelDim/tileSize)` is already in `internal/dzi/coords.go`; the
 "last column/row ⇒ no right/bottom overlap" condition is implicit in the content
 clip (`w = min(tileSize, levelW - col*tileSize)`), so the helper needs only the
-neighbour-presence rule for `offX/offY` (`col>0`, `row>0`).
+neighbor-presence rule for `offX/offY` (`col>0`, `row>0`).
 
 ### Reader changes
 
 - `formats/dzi/tiler.go`, `formats/szi/tiler.go`: remove the `Overlap > 0`
   rejection. (`internal/dzi.ErrOverlapNotSupported` is retained for any genuinely
-  unmodelled future case but no longer fires on plain overlap.)
+  unmodeled future case but no longer fires on plain overlap.)
 - Carry `overlap int` onto the level/tiler; populate `OverlapMode`,
   `TileOverlap`, `Overlapping` when building each public `Level`.
 - Implement `regionLayout` + `subtileLayout` on the tiler (delegating to the
@@ -207,7 +207,7 @@ neighbour-presence rule for `offX/offY` (`col>0`, `row>0`).
 - **Right/bottom-edge tiles:** content clipped to remainder; no right/bottom
   overlap. Handled by the content clip.
 - **Sparse/missing tiles:** out of scope for this milestone (DZI sparse-image
-  support is separately parked); unchanged behaviour.
+  support is separately parked); unchanged behavior.
 
 ## Validation & testing
 
@@ -250,7 +250,7 @@ wrong crop/placement shifts content and spikes MAD.
 
 - DZI **sparse images** and **DZC collections** (separately parked).
 - Re-encoding / writing overlapped DZIs (opentile is a reader).
-- Changing `Overlap = 0` behaviour in any way.
+- Changing `Overlap = 0` behavior in any way.
 - Per-axis differing overlap (DZI has a single scalar; not a real case).
 
 ## Files touched (anticipated)

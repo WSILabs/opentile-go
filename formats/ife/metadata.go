@@ -116,7 +116,7 @@ type Metadata struct {
 	AttributesVersion uint16
 	// Attributes is the free-form key/value map. Empty when the
 	// file has no ATTRIBUTES block. Encoder-set; opentile-go does
-	// not normalise keys across vendors.
+	// not normalize keys across vendors.
 	Attributes map[string]string
 }
 
@@ -519,7 +519,7 @@ func readImageArray(r io.ReaderAt, off uint64, fileSize int64) ([]opentile.Assoc
 			return nil, fmt.Errorf("image[%d]: %w", i, err)
 		}
 		out = append(out, &associatedImage{
-			imageType:   normaliseAssociatedType(title),
+			imageType:   normalizeAssociatedType(title),
 			rawTitle:    title,
 			size:        opentile.Size{W: int(w), H: int(h)},
 			compression: comp,
@@ -585,12 +585,12 @@ func compressionFromImageEncoding(e uint8) (opentile.Compression, error) {
 	}
 }
 
-// normaliseAssociatedType maps an IFE associated-image free-form
+// normalizeAssociatedType maps an IFE associated-image free-form
 // title (case-insensitive) onto opentile-go's existing taxonomy
 // ("label" / "overview" / "thumbnail" / "macro" / "map" /
-// "probability"). Unrecognised titles surface as the raw lowercased
+// "probability"). Unrecognized titles surface as the raw lowercased
 // string so consumers see what the encoder actually wrote.
-func normaliseAssociatedType(title string) opentile.AssociatedType {
+func normalizeAssociatedType(title string) opentile.AssociatedType {
 	lower := make([]byte, len(title))
 	for i := 0; i < len(title); i++ {
 		c := title[i]

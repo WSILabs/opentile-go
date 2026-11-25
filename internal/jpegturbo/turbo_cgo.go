@@ -58,11 +58,11 @@ static int go_tj_transform_crop(
 
 // Data passed to go_tj_fill_background via tjtransform.data. Mirrors
 // PyTurboJPEG's BackgroundStruct: image dimensions in pixels plus the
-// quantised DC coefficient to write for out-of-bounds blocks.
+// quantized DC coefficient to write for out-of-bounds blocks.
 typedef struct fill_bg_data {
     int w;
     int h;
-    int lum; // DC coefficient (post-quantisation) to plant in OOB luma blocks
+    int lum; // DC coefficient (post-quantization) to plant in OOB luma blocks
 } fill_bg_data;
 
 // go_tj_fill_background is a CUSTOMFILTER callback that zeros the DCT
@@ -74,7 +74,7 @@ typedef struct fill_bg_data {
 // Port of PyTurboJPEG's fill_background (turbojpeg.py:202-287). Component
 // 0 (luma) is filled; chroma components are left alone — for luma-only
 // fills the chroma DC will bias the color slightly toward neutral, which
-// matches Python opentile's default behaviour.
+// matches Python opentile's default behavior.
 //
 // MCU sizes in the coeff array are always 8x8 regardless of JPEG
 // subsampling (libjpeg-turbo normalizes per-component blocks).
@@ -152,7 +152,7 @@ static int go_tj_fill_background(
 // libjpeg-turbo needs these so the callback can decide which blocks are
 // OOB.
 //
-// `lum` is the post-quantisation DC coefficient written to OOB luma
+// `lum` is the post-quantization DC coefficient written to OOB luma
 // blocks. Pass 0 for a mid-gray fill (DC=0 maps to level-shift-neutral
 // 128). Callers derive `lum` from the requested BackgroundLuminance via
 // internal/jpeg.LuminanceToDCCoefficient, which ports PyTurboJPEG's
@@ -274,7 +274,7 @@ static int go_tj_fill_frame(
 // to produce a solid-color result while preserving the original
 // encoding tables.
 //
-// `lum` is the post-quantisation DC coefficient written to luma blocks
+// `lum` is the post-quantization DC coefficient written to luma blocks
 // (chroma DC is zero). Caller derives `lum` from the requested
 // luminance via internal/jpeg.LuminanceToDCCoefficient.
 static int go_tj_transform_fill_frame(
@@ -427,7 +427,7 @@ func Crop(src []byte, r Region) ([]byte, error) {
 // PyTurboJPEG.__map_luminance_to_dc_dct_coefficient exactly. Chroma DC
 // coefficients are left at 0 (level-shift-neutral 128), producing
 // pixels that decode close-to-but-not-exactly white (the small residual
-// chroma offset comes from JPEG's centred-128 chroma representation).
+// chroma offset comes from JPEG's centered-128 chroma representation).
 // This matches PyTurboJPEG's behavior bit-for-bit; for exact white the
 // caller would need a chroma extension that we don't currently
 // implement (tracked as a future enhancement).
@@ -453,7 +453,7 @@ func CropWithBackgroundLuminance(src []byte, r Region, luminance BackgroundLumin
 // opts.DCBackground != 0, that value is used directly as the OOB luma DC
 // coefficient; otherwise the function parses the source's DQT and
 // computes it via internal/jpeg.LuminanceToDCCoefficient (the per-call
-// path). Tilers reading many tiles from the same source amortise the
+// path). Tilers reading many tiles from the same source amortize the
 // DQT parse by caching the DC value at level construction.
 func CropWithBackgroundLuminanceOpts(src []byte, r Region, luminance BackgroundLuminance, opts CropOpts) ([]byte, error) {
 	if len(src) == 0 {

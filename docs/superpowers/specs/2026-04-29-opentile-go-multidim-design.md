@@ -18,7 +18,7 @@ again.
 | 4 | **Z-axis indexing convention: storage-order with Z=0 = nominal.** Z indices are 0..SizeZ-1 in the file's storage order. Z=0 is always the nominal focal plane. The mapping from Z index to physical focal distance (microns) is exposed via `ZPlaneFocus(z) float64`. Consumers iterate by index and read focus distance from the accessor. |
 | 5 | **Channel model: index + name only this milestone.** `SizeC()` reports channel count; `ChannelName(c)` returns the human-readable name (e.g., `"DAPI"`, `""` for brightfield). Per-channel color, excitation/emission wavelengths, fluorophore IDs are deferred to a follow-up — they're OME-specific richer metadata that no v0.7 format produces. |
 | 6 | **Time series: dimension only, no per-T metadata.** `SizeT()` reports time-point count; T values are simple integer indices 0..SizeT-1. Pathology rarely uses time series; no use case justifies more API surface in v0.7. |
-| 7 | **2D-format compatibility: zero behavioural change.** Every existing format (SVS, NDPI, Philips, OME, BIF when not Z-stacked, IFE when it lands) reports `SizeZ() = SizeC() = SizeT() = 1`. `TileAt({X, Y, Z:0, C:0, T:0})` is byte-identical to `Tile(X, Y)`. Existing test fixtures stay green. |
+| 7 | **2D-format compatibility: zero behavioral change.** Every existing format (SVS, NDPI, Philips, OME, BIF when not Z-stacked, IFE when it lands) reports `SizeZ() = SizeC() = SizeT() = 1`. `TileAt({X, Y, Z:0, C:0, T:0})` is byte-identical to `Tile(X, Y)`. Existing test fixtures stay green. |
 | 8 | **Iteration: 2D for v0.7.** `Level.Tiles(ctx)` continues to yield 2D positions only (Z=0, C=0, T=0). Multi-dim iteration is consumer-driven via nested loops over `SizeZ/C/T`. A future `Level.TilesND(ctx)` can be added when a real consumer needs it; YAGNI for now. |
 
 ---
@@ -31,7 +31,7 @@ channels (C), and time series (T). It is **format-agnostic** — every
 supported format describes its own multi-dim semantics through the
 same interface. The design is additive: existing 2D-only callers
 keep working without code changes, and existing 2D-only format
-implementations keep working without behavioural changes (each just
+implementations keep working without behavioral changes (each just
 defaults `SizeZ/C/T` to 1). v0.7's BIF reader is the first
 real consumer (`IMAGE_DEPTH` tag-driven Z-stack support); OME's
 existing 2D-only path is verified to fit the new abstractions even
@@ -62,7 +62,7 @@ multi-dim, "upstream" means three layered references:
 ## 3. The shape question — why Shape D
 
 Four architectural shapes considered for multi-dim addressing.
-Summarised here for context; D is the chosen shape.
+Summarized here for context; D is the chosen shape.
 
 ### Shape A: each (Z, C, T) tuple is its own `Image`
 
@@ -254,7 +254,7 @@ Z=0 is **always** the nominal focal plane. Mapping from Z index to
 physical focal distance is the format's responsibility, exposed via
 `Image.ZPlaneFocus(z) float64`.
 
-### BIF realisation (the v0.7 use case)
+### BIF realization (the v0.7 use case)
 
 Per the BIF whitepaper §"Whole slide imaging process":
 
@@ -282,7 +282,7 @@ Where `n_near = (Z-layers - 1) / 2` and `n_far = Z-layers - 1 - n_near`,
 and the `<iScan>/@Z-spacing` attribute (microns per plane) drives
 ZPlaneFocus's return values.
 
-### OME realisation (forward verification only — no v0.7 work)
+### OME realization (forward verification only — no v0.7 work)
 
 OME-XML's `<Pixels DimensionOrder="XYZCT">` (or `XYZTC`, `XYCZT`,
 `XYCTZ`, `XYTZC`, `XYTCZ`) determines the IFD order. For OME's most
@@ -294,7 +294,7 @@ ifd_index = T * (SizeC * SizeZ) + C * SizeZ + Z
 
 Each (Z, C, T) tuple gets its own top-level IFD. Z=0 corresponds to
 the first IFD in the Z dimension, which OME conventionally treats
-as the nominal/in-focus plane. This realisation is **verified to
+as the nominal/in-focus plane. This realization is **verified to
 fit the proposed API** but not implemented in v0.7 — OME multi-Z
 support is a separate format-package work item.
 
@@ -337,7 +337,7 @@ themselves.
 
 Per-channel rich metadata that OME-XML carries:
 
-- `Color` (uint32 RGBA — visualisation hint for the channel)
+- `Color` (uint32 RGBA — visualization hint for the channel)
 - `ExcitationWavelength` (nm)
 - `EmissionWavelength` (nm)
 - `Fluor` (fluorophore ID)
@@ -382,7 +382,7 @@ can be added without disturbing the v0.7 API.
 ## 8. 2D-format compatibility
 
 Every existing format reports `SizeZ() = SizeC() = SizeT() = 1`.
-This is the default behaviour from `SingleImage`'s embedded
+This is the default behavior from `SingleImage`'s embedded
 implementation, so no per-format override is required for SVS,
 NDPI, Philips, OME (the existing 2D-only path), or IFE (when it
 lands).
@@ -411,7 +411,7 @@ When a BIF slide carries `IMAGE_DEPTH > 1`:
 - `TileAt(TileCoord{X, Y, Z, ...})` reads from `offsets[Z*M*N +
   Y*M + X]` (with serpentine remap applied to (X, Y)).
 - `Tile(x, y)` continues to return the nominal-plane tile (Z=0),
-  matching v0.7 behaviour before this multi-dim work.
+  matching v0.7 behavior before this multi-dim work.
 
 When IMAGE_DEPTH is absent or equal to 1 (every fixture in
 `sample_files/ventana-bif/` so far), BIF behaves as a 2D-only
@@ -516,7 +516,7 @@ infrastructure. Phases:
 | § | Question | Provisional answer |
 |---|----------|---------------------|
 | 4 | `ErrTileOutOfBounds` vs new `ErrDimensionUnavailable` for non-zero Z/C/T on a 2D format? | **`ErrDimensionUnavailable`**. The semantic is "this dimension doesn't exist on this slide" — different from "this (X, Y) is past the grid edge." Cleaner debugging story. |
-| 4 | Should `TileCoord` carry an `Index() int` helper that linearises to a single int (e.g., for use as a map key)? | **No.** Out of scope. Maps with `TileCoord` keys work fine in Go; we don't need a packed-int representation. Add later if a real consumer does. |
+| 4 | Should `TileCoord` carry an `Index() int` helper that linearizes to a single int (e.g., for use as a map key)? | **No.** Out of scope. Maps with `TileCoord` keys work fine in Go; we don't need a packed-int representation. Add later if a real consumer does. |
 | 5 | Should we expose `ChannelColor(c)` even though no v0.7 format produces it? | **No.** Premature. Add when OME multi-channel support lands. |
 | 7 | `SizeT > 1` with `Levels()` — should each time point get its own pyramid? | **No.** SizeT > 1 means the same pyramid is captured at multiple time points; `TileAt` selects by T, just like Z. Time-series-with-changing-pyramids is exotic; ignore until a real fixture surfaces. |
 | 10 β | Multi-Z BIF synthetic fixture — embed in test code or commit to `tests/testdata/`? | **Embed in test code.** Mirrors the existing `formats/bif/detection_test.go::buildBIFLikeBigTIFF` pattern; keeps test inputs reviewable. |
@@ -561,7 +561,7 @@ gains a `TileAt` impl that delegates to `Tile`.
 | 2026-04-29 | 4 | Z indexed 0..SizeZ-1 in storage order, Z=0 = nominal; physical offset via `ZPlaneFocus` | Toby |
 | 2026-04-29 | 5 | Channel model: index + name only this milestone; richer metadata deferred | Toby |
 | 2026-04-29 | 6 | Time series: dimension-only via SizeT; no per-T metadata this milestone | Toby |
-| 2026-04-29 | 7 | 2D-format compat is zero behavioural change; embedded `SingleImage` defaults | Toby |
+| 2026-04-29 | 7 | 2D-format compat is zero behavioral change; embedded `SingleImage` defaults | Toby |
 | 2026-04-29 | 8 | Iteration stays 2D in v0.7; multi-dim `TilesND` future work item | Toby |
 
 After sign-off, this becomes the executable spec; a follow-up plan

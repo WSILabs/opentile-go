@@ -129,7 +129,7 @@ func openFromTIFFFile(file *tiff.File, cfg *format.Config) (format.Reader, error
 		if err != nil {
 			if errors.Is(err, errUnsupportedAssociatedShape) {
 				// Spec §6: silently drop unsupported IFDs (multi-strip
-				// Deflate, tiled associated) — the IFD is recognised
+				// Deflate, tiled associated) — the IFD is recognized
 				// but not exposed via Associated(). Route to DirOther
 				// so the page is still visible via TIFFDirectories.
 				continue

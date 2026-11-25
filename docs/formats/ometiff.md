@@ -143,7 +143,7 @@ OneFrame levels of the dropped Leica-2 pyramids have no straight-byte Python ref
 |---|---|---|---|
 | Multi-image pyramid exposure | v0.6 | Use `s.Levels()` instead of `s.Pyramids()` to see only the first | Upstream's base `Tiler.__init__` loop assumes one main pyramid per file and silently overwrites `_level_series_index` on each match. For Leica-2 (4 main pyramids), only the last is exposed — an upstream oversight, not intent. We expose all of them via `s.Pyramids()`; legacy `s.Levels()` callers see pyramid 0 and don't break |
 | Plane-0-only indexing on `PlanarConfiguration=2` | v0.6 | not opt-out-able | When OME pages use separate-plane storage (3 channels × grid entries in TileOffsets), Python opentile silently uses plane 0 only via flat `y*W + x` indexing. We mirror that for byte parity. The other planes are inaccessible through our public API |
-| First-strip-only on multi-strip OneFrame | v0.6 | not opt-out-able | OME planar OneFrame pages can carry `rowsperstrip × samplesperpixel` strips (Leica-1 L2 has 7206). Python opentile's `_read_frame(0)` consumes only strip 0 (plane 0 row 0) and lets libjpeg-turbo's `TJERR_WARNING` recover from the truncated scan data. Our cgo wrapper distinguishes warning from fatal via `tjGetErrorCode` and matches Python's behaviour |
+| First-strip-only on multi-strip OneFrame | v0.6 | not opt-out-able | OME planar OneFrame pages can carry `rowsperstrip × samplesperpixel` strips (Leica-1 L2 has 7206). Python opentile's `_read_frame(0)` consumes only strip 0 (plane 0 row 0) and lets libjpeg-turbo's `TJERR_WARNING` recover from the truncated scan data. Our cgo wrapper distinguishes warning from fatal via `tjGetErrorCode` and matches Python's behavior |
 
 ## Cross-format Metadata mapping (v0.17)
 
@@ -193,7 +193,7 @@ v0.18 spec — see `docs/superpowers/specs/2026-05-09-opentile-go-v18-svs-writer
 ## Known issues + history
 
 - **PlanarConfiguration=2 indexing** (v0.6): tile-offset arrays carry plane_count × grid entries; relaxed our strict `len(offsets) == gx*gy` check to `>= gx*gy`.
-- **Multi-strip OneFrame** (v0.6): added `oneframe.Options.FirstStripOnly` so OME can pass it without changing NDPI behaviour (NDPI still errors on multi-strip).
+- **Multi-strip OneFrame** (v0.6): added `oneframe.Options.FirstStripOnly` so OME can pass it without changing NDPI behavior (NDPI still errors on multi-strip).
 - **`tjTransform` warning vs fatal** (v0.6): cgo wrapper now treats `TJERR_WARNING` as success when `*dst` is populated. NDPI parity preserved.
 - **Tile size for OneFrame**: hard-coded to base page's TileWidth/TileLength, ignoring `cfg.TileSize`. Mirrors upstream's `Size(self._base_page.tilewidth, self._base_page.tilelength)` in `OmeTiffTiler.get_level`.
 

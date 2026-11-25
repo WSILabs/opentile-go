@@ -152,7 +152,7 @@ func SpliceJPEGTile(prefix, body []byte) ([]byte, error)
 | NDPI OneFrame levels | nil | full DCT-cropped JPEG | == TileMaxSize |
 | IFE levels | nil | full per-tile native codec bytes | == TileMaxSize |
 
-**Multi-region leicascn blank-fill tiles** (sealed Q4): inter-region "gap" tiles in Leica-2's composite levels are synthesised full self-contained JPEGs (their own SOI + DQT/DHT + SOS + EOI). They don't conform to the split-prefix-and-body invariant — the prefix bytes are already inside the body. `SpliceJPEGTile` still produces a structurally valid JPEG when applied to a blank-fill body (it inserts redundant DQT/DHT, which a JPEG decoder tolerates), but the result is wasteful. Bandwidth savings on these tiles are negligible because blank tiles are small (~few hundred bytes) and infrequent. Documented behavior; no per-tile signaling.
+**Multi-region leicascn blank-fill tiles** (sealed Q4): inter-region "gap" tiles in Leica-2's composite levels are synthesized full self-contained JPEGs (their own SOI + DQT/DHT + SOS + EOI). They don't conform to the split-prefix-and-body invariant — the prefix bytes are already inside the body. `SpliceJPEGTile` still produces a structurally valid JPEG when applied to a blank-fill body (it inserts redundant DQT/DHT, which a JPEG decoder tolerates), but the result is wasteful. Bandwidth savings on these tiles are negligible because blank tiles are small (~few hundred bytes) and infrequent. Documented behavior; no per-tile signaling.
 
 ## 4. Test strategy
 

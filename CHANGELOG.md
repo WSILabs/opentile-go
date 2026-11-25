@@ -69,7 +69,7 @@ upstream references, and retirement audit per milestone.
   never allocates memory the caller must free. Covers metadata (structs plus
   a JSON superset), raw / decoded / stitched tiles, `read_region` and
   `read_region_scaled`, thumbnail / macro / associated images, ICC profiles
-  and raw TIFF tags. Optional per-call ICC→sRGB colour management via lcms2
+  and raw TIFF tags. Optional per-call ICC→sRGB color management via lcms2
   (`OT_DECODE_SRGB`; `nolcms2` build tag to drop it). `make capi` /
   `make capi-smoke SLIDE=…`; C smoke and thread tests in `capi/test/`.
   Design: `docs/superpowers/specs/2026-11-23-capi-design.md`. No change to
@@ -135,10 +135,10 @@ upstream references, and retirement audit per milestone.
   of the component planes the decode library hands back, *before* opentile's
   reader-side YCbCr→RGB normalization; the decoded-pixel counterpart to the
   stored `ColorEncoding`. Populated by all four codestream-inspecting codecs
-  (jpeg, jpeg2000, htj2k, jpegxl). JPEG 2000 MCT / JPEG / JPEG XL / htj2k colour
-  tiles report `RGB`; an sYCC or unsignalled Aperio-33003 raw JP2K codestream
+  (jpeg, jpeg2000, htj2k, jpegxl). JPEG 2000 MCT / JPEG / JPEG XL / htj2k color
+  tiles report `RGB`; an sYCC or unsignaled Aperio-33003 raw JP2K codestream
   reports `YCbCr`; single-component tiles report `Grayscale`. Additive; no
-  behaviour change to any existing field or `Decode` output. (#112)
+  behavior change to any existing field or `Decode` output. (#112)
 
 ### Changed
 
@@ -703,8 +703,8 @@ Rendered slide-preview APIs — `RenderThumbnail` and `RenderMacro`.
   macro-style orientation image: a slide-shaped canvas (the non-label scan area,
   ~50×25 mm) with the whole-slide tissue composited at its **true physical size**
   (from `Metadata.MPP`, falling back to `10/Magnification` — 40×→0.25, 20×→0.5;
-  error if neither) and centred. For slides that don't embed a macro/overview.
-  Centred only (true on-slide position is a future enhancement). Additive.
+  error if neither) and centered. For slides that don't embed a macro/overview.
+  Centered only (true on-slide position is a future enhancement). Additive.
 
 ## [0.46.0] — 2026-06-18
 
@@ -734,11 +734,11 @@ BIF overlap-aware tile stitching — DP-generation (#60) and legacy iScan (#63).
 
 ### Fixed
 
-- **BIF: `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` seam artefacts** (#60).
+- **BIF: `ReadRegion` / `ReadRegionScaled` / `ScaledStrips` seam artifacts** (#60).
   For DP-generation slides the raw frame-grid boundary (24×21 grid, 1024 px pitch)
   produced visible seam lines in region/DZI output because adjacent frames were
   placed at their naive grid positions without overlap compaction. The stitching
-  engine eliminates these artefacts; output is now pixel-exact vs bio-formats.
+  engine eliminates these artifacts; output is now pixel-exact vs bio-formats.
 
 - **BIF: legacy iScan (Coreo / HT) overlap-aware stitching** (#63). `buildLegacyLayout`
   reconstructs per-tile placement from the `TileJointInfo` overlap graph using a
@@ -1043,7 +1043,7 @@ cleanup and public CI fixtures for both.
 - **Internal `striped` → `stripped` spelling normalized** (no API change — every
   renamed identifier is unexported). The TIFF spec word is `strip`
   (`StripOffsets` / `StripByteCounts` / `RowsPerStrip`); `striped` derives from
-  `stripe` (a colour band) and was the legacy v0.2 misspelling the v0.12 rename
+  `stripe` (a color band) and was the legacy v0.2 misspelling the v0.12 rename
   retired. Also repaired stale `formats/ndpi/striped.go` doc/filename references
   (the file has been `stripped.go` since v0.12) and added a `CLAUDE.md`
   convention note so it stops recurring.
@@ -1260,7 +1260,7 @@ See [docs/migrations/2026-06-12-v1-api-breaking-pass.md](docs/migrations/2026-06
   `DecodedTile` dispatches to the OpenJPEG decoder. Frame extraction was
   already codec-agnostic (the mmap fragment-offset-walk returns the raw J2K
   codestream), so this was a one-line mapping on top of the decoder hardening
-  from #7/#8/#10. Colour is handled by OpenJPEG from the codestream (no
+  from #7/#8/#10. Color is handled by OpenJPEG from the codestream (no
   `PhotometricInterpretation` plumbing) — verified within 1 LSB against the
   original JPEG via a lossless `gdcmconv --j2k` transcode fixture.
 - **DICOM WSM levels in HTJ2K (`.201` / `.202` / `.203`) now decode** (subject
@@ -1272,7 +1272,7 @@ See [docs/migrations/2026-06-12-v1-api-breaking-pass.md](docs/migrations/2026-06
   2000 `.91` — `internal/dicom` substitutes a `.91` proxy UID in the meta
   header for the cold-path parse and records the real syntax. `ParseInstance`
   also gained a `recover` guard so malformed DICOM returns an error instead of
-  crashing. Colour verified within 5 LSB vs the original JPEG (ojph_compress +
+  crashing. Color verified within 5 LSB vs the original JPEG (ojph_compress +
   pydicom lossless transcode fixture).
 
 ## [0.33.0] — 2026-06-04
@@ -1340,12 +1340,12 @@ or output-contract bugs in the JPEG 2000 / HTJ2K decode paths.
   `i ∈ [0, w·h)`, but subsampled chroma planes hold fewer than `w·h`
   samples. For Aperio SVS JP2K (`Compression=33003`, 4:2:2) this read
   2× past the end of each chroma plane — intermittent SIGBUS and silent
-  colour corruption (nondeterministic under a concurrent decode pool).
+  color corruption (nondeterministic under a concurrent decode pool).
   Now each component is indexed by its own geometry
-  (`(y/dy)·w + (x/dx)`), nearest-neighbour upsampling subsampled planes
+  (`(y/dy)·w + (x/dx)`), nearest-neighbor upsampling subsampled planes
   (mirrors OpenJPEG's own `opj_decompress`). Added guards: require ≥3
   components, floor `dx/dy` at 1, clamp the per-plane index. The YCbCr→RGB
-  colour math is unchanged, so 4:4:4 / RGB output is bit-identical.
+  color math is unchanged, so 4:4:4 / RGB output is bit-identical.
   Regression test decodes a real 4:2:2 tile and matches an independent
   `opj_decompress` reference (max per-channel diff 1/255 over the tile).
 
@@ -1600,7 +1600,7 @@ throughput is unchanged-to-improved (OS-2 @256: 157 → 241 Mpix/s).
   JPEG-frame map) is now a 128 MiB byte-bounded LRU (`frameByteLRU`).
   On the single-pass DZI traversal it provided ~zero benefit while
   retaining most of the compressed level.
-- Default budget now **honours `GOMEMLIMIT`**: when set and no explicit
+- Default budget now **honors `GOMEMLIMIT`**: when set and no explicit
   budget was given, the default shrinks to ≤ half the limit (floor
   128 MiB) so live set + GC headroom fit under the runtime ceiling. The
   library never *sets* `GOMEMLIMIT`.
@@ -1873,7 +1873,7 @@ of the cached pixels. The new path's hot spots are pixel `memmove`
 
 ### Added (internal only)
 
-- `internal/fastpath.ErrUnsupported` — dispatch sentinel signalling
+- `internal/fastpath.ErrUnsupported` — dispatch sentinel signaling
   slow-path fallback. Tiny shared package; not exposed publicly.
 - `formats/ndpi.pixelFrameCache` — bounded LRU of decoded RGB frames,
   capacity = `max(runtime.NumCPU(), 16)`. Promise pattern: concurrent
@@ -2774,7 +2774,7 @@ Switch-statement values:
 
 ## [0.14.0] — 2026-05-08
 
-Novel-codec milestone — generic-TIFF reader recognises four new
+Novel-codec milestone — generic-TIFF reader recognizes four new
 tile compression tag values produced by the user's wsi-tools
 transcoder (WebP, JPEG XL, AVIF, HTJ2K). Plus opportunistic parsing
 of the wsi-tools ImageDescription format to populate standard
@@ -2821,7 +2821,7 @@ Metadata fields. Additive — no breaking changes.
 - **Tag value mappings are wsi-tools-specific** for AVIF (60001)
   and HTJ2K (60003) — not formally registered TIFF codes. Files
   produced by other tooling using different tag values for these
-  codecs would not be recognised.
+  codecs would not be recognized.
 - v0.14 introduced no new active limitations.
 - v1.0 cut remains pending.
 - cgo footprint unchanged.
@@ -3125,7 +3125,7 @@ any structurally valid pyramid TIFF.
   concat (libtiff RST-marker layout); multi-strip LZW decode +
   re-encode (lifted from `formats/svs/lzwlabel.go` pattern).
   Multi-strip Deflate and tiled associated images silently
-  dropped per spec §6 — IFD recognised but not exposed.
+  dropped per spec §6 — IFD recognized but not exposed.
 - **Cross-format `Tiler.Metadata()` via standard TIFF tags** —
   `Make` (271) → ScannerManufacturer; `Model` (272) → ScannerModel;
   `Software` (305) → ScannerSoftware (semicolon/newline-split);
@@ -3397,7 +3397,7 @@ factories embed `RawUnsupported` for backward-compat zero-cost.
   v0.9+). `Tiler.Metadata()` populates `Magnification` from the
   header f32; `Tiler.ICCProfile()` returns the embedded color
   profile bytes; `Tiler.Associated()` exposes IMAGE_ARRAY entries
-  with normalised `Kind()` ("label" / "overview" / "thumbnail" /
+  with normalized `Kind()` ("label" / "overview" / "thumbnail" /
   "macro" / "map" / "probability"; unknown titles surface
   lowercased). New `ife.Metadata` struct + `ife.MetadataOf(tiler)`
   accessor for IFE-specific fields: `MicronsPerPixel`,
@@ -3570,7 +3570,7 @@ One new deliberate divergence (see
 - **L19** — openslide pixel-equivalence on BIF
   (infrastructure-only in v0.7; coordinate-system gap between
   opentile-go's padded TIFF grid and openslide's AOI-hull view).
-- **L20** — DP 600 (and other future "VENTANA DP *") behavioural
+- **L20** — DP 600 (and other future "VENTANA DP *") behavioral
   variance — unverified without a fixture.
 
 ### Retired (mid-v0.7)
@@ -3662,11 +3662,11 @@ Three new deliberate divergences (see
 - **Multi-image OME pyramid exposure**: upstream's last-wins loop
   silently drops 3 of 4 main pyramids in `Leica-2.ome.tiff`; we
   expose all of them via `Tiler.Images()`. Use `Tiler.Levels()` for
-  first-image-only behaviour.
+  first-image-only behavior.
 - **PlanarConfiguration=2 plane-0-only indexing**: matches Python's
   silent flat-indexing into per-channel-tripled offset arrays.
 - **First-strip-only on multi-strip OneFrame**: matches Python's
-  `_read_frame(0)` behaviour on `rowsperstrip × samplesperpixel`
+  `_read_frame(0)` behavior on `rowsperstrip × samplesperpixel`
   planar pages.
 
 ### Retired
@@ -3773,7 +3773,7 @@ expose, across all 7 fixtures in the parity oracle.
 
 - **L6 / R13** — NDPI Map pages (Magnification == -2.0) now surface
   as `AssociatedImage` entries with `Kind() == "map"`. Deliberate
-  Go-side extension paralleling the v0.2 NDPI synthesised label
+  Go-side extension paralleling the v0.2 NDPI synthesized label
   (L14): upstream Python opentile chose not to surface Map pages
   even though tifffile classifies them as `series.name == 'Map'`
   one layer below.
@@ -3841,14 +3841,14 @@ unchanged unless explicitly versioned.
 - `ConcatenateScans` dropped EOI assertions to match upstream's
   unconditional `frame[-2:] = end_of_image()` overwrite.
 
-### Documented (no behaviour change)
+### Documented (no behavior change)
 
 - D1 — `decodeASCII` NUL-terminator tolerance.
 - D2 — `decodeInline` `*byteReader` rationale.
 - D3 — `Metadata.AcquisitionDateTime` `IsZero()` sentinel.
 - I2 — `walkIFDs` overlapping-IFD detection limit.
 - I7 — `ReplaceSOFDimensions` byte-scan invariant.
-- N-6 — `CropWithBackground` chroma-DC=0 visual behaviour.
+- N-6 — `CropWithBackground` chroma-DC=0 visual behavior.
 - N-9 — NDPI sniff cross-cutting peek rationale.
 - O2 — `int(e.Count)` 32-bit truncation note.
 
@@ -3862,7 +3862,7 @@ parity oracle infrastructure that has guided every release since.
 
 - **Hamamatsu NDPI format** — striped + one-frame pyramid levels,
   including the 64-bit offset extension for slides > 4 GB.
-  Associated images (overview + synthesised label).
+  Associated images (overview + synthesized label).
   `ndpi.MetadataOf` for source-lens / focal-offset / scanner serial.
 - **BigTIFF** support across `internal/tiff`, transparent to format
   packages.

@@ -145,7 +145,7 @@ func TestReducedDeepLevelRegistration(t *testing.T) {
 }
 
 // alignOffset finds the integer (dx,dy) in [-rad,rad]² that best aligns the
-// smaller patch a centred inside b (min mean-abs-diff over RGB).
+// smaller patch a centered inside b (min mean-abs-diff over RGB).
 func alignOffset(a, b *decoder.Image, rad int) (int, int) {
 	ba, bb := 3, 3
 	if a.Format == decoder.PixelFormatRGBA {

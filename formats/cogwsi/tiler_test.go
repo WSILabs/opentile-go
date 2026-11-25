@@ -152,7 +152,7 @@ func TestTiler_Metadata(t *testing.T) {
 // marker but a malformed required-key value (here: LAYOUT=OTHER)
 // fails opening with ErrNotConformantCOGWSI.
 //
-// Synthesises a minimal classic-TIFF + ghost-area header that
+// Synthesizes a minimal classic-TIFF + ghost-area header that
 // passes Supports() (COG_WSI_VERSION present) but trips
 // validateGhost on the bad LAYOUT value.
 func TestOpen_NonConformantGhost(t *testing.T) {

@@ -80,7 +80,7 @@ func WithStripKernel(k resample.Kernel) StripOption {
 // WithStripContext binds the iterator's worker pool to a
 // cancellation context. Default: context.Background().
 //
-// Cancelling ctx aborts in-flight Next() calls with ctx.Err().
+// Canceling ctx aborts in-flight Next() calls with ctx.Err().
 // Workers also respond to *StripIterator.Close().
 func WithStripContext(ctx context.Context) StripOption {
 	return func(c *stripConfig) { c.ctx = ctx }

@@ -78,7 +78,7 @@ format.go                      MOD   FormatDZI = "dzi"
 
 With `Overlap=0`, a stored tile *is* exactly its core (`TileSize`, clamped at the
 far edges), placed at `(col*TileSize, row*TileSize)` on a clean grid. So the DZI
-`level` is the filesystem analogue of the SZI `level`: identical pyramid math
+`level` is the filesystem analog of the SZI `level`: identical pyramid math
 (`internal/dzi`), identical clean grid, only the *byte source* differs (ZIP entry
 → `os.ReadFile`). `Tile(x,y)` returns the raw on-disk JPEG/PNG bytes verbatim;
 `DecodedTile`/`ReadRegion`/`ScaledStrips` decode through the normal pipeline

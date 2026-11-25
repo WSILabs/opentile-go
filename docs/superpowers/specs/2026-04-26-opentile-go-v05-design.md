@@ -24,7 +24,7 @@ fixtures.
 
 Every task in the v0.5 plan starts with `Step 0: Confirm upstream`,
 naming the upstream file path + line range that governs the
-behaviour and including a verification command the executor must run
+behavior and including a verification command the executor must run
 before any production-code edit. Same contract v0.4 introduced and
 that drove three meta-findings during execution (T2 Map-page
 fixtures, T3 L12 Case D, T4 R4 mechanism audit). Carries forward
@@ -74,11 +74,11 @@ override `Size`. The wrapper is what the rest of the package sees.
 
 Philips levels can have tiles whose `TileByteCounts[idx] == 0`, but
 unlike the SVS corrupt-edge case (R4), this is **expected
-behaviour** — the slide simply doesn't have data for that tile,
+behavior** — the slide simply doesn't have data for that tile,
 typically because the scanner skipped a region of background. Upstream
 substitutes a "blank tile" derived from the first valid frame on the
 same page, with all DCT coefficients overwritten to produce a
-solid-colour (white) output:
+solid-color (white) output:
 
 ```python
 # opentile/formats/philips/philips_tiff_image.py:143-173
@@ -192,7 +192,7 @@ These are things v0.5 can do cheaply that will make v0.6 easier:
 - **`encoding/xml` patterns.** v0.5 introduces XML parsing via stdlib
   for DICOM-attribute documents. OME TIFF uses a more complex
   XML schema (OME-XML) but the underlying parsing approach
-  generalises. Concretely: keep the XML parsing helpers in a small
+  generalizes. Concretely: keep the XML parsing helpers in a small
   `internal/wsixml/` (or similar) package if the patterns repeat,
   vs. inlining in `formats/philips/metadata.go`. Decide based on
   what the v0.5 implementer actually needs.

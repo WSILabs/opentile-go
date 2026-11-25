@@ -31,7 +31,7 @@ func TestDecodedColorSpace(t *testing.T) {
 }
 
 // decodeIsYCbCr must return the historical truth value for every fixture, pinning
-// the refactor as behaviour-preserving (the decode path depends on it, GH #53).
+// the refactor as behavior-preserving (the decode path depends on it, GH #53).
 func TestDecodeIsYCbCrParity(t *testing.T) {
 	for _, tc := range []struct {
 		file string
@@ -57,7 +57,7 @@ func TestDecodeIsYCbCrParity(t *testing.T) {
 }
 
 // decodedColorSpaceFromHeader must cover every rule branch — including the
-// enumerated-box cases (sRGB / greyscale / sYCC) and the grayscale-component
+// enumerated-box cases (sRGB / grayscale / sYCC) and the grayscale-component
 // case that no real .j2k fixture in testdata exercises. Constructed headers pin
 // them deterministically. EnumColorspace -1 means "no colr box" (j2kheader's
 // no-signal sentinel).
@@ -70,7 +70,7 @@ func TestDecodedColorSpaceFromHeaderBranches(t *testing.T) {
 		{"grayscale-1comp", j2kheader.Info{Components: 1, EnumColorspace: -1}, decoder.ColorGrayscale},
 		{"mct-3comp", j2kheader.Info{Components: 3, MCT: true, EnumColorspace: -1}, decoder.ColorRGB},
 		{"srgb-box", j2kheader.Info{Components: 3, EnumColorspace: 16}, decoder.ColorRGB},
-		{"greyscale-box", j2kheader.Info{Components: 3, EnumColorspace: 17}, decoder.ColorGrayscale},
+		{"grayscale-box", j2kheader.Info{Components: 3, EnumColorspace: 17}, decoder.ColorGrayscale},
 		{"sycc-box", j2kheader.Info{Components: 3, EnumColorspace: 18}, decoder.ColorYCbCr},
 		{"no-signal", j2kheader.Info{Components: 3, EnumColorspace: -1}, decoder.ColorYCbCr},
 		{"mct-beats-box", j2kheader.Info{Components: 3, MCT: true, EnumColorspace: 18}, decoder.ColorRGB},
