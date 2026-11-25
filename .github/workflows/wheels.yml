@@ -224,9 +224,11 @@ jobs:
           if [ "${{ matrix.macos_cross }}" = "1" ]; then PY="arch -x86_64 python3"; fi
           $PY -m pip install pytest setuptools # test_build_backend loads setup.py
           # The public CMU-1-Small-Region.svs, as the libopentile C tests use.
-          curl -fsSL "https://github.com/WSILabs/wsi-fixtures/releases/download/v8/svs.tar" -o "$RUNNER_TEMP/svs.tar"
-          mkdir -p "$RUNNER_TEMP/fixtures" && tar xf "$RUNNER_TEMP/svs.tar" -C "$RUNNER_TEMP/fixtures"
-          export OPENTILE_TESTDIR="$RUNNER_TEMP/fixtures"
+          # Relative paths: Git Bash's GNU tar reads "D:" in a Windows path as a
+          # remote host.
+          curl -fsSL "https://github.com/WSILabs/wsi-fixtures/releases/download/v8/svs.tar" -o svs.tar
+          mkdir -p test-fixtures && tar xf svs.tar -C test-fixtures
+          export OPENTILE_TESTDIR="$PWD/test-fixtures"
           command -v cygpath >/dev/null && OPENTILE_TESTDIR=$(cygpath -w "$OPENTILE_TESTDIR")
           # importlib mode keeps python/ off sys.path, so the installed wheel is
           # what's tested (conftest asserts it). test_parity's `go run` reference

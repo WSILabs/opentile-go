@@ -11,8 +11,7 @@ def test_read_region_byte_parity_with_go(slide_path):
         ["go", "run", str(gen), slide_path, str(x), str(y), str(w), str(h)],
         cwd=str(repo), capture_output=True,
     )
-    assert run.returncode == 0, "go reference failed:
-" + run.stderr.decode("utf-8", "replace")
+    assert run.returncode == 0, "go reference failed:\n" + run.stderr.decode("utf-8", "replace")
     ref = run.stdout
     with Slide(slide_path) as s:
         arr = s.levels[0].read_region(x, y, w, h, rgba=False)
