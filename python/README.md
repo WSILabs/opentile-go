@@ -78,4 +78,11 @@ jpeg-xl libavif webp pkg-config`.
 cd python && ./build_dev.sh && pip install -e . && pytest
 ```
 
+Without openjph (e.g. Linux distro packages), build with `GOFLAGS=-tags=nohtj2k`.
+The tests need a slide: set `OPENTILE_TESTDIR`, or put one under the repo's
+`sample_files/`; `test_parity.py` also needs Go on `PATH`.
+
+CI runs this suite on every pull request (Linux dev build), and the `Wheels`
+workflow runs it against each installed wheel on all five platforms.
+
 Wheels bundle all six codecs statically (no system install needed).
