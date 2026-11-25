@@ -15,7 +15,7 @@ Design: `docs/superpowers/specs/2026-11-23-capi-design.md`.
   `ot_close` blocks until calls drain; thread-local last-error in C (a cgo
   export runs on the caller's thread); size-query buffers (no `ot_free`);
   `struct_size`-versioned structs; frozen `int32` codes/enums.
-- **Colour:** per-call `OT_DECODE_SRGB` → lcms2 ICC→sRGB, lazily built per
+- **Color:** per-call `OT_DECODE_SRGB` → lcms2 ICC→sRGB, lazily built per
   slide per pixel format (`cmsFLAGS_NOCACHE`); `nolcms2` drops it.
 - **Python:** `python/` `opentile_go` preview binding (Go `c-shared` shim +
   ctypes/numpy) and a 5-target `Wheels` workflow. **Never publishes unless
@@ -49,7 +49,7 @@ decoded-pixel subset (`Grayscale`/`RGB`/`YCbCr`/`Unknown`), never the
 `YBR_ICT`/`YBR_RCT` stored transforms.
 
 - **Four inspector codecs** (the only ones implementing `CodestreamInspector`):
-  jpeg + jpegxl colour → `RGB` (their libs convert); jpeg2000 → the
+  jpeg + jpegxl color → `RGB` (their libs convert); jpeg2000 → the
   decode-policy rule (MCT→RGB, sRGB-box→RGB, sYCC-box→YCbCr,
   no-MCT-no-box→YCbCr [Aperio-33003], 1-comp→Grayscale); **htj2k → `RGB`/
   `Grayscale` by component count** — openjph reconstructs planes and opentile
@@ -546,7 +546,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
   sibling format readers). IFE preserves both. Breaking change;
   pre-1.0; sole-consumer sign-off.
 - v0.14 (2026-05-08): Novel-codec milestone — generic-TIFF reader
-  recognises 4 new tile compression tag values (WebP / JPEG XL /
+  recognizes 4 new tile compression tag values (WebP / JPEG XL /
   AVIF / HTJ2K) produced by the user's wsi-tools transcoder. Plus
   a wsi-tools ImageDescription parser. Additive — no breaking
   changes.
@@ -577,7 +577,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 - **Don't guess format behavior — read upstream.** This is a **direct port** of Python opentile (which delegates format details to tifffile). Whenever classification, layout, tag semantics, or edge-case handling is unclear: **read `imi-bigpicture/opentile` first, then `cgohlke/tifffile`**. Guessed behavior cost v0.2 five separate debugging cycles (NDPI IFD layout, NDPI metadata tag numbers, NDPI StripOffsets tag, NDPI striped vs. oneframe gate, APP14 byte values) — every one fixed by reading the actual upstream source. The v0.4 plan elevates this to a structural per-task `Step 0: Confirm upstream` action that the executor must run before any production-code edit. The rule: if you catch yourself reasoning from first principles about a WSI format quirk, stop and find the upstream code that handles it. Port directly, adapt for Go idioms, but preserve the logic.
 - **No cutting corners; no active users yet.** Complete things we know are broken before moving on. When a bug is identified, the rule is: fix it, don't defer. Plan thoroughly for v0.3+ rather than race.
 - **Architectural placement of ported logic:** format-specific quirks belong in the format package (`formats/ndpi/`, `formats/svs/`), not `internal/tiff`. `internal/tiff` stays a generic TIFF/BigTIFF/NDPI-IFD parser. Examples: NDPI page-series grouping, SVS ImageDescription quirks, Philips sparse-tile filling.
-- **cgo is for codec decode only.** `internal/jpegturbo/` links libjpeg-turbo (also the `tjTransform` lossless DCT-domain crops); it is the only codec linked under *every* `cgo` build. `decoder/jpeg2000` (OpenJPEG) and `decoder/{jpegxl,webp,avif,htj2k}` (libjxl/libwebp/libavif/openjph) are each disableable via a `no<codec>` build tag — `nojp2k`, `nojxl`, `nowebp`, `noavif`, `nohtj2k` (Linux CI builds `nohtj2k`; macOS + Windows CI build all six). `internal/openslideshim/` (build tag `openslidebench`) links libopenslide for the benchmark suite only. The separate `capi/` module uses cgo for the C ABI itself and optionally lcms2 (colour management); `python/cshim` (a `main` package inside the core module, built `c-shared` for the Python binding) adds no C dependencies beyond the codecs. Library importers never link either one. Raw-tile reads are pure Go except NDPI stripped/one-frame levels, the NDPI label, Philips sparse tiles and OME-TIFF one-frame levels, which crop/fill through libjpeg-turbo. Under `nocgo` / `CGO_ENABLED=0` every codec-dependent path returns an error wrapping `decoder.ErrCodecUnavailable` (tests skip on it via `internal/testutil.SkipIfNoDecode`) and the rest works. (`opentile.ErrCGORequired` is the same value, so either name works.) The same six codecs build on Windows (x86-64) via vcpkg's `x64-mingw-static` triplet with a MinGW-w64 toolchain — the `integration-windows` CI job runs the full suite there (openjph is not an MSYS2 package, so vcpkg is the only MinGW HTJ2K path). See `docs/windows-dev.md`.
+- **cgo is for codec decode only.** `internal/jpegturbo/` links libjpeg-turbo (also the `tjTransform` lossless DCT-domain crops); it is the only codec linked under *every* `cgo` build. `decoder/jpeg2000` (OpenJPEG) and `decoder/{jpegxl,webp,avif,htj2k}` (libjxl/libwebp/libavif/openjph) are each disableable via a `no<codec>` build tag — `nojp2k`, `nojxl`, `nowebp`, `noavif`, `nohtj2k` (Linux CI builds `nohtj2k`; macOS + Windows CI build all six). `internal/openslideshim/` (build tag `openslidebench`) links libopenslide for the benchmark suite only. The separate `capi/` module uses cgo for the C ABI itself and optionally lcms2 (color management); `python/cshim` (a `main` package inside the core module, built `c-shared` for the Python binding) adds no C dependencies beyond the codecs. Library importers never link either one. Raw-tile reads are pure Go except NDPI stripped/one-frame levels, the NDPI label, Philips sparse tiles and OME-TIFF one-frame levels, which crop/fill through libjpeg-turbo. Under `nocgo` / `CGO_ENABLED=0` every codec-dependent path returns an error wrapping `decoder.ErrCodecUnavailable` (tests skip on it via `internal/testutil.SkipIfNoDecode`) and the rest works. (`opentile.ErrCGORequired` is the same value, so either name works.) The same six codecs build on Windows (x86-64) via vcpkg's `x64-mingw-static` triplet with a MinGW-w64 toolchain — the `integration-windows` CI job runs the full suite there (openjph is not an MSYS2 package, so vcpkg is the only MinGW HTJ2K path). See `docs/windows-dev.md`.
 - **Ported portions under Apache 2.0** with attribution to Sectra AB retained in `NOTICE` (a license obligation — keep it even as the project grows independent). Not affiliated with or endorsed by Sectra AB or the BigPicture project.
 - **Parity with upstream is the correctness bar.** Upstream's pytest cases are ported to Go tests; a fixture-backed integration suite compares tile bytes against a committed snapshot. An opt-in `//go:build parity` harness that shells out to Python opentile is v0.2.
 - **Lock-free hot path for metadata.** Parsed IFDs, per-tile offset/length arrays, and metadata are populated at `Open()` time and immutable thereafter. `Tile()` is safe to call concurrently from many goroutines — the shared-state caches in `formats/ndpi/stripped.go` (per-frame assembly cache) and `formats/ndpi/oneframe.go` (extended-frame cache) use double-checked locking and `sync.Once` respectively and produce byte-deterministic results regardless of which goroutine populates them first.
@@ -590,7 +590,7 @@ Bare DZI (R19) still parked but pre-prepared via internal/dzi.
 - Format subpackages (`formats/svs/`, `formats/ndpi/`, …) are public; `formats/all` is the umbrella registration package
 - `io.ReaderAt` + `int64` size is the core input (stdlib `*os.File` satisfies concurrent-use semantics)
 - Public tile methods: `Level.Tile(x, y int)` returns raw compressed bytes; `Level.TileReader(x, y)` streams via `io.SectionReader`; `Level.Tiles(ctx)` is serial row-major via `iter.Seq2`
-- **Spelling: a strip-organised TIFF level is `stripped`, never `striped`.** The TIFF spec word is `strip` (`StripOffsets`/`StripByteCounts`/`RowsPerStrip`), so the past participle is `stripped`; `striped` derives from `stripe` (a colour band) and is the legacy v0.2 misspelling the v0.12 rename retired. The wrong spelling *looks* right, so it keeps creeping back into fresh identifiers/comments — don't reintroduce it. (Historical records — CHANGELOG, `docs/deferred.md §terminology`, milestone notes above — deliberately keep the old spelling verbatim.)
+- **Spelling: a strip-organized TIFF level is `stripped`, never `striped`.** The TIFF spec word is `strip` (`StripOffsets`/`StripByteCounts`/`RowsPerStrip`), so the past participle is `stripped`; `striped` derives from `stripe` (a color band) and is the legacy v0.2 misspelling the v0.12 rename retired. The wrong spelling *looks* right, so it keeps creeping back into fresh identifiers/comments — don't reintroduce it. (Historical records — CHANGELOG, `docs/deferred.md §terminology`, milestone notes above — deliberately keep the old spelling verbatim.)
 
 ## Sample slides
 

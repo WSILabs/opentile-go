@@ -131,7 +131,7 @@ func (d *cgoDecoder) Decode(src []byte, opts decoder.DecodeOptions) (*decoder.Im
 	}
 
 	// Compute scaled output dimensions: ceil(srcDim / scale).
-	// This matches libjpeg-turbo's TJSCALED(dim, {1, scale}) behaviour.
+	// This matches libjpeg-turbo's TJSCALED(dim, {1, scale}) behavior.
 	outW := (int(srcW) + scale - 1) / scale
 	outH := (int(srcH) + scale - 1) / scale
 

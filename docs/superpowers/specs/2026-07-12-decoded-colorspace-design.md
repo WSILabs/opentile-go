@@ -40,7 +40,7 @@ Out of scope:
 - The `nocgo` / `nojp2k` jpeg2000 stub does not implement `Inspect`; not adding
   it here.
 - No change to any `Decode` output bytes. `decodeIsYCbCr` is refactored to
-  delegate to the shared rule but must remain behaviourally identical.
+  delegate to the shared rule but must remain behaviorally identical.
 - No change to `ColorEncoding` (stored) semantics or any existing field.
 
 ## 3. Semantics of `DecodedColorSpace`
@@ -75,7 +75,7 @@ the parsed `internal/j2kheader.Info`):
 4. Enumerated colorspace box `sYCC` → `ColorYCbCr` — opentile's jpeg2000 decoder
    applies the YCbCr→RGB conversion (the `apply_ycbcr` path).
 5. No MCT and no decisive box → `ColorYCbCr` — the Aperio-33003 convention (a
-   raw J2K codestream carrying YCbCr with no signalling); opentile converts it.
+   raw J2K codestream carrying YCbCr with no signaling); opentile converts it.
 
 This rule is *jpeg2000-decoder-specific policy*, not a generic codestream fact:
 it encodes exactly which planes opentile's jpeg2000 `Decode` treats as YCbCr and
@@ -87,8 +87,8 @@ decoder performs **no** reader-side chroma conversion. openjph reconstructs the
 stored component planes — inverting the MCT when the codestream carries one, or
 passing components through when it does not (the htj2k test encoder sets
 `set_color_transform(false)`) — and opentile packs whatever it gets as RGB. So
-htj2k's decoded output is always RGB for colour input and Grayscale for a single
-component, regardless of MCT/box signalling. A shared JP2K rule would mislabel
+htj2k's decoded output is always RGB for color input and Grayscale for a single
+component, regardless of MCT/box signaling. A shared JP2K rule would mislabel
 the common no-MCT htj2k codestream as YCbCr even though opentile emits correct
 RGB. htj2k therefore reports `Grayscale`/`RGB` by component count only. (A
 pathological no-MCT *sYCC* htj2k would be mis-decoded by opentile today — a
@@ -99,7 +99,7 @@ pre-existing gap unrelated to this field.)
 The jpeg2000 decode-policy rule is a single source of truth in the new
 build-tag-free `decoder/jpeg2000/color.go`, shared between the decode-time
 `decodeIsYCbCr` and the inspect-time `DecodedColorSpace` so the two cannot
-drift. htj2k, jpeg, and jpegxl set the field from their own decode behaviour
+drift. htj2k, jpeg, and jpegxl set the field from their own decode behavior
 directly in their `Inspect`. `internal/j2kheader` is unchanged.
 
 ### 4.1 `decoder/codestream.go`
@@ -112,8 +112,8 @@ Add the field to `CodestreamInfo`, documented per §3:
 	// opentile itself performs. Unlike ColorEncoding (the stored codestream
 	// colorspace, what a frame-copy preserves), this is what the pixels are in
 	// once decoded: JPEG 2000 MCT codestreams report RGB (the library inverts
-	// the MCT); an sYCC or unsignalled Aperio-33003 raw codestream reports
-	// YCbCr (opentile converts it); JPEG and JPEG XL colour tiles report RGB
+	// the MCT); an sYCC or unsignaled Aperio-33003 raw codestream reports
+	// YCbCr (opentile converts it); JPEG and JPEG XL color tiles report RGB
 	// (their libraries convert); single-component tiles report Grayscale.
 	//
 	// It only ever takes the decoded-pixel subset — ColorGrayscale, ColorRGB,
@@ -148,7 +148,7 @@ const (
 // decodedColorSpaceFromHeader reports the colorspace of the planes OpenJPEG hands
 // opentile's jpeg2000 decoder, before its YCbCr→RGB normalization. It is the
 // decode-policy counterpart to the stored ColorEncoding: an MCT codestream
-// decodes to RGB (OpenJPEG inverts the MCT); an sYCC box or an unsignalled raw
+// decodes to RGB (OpenJPEG inverts the MCT); an sYCC box or an unsignaled raw
 // codestream (the Aperio-33003 convention) is treated as YCbCr and converted; a
 // single component is grayscale.
 func decodedColorSpaceFromHeader(h j2kheader.Info) decoder.ColorEncoding {
@@ -197,10 +197,10 @@ harmless extensions the old table lacked:
 - **1-component** input returns `false` (`Grayscale != YCbCr`), where the old
   table fell through to `true`. The C side ignores it: conversion is gated on
   `numcomps == 3`.
-- A **3-component input carrying an enumerated *greyscale* colr box**
+- A **3-component input carrying an enumerated *grayscale* colr box**
   (`EnumColorspace == 17`) now returns `false` (`Grayscale`), where the old
   table fell through to `true`. This is a self-contradictory header (3 planes
-  labelled greyscale) that no real WSI fixture produces; the new value is
+  labeled grayscale) that no real WSI fixture produces; the new value is
   actually *more* consistent — the stored-colorspace classifier
   (`j2kheader.CodestreamInfo`) already maps the same input to `ColorGrayscale`.
 
@@ -227,7 +227,7 @@ func (f *factory) Inspect(src []byte) (decoder.CodestreamInfo, error) {
 ### 4.4 `decoder/htj2k/htj2k_cgo.go` — `Inspect`
 
 htj2k applies no reader-side chroma conversion, so its decoded output is RGB for
-colour input and Grayscale for one component (§3). Set the field by component
+color input and Grayscale for one component (§3). Set the field by component
 count after `h.CodestreamInfo()`:
 
 ```go
@@ -243,7 +243,7 @@ count after `h.CodestreamInfo()`:
 ### 4.5 `decoder/jpeg/jpeg_cgo.go` — `Inspect`
 
 Set `DecodedColorSpace` from the detected colorspace (libjpeg-turbo's `Decode`
-emits RGB for any colour input, grayscale for `TJCS_GRAY`):
+emits RGB for any color input, grayscale for `TJCS_GRAY`):
 
 ```go
 	switch colorspace {
@@ -267,7 +267,7 @@ emits RGB for any colour input, grayscale for `TJCS_GRAY`):
 
 ### 4.6 `decoder/jpegxl/jxl_cgo.go` — `Inspect`
 
-libjxl's `Decode` outputs RGB(A); mirror the existing colour-channel switch:
+libjxl's `Decode` outputs RGB(A); mirror the existing color-channel switch:
 
 ```go
 	switch ch {
@@ -286,7 +286,7 @@ libjxl's `Decode` outputs RGB(A); mirror the existing colour-channel switch:
 ## 5. Testing
 
 All new assertions are additive to existing `*_inspect_test.go` files, plus one
-new build-tag-free colour test.
+new build-tag-free color test.
 
 1. **jpeg2000** (`jp2_inspect_test.go`, extend the table): add a
    `decodedColor` column and assert per fixture —
@@ -303,11 +303,11 @@ new build-tag-free colour test.
    decode-policy rule — this is the case that proves htj2k must differ from
    jpeg2000). A single-component fixture, if added, → `ColorGrayscale`.
 
-3. **jpeg** (`jpeg_inspect_test.go`): a JFIF colour tile → stored
+3. **jpeg** (`jpeg_inspect_test.go`): a JFIF color tile → stored
    `ColorEncoding == ColorYCbCr` **and** `DecodedColorSpace == ColorRGB` (the
    headline divergence); grayscale JPEG → both `ColorGrayscale`.
 
-4. **jpegxl** (`jxl_inspect_test.go`): colour tile → `DecodedColorSpace ==
+4. **jpegxl** (`jxl_inspect_test.go`): color tile → `DecodedColorSpace ==
    ColorRGB`; grayscale → `ColorGrayscale`.
 
 5. **jpeg2000 decode-policy rule** (new `color_test.go`, build-tag-free, in
@@ -318,7 +318,7 @@ new build-tag-free colour test.
    a synthetic sRGB/sYCC/grayscale header case if constructible from
    `j2kheader.Parse` on the fixtures. Also assert `decodeIsYCbCr` returns the
    historical value for each fixture (MCT→false, aperio_33003→true,
-   subsampled_422→true), pinning the refactor as behaviour-preserving. This test
+   subsampled_422→true), pinning the refactor as behavior-preserving. This test
    runs under `nocgo` because `color.go` no longer needs cgo.
 
 6. Existing jpeg2000 decode / RGBA / MCT pixel tests are unchanged and continue

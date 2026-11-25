@@ -27,7 +27,7 @@ Set `OPENTILE_TESTDIR=$PWD/sample_files` for integration tests; the resolver che
 
 ## Universal task contract: "confirm upstream first"
 
-Same contract v0.4 / v0.5 used. Every task starts with `Step 0: Confirm upstream` — names the upstream file path + line range that governs the behaviour, states the rule, includes a verification command. No task body proceeds until that command has been run.
+Same contract v0.4 / v0.5 used. Every task starts with `Step 0: Confirm upstream` — names the upstream file path + line range that governs the behavior, states the rule, includes a verification command. No task body proceeds until that command has been run.
 
 Local upstream sources:
 - `/private/tmp/ot/opentile/formats/ome/` — Python opentile 0.20.0 OME source
@@ -737,7 +737,7 @@ If T3 said factor, proceed. Otherwise skip.
 
 Diff `formats/ndpi/oneframe.go` against the OME minimum viable shape (from T3 notes). The shared bits typically include:
 - Single-strip JPEG read
-- Virtual-tile-coords logic (synthesise tile boundaries inside one big JPEG)
+- Virtual-tile-coords logic (synthesize tile boundaries inside one big JPEG)
 - libjpeg-turbo Crop dispatch for tile slicing
 - Per-frame caching / sync.Once
 
@@ -751,7 +751,7 @@ Create `internal/oneframe/oneframe.go` containing the generic core. Keep NDPI-sp
 
 ```go
 // Package oneframe provides shared infrastructure for reading "single
-// big JPEG, virtualised into tile cells" pages — used by NDPI's
+// big JPEG, virtualized into tile cells" pages — used by NDPI's
 // non-tiled pyramid levels and OME's OneFrame levels.
 package oneframe
 
@@ -771,7 +771,7 @@ func NewReader(s Source) (*Reader, error)
 func (r *Reader) Tile(x, y int) ([]byte, error)
 ```
 
-The exact API shape is determined by what the NDPI `oneframe.go` exposes today; the goal is to refactor without behaviour change.
+The exact API shape is determined by what the NDPI `oneframe.go` exposes today; the goal is to refactor without behavior change.
 
 - [ ] **Step 3: Update NDPI to use the shared package**
 
@@ -870,7 +870,7 @@ Open returns a stub error pending later tasks. Cross-check against real fixtures
 
 Upstream uses `ome_types.from_xml(metadata)` — a typed OME-XML library. Our scope is narrower: just `<Image Name>` and `<Pixels PhysicalSizeX/Y/SizeX/SizeY>`. Stdlib `encoding/xml` handles the namespaces.
 
-- [ ] **Step 1: Write tests against synthesised XML + real T4 inventory**
+- [ ] **Step 1: Write tests against synthesized XML + real T4 inventory**
 
 ```go
 func TestParseOMEMetadata(t *testing.T) {
@@ -974,7 +974,7 @@ func classifyImages(metas []OMEImage) (omeClassification, error) {
 }
 ```
 
-Test with both fixtures' XML and synthesised inputs.
+Test with both fixtures' XML and synthesized inputs.
 
 - [ ] **Commit**
 
@@ -1006,7 +1006,7 @@ Each level's `tiledImage` is similar to Philips's (without sparse-tile dispatch)
 
 `TileReader` streams via `bytes.Reader` over the spliced output (matches Philips pattern; the splice rules out a true zero-copy `SectionReader`).
 
-Tests: synthesised in-memory TIFF builder mirroring Philips's `buildPhilipsLikeTIFF`, plus integration via real fixtures gated on `OPENTILE_TESTDIR`.
+Tests: synthesized in-memory TIFF builder mirroring Philips's `buildPhilipsLikeTIFF`, plus integration via real fixtures gated on `OPENTILE_TESTDIR`.
 
 - [ ] **Commit**
 
@@ -1016,7 +1016,7 @@ Tests: synthesised in-memory TIFF builder mirroring Philips's `buildPhilipsLikeT
 
 ## Task 15: OneFrame level Image
 
-**Goal:** Port `OmeTiffOneFrameImage`. Drives non-tiled levels (single-strip JPEGs virtualised into tile cells).
+**Goal:** Port `OmeTiffOneFrameImage`. Drives non-tiled levels (single-strip JPEGs virtualized into tile cells).
 
 **Files (factor branch):**
 - Modify: `formats/ome/tiled.go` or `formats/ome/oneframe.go` — thin wrapper using `internal/oneframe` (factored in Task 10).
@@ -1292,12 +1292,12 @@ After §2 (Active limitations) or wherever fits, add:
 ```markdown
 ## Deviations from upstream Python opentile
 
-Behaviours where opentile-go intentionally differs from upstream
-Python opentile 0.20.0. Each entry names the upstream behaviour, our
+Behaviors where opentile-go intentionally differs from upstream
+Python opentile 0.20.0. Each entry names the upstream behavior, our
 deviation, and why.
 
-- **NDPI synthesised label** (since v0.2). Upstream's `NdpiTiler.labels`
-  returns empty; we synthesise a label by cropping the left 30% of
+- **NDPI synthesized label** (since v0.2). Upstream's `NdpiTiler.labels`
+  returns empty; we synthesize a label by cropping the left 30% of
   the overview page. Opt-out via `opentile.WithNDPISynthesizedLabel(false)`.
   Reason: Python opentile chose not to expose NDPI labels at all;
   Aperio-style label affordance is more useful for downstream
@@ -1369,7 +1369,7 @@ where opentile-go provides a strictly more useful affordance.
 
 | Deviation | Since | Opt-out / API | Why |
 |---|---|---|---|
-| NDPI synthesised label | v0.2 | `WithNDPISynthesizedLabel(false)` | Upstream doesn't surface NDPI labels at all |
+| NDPI synthesized label | v0.2 | `WithNDPISynthesizedLabel(false)` | Upstream doesn't surface NDPI labels at all |
 | NDPI Map pages exposed | v0.4 | (not opt-out-able; absence is silent) | tifffile already classifies; surfacing matches the underlying TIFF |
 | Multi-image OME pyramids | v0.6 | Use `Tiler.Levels()` instead of `Tiler.Images()` to see only the first | Upstream silently drops 3 of 4 pyramids in multi-image files |
 

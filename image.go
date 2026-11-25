@@ -85,7 +85,7 @@ type Level struct {
 	// per-tile read is NOT a verbatim TileSize content cell. Treat per-tile
 	// reads as a clean partition of Size only when !Overlapping; otherwise use
 	// the region API, or (OverlapBordered) crop each decoded tile to
-	// TileContentRect. For the precise flavour — and specifically whether Grid
+	// TileContentRect. For the precise flavor — and specifically whether Grid
 	// tiles Size (only OverlapStitched does not) — read OverlapMode.
 	Overlapping bool
 

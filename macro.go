@@ -9,7 +9,7 @@ import (
 
 // macroScanWidthMM / macroScanHeightMM are the physical dimensions of the
 // non-label scan area of a standard 1"×3" microscope slide (the coverslip
-// region), in millimetres. The label end (~25 mm) is intentionally excluded —
+// region), in millimeters. The label end (~25 mm) is intentionally excluded —
 // RenderMacro composites only this region. (Future option: include the label.)
 const (
 	macroScanWidthMM  = 50.0
@@ -19,7 +19,7 @@ const (
 // RenderMacro renders a synthesized "pseudo-macro": a slide-shaped canvas
 // (the non-label scan area of a standard microscope slide, ~50×25 mm) with the
 // whole-slide tissue thumbnail composited at its TRUE physical size — derived
-// from the slide's microns-per-pixel — and centred. It gives a viewer a
+// from the slide's microns-per-pixel — and centered. It gives a viewer a
 // macro-style orientation image for slides that don't embed one.
 //
 // `bounds` sizes the slide canvas (same zero-axis fit convention as
@@ -31,7 +31,7 @@ const (
 // If the slide reports neither MPP nor magnification, RenderMacro returns an
 // error (it cannot place the tissue to scale).
 //
-// The tissue is centred (true on-slide POSITION is not yet modelled — a future
+// The tissue is centered (true on-slide POSITION is not yet modeled — a future
 // enhancement). If the tissue is physically larger than the scan area it is
 // scaled down to fit, preserving aspect. For BIF the tissue render is correctly
 // stitched. opts pass through to the tissue decode (e.g. WithFormat).
@@ -75,7 +75,7 @@ func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, 
 	}
 
 	// Render the tissue to exactly tw×th (ReadRegionScaled stretches L0 to the
-	// requested out size, so anisotropic MPP is honoured as physical proportion).
+	// requested out size, so anisotropic MPP is honored as physical proportion).
 	tissue, err := p.ReadRegionScaled(Region{Origin: Point{X: 0, Y: 0}, Size: l0.Size}, Size{W: tw, H: th}, opts...)
 	if err != nil {
 		return nil, err

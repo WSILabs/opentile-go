@@ -167,7 +167,7 @@ func ParseIScan(xmp []byte) (*IScan, error) {
 }
 
 // parseIScanAttrs fills the typed fields of IScan from the iScan element's
-// attribute list. Unrecognised attributes go into RawAttributes.
+// attribute list. Unrecognized attributes go into RawAttributes.
 func parseIScanAttrs(attrs []xml.Attr, s *IScan) {
 	knownAttrs := map[string]struct{}{
 		"ScannerModel": {}, "Magnification": {}, "ScanRes": {},

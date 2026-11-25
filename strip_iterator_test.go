@@ -79,7 +79,7 @@ func TestScaledStripsContextCancel(t *testing.T) {
 	case <-it.cancelCtx.Done():
 		// OK — parent ctx cancellation propagated.
 	default:
-		t.Errorf("cancelCtx not cancelled")
+		t.Errorf("cancelCtx not canceled")
 	}
 }
 

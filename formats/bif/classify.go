@@ -7,7 +7,7 @@ import (
 )
 
 // Generation discriminates between BIF format generations. The
-// classification controls which behavioural path each Tiler takes —
+// classification controls which behavioral path each Tiler takes —
 // see spec §4 for the rationale.
 type Generation int
 
@@ -15,14 +15,14 @@ const (
 	// GenerationSpecCompliant routes a slide whose IFD-0
 	// `<iScan>/@ScannerModel` starts with `"VENTANA DP"` (DP 200,
 	// DP 600, future DP scanners) to the Roche BIF whitepaper's
-	// behaviour: probability-map IFD, ScanWhitePoint filling of empty
+	// behavior: probability-map IFD, ScanWhitePoint filling of empty
 	// tiles, AOI-origin metadata, all four `Direction` values
 	// accepted on `<TileJointInfo>`.
 	GenerationSpecCompliant Generation = iota
 
 	// GenerationLegacyIScan routes everything else iScan-tagged
 	// (missing ScannerModel, iScan Coreo, iScan HT, ScannerModel that
-	// doesn't start with "VENTANA DP") to behaviour matching
+	// doesn't start with "VENTANA DP") to behavior matching
 	// openslide's existing reader: thumbnail not probability,
 	// ScanWhitePoint defaults to 255, etc.
 	GenerationLegacyIScan
@@ -48,7 +48,7 @@ func (g Generation) String() string {
 const scannerModelPrefix = "VENTANA DP"
 
 // classifyGeneration routes a parsed `<iScan>` block to one of the
-// two behavioural paths. A nil iScan or empty ScannerModel both fall
+// two behavioral paths. A nil iScan or empty ScannerModel both fall
 // to `GenerationLegacyIScan`.
 func classifyGeneration(iscan *bifxml.IScan) Generation {
 	if iscan == nil {

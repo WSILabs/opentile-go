@@ -14,7 +14,7 @@ Aperio's scanned-slide format, produced by Leica Aperio scanners (most common di
 
 | Capability | Status | Notes |
 |---|---|---|
-| Tiled levels (JPEG) | ✅ | JPEGTables spliced + Adobe APP14 prepended for Aperio's RGB-not-YCbCr colourspace; matches Python opentile byte-for-byte |
+| Tiled levels (JPEG) | ✅ | JPEGTables spliced + Adobe APP14 prepended for Aperio's RGB-not-YCbCr colorspace; matches Python opentile byte-for-byte |
 | Tiled levels (JPEG 2000) | ✅ passthrough | We emit raw JP2K codestream bytes; downstream caller decodes. Decode/encode is parked at [#1](https://github.com/wsilabs/opentile-go/issues/1) |
 | Associated label | ✅ | LZW-compressed strip page (often Predictor=2). `Bytes()` restitches multi-strip → single re-encoded LZW stream (L10, v0.3); `Decode()` returns faithful RGB(A) pixels with the predictor reversed (#20) — prefer it for pixels |
 | Associated overview | ✅ | JPEG strip page; assembled via `internal/jpeg.ConcatenateScans` with restart-interval byte-equality vs Python |
@@ -64,7 +64,7 @@ namespace ensures parsing doesn't break for unrecognized writers.
 | Capability | Status | Why |
 |---|---|---|
 | Corrupt-edge tile reconstruct | ❌ deferred → [#1](https://github.com/wsilabs/opentile-go/issues/1) | None of our local SVS fixtures exhibits the bug. Upstream's reconstruct chain is ~12 tasks of new cgo + a Pillow BILINEAR port; speculation without a real triggering slide. Tile() returns `ErrCorruptTile` for `TileByteCounts[idx] == 0`. |
-| JPEG 2000 decode | ✅ supported | OpenJPEG via `decoder/jpeg2000`; `JP2K-33003-1.svs` reads in CI (RGB/YCbCr codestream fix v0.45.1, [#53](https://github.com/WSILabs/opentile-go/issues/53)). Native JP2K tile passthrough (the v0.1+ behaviour) is also unaffected. JP2K *encode* is out of scope — opentile-go is a reader; tile encoding is writer-side (wsitools). |
+| JPEG 2000 decode | ✅ supported | OpenJPEG via `decoder/jpeg2000`; `JP2K-33003-1.svs` reads in CI (RGB/YCbCr codestream fix v0.45.1, [#53](https://github.com/WSILabs/opentile-go/issues/53)). Native JP2K tile passthrough (the v0.1+ behavior) is also unaffected. JP2K *encode* is out of scope — opentile-go is a reader; tile encoding is writer-side (wsitools). |
 
 ## Parity
 
@@ -72,7 +72,7 @@ namespace ensures parsing doesn't break for unrecognized writers.
 
 ## Deviations from upstream
 
-None. Behaviour matches Python opentile 0.20.0 exactly.
+None. Behavior matches Python opentile 0.20.0 exactly.
 
 ## Cross-format Metadata mapping (v0.17)
 

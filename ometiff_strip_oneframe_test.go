@@ -27,7 +27,7 @@ import (
 // tiled pages → tiledImage, non-tiled pages → internal/oneframe (decode the
 // whole level, crop per tile). Leica-1/Leica-2 are both fully tiled, so no
 // committed real fixture exercised the oneframe dispatch. Rather than ship a
-// large fixture, we synthesise a tiny in-tree OME-TIFF: a tiled JPEG base page
+// large fixture, we synthesize a tiny in-tree OME-TIFF: a tiled JPEG base page
 // with a strip-based JPEG SubIFD level (no TileWidth) that routes through
 // oneframe.
 //

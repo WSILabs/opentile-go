@@ -28,7 +28,7 @@ Statistically identical. The three caches added in v0.27–v0.29
 (`borrowTileScratch` `sync.Pool`, NDPI `pixelFrameCache`,
 `decoderhandle.Pool`) are individually bounded, and the scratch pool is
 not even on the `ScaledStrips` → `ImageDecodedTile` path (it is
-`ReadRegion`-only). The bump is a clean drop-in; the memory behaviour
+`ReadRegion`-only). The bump is a clean drop-in; the memory behavior
 predates it.
 
 ### 0.2. The two measurement contexts (don't conflate them)
@@ -95,7 +95,7 @@ This is also the basis of the new peak-RSS gate (§1.5).
 A single unifying change: **bound the read path by a byte budget** —
 across the decoded-tile cache (C1), the two NDPI caches (C3, C2), and the
 lookahead window that governs irreducible strip buffers (C4) — plus
-honouring `GOMEMLIMIT` to clamp GC headroom. One per-Slide budget,
+honoring `GOMEMLIMIT` to clamp GC headroom. One per-Slide budget,
 arbitrated across consumers in priority order **C1 ≫ C3 > C4 > C2**.
 
 ### 1.1. Layer 1 — byte-budget the StripIterator tile cache (C1) *[dominant win]*
@@ -167,14 +167,14 @@ growing on very wide bands, but the win is marginal.
   `WithMemoryBudget(bytes)` option; precedence option > env > default.
   Additive, non-breaking.
 
-### 1.6. `GOMEMLIMIT` — honour, never set below floor
+### 1.6. `GOMEMLIMIT` — honor, never set below floor
 
 Measured: `GOMEMLIMIT=3GiB` cut CMU-1 peak 40% (4942→2978 MiB) at **zero
 throughput cost** when the live set fits under it; but on OS-2 (live
 ~6.3 GB) a 3 GiB limit **thrashed** (GC death-spiral, 120/288 strips in
 >180 s vs 60 s unconstrained).
 
-- The library **honours** an externally-set `GOMEMLIMIT` as a ceiling
+- The library **honors** an externally-set `GOMEMLIMIT` as a ceiling
   hint and may shrink its default budget to keep live set comfortably
   under it.
 - The library **must not set** `GOMEMLIMIT` itself below its own floor
@@ -240,7 +240,7 @@ throughput cost** when the live set fits under it; but on OS-2 (live
 1. Fix lives in the library; wsitools cascade tracked separately **but
    flagged load-bearing** for the end-to-end OOM. (§2)
 2. Mechanism = byte budget across C1/C3/C2 + byte-bounded lookahead for
-   C4, plus honouring `GOMEMLIMIT`. (§1)
+   C4, plus honoring `GOMEMLIMIT`. (§1)
 3. **Layer priority C1 ≫ C3 > C4 > C2** — corrected from the draft's
    C3/C2-first ordering by the heap profile. (§0.3)
 4. **Q1 — per-Slide** budget. (§1.5)
@@ -263,13 +263,13 @@ throughput cost** when the live set fits under it; but on OS-2 (live
 
 ## 5. Testing & parity gate
 
-- **C1:** unit test the tile cache evicts by bytes and honours the
+- **C1:** unit test the tile cache evicts by bytes and honors the
   `≥ workers` floor under concurrent producers (`-race`); iterator output
   byte-identical to v0.29.
 - **C3:** unit test `framesByKey` LRU respects capacity; parity test
   bounded vs unbounded produce byte-identical tiles on a multi-frame level
   (single-pass + a revisiting access pattern, R4).
-- **C2:** unit test eviction by bytes; floor honoured under `(lookahead+1)`
+- **C2:** unit test eviction by bytes; floor honored under `(lookahead+1)`
   concurrent misses on distinct frames (no livelock, `-race`); decoded
   tiles unchanged vs v0.29.
 - **C4/lookahead:** unit test the byte-derived lookahead clamps correctly

@@ -9,7 +9,7 @@ import "github.com/wsilabs/opentile-go/decoder"
 //
 // Algorithm ported from wsitools/internal/resample/area.go.
 // The wsitools implementation performs a fixed 2×2 average (half
-// dimensions, RGB-only). This version generalises to arbitrary output
+// dimensions, RGB-only). This version generalizes to arbitrary output
 // dimensions and handles both PixelFormatRGB (3 bytes/pixel) and
 // PixelFormatRGBA (4 bytes/pixel) using src.Stride / dst.Stride.
 func boxInto(src, dst *decoder.Image) error {

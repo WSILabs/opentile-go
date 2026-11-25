@@ -281,7 +281,7 @@ func (l *tiledImage) TileAt(coord opentile.TileCoord) ([]byte, error) {
 
 // TileReader returns an io.ReadCloser over the tile bytes. For the
 // no-splice path (JP2K / non-JPEG), backed by io.SectionReader for
-// zero-copy streaming. For JPEG-splice tiles, materialises through
+// zero-copy streaming. For JPEG-splice tiles, materializes through
 // Tile() and wraps a bytes.Reader (the splice can't be expressed as
 // a contiguous file region).
 func (l *tiledImage) TileReader(x, y int) (io.ReadCloser, error) {

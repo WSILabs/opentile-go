@@ -4,11 +4,11 @@
 
 **Goal:** Bound the NDPI `ScaledStrips` read path so DZI conversion peak memory stays flat (~2 GB) regardless of slide width or DZI tile size, eliminating the `wsitools convert --to dzi` OOM.
 
-**Architecture:** A per-`Slide` byte budget (`WithMemoryBudget` option / `OPENTILE_READ_MEMORY_BUDGET` env, default 1 GiB) governs the dominant consumer — the `StripIterator` decoded-tile cache (C1) — by re-expressing its count cap as `byteBudget/bytesPerTile`. The only unbounded term, NDPI `framesByKey` (C3), gets a self-contained byte-bounded LRU. C2 (`pixelCache`, already count-bounded and empirically the smallest term) is left as-is; C4 (transient output strip buffers) is addressed by recommending `GOMEMLIMIT`, which the library honours but never sets below its floor. A new peak-RSS gate (`cmd/bench/ndpi-strips`) guards the whole class of regression.
+**Architecture:** A per-`Slide` byte budget (`WithMemoryBudget` option / `OPENTILE_READ_MEMORY_BUDGET` env, default 1 GiB) governs the dominant consumer — the `StripIterator` decoded-tile cache (C1) — by re-expressing its count cap as `byteBudget/bytesPerTile`. The only unbounded term, NDPI `framesByKey` (C3), gets a self-contained byte-bounded LRU. C2 (`pixelCache`, already count-bounded and empirically the smallest term) is left as-is; C4 (transient output strip buffers) is addressed by recommending `GOMEMLIMIT`, which the library honors but never sets below its floor. A new peak-RSS gate (`cmd/bench/ndpi-strips`) guards the whole class of regression.
 
 **Tech Stack:** Go 1.23+, `container/list` (LRU), `runtime`/`runtime/debug` (mem stats + `GOMEMLIMIT`), libjpeg-turbo via existing `internal/jpegturbo`. No new dependencies.
 
-**Priority order (from the heap profile, design doc §0.3):** C1 ≫ C3 > C4 > C2. Build the gate first, then the C3 safety fix, then the budget knob + C1 dominant win, then `GOMEMLIMIT` honouring and docs.
+**Priority order (from the heap profile, design doc §0.3):** C1 ≫ C3 > C4 > C2. Build the gate first, then the C3 safety fix, then the budget knob + C1 dominant win, then `GOMEMLIMIT` honoring and docs.
 
 **Source of truth:** `docs/superpowers/specs/2026-05-30-opentile-go-v30-ndpi-memory-budget-design.md` (REVISED post-profile). Sealed decisions: per-Slide budget; ~1 GiB default; env+option surface; graceful lookahead via byte-derived cap; one milestone, C3-then-C1 first.
 
@@ -673,7 +673,7 @@ git commit -m "feat: byte-derive StripIterator tile-cache cap from per-Slide bud
 
 ---
 
-## Task 5: Honour `GOMEMLIMIT` when deriving the default budget
+## Task 5: Honor `GOMEMLIMIT` when deriving the default budget
 
 When the caller has set `GOMEMLIMIT` but did **not** set an explicit budget, shrink the default budget to stay comfortably under the limit (so the library's live set + GC headroom doesn't fight the runtime limit). The library never *sets* `GOMEMLIMIT` and never derives a budget below its own floor.
 
@@ -710,7 +710,7 @@ func TestExplicitBudgetIgnoresGOMEMLIMIT(t *testing.T) {
 	t.Cleanup(func() { debug.SetMemoryLimit(prev) })
 	c := newConfig([]Option{WithMemoryBudget(900_000_000)})
 	if got := c.resolveMemoryBudget(); got != 900_000_000 {
-		t.Fatalf("explicit budget must be honoured verbatim: got %d", got)
+		t.Fatalf("explicit budget must be honored verbatim: got %d", got)
 	}
 }
 ```
@@ -764,7 +764,7 @@ Expected: PASS.
 
 ```bash
 git add options.go options_budget_test.go
-git commit -m "feat: shrink default read budget under GOMEMLIMIT (honour, never set)"
+git commit -m "feat: shrink default read budget under GOMEMLIMIT (honor, never set)"
 ```
 
 ---
@@ -832,7 +832,7 @@ git commit -m "docs(v0.30): finalize peak-RSS gate thresholds, CHANGELOG + CLAUD
 - **Layer 3 (C4 / graceful lookahead)** → addressed implicitly by Task 4 (byte cap throttles prefetch) + `GOMEMLIMIT` (Task 5) clamping transient strip-buffer headroom. Documented as such; no separate explicit lookahead-math task because the byte-derived cap already degrades prefetch depth. ✓
 - **Layer 4 (C2)** → deliberately **deferred** (already count-bounded; empirically the smallest term ~0.1–0.7 GB). Recorded in design doc §1.4/§4-open and CHANGELOG (Task 6). Threading the per-Slide budget into `formats/ndpi` would require extending the `openAnyHook` import-cycle bridge for marginal benefit — explicitly out of scope for v0.30.
 - **Budget knob (§1.5)** → Task 3 (option + env + default, per-Slide). ✓
-- **GOMEMLIMIT (§1.6)** → Task 5 (honour, never set below floor). ✓
+- **GOMEMLIMIT (§1.6)** → Task 5 (honor, never set below floor). ✓
 - **Peak-RSS gate (§1.7)** → Task 1 (harness→gate) + Task 6 (thresholds). ✓
 - **Throughput no-regression (§5)** → Task 6 Step 5. ✓
 - **Parity (§5)** → Tasks 2/4 re-run the v0.27/v0.29 NDPI parity tests; outputs byte-identical. ✓

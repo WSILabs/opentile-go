@@ -535,7 +535,7 @@ func (l *compositeLevel) TilePrefix() []byte {
 func (l *compositeLevel) TileBodyInto(x, y int, dst []byte) (int, error) {
 	// Find which region contains (x, y); reuse compositeLevel.findRegion
 	// (existing helper from v0.11 T8). For inter-region gap tiles, return
-	// the synthesised blank-fill tile — body equals full tile (the blank
+	// the synthesized blank-fill tile — body equals full tile (the blank
 	// is self-contained); SpliceJPEGTile will produce a redundantly-prefixed
 	// JPEG that's still valid (Q4).
 	regionIdx := l.findRegion(x, y)
@@ -608,7 +608,7 @@ TileBodyInto reads on-disk tile bytes without applying the splice.
 TileBodyMaxSize returns max(counts).
 
 leicascn compositeLevel: per Q4 of v0.13 spec, inter-region blank-
-fill tiles return the synthesised blank as body (body IS a full
+fill tiles return the synthesized blank as body (body IS a full
 self-contained JPEG); SpliceJPEGTile produces a redundantly-prefixed
 JPEG that's structurally valid. Bandwidth savings on these tiles
 are negligible (small + infrequent).

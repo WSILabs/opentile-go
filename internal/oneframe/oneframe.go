@@ -1,5 +1,5 @@
 // Package oneframe provides shared infrastructure for reading
-// "single big JPEG, virtualised into tile cells" pyramid pages — used
+// "single big JPEG, virtualized into tile cells" pyramid pages — used
 // by NDPI's non-tiled levels (formats/ndpi/oneframe.go pre-v0.6) and
 // OME-TIFF's reduced-resolution levels (formats/ometiff/oneframe.go in
 // v0.6).
@@ -41,7 +41,7 @@ type Options struct {
 	// when the on-disk values are placeholders. NDPI passes a zero
 	// Size and relies on the page's tag values.
 	Size opentile.Size
-	// TileSize is the virtualised tile dims for output. Required.
+	// TileSize is the virtualized tile dims for output. Required.
 	TileSize opentile.Size
 	// FirstStripOnly: when true, a multi-strip page takes strip 0 and
 	// ignores the rest. Used by OME-TIFF where multi-plane pages
@@ -237,8 +237,8 @@ func (l *Image) Tile(x, y int) ([]byte, error) {
 }
 
 // TileReader returns a streaming reader for the tile at (x, y). Always
-// materialises the bytes via Tile() — the JPEG-domain crop forces a
-// full materialise before anything can stream.
+// materializes the bytes via Tile() — the JPEG-domain crop forces a
+// full materialize before anything can stream.
 func (l *Image) TileReader(x, y int) (io.ReadCloser, error) {
 	b, err := l.Tile(x, y)
 	if err != nil {

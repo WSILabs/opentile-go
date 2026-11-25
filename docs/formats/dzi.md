@@ -32,7 +32,7 @@ clean, every tile holds exactly its content pixels, and `Level.Overlapping == fa
 
 ### The DZI/OpenSeadragon overlap model
 
-Each stored tile carries `Overlap` extra pixels on every edge that has a neighbour:
+Each stored tile carries `Overlap` extra pixels on every edge that has a neighbor:
 left border when `col > 0`, top border when `row > 0`, right/bottom borders when
 not the last column/row. The *content cell* is unchanged — its pixel dimensions are
 `min(TileSize, slideW − col×TileSize)` × `min(TileSize, slideH − row×TileSize)`.
@@ -60,7 +60,7 @@ tiles).
 - `Level.Grid` still tiles `Level.Size` exactly (unlike `OverlapStitched` / BIF
   where the grid does not tile Size).
 
-`Overlap = 0` reads are byte-identical to prior behaviour; `Level.OverlapMode ==
+`Overlap = 0` reads are byte-identical to prior behavior; `Level.OverlapMode ==
 OverlapNone` and `Level.Overlapping == false`.
 
 ## Limitations

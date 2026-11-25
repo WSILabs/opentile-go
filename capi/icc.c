@@ -1,6 +1,6 @@
 //go:build !nolcms2
 
-/* ICC colour management for libopentile: slide profile -> sRGB with lcms2.
+/* ICC color management for libopentile: slide profile -> sRGB with lcms2.
  * Ported from openscope-native/libopentile/icc.c, extended to RGB8. */
 #include <lcms2.h>
 #include "internal.h"

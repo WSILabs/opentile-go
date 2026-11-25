@@ -226,7 +226,7 @@ body := dst[:n]
 jpeg, err := opentile.SpliceJPEGTile(prefix, body)
 ```
 
-`TileBodyMaxSize()` is the pool-buffer size analogue for `TileBodyInto`
+`TileBodyMaxSize()` is the pool-buffer size analog for `TileBodyInto`
 (always ≤ `TileMaxSize()`; strictly less when the prefix is non-nil).
 
 ### When Pattern B helps
@@ -315,7 +315,7 @@ buffers):
 - **`opentile.WithMemoryBudget(bytes)`** / **`OPENTILE_READ_MEMORY_BUDGET`**
   (env, bytes): the C1 cache budget. Option > env > default (1 GiB).
 - **Set `GOMEMLIMIT`** (e.g. `2GiB`) to clamp GC headroom — it takes the
-  peak from ~2× live down toward the live set. opentile-go honours an
+  peak from ~2× live down toward the live set. opentile-go honors an
   externally-set `GOMEMLIMIT` (its default budget auto-shrinks to ≤ half
   of it) but never sets one itself. A `GOMEMLIMIT` *below* the live
   working set causes GC thrash, so keep it ≥ the budget plus headroom.

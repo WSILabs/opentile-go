@@ -371,7 +371,7 @@ func (l *tiledImage) TileInto(x, y int, dst []byte) (int, error) {
 }
 
 // TileReader returns an io.ReadCloser carrying the same bytes as Tile.
-// Always materialises the bytes via Tile() — Philips's JPEGTables
+// Always materializes the bytes via Tile() — Philips's JPEGTables
 // splice and sparse-tile dispatch make a true zero-copy
 // SectionReader path infeasible.
 func (l *tiledImage) TileReader(x, y int) (io.ReadCloser, error) {

@@ -28,7 +28,7 @@ Set `OPENTILE_TESTDIR=$PWD/sample_files` for integration tests; the resolver che
 
 ## Universal task contract: "confirm upstream first"
 
-Same contract v0.4 used. Every task starts with `Step 0: Confirm upstream` — names the upstream file path + line range that governs the behaviour, states the rule, includes a verification command. No task body proceeds until that command has been run.
+Same contract v0.4 used. Every task starts with `Step 0: Confirm upstream` — names the upstream file path + line range that governs the behavior, states the rule, includes a verification command. No task body proceeds until that command has been run.
 
 Local upstream sources are at:
 - `/private/tmp/ot/opentile/formats/philips/` — Python opentile 0.20.0 Philips source
@@ -355,7 +355,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 ## Task 5: `internal/jpegturbo.FillFrame` cgo entry point
 
-**Goal:** Add a fourth public function to `internal/jpegturbo` that produces a solid-colour version of an input JPEG (via tjTransform with a CUSTOMFILTER overwriting all DCT coefficients).
+**Goal:** Add a fourth public function to `internal/jpegturbo` that produces a solid-color version of an input JPEG (via tjTransform with a CUSTOMFILTER overwriting all DCT coefficients).
 
 **Files:**
 - Modify: `internal/jpegturbo/turbo.go` (signature + doc)
@@ -505,12 +505,12 @@ Expected: shows the algorithm. Specifically:
 - [ ] **Step 1: Write the failing tests**
 
 In `dimensions_test.go`, exercise the correction logic against
-synthesised XML strings. Pure-function tests; no real fixture
+synthesized XML strings. Pure-function tests; no real fixture
 needed:
 
 ```go
 func TestComputeCorrectedSizes(t *testing.T) {
-    // Synthesised DICOM-XML with three levels.
+    // Synthesized DICOM-XML with three levels.
     xml := `<DataObject>
       <Attribute Name="DICOM_PIXEL_SPACING">"0.000247746" "0.000247746"</Attribute>
       <Attribute Name="DICOM_PIXEL_SPACING">"0.000495492" "0.000495492"</Attribute>
@@ -650,7 +650,7 @@ is always the level series.
 
 - [ ] **Step 1-N: TDD port**
 
-Pure-function classifier, tested against synthesised
+Pure-function classifier, tested against synthesized
 `pageMeta`-equivalent inputs (mirror v0.3's SVS `classifyPages`
 shape). Specifically we want:
 
@@ -695,7 +695,7 @@ TAGS list, and exposes accessors for the relevant ones.
 
 - [ ] **Step 1-N: TDD port**
 
-`encoding/xml` parsing of synthesised metadata strings. The
+`encoding/xml` parsing of synthesized metadata strings. The
 `PhilipsTiffMetadata` struct mirrors upstream's accessors but as Go
 fields populated at parse time (no Python-style `cached_property`
 needed — single-shot parse).
@@ -730,7 +730,7 @@ common Metadata struct).
 
 `opentile/formats/philips/philips_tiff_image.py:78-198`.
 
-Key behaviour:
+Key behavior:
 - `_create_blank_tile`: walks `databytecounts` for the first non-zero
   index, reads that frame, splices JPEGTables (no APP14 — Philips
   uses standard YCbCr, not RGB-with-APP14), runs through
@@ -806,7 +806,7 @@ shape.
 
 ## Task 12: Synthetic builder + corner-case tests
 
-**Goal:** Extend `buildClassicTIFF` (or add a Philips-specific builder) to emit Philips-shaped slides for unit tests. Already touched in Task 10's synthetic-fixture work — this task formalises it as a reusable helper.
+**Goal:** Extend `buildClassicTIFF` (or add a Philips-specific builder) to emit Philips-shaped slides for unit tests. Already touched in Task 10's synthetic-fixture work — this task formalizes it as a reusable helper.
 
 (Per-step body elided; the helper extension is mechanical from
 existing v0.3 SVS / v0.3 internal/tiff builders.)

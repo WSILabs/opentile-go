@@ -11,7 +11,7 @@ import (
 
 // blankTileQuality matches the JPEG quality factor used by VENTANA DP 200
 // scanners on real tiles (per ImageDescription `quality=95`). Using the same
-// quality keeps the synthesised blank tiles visually consistent with real tiles
+// quality keeps the synthesized blank tiles visually consistent with real tiles
 // when adjacent in a viewer.
 const blankTileQuality = 95
 

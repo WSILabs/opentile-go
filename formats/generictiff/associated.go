@@ -25,7 +25,7 @@ import (
 //     format reader handles them).
 //
 // Tiler's Associated() builder filters these out silently: the IFD
-// is recognised but not exposed.
+// is recognized but not exposed.
 var errUnsupportedAssociatedShape = errors.New("generic: associated image shape unsupported in v0.10")
 
 // associatedImage is the generic-TIFF AssociatedImage. Bytes are

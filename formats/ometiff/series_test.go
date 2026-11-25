@@ -113,7 +113,7 @@ func TestClassifyImagesEmpty(t *testing.T) {
 
 // TestClassifyImagesDuplicateMacro: upstream's loop overwrites on each
 // match (last-wins) for label / macro / thumbnail. We match that
-// behaviour for those three since they're "one each" by file
+// behavior for those three since they're "one each" by file
 // convention.
 func TestClassifyImagesDuplicateMacro(t *testing.T) {
 	imgs := []OMEImage{

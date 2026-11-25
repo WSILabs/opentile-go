@@ -28,7 +28,7 @@ v0.9 lands the §A items as a single coordinated milestone:
   removes per-tile allocations.
 - **A.3 Pre-built JPEG splice template** — parse `JPEGTables` once at
   level open; per-tile splice becomes memcpy + memcpy. Internal
-  optimisation; opportunistic per the reference doc's pprof-gating
+  optimization; opportunistic per the reference doc's pprof-gating
   guidance.
 - **A.4 `Tiler.WarmLevel(i)`** — page-cache pre-warm hook for mmap
   backings. Eliminates first-fault latency for warm-by-design
@@ -50,7 +50,7 @@ upstream`. For v0.9 perf, "upstream" sources are layered:
    §A item's implementation must match the doc's "what" / "impact"
    / "risks" framing or surface the deviation.
 2. **The Go runtime + stdlib** — `syscall.Mmap` semantics (Linux,
-   macOS), `pread(2)` behaviour, `sync.Pool` discipline. Read the
+   macOS), `pread(2)` behavior, `sync.Pool` discipline. Read the
    relevant package docs before guessing.
 3. **Existing format packages** — `formats/svs/`, `formats/ndpi/`,
    `formats/ome/`, `formats/philips/`, `formats/bif/`, `formats/ife/`.

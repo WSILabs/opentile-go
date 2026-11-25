@@ -161,7 +161,7 @@ func runTifffileParityOnSlide(t *testing.T, slide string) {
 			// with no straight-byte tifffile reference. Detect via
 			// TileSize() vs Grid() consistency: tiled pages have
 			// page-derived TileSize, OneFrame pages get the
-			// virtualised cfg.TileSize. We rely on Compression() and
+			// virtualized cfg.TileSize. We rely on Compression() and
 			// the fact that OneFrame Image's underlying TileSize.W
 			// matches base page tile dims (usually 512), while tiled
 			// pages also have a TileWidth tag. The cleanest

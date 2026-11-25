@@ -19,7 +19,7 @@ Authority audit (verified 2026-05-08 against canonical sources):
 | **DICOM PS3.3 (formal standard)** | `OVERVIEW` | DICOM ImageType value 3; reference: `openslide-vendor-dicom.c::OVERVIEW_TYPE` |
 | **Iris IFE spec** | distinguishes `LABEL_OVERVIEW` from `LABEL_MACRO` | `formats/ife/metadata.go:488-498` preserves both |
 | **Python opentile (upstream we port)** | `overview` | `get_overview()` accessor; classifier remaps OME-XML's native `"macro"` to `overview` |
-| **OpenSlide** | `macro` | normalises every native name (incl. DICOM `OVERVIEW`) → `"macro"` |
+| **OpenSlide** | `macro` | normalizes every native name (incl. DICOM `OVERVIEW`) → `"macro"` |
 | **WSI vendor formats** | `macro` colloquially | Aperio, Hamamatsu, Philips, Leica, Ventana, 3DHistech all use `Macro` in metadata |
 | **opentile-go v0.1-v0.9** | `overview` | matches DICOM + upstream |
 | **opentile-go v0.10/v0.11** | `macro` | drift from upstream — corrected by this milestone |
@@ -136,7 +136,7 @@ Verification:
 
 ## 6. Active limitations introduced
 
-None new. v0.15 is rename-only; behaviour is unchanged for any consumer code that already uses the correct name (post-rename, those that currently say `"overview"` keep working; those that currently say `"macro"` for generic-TIFF / Leica SCN must update).
+None new. v0.15 is rename-only; behavior is unchanged for any consumer code that already uses the correct name (post-rename, those that currently say `"overview"` keep working; those that currently say `"macro"` for generic-TIFF / Leica SCN must update).
 
 The four §11 backlog rows are unaffected.
 

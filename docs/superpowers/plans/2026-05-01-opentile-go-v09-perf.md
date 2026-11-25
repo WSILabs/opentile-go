@@ -55,7 +55,7 @@ oracle continues to gate byte-equality across all changes.
 ## Universal task contract: "confirm upstream first"
 
 Every task starts with `Step 0: Confirm upstream` — names the
-upstream rule that governs the behaviour, states it, includes a
+upstream rule that governs the behavior, states it, includes a
 verification command. No task body proceeds until that command has
 been run.
 
@@ -68,7 +68,7 @@ For v0.9 perf, "upstream" sources are layered:
    — the project-internal design spec; the §11 sign-off log records
    the seven sealed decisions.
 3. **The Go runtime + stdlib** — `syscall.Mmap` semantics (Linux,
-   macOS), `pread(2)` behaviour, `sync.Pool` discipline,
+   macOS), `pread(2)` behavior, `sync.Pool` discipline,
    `golang.org/x/exp/mmap` package docs. Read before guessing.
 4. **Existing format packages** — `formats/{svs,ndpi,ome,philips,bif,ife}/`.
    `Level.Tile` impls share a similar shape; A.2's per-format
@@ -245,7 +245,7 @@ out of top-5.
     under pread = serial pread-per-page).
   - `Close()` must not race with in-flight reads (existing; reinforce
     for mmap).
-  No behaviour change; pure-docs commit. ~60 lines of edits across
+  No behavior change; pure-docs commit. ~60 lines of edits across
   ~8 files.
 
 End-of-batch checkpoint: `make vet` + `make test` + `make parity`

@@ -9,7 +9,7 @@ import (
 const lanczosA = 3.0 // lobe count
 
 // lanczos2D returns the 2-D Lanczos kernel weight for position (dx, dy)
-// from the sample centre.
+// from the sample center.
 func lanczosWeight(x float64) float64 {
 	if x == 0 {
 		return 1

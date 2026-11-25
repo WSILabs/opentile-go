@@ -57,10 +57,10 @@ See [Reading pixel regions and scaled strips](#reading-pixel-regions-and-scaled-
 | Format | Extension | Levels | Associated | Compression | Parity bar | Detail |
 |---|---|---|---|---|---|---|
 | **Aperio SVS** | `.svs` | tiled | label, overview, thumbnail | JPEG, JP2K (passthrough) | byte-parity vs. Python opentile | [docs/formats/svs.md](./docs/formats/svs.md) |
-| **Hamamatsu NDPI** | `.ndpi` | tiled (stripped + OneFrame) | overview, synthesised label\*, Map\* | JPEG | byte-parity vs. Python opentile | [docs/formats/ndpi.md](./docs/formats/ndpi.md) |
+| **Hamamatsu NDPI** | `.ndpi` | tiled (stripped + OneFrame) | overview, synthesized label\*, Map\* | JPEG | byte-parity vs. Python opentile | [docs/formats/ndpi.md](./docs/formats/ndpi.md) |
 | **Philips TIFF** | `.tiff` | tiled, with sparse-tile fill | label, overview, thumbnail | JPEG | byte-parity vs. Python opentile | [docs/formats/philipstiff.md](./docs/formats/philipstiff.md) |
 | **OME-TIFF** | `.ome.tiff` | tiled (SubIFD) + OneFrame | overview, label, thumbnail | JPEG (uint8 RGB only) | byte-parity vs. Python opentile + tifffile | [docs/formats/ometiff.md](./docs/formats/ometiff.md) |
-| **Ventana BIF** | `.bif` | tiled, row-major (`<Frame>`-declared) storage, with overlap metadata\* + ScanWhitePoint blank-tile fill | overview, synthesised label\*, probability\*, thumbnail | JPEG | tifffile (DP 200) + sampled-tile SHAs (both fixtures) | [docs/formats/bif.md](./docs/formats/bif.md) |
+| **Ventana BIF** | `.bif` | tiled, row-major (`<Frame>`-declared) storage, with overlap metadata\* + ScanWhitePoint blank-tile fill | overview, synthesized label\*, probability\*, thumbnail | JPEG | tifffile (DP 200) + sampled-tile SHAs (both fixtures) | [docs/formats/bif.md](./docs/formats/bif.md) |
 | **Iris IFE\*** | `.iris` | tiled (256×256, native-first inversion) with sparse-tile sentinel | label, overview, thumbnail, macro, map, probability + free-form titles + ICC profile + free-form attribute map | JPEG, AVIF (passthrough), Iris-proprietary (passthrough) | sampled-tile SHAs + synthetic-writer + per-fixture geometry pin | [docs/formats/ife.md](./docs/formats/ife.md) |
 | **Generic TIFF\*** | `.tiff`, `.tif` | tiled pyramidal (≥1 level, geometric scale chain) | classifier-assigned: label, overview, thumbnail, or `"associated"` fallback | JPEG, JP2K, LZW, Deflate, None, WebP, JPEG XL, AVIF, HTJ2K (all passthrough) | sampled-tile SHAs + per-fixture geometry pin + cross-backing parity | [docs/formats/generictiff.md](./docs/formats/generictiff.md) |
 | **Leica SCN\*** | `.scn` | tiled BigTIFF; multi-region "discontinuous scanning"; multi-channel fluorescence | classifier-assigned: overview per auxiliary `<image>` | JPEG | sampled-tile SHAs + per-fixture geometry pin + bio-formats CLI parity oracle | [docs/formats/leicascn.md](./docs/formats/leicascn.md) |
@@ -229,7 +229,7 @@ use `s.AssociatedImages()`.
 
 ```go
 // A synthesized macro: the tissue composited at its TRUE physical size
-// (via MPP, or 10/objective-mag) and centred on a slide-shaped canvas —
+// (via MPP, or 10/objective-mag) and centered on a slide-shaped canvas —
 // a macro-style orientation image for slides that don't embed one.
 macro, err := s.RenderMacro(opentile.Size{W: 600}) // 600×300 slide canvas
 ```
@@ -482,9 +482,9 @@ opentile-go aims for byte-parity with Python opentile 0.20.0. A small number of 
 
 | Deviation | Format | Since | Opt-out / API | Why |
 |---|---|---|---|---|
-| Synthesised label | NDPI | v0.2 | `WithNDPISynthesizedLabel(false)` | Upstream doesn't surface NDPI labels at all; we crop the left 30% of the overview to provide an Aperio-style label affordance. |
+| Synthesized label | NDPI | v0.2 | `WithNDPISynthesizedLabel(false)` | Upstream doesn't surface NDPI labels at all; we crop the left 30% of the overview to provide an Aperio-style label affordance. |
 | Map pages exposed | NDPI | v0.4 | not opt-out-able (silent absence) | tifffile already classifies them as `series.name == 'Map'`; surfacing matches the underlying TIFF carrying. |
-| Multi-image OME pyramids | OME | v0.6 | use `s.Levels()` instead of `s.Pyramids()` for first-pyramid-only behaviour | Upstream's base Tiler loop silently drops 3 of 4 main pyramids in multi-image files via an unintentional last-wins assignment. We expose all of them via `s.Pyramids()`. |
+| Multi-image OME pyramids | OME | v0.6 | use `s.Levels()` instead of `s.Pyramids()` for first-pyramid-only behavior | Upstream's base Tiler loop silently drops 3 of 4 main pyramids in multi-image files via an unintentional last-wins assignment. We expose all of them via `s.Pyramids()`. |
 | Probability map exposed as `type="probability"` | BIF | v0.7 | iterate `s.AssociatedImages()` and skip the type | Upstream doesn't read BIF; openslide drops the probability map. We surface it for downstream tools that want it. |
 | `Level.TileOverlap` field | BIF + all | v0.7 | non-BIF formats return `Point{}` (zero) — no caller change needed | BIF level-0 stores tiles with horizontal overlap; consumer needs the value to position raw tile bytes correctly. |
 | Non-strict `ScannerModel` acceptance | BIF | v0.7 | not opt-out-able | The BIF spec mandates rejecting any slide whose `ScannerModel != "VENTANA DP 200"`; we accept any iScan-tagged TIFF (BigTIFF or classic, per #37) and route via `HasPrefix("VENTANA DP")` so legacy iScan slides aren't worse-than-openslide. |

@@ -106,7 +106,7 @@ func (l *levelImpl) StitchedSize() (w, h int, ok bool) {
 }
 ```
 
-(This is behaviour-preserving today — `l.size` already equals `l.layout.Width/Height` at every level for real data — and makes `l.size` the one value `Level.Size` *and* `StitchedSize` both read, so the Task-Step-6 override fixes both at once. `TileOrigin`/`TilesIntersecting` keep using `l.layout` for placement, unchanged.)
+(This is behavior-preserving today — `l.size` already equals `l.layout.Width/Height` at every level for real data — and makes `l.size` the one value `Level.Size` *and* `StitchedSize` both read, so the Task-Step-6 override fixes both at once. `TileOrigin`/`TilesIntersecting` keep using `l.layout` for placement, unchanged.)
 
 - [ ] **Step 6: Override `l.size` for DP reduced levels in the build loop**
 
@@ -250,7 +250,7 @@ func TestBIFVentanaContentExtent(t *testing.T) {
 
 // Proves StitchedSize == Size functionally: at DP L1 the last display column
 // must clip overscan to white (only StitchedTile clips to StitchedSize, so if
-// StitchedSize still equalled the padded 12288 this column would show stored
+// StitchedSize still equaled the padded 12288 this column would show stored
 // overscan instead of white).
 func TestBIFVentanaStitchedTileClipsOverscan(t *testing.T) {
 	s := openFixture(t, "bif", "Ventana-1.bif")

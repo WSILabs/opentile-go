@@ -82,7 +82,7 @@ The pinned `ByteCount` on each associated image in the geometry test (143,874 / 
 
 ## Deviations from upstream Python opentile
 
-Upstream Python opentile doesn't have a generic-TIFF reader, so every v0.10 behaviour in this package is technically a deviation. The interesting ones — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — are:
+Upstream Python opentile doesn't have a generic-TIFF reader, so every v0.10 behavior in this package is technically a deviation. The interesting ones — captured in [`docs/deferred.md` §1a](../deferred.md#1a-deviations-from-upstream-python-opentile) — are:
 
 | Deviation | Since | Opt-out | Reason |
 |---|---|---|---|
@@ -101,7 +101,7 @@ Additionally, the `AssociatedImage.Kind()` method was renamed to `Type()` (DICOM
 
 ## v0.14 — novel tile codecs
 
-opentile-go's generic-TIFF reader recognises four additional TIFF
+opentile-go's generic-TIFF reader recognizes four additional TIFF
 compression tag values produced by the user's `wsi-tools` transcoder
 plus the registered JP2K code:
 
