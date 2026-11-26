@@ -58,6 +58,29 @@ func GetByCompressionTag(tag uint16) (Factory, bool) {
 	return f, ok
 }
 
+// AvailabilityReporter is implemented by a Factory that may not be able to
+// decode in this build. The cgo codec subpackages register a stub factory
+// when the codec is built out (cgo disabled, -tags nocgo or no<codec>); its
+// Available reports false and its decoders return ErrCodecUnavailable. A
+// factory without the method is taken to be available.
+type AvailabilityReporter interface {
+	Available() bool
+}
+
+// AvailableByCompressionTag reports whether a decoder that works in this
+// build is registered for the TIFF Compression tag value: one is registered
+// and it is not a built-out stub.
+func AvailableByCompressionTag(tag uint16) bool {
+	f, ok := GetByCompressionTag(tag)
+	if !ok {
+		return false
+	}
+	if a, ok := f.(AvailabilityReporter); ok {
+		return a.Available()
+	}
+	return true
+}
+
 // Registered returns the canonical names of every registered decoder.
 // Order is unspecified.
 func Registered() []string {

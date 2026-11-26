@@ -58,6 +58,16 @@ int main(int argc, char** argv) {
     OK(ot_color_management_available(&cm));
     printf("libopentile api %d.%d, opentile-go %s, jpeg=%d lcms2=%d\n", maj, min, ver, jpeg, cm);
 
+    /* A release build decodes everything but Iris; Unknown is never available. */
+    for (int32_t c = OT_COMPRESSION_UNKNOWN; c <= OT_COMPRESSION_PNG; c++) {
+        int32_t avail = -1;
+        OK(ot_codec_available(c, &avail));
+        int want = c != OT_COMPRESSION_UNKNOWN && c != OT_COMPRESSION_IRIS;
+        CHECK(avail == want, "ot_codec_available(%d) = %d, want %d", c, avail, want);
+    }
+    int32_t avail_bad;
+    CHECK(ot_codec_available(OT_COMPRESSION_PNG + 1, &avail_bad) == OT_ERR_ARG, "unknown compression code accepted");
+
     /* errors */
     ot_slide bad = 0;
     int rc = ot_open("does-not-exist.svs", NULL, &bad);
