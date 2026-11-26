@@ -33,8 +33,9 @@ Design: `docs/superpowers/specs/2026-11-23-capi-design.md`.
 - **v0.64.1 (2026-11-24):** per-platform libopentile release binaries
   (#120 step 3; AVIF through dav1d, no AV1 encoder); the Python pytest suite
   in CI (#127); `python/` moved onto libopentile and `python/cshim` dropped
-  (#120 step 4) — wheels bundle the static release build. **Next:** downstream
-  switch (#120 step 6).
+  (#120 step 4) — wheels bundle the static release build. openscope-qt
+  uses the release (#120 closed). **Next:** #130 / #132 / #133 (move
+  ICC→sRGB, the mmap fallback and codec availability from capi into core).
 
 ## Previous milestone — DecodedColorSpace on CodestreamInfo (shipped 2026-07-21, v0.62.0)
 
