@@ -316,7 +316,7 @@ func ot_codec_available(compression C.int32_t, out *C.int32_t) C.int {
 	if !ok {
 		return fail(errArg, "opentile: unknown compression code")
 	}
-	*out = cbool(codecAvailable(c))
+	*out = cbool(opentile.CodecAvailable(c))
 	return statusOK
 }
 

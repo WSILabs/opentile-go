@@ -17,6 +17,7 @@ type stubFactory struct{}
 func (f *stubFactory) Name() string                  { return "jpegxl" }
 func (f *stubFactory) TIFFCompressionTags() []uint16 { return []uint16{50002} }
 func (f *stubFactory) New() decoder.Decoder          { return &stubDecoder{} }
+func (f *stubFactory) Available() bool               { return false }
 
 type stubDecoder struct{}
 

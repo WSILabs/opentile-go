@@ -82,3 +82,25 @@ func TestRegisterOverwrites(t *testing.T) {
 		t.Errorf("last-in-wins broken: got %p want %p", got, f2)
 	}
 }
+
+// stubbedFactory stands in for a codec built out of this build.
+type stubbedFactory struct{ fakeFactory }
+
+func (f *stubbedFactory) Available() bool { return false }
+
+func TestAvailableByCompressionTag(t *testing.T) {
+	decoder.Register(&fakeFactory{name: "fake-codec-avail", tags: []uint16{9010}})
+	decoder.Register(&stubbedFactory{fakeFactory{name: "fake-codec-stub", tags: []uint16{9011}}})
+	for _, c := range []struct {
+		tag  uint16
+		want bool
+	}{
+		{9010, true},    // registered, no AvailabilityReporter
+		{9011, false},   // registered stub
+		{0xFFFE, false}, // not registered
+	} {
+		if got := decoder.AvailableByCompressionTag(c.tag); got != c.want {
+			t.Errorf("AvailableByCompressionTag(%d) = %v, want %v", c.tag, got, c.want)
+		}
+	}
+}

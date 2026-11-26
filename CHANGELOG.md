@@ -11,6 +11,25 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Added
+- **`opentile.CodecAvailable(Compression) bool` (#133).** Reports whether this
+  build can decode a compression, so Go callers can check before decoding
+  instead of waiting for an error wrapping `decoder.ErrCodecUnavailable`. It
+  answers from the same places a decode dispatches through (the decoder
+  registry, and the standard library for PNG). The stub decoders that cgo
+  codecs register when built out (`nocgo`, `no<codec>`) now implement
+  `decoder.AvailabilityReporter` and report false; the new
+  `decoder.AvailableByCompressionTag` combines the lookup and that check.
+
+### Fixed
+- **`ot_codec_available` no longer reports built-out codecs as available.**
+  It looked only for a registered decoder, and a codec built out with a
+  `no<codec>` tag (or `nocgo`) registers a stub, so the C API reported, for
+  example, HTJ2K as available in a `nohtj2k` build whose decodes then
+  failed. It now calls `opentile.CodecAvailable`, and its own list of
+  pure-Go codecs is gone. The release libraries have all six codecs and were
+  not affected; the C smoke test now checks every compression code.
+
 ## [0.64.1] — 2026-11-24
 
 ### Changed
