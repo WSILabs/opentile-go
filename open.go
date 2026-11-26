@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	"github.com/wsilabs/opentile-go/decoder"
@@ -123,24 +124,23 @@ func Open(r io.ReaderAt, size int64, opts ...Option) (*Slide, error) {
 // The [WithBacking] option is accepted but ignored for DICOM (the Tiler
 // owns its own per-instance mmaps).
 //
-// Default backing since v0.9 is [BackingMmap]: the file is
+// The default backing is [BackingAuto]: the file is
 // memory-mapped read-only and tile reads become userspace memcpys
 // from the mapped region — no pread(2) syscall per [Level.Tile]
 // call. The kernel page cache handles paging in tile-data regions
 // on first access; warm-cache reads hit RAM at memory-bandwidth
-// speed.
+// speed. When the file can't be mapped (some FUSE / network mounts,
+// platform limits), OpenFile reopens it with the os.File + pread
+// path instead.
 //
-// Pass [WithBacking](BackingPread) to opt out and use the v0.8 (and
-// earlier) os.File + pread path. Required for filesystems that
-// don't support mmap (some FUSE / network mounts) or when the
-// caller specifically needs os.File truncation semantics.
+// Pass [WithBacking](BackingPread) to always use pread, e.g. when the
+// caller needs os.File truncation semantics, or
+// [WithBacking](BackingMmap) to require a mapping.
 //
 // Failure modes:
-//   - mmap unavailable for this file (filesystem doesn't support it,
-//     or some platform-specific failure): returns
-//     [ErrMmapUnavailable] wrapping the underlying error. Callers
-//     wanting automatic fallback should retry with
-//     WithBacking(BackingPread).
+//   - mmap unavailable for this file under BackingMmap (filesystem
+//     doesn't support it, or some platform-specific failure): returns
+//     [ErrMmapUnavailable] wrapping the underlying error.
 //   - file truncated underneath an open mmap-backed *Slide: subsequent
 //     Tile() calls into the truncated region raise SIGBUS in the
 //     calling thread. WSI files don't get truncated under normal
@@ -187,6 +187,12 @@ func OpenFile(path string, opts ...Option) (*Slide, error) {
 	}
 
 	switch cfg.backing {
+	case BackingAuto:
+		s, err := openFileMmap(path, opts)
+		if errors.Is(err, ErrMmapUnavailable) {
+			return openFilePread(path, opts)
+		}
+		return s, err
 	case BackingMmap:
 		return openFileMmap(path, opts)
 	case BackingPread:
@@ -197,7 +203,7 @@ func OpenFile(path string, opts ...Option) (*Slide, error) {
 }
 
 // openFilePread is the v0.8 (and earlier) os.File + pread(2) path.
-// Active when WithBacking(BackingPread) is passed.
+// Used for BackingPread, and for BackingAuto when mapping fails.
 func openFilePread(path string, opts []Option) (*Slide, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -209,6 +215,7 @@ func openFilePread(path string, opts []Option) (*Slide, error) {
 		return nil, fmt.Errorf("opentile: stat %q: %w", path, err)
 	}
 	cfg := newConfig(opts)
+	cfg.backing = BackingPread
 	rdr, err := dispatchOpen(f, info.Size(), cfg)
 	if err != nil {
 		f.Close()
@@ -218,16 +225,26 @@ func openFilePread(path string, opts []Option) (*Slide, error) {
 	return &Slide{r: fc, size: info.Size(), readBudget: cfg.resolveMemoryBudget()}, nil
 }
 
-// openFileMmap is the v0.9 default path. Memory-maps the file and
+// openMmap maps a file read-only; a variable so tests can make mapping fail.
+var openMmap = tiff.OpenMmap
+
+// openFileMmap is the mmap path (BackingMmap, and BackingAuto first). Memory-maps the file and
 // passes the resulting *tiff.MmapFile (which implements io.ReaderAt
 // + io.Closer) to dispatchOpen. The returned *Slide owns the mapping;
 // Close unmaps and releases the underlying file.
 func openFileMmap(path string, opts []Option) (*Slide, error) {
-	m, err := tiff.OpenMmap(path)
+	m, err := openMmap(path)
 	if err != nil {
+		// A file that can't be opened at all (missing, no permission) is
+		// not an mmap problem: report the open error itself.
+		var pe *fs.PathError
+		if errors.As(err, &pe) && pe.Op == "open" {
+			return nil, fmt.Errorf("opentile: open %q: %w", path, err)
+		}
 		return nil, fmt.Errorf("opentile: %s: %w: %v", path, ErrMmapUnavailable, err)
 	}
 	cfg := newConfig(opts)
+	cfg.backing = BackingMmap
 	rdr, err := dispatchOpen(m, m.Size(), cfg)
 	if err != nil {
 		m.Close()

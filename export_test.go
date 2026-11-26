@@ -1,5 +1,11 @@
 package opentile
 
+import (
+	"errors"
+
+	"github.com/wsilabs/opentile-go/internal/tiff"
+)
+
 // Test-only accessors. Exposed via export_test.go so external test
 // packages (opentile_test) can verify Slide's internal handle cache
 // shape without making the fields public.
@@ -17,3 +23,24 @@ func (s *Slide) HandleCountForTest() int {
 // selected (1 when no codec downscale is used). Used to assert the
 // codec-scale gate engages for JP2K/HTJ2K sources.
 func (it *StripIterator) IDCTScaleForTest() int { return it.idctScale }
+
+// FailMmapForTest makes every OpenFile mapping attempt fail, as on a
+// filesystem without mmap support, until the returned restore is called.
+func FailMmapForTest() (restore func()) {
+	prev := openMmap
+	openMmap = func(string) (*tiff.MmapFile, error) {
+		return nil, errors.New("mmap: operation not supported (test)")
+	}
+	return func() { openMmap = prev }
+}
+
+// BackingForTest reports which backing an OpenFile Slide was opened with.
+func (s *Slide) BackingForTest() string {
+	switch s.r.(type) {
+	case *mmapCloser:
+		return "mmap"
+	case *fileCloser:
+		return "pread"
+	}
+	return "other"
+}

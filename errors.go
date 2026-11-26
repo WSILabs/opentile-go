@@ -74,15 +74,15 @@ var (
 	ErrSparseTile = errors.New("opentile: sparse tile (no compressed bytes at this position)")
 
 	// ErrMmapUnavailable is returned by [OpenFile] when called with
-	// [WithBacking](BackingMmap) (the default since v0.9) but the
-	// underlying memory-map operation fails — typically because the
-	// file is on a filesystem that doesn't support mmap (some FUSE
-	// or network mounts) or the platform lacks `golang.org/x/exp/mmap`
-	// support. Wraps the underlying error from `mmap.Open`.
+	// [WithBacking](BackingMmap) but the underlying memory-map
+	// operation fails — typically because the file is on a filesystem
+	// that doesn't support mmap (some FUSE or network mounts) or the
+	// platform lacks `golang.org/x/exp/mmap` support. Wraps the
+	// underlying error from `mmap.Open`. A file that can't be opened at
+	// all returns its open error instead.
 	//
-	// Callers that want automatic fallback to the os.File / pread
-	// path can retry with `opts...` extended by
-	// `WithBacking(BackingPread)` on this error.
+	// The default backing, [BackingAuto], falls back to the os.File /
+	// pread path on this error, so callers no longer need to retry.
 	//
 	// Added in v0.9 alongside the mmap-default OpenFile change.
 	ErrMmapUnavailable = errors.New("opentile: memory-map unavailable for this file")

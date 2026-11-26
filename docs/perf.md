@@ -45,10 +45,10 @@ reads are backed by `mmap(2)` (Linux/macOS) or `CreateFileMapping`
   WSI files don't get truncated under normal use; if your storage
   allows it, opt out via `WithBacking(BackingPread)`.
 - **mmap unavailable.** Some FUSE mounts and network filesystems
-  don't support memory-mapping. `OpenFile` returns
-  `ErrMmapUnavailable` wrapping the underlying error; retry with
-  `WithBacking(BackingPread)` to fall back to the os.File + pread
-  path.
+  don't support memory-mapping. With the default backing,
+  `BackingAuto`, `OpenFile` then reopens the file with the os.File +
+  pread path. With `WithBacking(BackingMmap)` it returns
+  `ErrMmapUnavailable` wrapping the underlying error instead.
 
 ### Opting out
 

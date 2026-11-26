@@ -18,8 +18,8 @@ const (
 )
 
 // Backing identifies the I/O backend used to read tile bytes from a
-// slide file. Selectable via [WithBacking]; defaults to [BackingMmap]
-// since v0.9.
+// slide file. Selectable via [WithBacking]; defaults to [BackingAuto]
+// (mmap, falling back to pread when the file can't be mapped).
 //
 // BackingMmap memory-maps the file read-only and reads tiles via
 // userspace memcpy from the mapped region. No syscall per Tile()
@@ -32,13 +32,21 @@ const (
 // pread(2) syscall per [Level.Tile] call. Use this on filesystems
 // that don't support mmap (some FUSE / network mounts), or when
 // you specifically need the os.File semantics around truncation.
+//
+// BackingAuto, the default, tries BackingMmap and reopens with
+// BackingPread when mapping fails ([ErrMmapUnavailable]).
 type Backing uint8
 
 const (
-	// BackingMmap memory-maps the slide file. Default since v0.9.
+	// BackingMmap memory-maps the slide file, and OpenFile fails with
+	// ErrMmapUnavailable when it can't be mapped. The default from v0.9
+	// until BackingAuto was added.
 	BackingMmap Backing = iota
 	// BackingPread uses os.File + pread(2) per Tile().
 	BackingPread
+	// BackingAuto memory-maps the slide file and falls back to
+	// BackingPread when mapping fails. The default.
+	BackingAuto
 )
 
 // defaultReadMemoryBudget is the default per-Slide live-memory target
@@ -72,7 +80,7 @@ func newConfig(opts []Option) *config {
 		tileSize:       Size{},
 		corruptTile:    CorruptTileError,
 		ndpiSynthLabel: true, // v0.2 behavior; opt-out via WithNDPISynthesizedLabel(false)
-		backing:        BackingMmap,
+		backing:        BackingAuto,
 	}
 	for _, o := range opts {
 		o(c)
@@ -107,18 +115,18 @@ func WithNDPISynthesizedLabel(enable bool) Option {
 }
 
 // WithBacking selects the I/O backend used by [OpenFile]. The default
-// since v0.9 is [BackingMmap]; pass WithBacking(BackingPread) on the
-// rare filesystem that doesn't support mmap or when you need os.File
-// truncation semantics.
+// is [BackingAuto]: mmap, falling back to pread when the file can't be
+// mapped. Pass WithBacking(BackingPread) when you need os.File
+// truncation semantics, or WithBacking(BackingMmap) to require a
+// mapping.
 //
 // Has no effect on [Open] (which already takes a caller-provided
 // [io.ReaderAt]); only the path-resolving [OpenFile] honors this.
 //
-// When set to BackingMmap and the underlying mmap call fails (FUSE
-// mount that doesn't support mapping, etc.), OpenFile returns
-// [ErrMmapUnavailable] wrapping the underlying error rather than
-// silently falling back. Callers that want auto-fallback should
-// retry with WithBacking(BackingPread).
+// With BackingMmap, when the mmap call fails (a FUSE mount that
+// doesn't support mapping, etc.), OpenFile returns
+// [ErrMmapUnavailable] wrapping the underlying error instead of
+// falling back.
 func WithBacking(b Backing) Option {
 	return func(c *config) {
 		c.backing = b
@@ -212,13 +220,13 @@ func (c *Config) NDPISynthesizedLabel() bool {
 	return c.c.ndpiSynthLabel
 }
 
-// Backing reports the I/O backing the caller selected via
-// [WithBacking]. Defaults to [BackingMmap] since v0.9 if no option
-// was passed. Format packages typically don't need this — Open is
+// Backing reports the I/O backing in use: the one OpenFile opened the
+// file with, or for [Open] the one selected via [WithBacking]
+// ([BackingAuto] if no option was passed). Format packages typically don't need this — Open is
 // path-agnostic — but it's exposed for diagnostic accessors.
 func (c *Config) Backing() Backing {
 	if c == nil || c.c == nil {
-		return BackingMmap
+		return BackingAuto
 	}
 	return c.c.backing
 }

@@ -4,8 +4,8 @@ import "testing"
 
 func TestBackingDefault(t *testing.T) {
 	cfg := newConfig(nil)
-	if got := cfg.backing; got != BackingMmap {
-		t.Errorf("default backing = %v, want BackingMmap", got)
+	if got := cfg.backing; got != BackingAuto {
+		t.Errorf("default backing = %v, want BackingAuto", got)
 	}
 	if cfg.hasBacking {
 		t.Error("hasBacking should be false when no WithBacking opt was passed")
@@ -13,7 +13,7 @@ func TestBackingDefault(t *testing.T) {
 }
 
 func TestWithBacking(t *testing.T) {
-	for _, b := range []Backing{BackingMmap, BackingPread} {
+	for _, b := range []Backing{BackingMmap, BackingPread, BackingAuto} {
 		cfg := newConfig([]Option{WithBacking(b)})
 		if got := cfg.backing; got != b {
 			t.Errorf("WithBacking(%v): got %v", b, got)

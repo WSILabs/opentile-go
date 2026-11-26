@@ -16,7 +16,6 @@ package main
 import "C"
 
 import (
-	"errors"
 	"sync"
 	"unsafe"
 
@@ -397,10 +396,7 @@ func ot_open(path *C.char, opts *C.ot_open_opts, out *C.ot_slide) C.int {
 	var err error
 	switch backing {
 	case backingDefault:
-		s, err = opentile.OpenFile(p, append(options, opentile.WithBacking(opentile.BackingMmap))...)
-		if errors.Is(err, opentile.ErrMmapUnavailable) {
-			s, err = opentile.OpenFile(p, append(options, opentile.WithBacking(opentile.BackingPread))...)
-		}
+		s, err = opentile.OpenFile(p, append(options, opentile.WithBacking(opentile.BackingAuto))...)
 	case backingMmap:
 		s, err = opentile.OpenFile(p, append(options, opentile.WithBacking(opentile.BackingMmap))...)
 	case backingPread:
