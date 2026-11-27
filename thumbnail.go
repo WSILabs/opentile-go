@@ -35,7 +35,9 @@ func (p *Pyramid) RenderThumbnail(bounds Size, opts ...DecodeOption) (*decoder.I
 		return nil, err
 	}
 	src := Region{Origin: Point{X: 0, Y: 0}, Size: l0.Size}
-	return p.slide.imageReadRegionScaled(p.Index, src, out, opts...)
+	img, err := p.slide.imageReadRegionScaled(p.Index, src, out, opts...)
+	p.slide.finishSRGB(img, opts)
+	return img, err
 }
 
 // RenderThumbnail renders the whole slide downscaled to fit bounds, using the

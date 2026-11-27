@@ -19,6 +19,11 @@ type Image struct {
 	Stride        int // bytes per row; may over-allocate for SIMD alignment
 	Format        PixelFormat
 	Pix           []byte // len(Pix) == Stride * Height
+
+	// ColorManaged reports that the pixels were converted from the
+	// slide's ICC profile to sRGB (opentile.WithSRGB / Slide.ToSRGB).
+	// Decoders leave it false.
+	ColorManaged bool
 }
 
 // NewImage returns a freshly-allocated Image with PixelFormatRGB and

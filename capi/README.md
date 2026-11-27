@@ -5,8 +5,10 @@ consumer: the Python binding (`python/`) and native desktop apps. The public
 header is [`opentile.h`](opentile.h). The design and its conventions are in
 [`docs/superpowers/specs/2026-11-23-capi-design.md`](../docs/superpowers/specs/2026-11-23-capi-design.md).
 
-This is a separate Go module, so its cgo and lcms2 dependencies never reach
-users of the Go library. It always builds against the working tree (`replace ../`).
+This is a separate Go module, so its cgo dependency never reaches users of
+the Go library. It always builds against the working tree (`replace ../`).
+ICC → sRGB (`OT_DECODE_SRGB`) is the Go library's own color management
+(`opentile.Slide.ToSRGB`, lcms2 via `decoder/all`); `-tags nolcms2` leaves it out.
 
 ## Layout
 
@@ -17,7 +19,6 @@ users of the Go library. It always builds against the working tree (`replace ../
 | `capi.go` | `//export` functions, handle table, buffer conventions |
 | `json.go`, `enums.go`, `errmap.go`, `version.go` | metadata/TIFF-tag JSON, frozen enum codes, Go error → status code mapping, version and codec probes |
 | `errors.c` | per-thread last error |
-| `icc.c`, `icc_lcms.go` / `icc_nolcms.go` | lcms2 slide-ICC → sRGB (build tag `nolcms2` disables it) |
 | `header_test.go` | header ↔ `//export` sync, frozen constant values, `.def` freshness |
 | `test/smoke.c`, `test/threads.c`, `test/dlopen.c` | C tests against a built library and a real slide; run-time loading (`dlopen`) |
 

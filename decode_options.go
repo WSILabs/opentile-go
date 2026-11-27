@@ -16,6 +16,7 @@ type decodeConfig struct {
 	format decoder.PixelFormat
 	scale  int
 	kernel resample.Kernel
+	srgb   bool // WithSRGB
 }
 
 func newDecodeConfig(opts []DecodeOption) decodeConfig {

@@ -48,9 +48,6 @@ func failErr(err error) C.int { return fail(codeOf(err), err.Error()) }
 type entry struct {
 	slide    *opentile.Slide
 	inflight sync.WaitGroup
-
-	iccOnce [2]sync.Once      // [0] RGB8, [1] RGBA8
-	icc     [2]unsafe.Pointer // lcms2 transforms, nil if unavailable
 }
 
 var (
@@ -75,17 +72,6 @@ func acquire(h C.ot_slide) (e *entry, status C.int) {
 }
 
 func (e *entry) release() { e.inflight.Done() }
-
-// transform returns the lazily-built ICC -> sRGB transform for the pixel
-// format, or nil when the slide has no usable profile or lcms2 is absent.
-func (e *entry) transform(f decoder.PixelFormat) unsafe.Pointer {
-	i := 0
-	if f == decoder.PixelFormatRGBA {
-		i = 1
-	}
-	e.iccOnce[i].Do(func() { e.icc[i] = iccCreate(e.slide.ICCProfile(), i == 1) })
-	return e.icc[i]
-}
 
 // ---- struct / buffer helpers ----
 
@@ -239,7 +225,8 @@ func query(img *C.ot_image, w, h int, f decoder.PixelFormat) C.int {
 }
 
 // emit copies a decoded image into the caller's ot_image (honoring its
-// stride) and applies the ICC transform when requested and available.
+// stride) and, for OT_DECODE_SRGB, converts the copy to sRGB with the
+// slide's transform (opentile.Slide.ToSRGB) when it has a usable profile.
 func emit(e *entry, src *decoder.Image, d decodeOpts, img *C.ot_image) C.int {
 	need, st := describe(img, src.Width, src.Height, src.Format)
 	if st != statusOK {
@@ -261,8 +248,8 @@ func emit(e *entry, src *decoder.Image, d decodeOpts, img *C.ot_image) C.int {
 		copy(dst[y*stride:y*stride+row], src.Pix[y*src.Stride:y*src.Stride+row])
 	}
 	if d.srgb {
-		if t := e.transform(src.Format); t != nil {
-			iccApply(t, unsafe.Pointer(img.data), src.Width, src.Height, stride)
+		view := decoder.Image{Width: src.Width, Height: src.Height, Stride: stride, Format: src.Format, Pix: dst}
+		if e.slide.ToSRGB(&view) {
 			img.color_managed = 1
 		}
 	}
@@ -324,7 +311,7 @@ func ot_color_management_available(out *C.int32_t) C.int {
 	if out == nil {
 		return fail(errArg, "opentile: out_available is NULL")
 	}
-	*out = cbool(colorManagementBuilt)
+	*out = cbool(opentile.ColorManagementAvailable())
 	return statusOK
 }
 
@@ -426,10 +413,6 @@ func ot_close(h C.ot_slide) C.int {
 		return fail(errHandle, "opentile: unknown or closed slide handle")
 	}
 	e.inflight.Wait()
-	for i := range e.icc {
-		iccFree(e.icc[i])
-		e.icc[i] = nil
-	}
 	if err := e.slide.Close(); err != nil {
 		return failErr(err)
 	}

@@ -29,3 +29,16 @@ def test_read_region_shape(slide_path):
         assert arr.shape == (48, 64, 3) and arr.dtype == np.uint8
     finally:
         _ffi.close_slide(h)
+
+def test_srgb_flag(slide_path):
+    """srgb=True passes OT_DECODE_SRGB; without a usable profile the pixels
+    are unchanged, so only the shape and the srgb=False default are fixed."""
+    h = _ffi.open_slide(slide_path)
+    try:
+        plain = _ffi.read_region(h, 0, 0, 0, 64, 48)
+        assert np.array_equal(plain, _ffi.read_region(h, 0, 0, 0, 64, 48, srgb=False))
+        conv = _ffi.read_region(h, 0, 0, 0, 64, 48, srgb=True)
+        assert conv.shape == plain.shape and conv.dtype == np.uint8
+        assert _ffi.thumbnail(h, 64, 0, srgb=True).shape[1] == 64
+    finally:
+        _ffi.close_slide(h)

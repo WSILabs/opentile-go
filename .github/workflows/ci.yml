@@ -41,7 +41,7 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: '1'
           HOMEBREW_NO_INSTALL_CLEANUP: '1'
-        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
+        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph little-cms2 pkg-config
 
       - name: Install cgo deps (Linux, cached)
         if: runner.os == 'Linux'
@@ -51,7 +51,7 @@ jobs:
         # transient-mirror retry loop (cache hit = no network).
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev liblcms2-dev pkg-config
           version: '1'
 
       - name: go vet
@@ -72,6 +72,12 @@ jobs:
         # the per-codec opt-out tag. The stub still registers; only the
         # cgo decoder bytes are excluded.
         run: go test -tags nohtj2k ./... -race -count=1 -timeout 5m
+
+      - name: go test (cgo, nolcms2) — Linux
+        if: runner.os == 'Linux'
+        # Color management left out: WithSRGB is accepted and reports not
+        # applied, with no error.
+        run: go test -tags 'nohtj2k nolcms2' . ./decoder/... ./internal/color -count=1 -timeout 5m
 
       - name: go build (nocgo)
         env:
@@ -95,7 +101,7 @@ jobs:
       - name: Install cgo deps (Linux, cached)
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev liblcms2-dev pkg-config
           version: '1'
       # AddressSanitizer over the cgo codec decoders. The committed
       # decoder/jpeg2000/testdata fixtures (incl. the 4:2:2 subsampled tile
@@ -137,7 +143,7 @@ jobs:
       - name: Install cgo deps (Linux, cached)
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev pkg-config
+          packages: libturbojpeg0-dev libopenjp2-7-dev libjxl-dev libavif-dev libwebp-dev liblcms2-dev pkg-config
           version: '1'
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
@@ -234,7 +240,7 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: '1'
           HOMEBREW_NO_INSTALL_CLEANUP: '1'
-        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph pkg-config
+        run: brew install jpeg-turbo openjpeg jpeg-xl libavif webp openjph little-cms2 pkg-config
 
       - name: Download public fixture corpus (WSILabs/wsi-fixtures)
         env:

@@ -76,7 +76,9 @@ func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, 
 
 	// Render the tissue to exactly tw×th (ReadRegionScaled stretches L0 to the
 	// requested out size, so anisotropic MPP is honored as physical proportion).
-	tissue, err := p.ReadRegionScaled(Region{Origin: Point{X: 0, Y: 0}, Size: l0.Size}, Size{W: tw, H: th}, opts...)
+	// The internal read, not p.ReadRegionScaled: WithSRGB applies once, to
+	// the finished canvas below.
+	tissue, err := s.imageReadRegionScaled(p.Index, Region{Origin: Point{X: 0, Y: 0}, Size: l0.Size}, Size{W: tw, H: th}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +89,7 @@ func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, 
 	dstX := (canvas.W - tw) / 2
 	dstY := (canvas.H - th) / 2
 	blitInto(tissue, 0, 0, tw, th, out, dstX, dstY)
+	s.finishSRGB(out, opts)
 	return out, nil
 }
 

@@ -99,7 +99,7 @@ class Level:
         """
         return _ffi.tile(self._handle(), self.index, x, y)
 
-    def decoded_tile(self, x, y, rgba=False):
+    def decoded_tile(self, x, y, rgba=False, srgb=False):
         """Decode tile ``(x, y)`` to a numpy array.
 
         Parameters
@@ -108,6 +108,10 @@ class Level:
             Tile column and row in the level's tile grid.
         rgba : bool, optional
             If ``True`` return ``(H, W, 4)`` RGBA; otherwise ``(H, W, 3)`` RGB.
+        srgb : bool, optional
+            If ``True`` convert the pixels from the slide's ICC profile to
+            sRGB. Without a profile lcms2 can use (or in a build without
+            color management) the pixels are returned unconverted.
 
         Returns
         -------
@@ -121,9 +125,9 @@ class Level:
             If the slide is closed, the tile is out of range, or the codec is
             unavailable in this build.
         """
-        return _ffi.decoded_tile(self._handle(), self.index, x, y, rgba=rgba)
+        return _ffi.decoded_tile(self._handle(), self.index, x, y, rgba=rgba, srgb=srgb)
 
-    def read_region(self, x, y, w, h, rgba=False):
+    def read_region(self, x, y, w, h, rgba=False, srgb=False):
         """Decode an arbitrary ``w``×``h`` region of this level.
 
         Coordinates and size are in this level's pixel space (not level-0). For
@@ -137,6 +141,10 @@ class Level:
             Region width and height in pixels.
         rgba : bool, optional
             If ``True`` return ``(h, w, 4)`` RGBA; otherwise ``(h, w, 3)`` RGB.
+        srgb : bool, optional
+            If ``True`` convert the pixels from the slide's ICC profile to
+            sRGB. Without a profile lcms2 can use (or in a build without
+            color management) the pixels are returned unconverted.
 
         Returns
         -------
@@ -148,7 +156,7 @@ class Level:
         OpenTileError
             If the slide is closed or the region cannot be read.
         """
-        return _ffi.read_region(self._handle(), self.index, x, y, w, h, rgba=rgba)
+        return _ffi.read_region(self._handle(), self.index, x, y, w, h, rgba=rgba, srgb=srgb)
 
     @property
     def tiff_tags(self):
@@ -229,7 +237,7 @@ class Slide:
     def _associated(self, name):
         return _ffi.associated(self._handle(), name)
 
-    def thumbnail(self, width=None, height=None):
+    def thumbnail(self, width=None, height=None, srgb=False):
         """Render a whole-slide thumbnail as a numpy array.
 
         Fits the slide within the given bounding box, preserving aspect ratio
@@ -240,6 +248,10 @@ class Slide:
         ----------
         width, height : int, optional
             Maximum width and/or height of the thumbnail, in pixels.
+        srgb : bool, optional
+            If ``True`` convert the pixels from the slide's ICC profile to
+            sRGB. Without a profile lcms2 can use (or in a build without
+            color management) the pixels are returned unconverted.
 
         Returns
         -------
@@ -253,9 +265,9 @@ class Slide:
         """
         if not width and not height:
             width = 1024  # default fit-box when neither axis is given
-        return _ffi.thumbnail(self._handle(), width or 0, height or 0)
+        return _ffi.thumbnail(self._handle(), width or 0, height or 0, srgb=srgb)
 
-    def macro(self, width=None, height=None):
+    def macro(self, width=None, height=None, srgb=False):
         """Render a synthesized pseudo-macro image as a numpy array.
 
         Composites the tissue at its true physical size (using :attr:`mpp` or
@@ -266,6 +278,10 @@ class Slide:
         ----------
         width, height : int, optional
             Maximum width and/or height, in pixels.
+        srgb : bool, optional
+            If ``True`` convert the pixels from the slide's ICC profile to
+            sRGB. Without a profile lcms2 can use (or in a build without
+            color management) the pixels are returned unconverted.
 
         Returns
         -------
@@ -279,7 +295,7 @@ class Slide:
         """
         if not width and not height:
             width = 1024
-        return _ffi.macro(self._handle(), width or 0, height or 0)
+        return _ffi.macro(self._handle(), width or 0, height or 0, srgb=srgb)
 
     def close(self):
         """Release the native slide handle. Idempotent; called automatically on
