@@ -11,7 +11,20 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+### Changed
+- **`OpenFile` falls back to pread by default when mapping fails (#132).**
+  Code that relied on the default returning `ErrMmapUnavailable` should pass
+  `WithBacking(BackingMmap)`. `Config.Backing()` reports the backing the file
+  was opened with (`BackingMmap` or `BackingPread`).
+
 ### Added
+- **`BackingAuto`, now `OpenFile`'s default (#132).** `OpenFile`
+  memory-maps the file and, when it can't be mapped (some FUSE and network
+  mounts, platform limits), reopens it with the os.File + pread path. Go
+  callers no longer need to catch `ErrMmapUnavailable` and retry. Explicit
+  `WithBacking(BackingMmap)` still fails with `ErrMmapUnavailable`, and
+  `BackingPread` is unchanged. The C API's `OT_BACKING_DEFAULT` now uses it,
+  and capi's own retry is gone; the C ABI is unchanged.
 - **`opentile.CodecAvailable(Compression) bool` (#133).** Reports whether this
   build can decode a compression, so Go callers can check before decoding
   instead of waiting for an error wrapping `decoder.ErrCodecUnavailable`. It
@@ -22,6 +35,9 @@ upstream references, and retirement audit per milestone.
   `decoder.AvailableByCompressionTag` combines the lookup and that check.
 
 ### Fixed
+- **`OpenFile` with `BackingMmap` reports a missing or unreadable file as
+  that open error,** not `ErrMmapUnavailable`. Before, any failure inside the
+  mmap open was labeled an mmap problem.
 - **`ot_codec_available` no longer reports built-out codecs as available.**
   It looked only for a registered decoder, and a codec built out with a
   `no<codec>` tag (or `nocgo`) registers a stub, so the C API reported, for
