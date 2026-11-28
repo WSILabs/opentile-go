@@ -1,4 +1,4 @@
-//go:build !nocgo
+//go:build cgo && !nocgo
 
 package opentile
 
