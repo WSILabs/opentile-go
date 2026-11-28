@@ -40,8 +40,13 @@ Design: `docs/superpowers/specs/2026-11-23-capi-design.md`.
   (#120 step 3; AVIF through dav1d, no AV1 encoder); the Python pytest suite
   in CI (#127); `python/` moved onto libopentile and `python/cshim` dropped
   (#120 step 4) — wheels bundle the static release build. openscope-qt
-  uses the release (#120 closed). **Next:** #130 / #132 / #133 (move
-  ICC→sRGB, the mmap fallback and codec availability from capi into core).
+  uses the release (#120 closed).
+- **v0.65.0 (2026-11-27):** capi logic moved into the core —
+  `opentile.WithSRGB` / `Slide.ToSRGB` / `Slide.CheckSRGB` (#130; lcms2 now
+  links through `decoder/all`, and a profile that can't be applied fails the
+  read instead of returning non-sRGB pixels), `BackingAuto` as `OpenFile`'s
+  default (#132), `opentile.CodecAvailable` (#133). C API 1.1 adds
+  `ot_srgb_check`.
 
 ## Previous milestone — DecodedColorSpace on CodestreamInfo (shipped 2026-07-21, v0.62.0)
 

@@ -11,6 +11,8 @@ upstream references, and retirement audit per milestone.
 
 ## [Unreleased]
 
+## [0.65.0] — 2026-11-27
+
 ### Changed
 - **ICC → sRGB color management moved from the C API into the core
   library (#130).** `capi/icc.c` and its Go glue are gone; libopentile's
