@@ -44,3 +44,12 @@ func (s *Slide) BackingForTest() string {
 	}
 	return "other"
 }
+
+// SetSRGBHookForTest replaces the registered ICC -> sRGB transform hook
+// (nil acts as a build without color management) until restore is called.
+// Only slides opened after the call see it.
+func SetSRGBHookForTest(fn func(profile []byte, rgba bool) (apply func(pix []byte, width, height, stride int), free func(), ok bool)) (restore func()) {
+	prev := srgbHook
+	srgbHook = fn
+	return func() { srgbHook = prev }
+}

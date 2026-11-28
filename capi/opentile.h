@@ -47,7 +47,7 @@ extern "C" {
 #endif
 
 #define OT_API_VERSION_MAJOR 1
-#define OT_API_VERSION_MINOR 0
+#define OT_API_VERSION_MINOR 1
 
 typedef uint64_t ot_slide;
 
@@ -113,7 +113,11 @@ typedef uint64_t ot_slide;
 #define OT_CORRUPT_TILE_ERROR  0  /* corrupt tiles fail with OT_ERR_CORRUPT */
 #define OT_CORRUPT_TILE_BLANK  1  /* corrupt tiles read as blank */
 
-#define OT_DECODE_SRGB  (1u << 0)  /* convert slide ICC profile -> sRGB when one exists */
+/* Convert the slide's ICC profile -> sRGB. A slide with no profile passes
+ * through unconverted (taken as sRGB; color_managed = 0). A profile that
+ * can't be applied (no lcms2 in this build, or one lcms2 can't use) fails
+ * the call with OT_ERR_UNSUPPORTED; ot_srgb_check reports that up front. */
+#define OT_DECODE_SRGB  (1u << 0)
 
 /* ---- structs ---- */
 typedef struct {
@@ -206,6 +210,10 @@ OT_API int ot_pyramid_info_get(ot_slide s, int32_t pyramid, ot_pyramid_info* out
 OT_API int ot_level_info_get(ot_slide s, int32_t pyramid, int32_t level, ot_level_info* out);
 OT_API int ot_metadata_json(ot_slide s, char* dst, size_t capacity, size_t* out_len);
 OT_API int ot_icc_profile(ot_slide s, uint8_t* dst, size_t capacity, size_t* out_len);
+/* OT_OK when OT_DECODE_SRGB calls will succeed (a usable profile, or none);
+ * otherwise the OT_ERR_UNSUPPORTED they would return. Fixed per slide.
+ * Since API 1.1. */
+OT_API int ot_srgb_check(ot_slide s);
 /* OT_ERR_UNSUPPORTED for non-TIFF formats. */
 OT_API int ot_tiff_tags_json(ot_slide s, int32_t pyramid, int32_t level,
                              char* dst, size_t capacity, size_t* out_len);

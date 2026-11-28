@@ -12,12 +12,43 @@ upstream references, and retirement audit per milestone.
 ## [Unreleased]
 
 ### Changed
+- **ICC → sRGB color management moved from the C API into the core
+  library (#130).** `capi/icc.c` and its Go glue are gone; libopentile's
+  `OT_DECODE_SRGB` now uses the core's lcms2 transform (built lazily per
+  slide and pixel format, `cmsFLAGS_NOCACHE`, perceptual intent, alpha
+  copied), with the same output.
+- **`OT_DECODE_SRGB` fails when a slide's ICC profile can't be applied.**
+  Before, a build without lcms2 or a profile lcms2 couldn't use returned the
+  pixels unconverted (`color_managed = 0`), which aren't sRGB. Such calls
+  now return `OT_ERR_UNSUPPORTED` before decoding, and the new
+  `ot_srgb_check` (API 1.1) reports it once per slide. A slide with no
+  profile still passes through unconverted, taken as sRGB.
+  **lcms2 is now a cgo dependency of `decoder/all`**, like the optional
+  codecs: install `liblcms2-dev` / `little-cms2`, or build with
+  `-tags nolcms2`. vcpkg builds get it by default; `--x-feature=capi` is
+  kept and now adds nothing.
 - **`OpenFile` falls back to pread by default when mapping fails (#132).**
   Code that relied on the default returning `ErrMmapUnavailable` should pass
   `WithBacking(BackingMmap)`. `Config.Backing()` reports the backing the file
   was opened with (`BackingMmap` or `BackingPread`).
 
 ### Added
+- **`opentile.WithSRGB()` and `Slide.ToSRGB` (#130).** `WithSRGB` converts
+  decoded pixels from the slide's ICC profile to sRGB for the Level reads
+  (`DecodedTile`, `ReadRegion`, `StitchedTile` and their `Into` forms),
+  `Pyramid.ReadRegionScaled[Into]` and `RenderThumbnail` / `RenderMacro`
+  (converted once, after compositing). `Slide.ToSRGB(img)` converts any other
+  image in place, such as associated images or `ScaledStrips` strips. The new
+  `decoder.Image.ColorManaged` field reports whether a conversion was
+  applied. A slide with no ICC profile is taken as sRGB and returned as
+  decoded. One whose profile can't be applied fails a `WithSRGB` read
+  before decoding, with the new `ErrColorManagementUnavailable` (no lcms2
+  in the build; see `opentile.ColorManagementAvailable()`) or
+  `ErrICCProfileUnusable`, and `Slide.CheckSRGB()` reports that up front.
+  The Python binding's `decoded_tile`, `read_region`, `thumbnail` and
+  `macro` take `srgb=False`, raising `OpenTileError` in the same cases;
+  `Slide.check_srgb()` and `opentile_go.color_management_available()` are
+  new.
 - **`BackingAuto`, now `OpenFile`'s default (#132).** `OpenFile`
   memory-maps the file and, when it can't be mapped (some FUSE and network
   mounts, platform limits), reopens it with the os.File + pread path. Go

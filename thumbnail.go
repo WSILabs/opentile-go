@@ -26,6 +26,9 @@ import (
 // or (like ReadRegionScaled) if no decoder is registered for level 0's
 // compression. opts pass through to the underlying decode (e.g. WithFormat).
 func (p *Pyramid) RenderThumbnail(bounds Size, opts ...DecodeOption) (*decoder.Image, error) {
+	if err := p.slide.checkSRGB(opts); err != nil {
+		return nil, err
+	}
 	l0, err := p.Level(0)
 	if err != nil {
 		return nil, err
@@ -35,7 +38,11 @@ func (p *Pyramid) RenderThumbnail(bounds Size, opts ...DecodeOption) (*decoder.I
 		return nil, err
 	}
 	src := Region{Origin: Point{X: 0, Y: 0}, Size: l0.Size}
-	return p.slide.imageReadRegionScaled(p.Index, src, out, opts...)
+	img, err := p.slide.imageReadRegionScaled(p.Index, src, out, opts...)
+	if err == nil {
+		err = p.slide.finishSRGB(img, opts)
+	}
+	return img, err
 }
 
 // RenderThumbnail renders the whole slide downscaled to fit bounds, using the

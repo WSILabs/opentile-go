@@ -11,7 +11,8 @@ Read whole-slide pathology images as numpy arrays::
         label  = s.associated_images["label"]               # numpy
         thumb  = s.thumbnail(width=1024)                     # numpy
 
-Public API: :class:`Slide`, :class:`Level`, and :class:`OpenTileError`.
+Public API: :class:`Slide`, :class:`Level`, :class:`OpenTileError` and
+:func:`color_management_available`.
 """
 
 __version__ = "0.1.0.dev0"
@@ -26,5 +27,16 @@ class OpenTileError(Exception):
 
 
 from .slide import Slide, Level  # noqa: E402
+from . import _ffi  # noqa: E402
 
-__all__ = ["Slide", "Level", "OpenTileError", "__version__"]
+
+def color_management_available():
+    """Report whether the library can convert ICC profiles to sRGB (lcms2).
+
+    Without it, ``srgb=True`` reads of a slide that has an ICC profile raise
+    :class:`OpenTileError`; see :meth:`Slide.check_srgb`.
+    """
+    return _ffi.color_management_available()
+
+
+__all__ = ["Slide", "Level", "OpenTileError", "color_management_available", "__version__"]

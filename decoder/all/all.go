@@ -21,4 +21,8 @@ import (
 	_ "github.com/wsilabs/opentile-go/decoder/jpeg2000"
 	_ "github.com/wsilabs/opentile-go/decoder/jpegxl"
 	_ "github.com/wsilabs/opentile-go/decoder/webp"
+
+	// lcms2 ICC -> sRGB for opentile.WithSRGB / Slide.ToSRGB (cgo; left
+	// out by -tags nolcms2 or nocgo).
+	_ "github.com/wsilabs/opentile-go/internal/color"
 )

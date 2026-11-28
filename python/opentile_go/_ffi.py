@@ -26,6 +26,7 @@ OT_OK = 0
 OT_ERR_BUFFER = -4
 OT_ERR_RANGE = -5
 OT_ERR_UNSUPPORTED = -10
+OT_DECODE_SRGB = 1 << 0
 OT_PIXEL_RGB8 = 0
 OT_PIXEL_RGBA8 = 1
 _API_MAJOR = 1
@@ -132,6 +133,9 @@ _ot_read_region = _decl("ot_read_region", _u64, _i32, _i32, _i64, _i64, _i32, _i
 _ot_thumbnail = _decl("ot_thumbnail", _u64, _i32, _i32, *_img_args)
 _ot_macro = _decl("ot_macro", _u64, _i32, _i32, *_img_args)
 _ot_associated_decode = _decl("ot_associated_decode", _u64, _i32, *_img_args)
+_ot_color_management_available = _decl("ot_color_management_available", _i32p)
+# API 1.1; missing from an older library.
+_ot_srgb_check = _decl("ot_srgb_check", _u64) if hasattr(_lib, "ot_srgb_check") else None
 
 
 def _check_api():
@@ -185,14 +189,15 @@ def _bytes_call(fn, args, guess=0, as_string=False):
     _raise(rc, fn.__name__)
 
 
-def _decode_opts(rgba):
+def _decode_opts(rgba, srgb=False):
     o = _DecodeOpts()
     o.struct_size = ctypes.sizeof(_DecodeOpts)
     o.pixel_format = OT_PIXEL_RGBA8 if rgba else OT_PIXEL_RGB8
+    o.flags = OT_DECODE_SRGB if srgb else 0
     return o
 
 
-def _image_call(fn, args, rgba, guess=None):
+def _image_call(fn, args, rgba, guess=None, srgb=False):
     """Call an ot_image-filling function; return an (H, W, bands) uint8 array.
 
     guess is an upper bound (w, h) on the output size. With it the pixels
@@ -200,7 +205,7 @@ def _image_call(fn, args, rgba, guess=None):
     guess is too small) a size query or OT_ERR_BUFFER gives the exact size.
     """
     bands = 4 if rgba else 3
-    opts = _decode_opts(rgba)
+    opts = _decode_opts(rgba, srgb)
     img = _Image()
     img.struct_size = ctypes.sizeof(_Image)
     if guess is None or guess[0] <= 0 or guess[1] <= 0:
@@ -257,22 +262,39 @@ def _level_info(handle, level):
     return info
 
 
+def color_management_available():
+    out = _i32()
+    rc = _ot_color_management_available(ctypes.byref(out))
+    if rc != OT_OK:
+        _raise(rc, "ot_color_management_available")
+    return bool(out.value)
+
+
+def check_srgb(handle):
+    if _ot_srgb_check is None:
+        raise OpenTileError("opentile: check_srgb needs libopentile API 1.1 or later")
+    rc = _ot_srgb_check(handle)
+    if rc != OT_OK:
+        _raise(rc, "ot_srgb_check")
+
+
 def tile(handle, level, x, y):
     guess = int(_level_info(handle, level).tile_max_bytes)
     return _bytes_call(_ot_tile_raw, (handle, 0, level, x, y), guess=guess)
 
 
-def decoded_tile(handle, level, x, y, rgba=False):
+def decoded_tile(handle, level, x, y, rgba=False, srgb=False):
     info = _level_info(handle, level)
     return _image_call(_ot_tile_decoded, (handle, 0, level, x, y), rgba,
-                       guess=(info.tile_w, info.tile_h))
+                       guess=(info.tile_w, info.tile_h), srgb=srgb)
 
 
-def read_region(handle, level, x, y, w, h, rgba=False):
-    return _image_call(_ot_read_region, (handle, 0, level, x, y, w, h), rgba, guess=(w, h))
+def read_region(handle, level, x, y, w, h, rgba=False, srgb=False):
+    return _image_call(_ot_read_region, (handle, 0, level, x, y, w, h), rgba,
+                       guess=(w, h), srgb=srgb)
 
 
-def thumbnail(handle, max_w, max_h):
+def thumbnail(handle, max_w, max_h, srgb=False):
     # Upper bound on the fitted size, so the decode goes straight into the
     # array. With one axis given, the other follows level 0's aspect ratio
     # (+2 covers rounding); a too-small guess just costs a retry.
@@ -284,13 +306,13 @@ def thumbnail(handle, max_w, max_h):
                 guess = (max_w, max_w * l0.height // l0.width + 2)
             elif max_h > 0:
                 guess = (max_h * l0.width // l0.height + 2, max_h)
-    return _image_call(_ot_thumbnail, (handle, max_w, max_h), False, guess=guess)
+    return _image_call(_ot_thumbnail, (handle, max_w, max_h), False, guess=guess, srgb=srgb)
 
 
-def macro(handle, max_w, max_h):
+def macro(handle, max_w, max_h, srgb=False):
     # The macro canvas has its own aspect ratio; with one axis given, ask.
     guess = (max_w, max_h) if max_w > 0 and max_h > 0 else None
-    return _image_call(_ot_macro, (handle, max_w, max_h), False, guess=guess)
+    return _image_call(_ot_macro, (handle, max_w, max_h), False, guess=guess, srgb=srgb)
 
 
 def associated(handle, name, rgba=False):

@@ -58,25 +58,55 @@ func (l *Level) TileBodyMaxSize() int {
 
 // DecodedTile returns the decoded pixels for the tile at (tx, ty).
 func (l *Level) DecodedTile(tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
-	return l.slide.imageDecodedTile(l.PyramidIndex, l.Index, tx, ty, opts...)
+	if err := l.slide.checkSRGB(opts); err != nil {
+		return nil, err
+	}
+	img, err := l.slide.imageDecodedTile(l.PyramidIndex, l.Index, tx, ty, opts...)
+	if err == nil {
+		err = l.slide.finishSRGB(img, opts)
+	}
+	return img, err
 }
 
 // DecodedTileInto decodes the tile at (tx, ty) into the caller-provided
 // dst.
 func (l *Level) DecodedTileInto(tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
-	return l.slide.imageDecodedTileInto(l.PyramidIndex, l.Index, tx, ty, dst, opts...)
+	resetColorManaged(dst)
+	if err := l.slide.checkSRGB(opts); err != nil {
+		return err
+	}
+	err := l.slide.imageDecodedTileInto(l.PyramidIndex, l.Index, tx, ty, dst, opts...)
+	if err == nil {
+		err = l.slide.finishSRGB(dst, opts)
+	}
+	return err
 }
 
 // ReadRegion returns the decoded pixels for rectangle r at this level's
 // own resolution.
 func (l *Level) ReadRegion(r Region, opts ...DecodeOption) (*decoder.Image, error) {
-	return l.slide.imageReadRegion(l.PyramidIndex, l.Index, r, opts...)
+	if err := l.slide.checkSRGB(opts); err != nil {
+		return nil, err
+	}
+	img, err := l.slide.imageReadRegion(l.PyramidIndex, l.Index, r, opts...)
+	if err == nil {
+		err = l.slide.finishSRGB(img, opts)
+	}
+	return img, err
 }
 
 // ReadRegionInto decodes a region into the caller-provided dst. origin is
 // at this level's resolution; the region size is taken from dst.
 func (l *Level) ReadRegionInto(origin Point, dst *decoder.Image, opts ...DecodeOption) error {
-	return l.slide.imageReadRegionInto(l.PyramidIndex, l.Index, origin, dst, opts...)
+	resetColorManaged(dst)
+	if err := l.slide.checkSRGB(opts); err != nil {
+		return err
+	}
+	err := l.slide.imageReadRegionInto(l.PyramidIndex, l.Index, origin, dst, opts...)
+	if err == nil {
+		err = l.slide.finishSRGB(dst, opts)
+	}
+	return err
 }
 
 // Tiles returns a row-major range-over-function iterator over all tiles
@@ -107,7 +137,14 @@ func (l *Level) TIFFTags() (TIFFTags, bool) {
 // faithful transcoding. Scale > 1 is unsupported on overlapping levels (use the
 // Pyramid's ReadRegionScaled / ScaledStrips); it returns ErrUnsupportedScale.
 func (l *Level) StitchedTile(tx, ty int, opts ...DecodeOption) (*decoder.Image, error) {
-	return l.slide.imageStitchedTile(l.PyramidIndex, l.Index, tx, ty, opts...)
+	if err := l.slide.checkSRGB(opts); err != nil {
+		return nil, err
+	}
+	img, err := l.slide.imageStitchedTile(l.PyramidIndex, l.Index, tx, ty, opts...)
+	if err == nil {
+		err = l.slide.finishSRGB(img, opts)
+	}
+	return img, err
 }
 
 // StitchedTileInto is the allocation-free form of StitchedTile: it composites
@@ -125,7 +162,15 @@ func (l *Level) StitchedTile(tx, ty int, opts ...DecodeOption) (*decoder.Image, 
 // level's TileSize (retiling other formats to a custom size is not in scope —
 // they store square tiles; use ReadRegion for an arbitrary rectangle).
 func (l *Level) StitchedTileInto(tx, ty int, dst *decoder.Image, opts ...DecodeOption) error {
-	return l.slide.imageStitchedTileInto(l.PyramidIndex, l.Index, tx, ty, dst, opts...)
+	resetColorManaged(dst)
+	if err := l.slide.checkSRGB(opts); err != nil {
+		return err
+	}
+	err := l.slide.imageStitchedTileInto(l.PyramidIndex, l.Index, tx, ty, dst, opts...)
+	if err == nil {
+		err = l.slide.finishSRGB(dst, opts)
+	}
+	return err
 }
 
 // StitchedGrid is the canonical display grid, ceil(Size/TileSize) per axis — a

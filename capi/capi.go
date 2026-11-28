@@ -48,9 +48,6 @@ func failErr(err error) C.int { return fail(codeOf(err), err.Error()) }
 type entry struct {
 	slide    *opentile.Slide
 	inflight sync.WaitGroup
-
-	iccOnce [2]sync.Once      // [0] RGB8, [1] RGBA8
-	icc     [2]unsafe.Pointer // lcms2 transforms, nil if unavailable
 }
 
 var (
@@ -75,17 +72,6 @@ func acquire(h C.ot_slide) (e *entry, status C.int) {
 }
 
 func (e *entry) release() { e.inflight.Done() }
-
-// transform returns the lazily-built ICC -> sRGB transform for the pixel
-// format, or nil when the slide has no usable profile or lcms2 is absent.
-func (e *entry) transform(f decoder.PixelFormat) unsafe.Pointer {
-	i := 0
-	if f == decoder.PixelFormatRGBA {
-		i = 1
-	}
-	e.iccOnce[i].Do(func() { e.icc[i] = iccCreate(e.slide.ICCProfile(), i == 1) })
-	return e.icc[i]
-}
 
 // ---- struct / buffer helpers ----
 
@@ -238,8 +224,24 @@ func query(img *C.ot_image, w, h int, f decoder.PixelFormat) C.int {
 	return st
 }
 
+// checkSRGB fails an OT_DECODE_SRGB call up front, before any decode or
+// size query, when the slide's profile can't be applied
+// (opentile.Slide.CheckSRGB): OT_ERR_UNSUPPORTED instead of pixels that
+// aren't sRGB. A slide with no profile passes.
+func checkSRGB(e *entry, d decodeOpts) C.int {
+	if !d.srgb {
+		return statusOK
+	}
+	if err := e.slide.CheckSRGB(); err != nil {
+		return failErr(err)
+	}
+	return statusOK
+}
+
 // emit copies a decoded image into the caller's ot_image (honoring its
-// stride) and applies the ICC transform when requested and available.
+// stride) and, for OT_DECODE_SRGB, converts the copy to sRGB with the
+// slide's transform (opentile.Slide.ToSRGB) when it has a profile;
+// checkSRGB has already rejected a profile that can't be applied.
 func emit(e *entry, src *decoder.Image, d decodeOpts, img *C.ot_image) C.int {
 	need, st := describe(img, src.Width, src.Height, src.Format)
 	if st != statusOK {
@@ -261,8 +263,8 @@ func emit(e *entry, src *decoder.Image, d decodeOpts, img *C.ot_image) C.int {
 		copy(dst[y*stride:y*stride+row], src.Pix[y*src.Stride:y*src.Stride+row])
 	}
 	if d.srgb {
-		if t := e.transform(src.Format); t != nil {
-			iccApply(t, unsafe.Pointer(img.data), src.Width, src.Height, stride)
+		view := decoder.Image{Width: src.Width, Height: src.Height, Stride: stride, Format: src.Format, Pix: dst}
+		if e.slide.ToSRGB(&view) {
 			img.color_managed = 1
 		}
 	}
@@ -324,7 +326,7 @@ func ot_color_management_available(out *C.int32_t) C.int {
 	if out == nil {
 		return fail(errArg, "opentile: out_available is NULL")
 	}
-	*out = cbool(colorManagementBuilt)
+	*out = cbool(opentile.ColorManagementAvailable())
 	return statusOK
 }
 
@@ -426,10 +428,6 @@ func ot_close(h C.ot_slide) C.int {
 		return fail(errHandle, "opentile: unknown or closed slide handle")
 	}
 	e.inflight.Wait()
-	for i := range e.icc {
-		iccFree(e.icc[i])
-		e.icc[i] = nil
-	}
 	if err := e.slide.Close(); err != nil {
 		return failErr(err)
 	}
@@ -538,6 +536,19 @@ func ot_icc_profile(h C.ot_slide, dst *C.uint8_t, capacity C.size_t, outLen *C.s
 	return writeBytes(unsafe.Pointer(dst), capacity, outLen, e.slide.ICCProfile(), false)
 }
 
+//export ot_srgb_check
+func ot_srgb_check(h C.ot_slide) C.int {
+	e, st := acquire(h)
+	if st != statusOK {
+		return st
+	}
+	defer e.release()
+	if err := e.slide.CheckSRGB(); err != nil {
+		return failErr(err)
+	}
+	return statusOK
+}
+
 //export ot_tiff_tags_json
 func ot_tiff_tags_json(h C.ot_slide, pyramid, lvl C.int32_t, dst *C.char, capacity C.size_t, outLen *C.size_t) C.int {
 	e, st := acquire(h)
@@ -625,6 +636,9 @@ func levelImage(h C.ot_slide, pyramid, lvl C.int32_t, opts *C.ot_decode_opts, im
 		return st
 	}
 	defer e.release()
+	if st := checkSRGB(e, d); st != statusOK {
+		return st
+	}
 	l, st := level(e.slide, pyramid, lvl)
 	if st != statusOK {
 		return st
@@ -656,6 +670,9 @@ func ot_read_region_scaled(h C.ot_slide, pyramid C.int32_t, x, y, w, ht C.int64_
 		return st
 	}
 	defer e.release()
+	if st := checkSRGB(e, d); st != statusOK {
+		return st
+	}
 	p := e.slide.Pyramid(int(pyramid))
 	if p == nil {
 		return fail(errRange, "opentile: pyramid index out of range")
@@ -697,6 +714,9 @@ func slideImage(h C.ot_slide, opts *C.ot_decode_opts, img *C.ot_image,
 		return st
 	}
 	defer e.release()
+	if st := checkSRGB(e, d); st != statusOK {
+		return st
+	}
 	out, err := render(e.slide, d)
 	if err != nil {
 		return failErr(err)
@@ -768,6 +788,9 @@ func ot_associated_decode(h C.ot_slide, index C.int32_t, opts *C.ot_decode_opts,
 		return st
 	}
 	defer e.release()
+	if st := checkSRGB(e, d); st != statusOK {
+		return st
+	}
 	a, st := associated(e.slide, index)
 	if st != statusOK {
 		return st

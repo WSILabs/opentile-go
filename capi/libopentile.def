@@ -21,6 +21,7 @@ EXPORTS
     ot_read_region
     ot_read_region_scaled
     ot_slide_info_get
+    ot_srgb_check
     ot_thumbnail
     ot_tiff_tags_json
     ot_tile_decoded

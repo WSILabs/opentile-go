@@ -100,6 +100,17 @@ var (
 	//
 	// Added in v0.25 alongside the ReadRegion family.
 	ErrRegionEmpty = errors.New("opentile: region has no in-bounds pixels")
+
+	// ErrColorManagementUnavailable fails a WithSRGB read of a slide that
+	// has an ICC profile when the build has no color management (no lcms2:
+	// -tags nolcms2, nocgo, or decoder/all not imported). See
+	// ColorManagementAvailable and Slide.CheckSRGB.
+	ErrColorManagementUnavailable = errors.New("opentile: color management unavailable in this build (no lcms2)")
+
+	// ErrICCProfileUnusable fails a WithSRGB read when lcms2 can't build an
+	// sRGB transform from the slide's ICC profile (corrupt, or not an RGB
+	// profile). See Slide.CheckSRGB.
+	ErrICCProfileUnusable = errors.New("opentile: ICC profile can't be converted to sRGB")
 )
 
 // TileError wraps a per-tile failure with the (level, x, y) that produced it.
