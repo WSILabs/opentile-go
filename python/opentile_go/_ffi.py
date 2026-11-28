@@ -133,6 +133,9 @@ _ot_read_region = _decl("ot_read_region", _u64, _i32, _i32, _i64, _i64, _i32, _i
 _ot_thumbnail = _decl("ot_thumbnail", _u64, _i32, _i32, *_img_args)
 _ot_macro = _decl("ot_macro", _u64, _i32, _i32, *_img_args)
 _ot_associated_decode = _decl("ot_associated_decode", _u64, _i32, *_img_args)
+_ot_color_management_available = _decl("ot_color_management_available", _i32p)
+# API 1.1; missing from an older library.
+_ot_srgb_check = _decl("ot_srgb_check", _u64) if hasattr(_lib, "ot_srgb_check") else None
 
 
 def _check_api():
@@ -257,6 +260,22 @@ def _level_info(handle, level):
     if rc != OT_OK:
         _raise(rc, "level info")
     return info
+
+
+def color_management_available():
+    out = _i32()
+    rc = _ot_color_management_available(ctypes.byref(out))
+    if rc != OT_OK:
+        _raise(rc, "ot_color_management_available")
+    return bool(out.value)
+
+
+def check_srgb(handle):
+    if _ot_srgb_check is None:
+        raise OpenTileError("opentile: check_srgb needs libopentile API 1.1 or later")
+    rc = _ot_srgb_check(handle)
+    if rc != OT_OK:
+        _raise(rc, "ot_srgb_check")
 
 
 def tile(handle, level, x, y):

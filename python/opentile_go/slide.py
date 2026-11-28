@@ -110,8 +110,9 @@ class Level:
             If ``True`` return ``(H, W, 4)`` RGBA; otherwise ``(H, W, 3)`` RGB.
         srgb : bool, optional
             If ``True`` convert the pixels from the slide's ICC profile to
-            sRGB. Without a profile lcms2 can use (or in a build without
-            color management) the pixels are returned unconverted.
+            sRGB. A slide without a profile is returned as decoded (taken as
+            sRGB); one whose profile can't be applied raises
+            :class:`OpenTileError` (see :meth:`Slide.check_srgb`).
 
         Returns
         -------
@@ -143,8 +144,9 @@ class Level:
             If ``True`` return ``(h, w, 4)`` RGBA; otherwise ``(h, w, 3)`` RGB.
         srgb : bool, optional
             If ``True`` convert the pixels from the slide's ICC profile to
-            sRGB. Without a profile lcms2 can use (or in a build without
-            color management) the pixels are returned unconverted.
+            sRGB. A slide without a profile is returned as decoded (taken as
+            sRGB); one whose profile can't be applied raises
+            :class:`OpenTileError` (see :meth:`Slide.check_srgb`).
 
         Returns
         -------
@@ -237,6 +239,23 @@ class Slide:
     def _associated(self, name):
         return _ffi.associated(self._handle(), name)
 
+    def check_srgb(self):
+        """Check that ``srgb=True`` reads of this slide will succeed.
+
+        Returns ``None`` when the slide's ICC profile can be applied, or when
+        it has no profile (its pixels are then returned as decoded, taken as
+        sRGB). The answer is fixed for the life of the slide.
+
+        Raises
+        ------
+        OpenTileError
+            If the slide has a profile this build can't apply: the library
+            has no color management (see
+            :func:`opentile_go.color_management_available`), or lcms2 can't
+            use the profile. ``srgb=True`` reads raise the same error.
+        """
+        _ffi.check_srgb(self._handle())
+
     def thumbnail(self, width=None, height=None, srgb=False):
         """Render a whole-slide thumbnail as a numpy array.
 
@@ -250,8 +269,9 @@ class Slide:
             Maximum width and/or height of the thumbnail, in pixels.
         srgb : bool, optional
             If ``True`` convert the pixels from the slide's ICC profile to
-            sRGB. Without a profile lcms2 can use (or in a build without
-            color management) the pixels are returned unconverted.
+            sRGB. A slide without a profile is returned as decoded (taken as
+            sRGB); one whose profile can't be applied raises
+            :class:`OpenTileError` (see :meth:`Slide.check_srgb`).
 
         Returns
         -------
@@ -280,8 +300,9 @@ class Slide:
             Maximum width and/or height, in pixels.
         srgb : bool, optional
             If ``True`` convert the pixels from the slide's ICC profile to
-            sRGB. Without a profile lcms2 can use (or in a build without
-            color management) the pixels are returned unconverted.
+            sRGB. A slide without a profile is returned as decoded (taken as
+            sRGB); one whose profile can't be applied raises
+            :class:`OpenTileError` (see :meth:`Slide.check_srgb`).
 
         Returns
         -------

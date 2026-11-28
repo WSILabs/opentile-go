@@ -137,17 +137,28 @@ int main(int argc, char** argv) {
     free(raw);
     CHECK(ot_tile_raw(s, 0, 0, l0.grid_w, 0, NULL, 0, &rlen) == OT_ERR_RANGE, "tile OOR");
 
+    /* sRGB: no profile passes through; a profile needs lcms2 and must be
+     * one lcms2 can use (the Iris cervix sample's can't be linked). */
+    int srgb_rc = ot_srgb_check(s);
+    CHECK(srgb_rc == OT_OK || srgb_rc == OT_ERR_UNSUPPORTED, "srgb check rc %d", srgb_rc);
+    if (si.icc_size == 0) CHECK(srgb_rc == OT_OK, "no profile must pass ot_srgb_check");
+    if (si.icc_size != 0 && !cm) CHECK(srgb_rc == OT_ERR_UNSUPPORTED, "profile without lcms2 must fail");
+    printf("srgb check %d\n", srgb_rc);
+    if (srgb_rc != OT_OK) {
+        ot_decode_opts bad = {sizeof bad, OT_PIXEL_RGBA8, OT_DECODE_SRGB};
+        ot_image q = {sizeof q};
+        CHECK(ot_tile_decoded(s, 0, 0, 0, 0, &bad, &q) == OT_ERR_UNSUPPORTED, "srgb decode must fail like ot_srgb_check");
+    }
+
     /* pixels */
-    ot_decode_opts rgba = {sizeof rgba, OT_PIXEL_RGBA8, OT_DECODE_SRGB};
+    ot_decode_opts rgba = {sizeof rgba, OT_PIXEL_RGBA8, srgb_rc == OT_OK ? OT_DECODE_SRGB : 0};
     ot_decode_opts rgb = {sizeof rgb, OT_PIXEL_RGB8, 0};
     ot_image img;
     ctx_t c = {s, 0, &rgba};
     if (decode_two_step("tile rgba+srgb", do_tile, &c, &img) == OT_OK) {
         CHECK(img.width == l0.tile_w && img.height == l0.tile_h, "tile size");
         CHECK(img.data[3] == 0xFF, "alpha not opaque");
-        /* Applied only when lcms2 is built in AND accepts the profile (some
-         * embedded profiles can't be linked, e.g. the Iris cervix sample's). */
-        if (!cm || si.icc_size == 0) CHECK(img.color_managed == 0, "color_managed without a usable profile");
+        CHECK(img.color_managed == (srgb_rc == OT_OK && si.icc_size != 0), "color_managed %d", img.color_managed);
     }
     free(img.data);
 

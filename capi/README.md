@@ -9,6 +9,8 @@ This is a separate Go module, so its cgo dependency never reaches users of
 the Go library. It always builds against the working tree (`replace ../`).
 ICC → sRGB (`OT_DECODE_SRGB`) is the Go library's own color management
 (`opentile.Slide.ToSRGB`, lcms2 via `decoder/all`); `-tags nolcms2` leaves it out.
+A slide whose profile can't be applied fails `OT_DECODE_SRGB` calls with
+`OT_ERR_UNSUPPORTED`; `ot_srgb_check` reports that once per slide.
 
 ## Layout
 

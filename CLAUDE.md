@@ -18,7 +18,11 @@ Design: `docs/superpowers/specs/2026-11-23-capi-design.md`.
 - **Color:** per-call `OT_DECODE_SRGB` → lcms2 ICC→sRGB, lazily built per
   slide per pixel format (`cmsFLAGS_NOCACHE`); `nolcms2` drops it. Since
   #130 this lives in the core (`opentile.WithSRGB`, `Slide.ToSRGB`,
-  `internal/color`); capi only passes the flag through.
+  `internal/color`); capi only passes the flag through. No profile → pixels
+  pass through (taken as sRGB); a profile that can't be applied (no lcms2,
+  or lcms2 rejects it) **fails** the read (`ErrColorManagementUnavailable` /
+  `ErrICCProfileUnusable`, C `OT_ERR_UNSUPPORTED`, `Slide.CheckSRGB` /
+  `ot_srgb_check`) rather than returning non-sRGB pixels.
 - **Python:** `python/` `opentile_go` preview binding (Go `c-shared` shim +
   ctypes/numpy) and a 5-target `Wheels` workflow. **Never publishes unless
   asked:** PyPI only on a `py-v*` tag, TestPyPI only on dispatch with

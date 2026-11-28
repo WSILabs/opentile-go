@@ -45,6 +45,8 @@ var errorCodes = []struct {
 	{decoder.ErrUnsupportedScale, errUnsupported},
 	{decoder.ErrUnsupportedFormat, errUnsupported},
 	{opentile.ErrTileSizeRequired, errUnsupported},
+	{opentile.ErrColorManagementUnavailable, errUnsupported},
+	{opentile.ErrICCProfileUnusable, errUnsupported},
 	{opentile.ErrSparseTile, errSparse},
 }
 

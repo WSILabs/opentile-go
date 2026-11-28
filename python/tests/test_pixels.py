@@ -31,14 +31,26 @@ def test_read_region_shape(slide_path):
         _ffi.close_slide(h)
 
 def test_srgb_flag(slide_path):
-    """srgb=True passes OT_DECODE_SRGB; without a usable profile the pixels
-    are unchanged, so only the shape and the srgb=False default are fixed."""
-    h = _ffi.open_slide(slide_path)
-    try:
-        plain = _ffi.read_region(h, 0, 0, 0, 64, 48)
-        assert np.array_equal(plain, _ffi.read_region(h, 0, 0, 0, 64, 48, srgb=False))
-        conv = _ffi.read_region(h, 0, 0, 0, 64, 48, srgb=True)
+    """srgb=True passes OT_DECODE_SRGB: it succeeds exactly when check_srgb
+    does, and otherwise raises the same error instead of returning pixels
+    that aren't sRGB."""
+    import pytest
+    from opentile_go import OpenTileError, Slide, color_management_available
+
+    assert isinstance(color_management_available(), bool)
+    with Slide(slide_path) as s:
+        lvl = s.levels[0]
+        plain = lvl.read_region(0, 0, 64, 48)
+        assert np.array_equal(plain, lvl.read_region(0, 0, 64, 48, srgb=False))
+        try:
+            s.check_srgb()
+        except OpenTileError as e:
+            with pytest.raises(OpenTileError) as read_err:
+                lvl.read_region(0, 0, 64, 48, srgb=True)
+            assert str(read_err.value) == str(e)
+            with pytest.raises(OpenTileError):
+                s.thumbnail(width=64, srgb=True)
+            return
+        conv = lvl.read_region(0, 0, 64, 48, srgb=True)
         assert conv.shape == plain.shape and conv.dtype == np.uint8
-        assert _ffi.thumbnail(h, 64, 0, srgb=True).shape[1] == 64
-    finally:
-        _ffi.close_slide(h)
+        assert s.thumbnail(width=64, srgb=True).shape[1] == 64

@@ -35,8 +35,13 @@ func (p *Pyramid) BestLevelForDownsample(downsample float64) *Level {
 // ReadRegionScaled reads an L0-coord rectangle within this pyramid and
 // resamples it to out. See (*Slide).ReadRegionScaled for semantics.
 func (p *Pyramid) ReadRegionScaled(src Region, out Size, opts ...DecodeOption) (*decoder.Image, error) {
+	if err := p.slide.checkSRGB(opts); err != nil {
+		return nil, err
+	}
 	img, err := p.slide.imageReadRegionScaled(p.Index, src, out, opts...)
-	p.slide.finishSRGB(img, opts)
+	if err == nil {
+		err = p.slide.finishSRGB(img, opts)
+	}
 	return img, err
 }
 
@@ -44,9 +49,12 @@ func (p *Pyramid) ReadRegionScaled(src Region, out Size, opts ...DecodeOption) (
 // L0-coord rectangle within this pyramid.
 func (p *Pyramid) ReadRegionScaledInto(src Region, dst *decoder.Image, opts ...DecodeOption) error {
 	resetColorManaged(dst)
+	if err := p.slide.checkSRGB(opts); err != nil {
+		return err
+	}
 	err := p.slide.imageReadRegionScaledInto(p.Index, src, dst, opts...)
 	if err == nil {
-		p.slide.finishSRGB(dst, opts)
+		err = p.slide.finishSRGB(dst, opts)
 	}
 	return err
 }

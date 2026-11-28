@@ -7,7 +7,7 @@ import (
 // API version; must match OT_API_VERSION_* in opentile.h.
 const (
 	apiVersionMajor = 1
-	apiVersionMinor = 0
+	apiVersionMinor = 1
 )
 
 // version is the opentile-go version this library was built from. Release

@@ -40,6 +40,9 @@ func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, 
 	if p == nil {
 		return nil, ErrImageIndexOutOfRange
 	}
+	if err := s.checkSRGB(opts); err != nil {
+		return nil, err
+	}
 	l0, err := p.Level(0)
 	if err != nil {
 		return nil, err
@@ -89,7 +92,9 @@ func (s *Slide) RenderMacro(bounds Size, opts ...DecodeOption) (*decoder.Image, 
 	dstX := (canvas.W - tw) / 2
 	dstY := (canvas.H - th) / 2
 	blitInto(tissue, 0, 0, tw, th, out, dstX, dstY)
-	s.finishSRGB(out, opts)
+	if err := s.finishSRGB(out, opts); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
